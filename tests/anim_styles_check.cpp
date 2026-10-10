@@ -120,6 +120,39 @@ int main(int argc, char **argv) {
   // a string test. A number BELOW the list size for any other entry would be a key the
   // user can set that nothing reads.
 
+  // --- the DEFAULT style must produce motion -------------------------------------------
+  // landAfterMove branched on `gridSwapStyle() != Horizontal` and fell through to
+  // pinNatural() when it WAS Horizontal -- so the default, the first value in the README
+  // and the one every config copying the example carries, was the only style that
+  // produced no flight of its own. A grid swap showed the pulse and two cards in their
+  // new places with nothing travelling between them.
+  //
+  // The general rule: no style may be a "no animation" spelling. Every swap style has to
+  // reach beginSwapFX, because switchTargets moves both windows in one frame and a plain
+  // glide cannot read as two cards trading places.
+  //
+  // This asserts the SHAPE of the call site rather than running it: a condition whose
+  // false arm returns without starting a flight is exactly the bug.
+  {
+    const auto actionsSrc = slurp((root + "/src/actions/actions.cpp").c_str());
+    // landAfterMove's body: from its signature to the next top-level function.
+    const auto start = actionsSrc.find("void Overview::landAfterMove");
+    assert(start != std::string::npos && "landAfterMove not found");
+    const auto end = actionsSrc.find("\nvoid Overview::", start + 10);
+    const auto body = actionsSrc.substr(
+        start, end == std::string::npos ? std::string::npos : end - start);
+
+    // The style must be READ (a style accessor or parseSwapStyle appears), and the
+    // flight must be started unconditionally within this function.
+    assert(body.find("beginSwapFX") != std::string::npos);
+    assert(body.find("parseSwapStyle") != std::string::npos);
+    // A bare `if (... style ... != Horizontal)` guard is the bug: it makes one style
+    // a spelling for "no flight". Reject the comparison outright.
+    assert(body.find("!= model::SwapStyle::Horizontal") == std::string::npos);
+    assert(body.find("!= model::SwapStyle") == std::string::npos);
+    std::puts("every swap style reaches beginSwapFX; none is a no-flight spelling");
+  }
+
   // --- every style KEY resolves to something -----------------------------------------
   // grid_swap_style and strip_swap_style are registered and documented, and for a long
   // time nothing read them: the call sites asked anim::style("grid_swap"), which looks

@@ -236,15 +236,19 @@ void Overview::landAfterMove(const PHLWINDOW &w, const LRect &oldBox,
       if (sw.win.lock() == w)
         strip = true;
   }
-  if (strip) { // strip thumbs have no glide machinery — always an FX flight
-    beginSwapFX(w, oldBox, parseSwapStyle(anim::stripSwapStyle()), ms, curve);
-    return;
-  }
-  if (parseSwapStyle(anim::gridSwapStyle()) != model::SwapStyle::Horizontal) {
-    beginSwapFX(w, oldBox, parseSwapStyle(anim::gridSwapStyle()), ms, curve);
-    return;
-  }
+  // Every style flies, grid included. This used to branch on
+  // gridSwapStyle() != Horizontal and fall through to pinNatural() otherwise, which
+  // made the DEFAULT style the one that showed no motion of its own: the user saw the
+  // pulse and two cards changing place with nothing travelling between the places.
+  //
+  // pinNatural() still runs, but first and for a reason: it points the tile's glide
+  // source back at where the window was, so when the flight lands the tile is already
+  // animating from the right box instead of snapping.
   m_scene.pinNatural(w.get(), oldBox);
+  beginSwapFX(w, oldBox,
+              parseSwapStyle(strip ? anim::stripSwapStyle()
+                                   : anim::gridSwapStyle()),
+              ms, curve);
 }
 
 void Overview::swapOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
