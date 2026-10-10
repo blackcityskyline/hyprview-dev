@@ -232,6 +232,32 @@ verify-config, правила анимаций) — все оказались н
 - **Каждая поверхность стартует из своей позиции**, курсор подставляется только
   у той, откуда отпустили. Иначе драг стрипа запускал карточку грида из
   thumbnail'а внизу экрана.
+- **Все стили, кроме дефолтного, игнорировались** (нашёл `tools/anim_matrix.py`).
+  `grid_swap_style` / `strip_swap_style` / `jump_style` не строки kRows, у них свои
+  accessors, и они читали handle напрямую — минуя override, который смотрит `style()`.
+
+## Автоматизация и трейс
+
+`hl.plugin.gloview.cmd("<команда>")` — шов автоматизации: `state`, `open`, `close`,
+`allws N`, `sel N`, `swap A B`, `movews T WS`, `set KEY VALUE`, `tuning`.
+Под Lua-конфигом `hyprctl dispatch` до dispatchers плагина не доходит вообще, поэтому
+команда живёт в Lua. **Каждая команда подтверждает себя в логе** (`CMD|ok` / `CMD|err`):
+`hyprctl eval` не печатает возвращаемое значение, поэтому лог — единственный канал.
+
+Трейс: `ANIM|begin` (op/style/ms/curve/win/surface/from/to), `ANIM|end` (измеренное ms),
+`ANIM|reject`. Ключ `plugin:gloview:debug_trace` — отдельный от `debug_logs`, иначе
+матрицу забивает покадровый спам. Формат парсится `tools/anim_matrix.py`, не менять
+его без правки скрипта.
+
+`hl.config` работает **только вложенной формой**: `{plugin = {gloview = {...}}}`.
+Плоский `["plugin:gloview:x"]` и `hyprctl keyword` не подходят — отвергаются.
+
+Приоритет настроек, снизу вверх: строка kRows → `set` (команда, переопределяет всё) →
+rule из `gloview.animation` → config-значение. **Rule бьёт config** (resolve()
+применяет его последним) — поэтому `set` не просто пишет input, а гасит
+переопределяемые поля rule, иначе `speed=1.2` из конфига делит запрошенные 320 на 1.2.
+
+Прогон: `python3 tools/anim_matrix.py [--quick] [--list]`. Требует ≥2 плиток.
 
 ## Правила работы
 
