@@ -229,6 +229,16 @@ void Overview::swapTiles(int a, int b, const LRect &fromA) {
 
 // RMB on a strip card swaps `w` with that workspace's last-focused window.
 
+static const char *swapStyleName(model::SwapStyle s) {
+  switch (s) {
+  case model::SwapStyle::SlideVert: return "slidevert";
+  case model::SwapStyle::Fade: return "fade";
+  case model::SwapStyle::Pop: return "pop";
+  case model::SwapStyle::Horizontal: break;
+  }
+  return "horizontal";
+}
+
 void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
                            model::SwapStyle style, double ms,
                            const std::string &curve, bool toStrip) {
@@ -247,6 +257,24 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
   fx.ms      = ms;
   fx.curve   = curve;
   fx.clock.begin();
+  fx.traceSeq = debug::trace::nextSeq();
+  fx.traceStart = std::chrono::steady_clock::now();
+
+  // Emitted HERE, not in the painter: paint() is const and cannot mark the flight as
+  // traced, and by this point the scene has already been rebuilt, so the destination
+  // resolved is the one the next frame will draw. An empty destination is the honest
+  // "asked for a flight, has nowhere to land" and is reported as a reject.
+  if (fx.traceSeq) {
+    const auto dests = swapDests(w, toStrip);
+    if (dests.empty())
+      debug::trace::animReject("swap", toStrip ? "no-strip-slot" : "no-tile");
+    else
+      debug::trace::animBegin(fx.traceSeq, "swap", curve.c_str(),
+                              swapStyleName(style), ms, curve.c_str(),
+                              w->m_class.c_str(), toStrip ? "strip" : "grid", from,
+                              dests.front());
+  }
+
   m_fx.addSwap(std::move(fx));
   ensureAnimPump();
   damage();

@@ -234,7 +234,8 @@ struct layer {
 inline layer layer;
 
 struct debug {
-  Int logs;
+  Int logs;   // per-frame developer log
+  Int trace;  // machine-readable ANIM| records only; see debug/trace.cpp
 };
 
 inline debug debug;

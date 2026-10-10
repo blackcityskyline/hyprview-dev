@@ -334,6 +334,7 @@ gloview.animation({ leaf = "glide", curve = "fluent_decel" })
 | `preview_mode` | `live` \| `snapshot` | `live` | `live` (default): each tile renders its window's actual surface every frame — video/animations keep running, at the cost of GPU per visible preview — `snapshot`: tiles show a frozen texture captured at open time (no per-frame surface rendering; cheaper GPU, but content is static under the overlay) |
 | `cursor_mode` | `auto` \| `software` | `auto` | `auto` (default): prefers Hyprland's hardware cursor (KMS cursor plane) when the driver exposes one — the cursor plane is composited above the framebuffer, so it stays visible over the dim backdrop with zero framebuffer writes, zero erase cycles, and zero GPU cost per mouse move — `software`: forces gloview to draw the cursor itself, first erasing the previous position with a fully-opaque backdrop-colored rect (use only if you observe stale cursor artifacts with hardware mode) |
 | `debug_logs` | bool (0/1) | `0` | Verbose `[gloview]` logging |
+| `debug_trace` | bool (0/1) | `0` | Machine-readable `ANIM|` records in `/tmp/gloview.log`: one `begin` per animation with op/style/duration/curve/from/to boxes, one `end` with the measured elapsed ms. Separate from `debug_logs` so a trace run is not drowned by per-frame spam; parsed by `tools/anim_matrix.py` |
 
 `top`/`bottom` give a horizontal strip, `left`/`right` a vertical one. `anchor`
 supersedes the older `bar_position` (top/bottom only); set `anchor` and it wins.

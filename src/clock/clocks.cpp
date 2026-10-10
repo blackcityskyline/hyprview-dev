@@ -247,8 +247,16 @@ void Overview::updateAnimation() {
   }
 
   // prune on each flight's own clock; live config would cut landings short
-  m_fx.dropSwap([](const model::SwapFX &fx) {
-    return fx.win.expired() || fx.clock.raw(fx.ms) >= 1.0;
+  const auto flightEnd = std::chrono::steady_clock::now();
+  m_fx.dropSwap([&](const model::SwapFX &fx) {
+    const bool done = fx.win.expired() || fx.clock.raw(fx.ms) >= 1.0;
+    // Measured, not configured: the harness compares the two, and a flight that ran
+    // long or short is exactly what it is looking for.
+    if (done && fx.traceSeq)
+      debug::trace::animEnd(fx.traceSeq, std::chrono::duration<double, std::milli>(
+                                          flightEnd - fx.traceStart)
+                                          .count());
+    return done;
   });
 
   const double t = m_clocks.master.raw(dur);

@@ -269,6 +269,9 @@ private:
   // thumbnail disappear while the card flew.
   [[nodiscard]] bool swapfxActive(const PHLWINDOW &w, bool strip) const;
   void renderSwapFX() const;
+  // Every box this window flies to on one surface. Shared by the painter and the
+  // trace so a reported target cannot differ from a drawn one.
+  [[nodiscard]] std::vector<LRect> swapDests(const PHLWINDOW &w, bool strip) const;
 
   // close_trigger == "doubleclick": the first click waits behind a timer, and that
   // armed timer IS the record. A second click before it fires closes it.

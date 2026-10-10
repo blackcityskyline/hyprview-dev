@@ -149,6 +149,9 @@ constexpr IntSpec kInts[] = {
     {&layer.hide_top, "plugin:gloview:hide_top_layers", 0},
     {&layer.hide_overlay, "plugin:gloview:hide_overlay_layers", 0},
     {&debug.logs, "plugin:gloview:debug_logs", 0},
+    // Separate from debug_logs on purpose: a trace run wants every animation event and
+    // none of the per-frame spam, and the harness parses these lines.
+    {&debug.trace, "plugin:gloview:debug_trace", 0},
 };
 
 constexpr FloatSpec kFloats[] = {

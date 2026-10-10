@@ -80,6 +80,8 @@ struct Drag {
 
 enum class SwapStyle : int { Horizontal, SlideVert, Fade, Pop };
 
+#include <chrono>
+
 struct SwapFX {
   PHLWINDOWREF win;
   LRect from;
@@ -92,6 +94,10 @@ struct SwapFX {
   double ms = 320;
   std::string curve = "easeinout";
   anim::Tween clock;
+  // Set at creation so the ANIM|begin record pairs with the ANIM|end below. 0 =
+  // tracing was off, or the flight was rejected for having nowhere to land.
+  int         traceSeq = 0;
+  std::chrono::steady_clock::time_point traceStart{};
 };
 
 }

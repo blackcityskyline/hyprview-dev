@@ -273,6 +273,32 @@ void Overview::drawPulseRing(const CBox &boxPx, int round, float roundPow,
 
 // Flying windows, lerped to the CURRENT slot box (which may itself be gliding).
 // Slots are suppressed while the flight is live, take over invisibly at t=1.
+// Every place this window is drawn ON THIS SURFACE. The all-workspaces view shows it
+// twice at once, and the two are not the same gesture: the one the user dragged leaves
+// the cursor, the other slides from where it already was. Both flights exist, tagged,
+// and each painter stands down only for its own.
+//
+// One resolver for both the painter and the trace: a trace that resolved the target
+// differently from the draw would report a motion that never happened.
+std::vector<LRect> Overview::swapDests(const PHLWINDOW &w, bool strip) const {
+  std::vector<LRect> out;
+  if (!strip) {
+    for (size_t i = 0; i < m_scene.tiles().size(); ++i)
+      if (m_scene.tiles()[i].win.lock() == w)
+        out.push_back(tileRect(i));
+    return out;
+  }
+  for (size_t i = 0; i < m_strip.size(); ++i) {
+    const auto &it = m_strip[i];
+    if (it.kind != model::StripItem::Kind::Ws)
+      continue;
+    for (size_t j = 0; j < it.wins.size(); ++j)
+      if (it.wins[j].win.lock() == w)
+        out.push_back(stripWinSlotRect(it, stripCardAt(i), j));
+  }
+  return out;
+}
+
 void Overview::renderSwapFX() const {
   if (m_fx.swapfx().empty())
     return;
@@ -288,25 +314,7 @@ void Overview::renderSwapFX() const {
     const auto w = fx.win.lock();
     if (!w || !w->m_isMapped || w->isHidden())
       continue;
-    // The surface this flight belongs to, not every place the window is drawn. The
-    // all-workspaces view shows it twice at once, and the two are not the same gesture:
-    // the one the user dragged leaves the cursor, the other slides from where it already
-    // was. Both flights exist, tagged, and each painter stands down only for its own.
-    std::vector<LRect> dests;
-    if (!fx.toStrip) {
-      for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-        if (m_scene.tiles()[i].win.lock() == w)
-          dests.push_back(tileRect(i));
-    } else {
-      for (size_t i = 0; i < m_strip.size(); ++i) {
-        const auto &it = m_strip[i];
-        if (it.kind != model::StripItem::Kind::Ws)
-          continue;
-        for (size_t j = 0; j < it.wins.size(); ++j)
-          if (it.wins[j].win.lock() == w)
-            dests.push_back(stripWinSlotRect(it, stripCardAt(i), j));
-      }
-    }
+    std::vector<LRect> dests = swapDests(w, fx.toStrip);
     if (dests.empty())
       continue;
 
