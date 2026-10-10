@@ -370,9 +370,21 @@ void Overview::renderSwapFX() const {
       ring = true;
     }
 
+    // A flight now draws at EVERY surface the window occupies, and those surfaces are
+    // not the same size: a grid card is hundreds of pixels, a strip thumbnail is a few
+    // tens, and a cross-surface flight lerps between them. A box that shrinks past a
+    // pixel on the way is not worth a shadow, and renderRoundedShadow asserts on it --
+    // which is a Hyprland RASSERT inside the compositor, i.e. the whole session goes.
+    //
+    // renderStripWindows already guards its slots for the same reason and says so.
+    // Before the second destination existed this was unreachable in practice: the only
+    // destination was a tile.
+    if (bw < 1.0 || bh < 1.0)
+      continue;
+
     const CBox px = pxb(LRect{bx, by, bw, bh}, s);
     const int rpx = pxr(clampRound(round, bw, bh), s);
-    if (alpha > 0.02F)
+    if (alpha > 0.02F && px.w > 0 && px.h > 0)
       g_pHyprOpenGL->renderRoundedShadow(
           pxb(LRect{bx, by + 6.0, bw, bh}, s), rpx, roundPow,
           static_cast<int>(16.0 * s),
