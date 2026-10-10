@@ -104,26 +104,15 @@ void Overview::drawDragStripChrome() const {
   const auto   shadowCol = cfg::colors.shadow.get(1.0);
   const auto   hoverCol  = cfg::colors.hover_border.get(e);
 
-  // Same assert as dropShadow (OpenGL.cpp:2341), and this one is not the shared
-  // helper: the drag box is whatever the pointer made it, including nothing.
-  if (drawable(lb, s))
-    g_pHyprOpenGL->renderRoundedShadow(
-        pxb(LRect{lb.x, lb.y + 14.0, lb.w, lb.h}, s), pxr(round, s), roundPow,
-        static_cast<int>(30.0 * s), Config::CGradientValueData(shadowCol),
-        e * 0.18);
+  // The drag box is whatever the pointer made it, including nothing, which is
+  // exactly the case the guarded wrappers in gl_util.hpp exist for.
+  dropShadow(lb, s, shadowCol, 14.0, 30.0, static_cast<float>(e * 0.18), round,
+             roundPow);
 
   // A stroke, not a filled underlay: a fill shows through the window's own
   // transparency as a solid wash.
   const int th = cfg::look.hover_border_size; // 0 = no ring
-  const Config::CGradientValueData grad(hoverCol);
-  if (!drawable(lb, s))
-    return;
-  g_pHyprOpenGL->renderBorder(pxb(lb, s), grad,
-                              {.round = pxr(round, s),
-                               .roundingPower = roundPow,
-                               .borderSize = th,
-                               .a = 1.0F,
-                               .outerRound = outerRoundPx(round, th, roundPow, s)});
+  strokeRing(lb, s, hoverCol, th, round, roundPow);
 }
 
 void Overview::renderDragWindow() const {
@@ -380,21 +369,15 @@ void Overview::renderSwapFX() const {
     // tens, and a cross-surface flight lerps between them. A box that shrinks past a
     // pixel on the way is not worth a shadow, and renderRoundedShadow asserts on it --
     // which is a Hyprland RASSERT inside the compositor, i.e. the whole session goes.
-    //
-    // renderStripWindows already guards its slots for the same reason and says so.
     // Before the second destination existed this was unreachable in practice: the only
     // destination was a tile.
-    if (!drawable(LRect{bx, by, bw, bh}, s))
-      continue;
-
-    const CBox px = pxb(LRect{bx, by, bw, bh}, s);
-    const int rpx = pxr(clampRound(round, bw, bh), s);
+    const LRect box{bx, by, bw, bh};
+    const CBox px = pxb(box, s);
+    const int lr = clampRound(round, bw, bh); // logical: dropShadow scales it
+    const int rpx = pxr(lr, s);
     if (alpha > 0.02F)
-      g_pHyprOpenGL->renderRoundedShadow(
-          pxb(LRect{bx, by + 6.0, bw, bh}, s), rpx, roundPow,
-          static_cast<int>(16.0 * s),
-          Config::CGradientValueData(argb(cfg::colors.shadow.get(), 1.0)),
-          static_cast<float>(0.18 * alpha));
+      dropShadow(box, s, cfg::colors.shadow.get(), 6.0, 16.0,
+                 static_cast<float>(0.18 * alpha), lr, roundPow);
     if (ring && t < 0.6)
       strokeRingPx(px, argb(cfg::colors.hover_border.get(), (1.0F - t / 0.6F) * 0.9F),
                    (1.0F - t / 0.6F) * 0.9F, rpx, roundPow);

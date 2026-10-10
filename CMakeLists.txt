@@ -132,6 +132,15 @@ add_test(NAME dismiss
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/dismiss_check.cpp ${CMAKE_SOURCE_DIR}/src/anim_resolve.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/dismiss_check && ${CMAKE_CURRENT_BINARY_DIR}/dismiss_check")
 
+add_test(NAME draw_sites
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/draw_sites_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/draw_sites_check && ${CMAKE_CURRENT_BINARY_DIR}/draw_sites_check ${CMAKE_SOURCE_DIR}/src")
+
+# The box guard on immediate-mode draws. A grep over the sources rather than a link:
+# the guarded wrappers call g_pHyprOpenGL, which lives in the Hyprland binary. Two of
+# these shipped broken -- an unchecked flight shadow, which took a session on
+# 2026-10-10, and a strip helper testing `width < 0` where the assert wants `> 0`.
+# Adding chrome is the normal way to write new code here, and nothing else objects
+# when the new draw is unchecked.
 add_test(NAME curves
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/curves_check.cpp ${CMAKE_SOURCE_DIR}/tests/hypr_stub.cpp ${CMAKE_SOURCE_DIR}/src/clock/curves.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/curves_check -llua -lhyprutils && ${CMAKE_CURRENT_BINARY_DIR}/curves_check")

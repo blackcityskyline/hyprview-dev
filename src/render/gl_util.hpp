@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <hyprlang.hpp>
 #include <hyprland/src/config/shared/complex/ComplexDataTypes.hpp>
 #include <hyprland/src/helpers/math/Math.hpp>
 #include <hyprland/src/helpers/Color.hpp>
