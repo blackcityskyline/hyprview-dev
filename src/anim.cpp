@@ -106,32 +106,47 @@ Cfg cfg(const char *n) {
   in.speed         = r->speed ? static_cast<double>(r->speed.get()) : 1.0;
   in.curve         = static_cast<bool>(r->curve.v) ? r->curve.get() : std::string();
   in.rule          = ruleFor(r->name);
+
+  // An explicit command beats a config-file rule, and the rule is what the user's
+  // `gloview.animation({leaf=..., speed=...})` installs. resolve() applies the rule
+  // last, so setting in.speed alone is not enough -- a rule carrying speed=1.2 kept
+  // dividing a requested 320 down to 266 and the matrix could not test a duration.
+  // The rule is therefore copied with the overridden fields cleared: everything the
+  // command did not touch keeps the user's rule, and what it did touch is absolute.
+  Rule adjusted = in.rule ? *in.rule : Rule{};
+  if (in.rule)
+    in.rule = &adjusted;
   if (const char *o = overridden((k + "_ms").c_str())) {
     in.hasMs = true;
     in.ms = num(o);
+    adjusted.ms.reset();
   }
-  if (const char *o = overridden((k + "_speed").c_str()))
+  if (const char *o = overridden((k + "_speed").c_str())) {
     in.speed = num(o);
-  if (const char *o = overridden((k + "_curve").c_str()))
+    adjusted.speed.reset();
+  }
+  if (const char *o = overridden((k + "_curve").c_str())) {
     in.curve = o;
-  if (const char *o = overridden((k + "_enabled").c_str()))
+    adjusted.curve.reset();
+  }
+  if (const char *o = overridden((k + "_enabled").c_str())) {
     in.enabled = num(o) != 0;
+    adjusted.enabled.reset();
+  }
 
   return resolve(in, r->base, r->curveDef);
 }
 
 std::string style(const char *n) {
-  // The two swap styles are NOT rows -- there is no "grid_swap" in kRows -- so they
-  // are answered from the override/config handle directly and never reach find().
-  if (std::string(n) == "grid_swap_style" || std::string(n) == "strip_swap_style" ||
-      std::string(n) == "jump_style") {
-    if (const char *o = overridden(n))
-      return o;
-    cfg::Str *h = std::string(n) == "grid_swap_style"   ? &g_gridSwapStyle
-                  : std::string(n) == "strip_swap_style" ? &g_stripSwapStyle
-                                                        : &g_jumpStyle;
-    return h->v ? h->get() : std::string();
-  }
+  // grid_swap_style / strip_swap_style / jump_style are NOT rows -- there is no
+  // "grid_swap" in kRows -- and go through their own accessors. Reached by name here
+  // only so a Lua caller asking style("grid_swap_style") gets the same answer.
+  if (std::string(n) == "grid_swap_style")
+    return gridSwapStyle();
+  if (std::string(n) == "strip_swap_style")
+    return stripSwapStyle();
+  if (std::string(n) == "jump_style")
+    return jumpStyle();
   const Row *r = find(n);
   if (!r || !r->hasStyle)
     return {};
@@ -157,14 +172,24 @@ double param(Param p) {
 // produces a temporary and a const& return would dangle. gridSwapStyle/stripSwapStyle
 // had the same shape and no callers at all -- style() reaches those directly -- so they
 // are gone rather than fixed.
-std::string jumpStyle() { return g_jumpStyle.v ? g_jumpStyle.get() : s_jump; }
+// The three style keys that are not rows. Each reads its own handle and defers to an
+// explicit command override -- the harness found the omission the hard way: every
+// style except the default came back as horizontal, because these accessors bypassed
+// style() and so bypassed the override with it.
+static std::string keyedStyle(const char *key, cfg::Str &h, const std::string &fallback) {
+  if (const char *o = overridden(key))
+    return o;
+  return h.v ? h.get() : fallback;
+}
+
+std::string jumpStyle() { return keyedStyle("jump_style", g_jumpStyle, s_jump); }
 
 std::string gridSwapStyle() {
-  return g_gridSwapStyle.v ? g_gridSwapStyle.get() : s_gridSwap;
+  return keyedStyle("grid_swap_style", g_gridSwapStyle, s_gridSwap);
 }
 
 std::string stripSwapStyle() {
-  return g_stripSwapStyle.v ? g_stripSwapStyle.get() : s_stripSwap;
+  return keyedStyle("strip_swap_style", g_stripSwapStyle, s_stripSwap);
 }
 
 // Runtime tuning by key name: "<leaf>_ms", "<leaf>_speed", "<leaf>_curve",

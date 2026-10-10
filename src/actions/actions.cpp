@@ -263,8 +263,37 @@ std::string Overview::runCommand(const std::string &args) {
     return "";
   }
 
-  if (!openedOrParked())
-    return "overview not open";
+  // Mode switches a matrix has to set up before it can measure anything. They call the
+  // same methods the binds do, so a harness and a user drive identical code.
+  if (tok[0] == "open") {
+    if (!m_active && !m_pendingOpen)
+      open();
+    return "";
+  }
+  if (tok[0] == "close") {
+    if (openedOrParked())
+      close();
+    return "";
+  }
+  if (tok[0] == "allws") {
+    // Explicit set, not a toggle: a matrix must be able to ask for the state it wants
+    // without reading and reasoning about the current one first.
+    const bool want = num(1) != 0;
+    if (want != showAllWorkspaces())
+      toggleAllWorkspaces();
+    return "";
+  }
+
+  if (tok[0] == "tuning") {
+    // What the harness believes it set. Without this a mismatch between "asked" and
+    // "ran" has two possible homes -- the write or the read -- and guessing which is
+    // exactly the mistake this file exists to prevent.
+    std::string out = "TUNING|n=" + std::to_string(anim::tuningKeys().size());
+    for (const auto &kv : anim::tuningKeys())
+      out += "|" + kv;
+    debug::trace::emitState(out);
+    return "";
+  }
 
   if (tok[0] == "set") {
     if (tok.size() < 3)
@@ -276,6 +305,9 @@ std::string Overview::runCommand(const std::string &args) {
     damage();
     return "";
   }
+
+  if (!openedOrParked())
+    return "overview not open";
 
   if (tok[0] == "sel") {
     const int n = num(1);
