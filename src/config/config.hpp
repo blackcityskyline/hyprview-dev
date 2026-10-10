@@ -4,7 +4,9 @@
 // in its domain + a schema row in config.cpp + a README row.
 
 #include <optional>
+#include <cstdlib>
 #include <string>
+#include <unordered_map>
 
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/config/values/types/FloatValue.hpp>
@@ -17,11 +19,48 @@
 
 namespace gloview::cfg {
 
+// Runtime overrides, keyed by the registered config key ("plugin:gloview:layout").
+//
+// There is no other way in: hl.config only accepts the nested form and a
+// CConfigValue exposes no setter a plugin can reach -- the write path belongs to
+// ConfigManager. Every getter consults this first, so a key set here is what the
+// running frame reads, while a key NOT set still reads live config as before.
+//
+// Empty map = no behaviour change. Clear with an empty value.
+namespace override {
+inline std::unordered_map<std::string, std::string> values;
+
+inline const std::string *find(const char *key) {
+  if (!key)
+    return nullptr;
+  const auto it = values.find(key);
+  return it == values.end() ? nullptr : &it->second;
+}
+inline void set(const char *key, const std::string &v) { values[key] = v; }
+inline bool clear(const char *key) { return values.erase(key) > 0; }
+
+// Every registered key, filled during registerAll. The override map cannot answer
+// "is this a config key?" -- it is the thing being written to, so on the first set it
+// is empty and every key looks unknown.
+inline std::unordered_map<std::string, char> known;
+inline bool isConfigKey(const char *key) {
+  return key && known.find(key) != known.end();
+}
+} // namespace override
+
+// Set at registration from the spec table, which is the only place the key exists.
+// A null key means "never registered", and then get() is a plain read.
+
 class Int {
 public:
   SP<Config::Values::CIntValue> v;
   int def = 0;
-  int get() const { return v ? static_cast<int>(v->value()) : def; }
+  const char *key = nullptr;
+  int get() const {
+    if (const std::string *o = override::find(key))
+      return static_cast<int>(std::strtol(o->c_str(), nullptr, 10));
+    return v ? static_cast<int>(v->value()) : def;
+  }
   operator int() const { return get(); }
 };
 
@@ -29,7 +68,12 @@ class Float {
 public:
   SP<Config::Values::CFloatValue> v;
   float def = 0.f;
-  float get() const { return v ? static_cast<float>(v->value()) : def; }
+  const char *key = nullptr;
+  float get() const {
+    if (const std::string *o = override::find(key))
+      return static_cast<float>(std::strtod(o->c_str(), nullptr));
+    return v ? static_cast<float>(v->value()) : def;
+  }
   operator float() const { return get(); }
 };
 
@@ -37,7 +81,12 @@ class Str {
 public:
   SP<Config::Values::CStringValue> v;
   const char *def = "";
-  std::string get() const { return v ? std::string(v->value()) : std::string(def); }
+  const char *key = nullptr;
+  std::string get() const {
+    if (const std::string *o = override::find(key))
+      return *o;
+    return v ? std::string(v->value()) : std::string(def);
+  }
   operator std::string() const { return get(); }
 };
 
@@ -46,6 +95,7 @@ class Color {
 public:
   SP<Config::Values::CStringValue> v;
   const char *def = "";
+  const char *key = nullptr;
   CHyprColor get(float alphaMul = 1.0F) const;
 };
 

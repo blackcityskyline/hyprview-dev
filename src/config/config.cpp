@@ -245,28 +245,37 @@ constexpr ColorSpec kColors[] = {
 // One row per leaf: handles, base duration (what speed 1.0 means), default curve.
 // The resolver reads ONLY this table and the imperative rules.
 void registerAll(HANDLE handle) {
+  // Every handle learns its own key here, because this is the only place the key
+  // exists -- the spec tables carry it, the value objects do not. cfg::override then
+  // addresses any registered key by name, which is what makes `set` a real seam
+  // rather than a list of special cases.
   for (auto &s : kInts) {
     s.h->v = makeShared<Config::Values::CIntValue>(s.key, "",
                                                      static_cast<Config::INTEGER>(s.def));
     s.h->def = s.def;
+    s.h->key = s.key;
+    override::known[s.key] = 1;
     HyprlandAPI::addConfigValueV2(handle, s.h->v);
   }
   for (auto &s : kFloats) {
-    s.h->v = makeShared<Config::Values::CFloatValue>(s.key,
-                                                     "", s.def);
+    s.h->v = makeShared<Config::Values::CFloatValue>(s.key, "", s.def);
     s.h->def = s.def;
+    s.h->key = s.key;
+    override::known[s.key] = 1;
     HyprlandAPI::addConfigValueV2(handle, s.h->v);
   }
   for (auto &s : kStrs) {
-    s.h->v = makeShared<Config::Values::CStringValue>(s.key, "",
-                                                        s.def);
+    s.h->v = makeShared<Config::Values::CStringValue>(s.key, "", s.def);
     s.h->def = s.def;
+    s.h->key = s.key;
+    override::known[s.key] = 1;
     HyprlandAPI::addConfigValueV2(handle, s.h->v);
   }
   for (auto &s : kColors) {
-    s.h->v = makeShared<Config::Values::CStringValue>(s.key, "",
-                                                        s.def);
+    s.h->v = makeShared<Config::Values::CStringValue>(s.key, "", s.def);
     s.h->def = s.def;
+    s.h->key = s.key;
+    override::known[s.key] = 1;
     HyprlandAPI::addConfigValueV2(handle, s.h->v);
   }
   anim::registerAll(handle);

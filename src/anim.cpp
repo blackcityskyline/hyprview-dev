@@ -204,23 +204,45 @@ std::string stripSwapStyle() {
 // Deliberately not a shadow copy of the config: cfg()/style() still read the config
 // every frame, and only an explicitly-set key is diverted. A reload clears it.
 
-bool setTuning(const std::string &key, const std::string &value) {
-  // Empty clears: a matrix run restores the user's configuration by setting "".
-  if (value.empty()) {
-    const auto n = g_override.erase(key);
-    return n > 0;
-  }
-  if (key == "grid_swap_style" || key == "strip_swap_style" ||
-      key == "jump_style") {
-    g_override[key] = value;
+bool setTuning(const std::string &rawKey, const std::string &value) {
+  // Three namespaces, tried in order, and anim keys are stored by their SHORT name --
+  // cfg() looks them up as "<leaf>_ms", so a full-key spelling here would silently
+  // write something nothing ever reads.
+  //
+  // A bare name is expanded to the plugin key space first, so "layout" and
+  // "plugin:gloview:layout" are the same command; hl.config speaks in full keys and a
+  // harness copying one out of a log should not have to strip it.
+  const std::string full = rawKey.rfind("plugin:", 0) == 0
+                               ? rawKey
+                               : ("plugin:gloview:" + rawKey);
+  constexpr std::size_t kPrefix = sizeof("plugin:gloview:") - 1; // 15, counted once
+  const std::string leaf = full.rfind("plugin:gloview:", 0) == 0
+                               ? full.substr(kPrefix)
+                               : rawKey;
+
+  const bool clearing = value.empty();
+  if (leaf == "grid_swap_style" || leaf == "strip_swap_style" ||
+      leaf == "jump_style") {
+    if (clearing)
+      return g_override.erase(leaf) > 0;
+    g_override[leaf] = value;
     return true;
   }
-  const auto suffix = key.rfind('_');
-  if (suffix == std::string::npos || !find(key.substr(0, suffix).c_str()))
+  if (cfg::override::isConfigKey(full.c_str())) {
+    if (clearing)
+      return cfg::override::clear(full.c_str());
+    cfg::override::set(full.c_str(), value);
+    return true;
+  }
+  const auto suffix = leaf.rfind('_');
+  if (suffix == std::string::npos || !find(leaf.substr(0, suffix).c_str()))
     return false;
-  if (key.compare(suffix, 4, "_ms") == 0 || key.compare(suffix, 6, "_speed") == 0 ||
-      key.compare(suffix, 6, "_curve") == 0 || key.compare(suffix, 8, "_enabled") == 0) {
-    g_override[key] = value;
+  if (leaf.compare(suffix, 4, "_ms") == 0 || leaf.compare(suffix, 6, "_speed") == 0 ||
+      leaf.compare(suffix, 6, "_curve") == 0 ||
+      leaf.compare(suffix, 8, "_enabled") == 0) {
+    if (clearing)
+      return g_override.erase(leaf) > 0;
+    g_override[leaf] = value;
     return true;
   }
   return false;

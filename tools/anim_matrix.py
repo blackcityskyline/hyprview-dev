@@ -46,6 +46,15 @@ DURATIONS = [120, 320, 700]
 STYLES = ["horizontal", "slidevert", "fade", "pop"]
 SURFACES = ["grid", "strip"]
 
+# The run and the two grid engines are DISJOINT paths, not a setting on one path:
+# `carousel` picks computeCarousel + renderCarousel, the others pick computeLayout +
+# renderTiles, and paint() branches on it. The full matrix only ever ran the first,
+# which left renderTiles -- including its own swapfxActive guard -- never executed
+# during a flight. So the view axis gets a smoke pass: one style, one duration, both
+# surfaces. Geometry and coverage, not a re-verification of the flight code.
+VIEWS = ["carousel", "rows", "grid", "natural"]
+SMOKE_STYLE, SMOKE_MS = "slidevert", 320
+
 
 def sig():
     """The live Hyprland socket. A stale one reloads into the void and the run
@@ -92,8 +101,15 @@ def tail_from(offset):
         return ""
 
 
-def fields(line):
-    return dict(p.split("=", 1) for p in line.split("|")[2:] if "=" in p)
+def fields(line, prefix):
+    """kv pairs after `prefix` leading segments.
+
+    The prefix length differs by record: ANIM|begin|... and ANIM|end|... carry a verb
+    as well as the tag, STATE| and TILE| do not. Hard-coding 2 silently dropped
+    STATE's own first field -- open= -- which is why an overlay that was plainly open
+    read as not open.
+    """
+    return dict(p.split("=", 1) for p in line.split("|")[prefix:] if "=" in p)
 
 
 def state():
@@ -101,7 +117,7 @@ def state():
     st = {}
     for line in out.splitlines():
         if line.startswith("STATE|"):
-            st = fields(line)
+            st = fields(line, 1)
         elif line.startswith("TILE|"):
             _, i, cls, ws, box = line.split("|")[:5]
             # d=<depth>, present only when the run is active. Depth is what the
@@ -173,7 +189,19 @@ def check_depth(st):
     return True
 
 
-def reset():
+def set_view(view):
+    """carousel is the run toggle; the rest is the grid engine."""
+    if view == "carousel":
+        out = cmd("allws 1")
+    else:
+        cmd("allws 0")
+        out = cmd(f"set layout {view}")
+    if "CMD|err" in out:
+        return f"view {view} rejected"
+    return None
+
+
+def reset(view="carousel"):
     """Every cell starts from the same scene.
 
     Without this the cells are not comparable: each swap moves the selection and the
@@ -183,14 +211,30 @@ def reset():
     """
     cmd("close", settle=0.7)
     cmd("open", settle=0.9)
-    cmd("allws 1", settle=0.5)
+    cmd("allws 1" if view == "carousel" else "allws 0", settle=0.5)
+    if view != "carousel":
+        cmd(f"set layout {view}", settle=0.4)
 
 
-def one_cell(style, ms, surface, dry=False):
+def one_cell(style, ms, surface, view="carousel"):
     """Configure, act, and judge one cell. Returns (verdict, [(ok, message)])."""
     findings = []
     ok = True
-    reset()
+    reset(view)
+    if bad := set_view(view):
+        findings.append((False, bad))
+        return "FAIL", findings
+
+    # A cell whose view has fewer than two windows has nothing to exchange. That is
+    # not a failure and must not be reported as one -- the engine is fine, the
+    # workspace is empty. SKIP is counted separately for exactly that reason.
+    st = state()
+    if not (st.get("open") in ("1", "true")):
+        findings.append((True, "SKIP: overlay not open in this view"))
+        return "SKIP", findings
+    if int(st.get("tiles", 0)) < 2:
+        findings.append((True, f"SKIP: {st.get('tiles')} tile(s), nothing to swap"))
+        return "SKIP", findings
     style_key = "grid_swap_style" if surface == "grid" else "strip_swap_style"
     # A swap moves TWO windows and both fly, so both leaves are pinned. Setting only
     # the initiator's tuning left the partner on the user's rule and the cell reported
@@ -227,8 +271,8 @@ def one_cell(style, ms, surface, dry=False):
         findings.append((False, depth_problem))
         ok = False
 
-    begins = [fields(l) for l in run.splitlines() if l.startswith("ANIM|begin|")]
-    ends = {fields(l)["seq"]: int(fields(l)["ms"])
+    begins = [fields(l, 2) for l in run.splitlines() if l.startswith("ANIM|begin|")]
+    ends = {fields(l, 2)["seq"]: int(fields(l, 2)["ms"])
             for l in run.splitlines() if l.startswith("ANIM|end|")}
     rejects = [l for l in run.splitlines() if l.startswith("ANIM|reject|")]
 
@@ -275,14 +319,20 @@ def main():
     ap.add_argument("--quick", action="store_true", help="one style, one duration")
     ap.add_argument("--list", action="store_true", help="print the matrix and exit")
     ap.add_argument("--keep", action="store_true", help="leave tuning overrides behind")
+    ap.add_argument("--views", action="store_true",
+                    help="smoke the view axis: every engine, one style/duration")
     args = ap.parse_args()
 
     styles, durations = (STYLES[:1], DURATIONS[1:2]) if args.quick else (STYLES, DURATIONS)
     surfaces = ["grid"] if args.quick else SURFACES
 
-    cells = [(s, m, f) for f in surfaces for s in styles for m in durations]
+    cells = ([(s, m, f, v) for v in VIEWS for f in surfaces
+              for s in (SMOKE_STYLE,) for m in (SMOKE_MS,)]
+             if args.views else
+             [(s, m, f, "carousel") for f in surfaces for s in styles for m in durations])
     if args.list:
-        print(f"{len(cells)} cells: " + " ".join(f"{s}/{m}/{f}" for s, m, f in cells))
+        print(f"{len(cells)} cells: " +
+              " ".join(f"{s}/{m}/{f}/{v}" for s, m, f, v in cells))
         return 0
 
     if not setup():
@@ -298,22 +348,31 @@ def main():
     print(f"preconditions ok: {st.get('tiles')} tiles, allws={st.get('allws')}, "
           f"carousel={st.get('carousel')}")
     print(f"{len(cells)} cells\n")
-    print(f"{'surface':8} {'style':11} {'ms':>5}  verdict  detail")
-    fails = 0
-    for style, ms, surface in cells:
-        verdict, findings = one_cell(style, ms, surface)
+    print(f"{'view':9} {'surface':8} {'style':11} {'ms':>5}  verdict  detail")
+    fails = skips = ran = 0
+    for style, ms, surface, view in cells:
+        verdict, findings = one_cell(style, ms, surface, view)
         if verdict == "FAIL":
             fails += 1
+            ran += 1
+        elif verdict == "SKIP":
+            skips += 1
+        else:
+            ran += 1
         detail = "; ".join(m for _, m in findings) or "-"
-        print(f"{surface:8} {style:11} {ms:5}  {verdict:7}  {detail}")
+        print(f"{view:9} {surface:8} {style:11} {ms:5}  {verdict:7}  {detail}")
 
     if not args.keep:
         for key in ("grid_swap_style", "strip_swap_style", "swap_main_ms",
-                    "swap_partner_ms", "swap_main_speed", "swap_partner_speed"):
+                    "swap_partner_ms", "swap_main_speed", "swap_partner_speed",
+                    "layout"):
             cmd(f"set {key} ")
 
     cmd("close", settle=0.8)
-    print(f"\n{len(cells) - fails}/{len(cells)} passed")
+    summary = f"\n{ran - fails}/{ran} passed"
+    if skips:
+        summary += f", {skips} skipped (precondition unmet)"
+    print(summary)
     return 1 if fails else 0
 
 
