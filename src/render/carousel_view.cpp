@@ -91,6 +91,17 @@ void Overview::renderCarousel() const {
       continue;
 
     const auto &t = m_scene.tiles()[static_cast<size_t>(i)];
+    // A window with a live grid flight is already being drawn by renderSwapFX. The
+    // run skipped this check while the grid renderer had it, so the card and its
+    // flying copy were both on screen.
+    //
+    // horizontal hid it: the flight lerps from `from`, which is exactly where the card
+    // is, so the two sat on top of each other. slidevert lifts on the first frame
+    // (from.y - (h + LIFT) * q) and the card underneath became visible -- which is why
+    // this only ever showed up as "vertical animations duplicate".
+    if (swapfxActive(t.win.lock(), false))
+      continue;
+
     TileLook look;
     look.box = currentBox(t, i);
     // m_progress runs DOWN on close (1 open -> 0 closed); every exit fraction
