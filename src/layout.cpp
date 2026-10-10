@@ -55,17 +55,14 @@ std::vector<LRect> layoutRows(const std::vector<LRect>& w, const LRect& area, co
     if (n == 0)
         return {};
 
-    // Spatial reading order, unless cfg.preserveOrder: a caller-supplied order
-    // (e.g. MRU for alt-tab) must survive untouched.
+    // Spatial reading order.
     std::vector<int> order(n);
     std::iota(order.begin(), order.end(), 0);
-    if (!cfg.preserveOrder) {
-        std::sort(order.begin(), order.end(), [&](int a, int b) {
-            if (std::abs(w[a].cy() - w[b].cy()) > std::min(w[a].h, w[b].h) * 0.5)
-                return w[a].cy() < w[b].cy();
-            return w[a].cx() < w[b].cx();
-        });
-    }
+    std::sort(order.begin(), order.end(), [&](int a, int b) {
+        if (std::abs(w[a].cy() - w[b].cy()) > std::min(w[a].h, w[b].h) * 0.5)
+            return w[a].cy() < w[b].cy();
+        return w[a].cx() < w[b].cx();
+    });
     std::vector<LRect> sorted(n);
     for (int i = 0; i < n; ++i)
         sorted[i] = w[order[i]];
@@ -258,7 +255,6 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     // kCard, not k: a panel measured at the unclamped scale is taller than what it holds.
     L.stripW = stripW * kCard;
     L.stripH = stripH * kCard;
-    L.panelW = L.stripW;
     L.panelH = mt.countH + mt.sectionGap + L.stripH;
     L.stripY = mt.countH + mt.sectionGap;
     // Card x is absolute inside the usable rect, so originX stays 0.

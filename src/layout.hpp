@@ -20,7 +20,6 @@ struct LRect {
     }
     [[nodiscard]] double cx() const { return x + w / 2.0; }
     [[nodiscard]] double cy() const { return y + h / 2.0; }
-    [[nodiscard]] double aspect() const { return h > 0.0 ? w / h : 1.0; }
 };
 
 inline double lerp(double a, double b, double t) { return a + (b - a) * t; }
@@ -43,7 +42,6 @@ struct LayoutCfg {
     double padLeft   = 80.0;
     double gap       = 36.0;
     double maxScale  = 1.0;
-    bool   preserveOrder = false;
 };
 
 // parallel to `naturals`, inside `area`
@@ -80,7 +78,7 @@ struct CarouselLayout {
     };
     std::vector<Card> cards;
     int    visibleCards = 0;
-    double panelW = 0.0, panelH = 0.0;
+    double panelH = 0.0;
     double stripY = 0.0, stripW = 0.0, stripH = 0.0;
     double countX = 0.0, countY = 0.0, countW = 0.0, countH = 0.0;
     double originX = 0.0, originY = 0.0;

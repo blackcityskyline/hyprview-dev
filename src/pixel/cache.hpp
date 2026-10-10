@@ -78,8 +78,6 @@ class PixelCache {
     [[nodiscard]] SP<Render::ITexture> snapshot(const PHLWINDOW &win) const;
     void clearSnapshots() { m_snapshots.clear(); }
 
-    void clear();
-
   private:
     template <typename Map, typename T>
     SP<Render::ITexture> labelIn(Map &map, const CWeakPointer<T> &owner,

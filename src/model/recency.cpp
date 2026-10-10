@@ -17,10 +17,6 @@ void Recency::promote(const void *window) {
     std::rotate(m_front.begin(), it, it + 1);
 }
 
-bool Recency::ranked(const void *window) const {
-  return std::find(m_front.begin(), m_front.end(), window) != m_front.end();
-}
-
 std::size_t Recency::rank(const void *window) const {
   const auto it = std::find(m_front.begin(), m_front.end(), window);
   return it == m_front.end() ? std::numeric_limits<std::size_t>::max()

@@ -390,7 +390,6 @@ private:
   void restoreFill();
   void stepAltTab(int dir);
   int tileOf(const PHLWINDOW &w) const;
-  void dbg(const std::string &msg) const;
   void damage() const;
 };
 

@@ -17,7 +17,6 @@ struct Tile {
   LRect target;
   bool parked = false;
   std::string labelText;
-  void *labelKey = nullptr; // cache key for the caption; null = nothing to fit
   double appear = 1.0;  // 0 = new; ghosts reverse it
   SP<Render::ITexture> label;
 };
@@ -38,11 +37,6 @@ struct StripItem {
   LRect card;
   std::vector<StripWin> wins;
   SP<Render::ITexture> label;
-};
-
-struct LabelTex {
-  std::string text;
-  SP<Render::ITexture> tex;
 };
 
 struct Ghost {

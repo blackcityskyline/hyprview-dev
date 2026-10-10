@@ -56,7 +56,7 @@ static std::array<Row, static_cast<std::size_t>(Id::Count)> kRows = {{
 }};
 
 static cfg::Int g_globallyEnabled;
-static const std::string s_grid = "horizontal", s_strip = "horizontal", s_jump = "instant";
+static const std::string s_jump = "instant";
 static cfg::Str g_gridSwapStyle, g_stripSwapStyle, g_jumpStyle;
 
 // Shape parameters, in the same order as anim::Param.
@@ -78,8 +78,6 @@ const Rule *ruleFor(const char *n) {
   return it == g_rules.end() ? nullptr : &it->second;
 }
 } // namespace
-
-const char *name(Id id) { return kRows[static_cast<std::size_t>(id)].name; }
 
 Cfg cfg(Id id) { return cfg(kRows[static_cast<std::size_t>(id)].name); }
 
@@ -140,17 +138,18 @@ void registerAll(HANDLE handle) {
   g_globallyEnabled.def = 1;
   HyprlandAPI::addConfigValueV2(handle, g_globallyEnabled.v);
 
-  const auto plain = [&](const char *stem, const char *def) {
-    auto &h = (std::strcmp(stem, "grid_swap_style") == 0)   ? g_gridSwapStyle
-             : (std::strcmp(stem, "strip_swap_style") == 0) ? g_stripSwapStyle
-                                                            : g_jumpStyle;
+  const auto plain = [&](cfg::Str &h, const char *stem, const char *def) {
     h.v = makeShared<Config::Values::CStringValue>(key("", stem), "", def);
     h.def = def;
     HyprlandAPI::addConfigValueV2(handle, h.v);
   };
-  plain("grid_swap_style", "horizontal");
-  plain("strip_swap_style", "horizontal");
-  plain("jump_style", "instant");
+  // grid_swap_style / strip_swap_style are registered and documented but nothing
+  // reads them: the exchange flight takes its style from the fx layer. Kept
+  // registered so existing user configs keep loading -- Hyprland errors on an
+  // unknown plugin key rather than ignoring it.
+  plain(g_gridSwapStyle, "grid_swap_style", "horizontal");
+  plain(g_stripSwapStyle, "strip_swap_style", "horizontal");
+  plain(g_jumpStyle, "jump_style", "instant");
 
   for (std::size_t i = 0; i < static_cast<std::size_t>(Param::Count); ++i) {
     g_params[i].v = makeShared<Config::Values::CFloatValue>(

@@ -126,14 +126,4 @@ SP<Render::ITexture> PixelCache::snapshot(const PHLWINDOW &win) const {
   return it->second.tex;
 }
 
-void PixelCache::clear() {
-  m_winLabels.clear();
-  m_wsLabels.clear();
-  m_slotLabels.clear();
-  m_virtualLabels.clear();
-  m_snapshots.clear();
-  m_glyph.reset();
-  m_glyphIcon.clear();
-}
-
 } // namespace gloview

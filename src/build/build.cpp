@@ -74,7 +74,6 @@ void Overview::buildTiles() {
         text = w->m_class;
       if (text.size() > 80)
         text = text.substr(0, 79) + "…";
-      t.labelKey  = w.get();
       t.labelText = text;
       t.label = m_pixel.windowLabel(w, text, lblCol, 15);
     }
