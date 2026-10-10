@@ -105,6 +105,21 @@ void animEnd(int seq, double measuredMs) {
        std::to_string(static_cast<int>(measuredMs)));
 }
 
+void emitState(const std::string &dump) {
+  if (!enabled())
+    return;
+  std::string cur;
+  for (const char c : dump) {
+    if (c == '\n') {
+      emit(cur);
+      cur.clear();
+    } else
+      cur.push_back(c);
+  }
+  if (!cur.empty())
+    emit(cur);
+}
+
 void animReject(const char *op, const char *why) {
   if (!enabled())
     return;

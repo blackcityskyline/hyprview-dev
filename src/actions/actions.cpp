@@ -216,6 +216,115 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
   return true;
 }
 
+// Automation seam. One method, not five public accessors: everything a harness needs
+// to drive the overlay deterministically, and nothing it does not.
+//
+// Returns "" on success, a short reason otherwise -- the caller (dispatcher or Lua)
+// turns a failure into a visible error instead of a silent no-op, which is what makes
+// a matrix run trustworthy.
+std::string Overview::runCommand(const std::string &args) {
+  std::vector<std::string> tok;
+  std::string cur;
+  for (const char c : args + ' ') {
+    if (c == ' ')
+      tok.emplace_back(std::exchange(cur, std::string()));
+    else
+      cur.push_back(c);
+  }
+  while (!tok.empty() && tok.back().empty())
+    tok.pop_back();
+  if (tok.empty())
+    return "no command";
+
+  const auto num = [&tok](std::size_t i) {
+    return i < tok.size() ? std::atoi(tok[i].c_str()) : -1;
+  };
+
+  // "state" first: it is how a harness learns what it is driving, and it must work
+  // whether or not the overlay is open.
+  if (tok[0] == "state") {
+    std::string out = "STATE|open=" + std::to_string(m_active) +
+                      "|pending=" + std::to_string(m_pendingOpen) + "|tiles=" +
+                      std::to_string(m_scene.size()) + "|strip=" +
+                      std::to_string(m_strip.size()) + "|allws=" +
+                      std::to_string(showAllWorkspaces()) + "|carousel=" +
+                      std::to_string(carouselMode());
+    for (std::size_t i = 0; i < m_scene.size(); ++i) {
+      const auto w = m_scene.tiles()[i].win.lock();
+      out += "\nTILE|" + std::to_string(i) + "|" +
+             (w ? w->m_class : std::string("gone")) + "|" +
+             (w && w->m_workspace ? std::to_string(w->m_workspace->m_id) : std::string("-")) +
+             "|" + std::to_string(static_cast<int>(m_scene.tiles()[i].target.x)) +
+             "," + std::to_string(static_cast<int>(m_scene.tiles()[i].target.y)) +
+             "," + std::to_string(static_cast<int>(m_scene.tiles()[i].target.w)) +
+             "," + std::to_string(static_cast<int>(m_scene.tiles()[i].target.h));
+    }
+    debug::trace::emitState(out);
+    return "";
+  }
+
+  if (!openedOrParked())
+    return "overview not open";
+
+  if (tok[0] == "set") {
+    if (tok.size() < 3)
+      return "set: need <key> <value>";
+    if (!anim::setTuning(tok[1], tok[2]))
+      return "set: unknown key " + tok[1];
+    // Anim cfg is re-read every frame, but the damage makes the change visible at once
+    // instead of on the next unrelated repaint.
+    damage();
+    return "";
+  }
+
+  if (tok[0] == "sel") {
+    const int n = num(1);
+    if (n < 0 || n >= static_cast<int>(m_scene.size()))
+      return "sel: index out of range";
+    m_scene.select(n);
+    damage();
+    return "";
+  }
+
+  if (tok[0] == "swap") {
+    const int a = num(1), b = num(2);
+    const int n = static_cast<int>(m_scene.size());
+    if (a < 0 || b < 0 || a >= n || b >= n || a == b)
+      return "swap: bad indices";
+    if (!swapWindows(m_scene.tiles()[a].win.lock(), m_scene.tiles()[b].win.lock(),
+                     {}, false))
+      return "swap: refused by Hyprland";
+    kickPulse(m_scene.tiles()[a].win.lock());
+    kickPulse(m_scene.tiles()[b].win.lock());
+    damage();
+    return "";
+  }
+
+  if (tok[0] == "movews") {
+    const int t = num(1), ws = num(2);
+    if (t < 0 || t >= static_cast<int>(m_scene.size()))
+      return "movews: index out of range";
+    const auto w = m_scene.tiles()[t].win.lock();
+    const auto m = m_monitor.lock();
+    if (!w || !m)
+      return "movews: no window";
+    auto target = State::workspaceState()->query().id(ws).run();
+    if (!target)
+      target = State::workspaceState()->create(ws, m->m_id);
+    if (!target)
+      return "movews: no workspace";
+    auto oldBoxes = captureCurrentBoxes(w);
+    Desktop::globalWindowController()->moveWindowToWorkspace(w, target);
+    replayReflow(oldBoxes);
+    landAfterSwap(w, LRect{}, LRect{}, m_lastDragBox, anim::cfg(anim::Id::Drop).ms,
+                  anim::cfg(anim::Id::Drop).curve, false);
+    damage();
+    return "";
+  }
+
+  return "unknown command: " + tok[0];
+}
+
 void Overview::swapTiles(int a, int b, const LRect &fromA) {
   if (a < 0 || b < 0 || a == b || a >= static_cast<int>(m_scene.tiles().size()) ||
       b >= static_cast<int>(m_scene.tiles().size())) {

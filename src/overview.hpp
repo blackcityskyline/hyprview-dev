@@ -62,6 +62,9 @@ inline model::SwapStyle parseSwapStyle(const std::string &s) {
 class Overview {
 public:
   explicit Overview(HANDLE handle);
+  // Automation seam for `hyprctl dispatch gloview:cmd ...`: state / sel / swap /
+  // movews. Returns "" on success, a reason otherwise.
+  std::string runCommand(const std::string &args);
   ~Overview();
 
   bool initialize();

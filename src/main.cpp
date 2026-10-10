@@ -63,6 +63,28 @@ int luaInvoke(lua_State*) {
     return 0;
 }
 
+// gloview.cmd("state") / ("swap 0 1") / ("sel 2") / ("movews 0 3")
+//
+// Registered as Lua rather than only as a dispatcher because this session's config is
+// Lua: hyprctl dispatch routes through hl.dispatch there, which does not reach plugin
+// dispatchers by name at all -- `dispatch gloview:toggle` fails the same way it does.
+// The result comes back as a string AND goes to the trace log, because a harness that
+// has to parse stdout of `hyprctl eval` is a harness that breaks on the next quoting
+// change.
+int luaCmd(lua_State *L) {
+    const char *args = luaL_optstring(L, 1, "");
+    std::string err = g_overview ? g_overview->runCommand(args)
+                                 : std::string("no overview");
+    // hyprctl eval does NOT print a Lua return value, so the caller cannot learn
+    // whether this worked. Every command therefore acknowledges itself in the trace
+    // log, which is the channel a harness actually reads.
+    gloview::debug::trace::emitState(err.empty() ? std::string("CMD|ok|") + args
+                                                 : std::string("CMD|err|") + args +
+                                                       "|" + err);
+    lua_pushstring(L, err.empty() ? "ok" : err.c_str());
+    return 1;
+}
+
 }
 
 APICALL EXPORT std::string PLUGIN_API_VERSION() {
@@ -110,11 +132,26 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
                   }})),
          ...);
 
+        // The automation seam. Registered outside the kActions fold because it takes
+        // arguments, and a failure must reach the caller as text rather than as a
+        // silent no-op -- that is the difference between a matrix run that reports
+        // truth and one that reports green.
+        HyprlandAPI::addDispatcherV2(handle, "gloview:cmd",
+                                     [](std::string a) -> SDispatchResult {
+                                         if (!g_overview)
+                                             return {.error = "no overview"};
+                                         const std::string err = g_overview->runCommand(a);
+                                         if (!err.empty())
+                                             return {.error = err};
+                                         return {.success = true};
+                                     });
+
         if (isLua) {
             ((kActions[Is].lua &&
               HyprlandAPI::addLuaFunction(handle, "gloview", kActions[Is].lua,
                                           &luaInvoke<Is>)),
              ...);
+            HyprlandAPI::addLuaFunction(handle, "gloview", "cmd", &luaCmd);
             HyprlandAPI::addLuaFunction(handle, "gloview", "curve",
                                         &gloview::curves::luaRegister);
             HyprlandAPI::addLuaFunction(handle, "gloview", "animation",

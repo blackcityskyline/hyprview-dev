@@ -80,6 +80,15 @@ const Rule *ruleFor(const char *n) {
 }
 } // namespace
 
+static std::unordered_map<std::string, std::string> g_override;
+
+static const char *overridden(const char *key) {
+  const auto it = g_override.find(key);
+  return it == g_override.end() ? nullptr : it->second.c_str();
+}
+
+static double num(const char *s) { return s ? std::atof(s) : 0.0; }
+
 Cfg cfg(Id id) { return cfg(kRows[static_cast<std::size_t>(id)].name); }
 
 Cfg cfg(const char *n) {
@@ -89,6 +98,7 @@ Cfg cfg(const char *n) {
     return Cfg{};
 
   Inputs in;
+  const std::string k = r->name;
   in.globalEnabled = g_globallyEnabled ? (g_globallyEnabled != 0) : true;
   in.enabled       = !(r->enabled && r->enabled.get() == 0);
   in.hasMs         = static_cast<bool>(r->ms.v);
@@ -96,16 +106,39 @@ Cfg cfg(const char *n) {
   in.speed         = r->speed ? static_cast<double>(r->speed.get()) : 1.0;
   in.curve         = static_cast<bool>(r->curve.v) ? r->curve.get() : std::string();
   in.rule          = ruleFor(r->name);
+  if (const char *o = overridden((k + "_ms").c_str())) {
+    in.hasMs = true;
+    in.ms = num(o);
+  }
+  if (const char *o = overridden((k + "_speed").c_str()))
+    in.speed = num(o);
+  if (const char *o = overridden((k + "_curve").c_str()))
+    in.curve = o;
+  if (const char *o = overridden((k + "_enabled").c_str()))
+    in.enabled = num(o) != 0;
 
   return resolve(in, r->base, r->curveDef);
 }
 
 std::string style(const char *n) {
+  // The two swap styles are NOT rows -- there is no "grid_swap" in kRows -- so they
+  // are answered from the override/config handle directly and never reach find().
+  if (std::string(n) == "grid_swap_style" || std::string(n) == "strip_swap_style" ||
+      std::string(n) == "jump_style") {
+    if (const char *o = overridden(n))
+      return o;
+    cfg::Str *h = std::string(n) == "grid_swap_style"   ? &g_gridSwapStyle
+                  : std::string(n) == "strip_swap_style" ? &g_stripSwapStyle
+                                                        : &g_jumpStyle;
+    return h->v ? h->get() : std::string();
+  }
   const Row *r = find(n);
   if (!r || !r->hasStyle)
     return {};
   if (const auto *rule = ruleFor(r->name); rule && rule->style)
     return *rule->style;
+  if (const char *o = overridden((std::string(r->name) + "_style").c_str()))
+    return o;
   return r->style.v ? r->style.get() : std::string();
 }
 
@@ -132,6 +165,47 @@ std::string gridSwapStyle() {
 
 std::string stripSwapStyle() {
   return g_stripSwapStyle.v ? g_stripSwapStyle.get() : s_stripSwap;
+}
+
+// Runtime tuning by key name: "<leaf>_ms", "<leaf>_speed", "<leaf>_curve",
+// "<leaf>_enabled", plus the two swap styles.
+//
+// There is a layer here because the plugin has no other way to be told: hl.config
+// rejects every `plugin:gloview:` key at runtime, and hyprctl keyword refuses
+// outright under the Lua parser. A CConfigValue exposes no setter either -- the write
+// path belongs to ConfigManager, which plugins cannot reach. So the override is ours,
+// consulted BEFORE the config value and empty unless a command set it.
+//
+// Deliberately not a shadow copy of the config: cfg()/style() still read the config
+// every frame, and only an explicitly-set key is diverted. A reload clears it.
+
+bool setTuning(const std::string &key, const std::string &value) {
+  // Empty clears: a matrix run restores the user's configuration by setting "".
+  if (value.empty()) {
+    const auto n = g_override.erase(key);
+    return n > 0;
+  }
+  if (key == "grid_swap_style" || key == "strip_swap_style" ||
+      key == "jump_style") {
+    g_override[key] = value;
+    return true;
+  }
+  const auto suffix = key.rfind('_');
+  if (suffix == std::string::npos || !find(key.substr(0, suffix).c_str()))
+    return false;
+  if (key.compare(suffix, 4, "_ms") == 0 || key.compare(suffix, 6, "_speed") == 0 ||
+      key.compare(suffix, 6, "_curve") == 0 || key.compare(suffix, 8, "_enabled") == 0) {
+    g_override[key] = value;
+    return true;
+  }
+  return false;
+}
+
+std::vector<std::string> tuningKeys() {
+  std::vector<std::string> out;
+  for (const auto &[k, v] : g_override)
+    out.push_back(k + "=" + v);
+  return out;
 }
 
 void registerAll(HANDLE handle) {

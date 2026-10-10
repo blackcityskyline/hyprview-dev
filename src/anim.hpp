@@ -52,6 +52,15 @@ enum class Id : std::uint8_t {
 
 void setRule(const char *name, const Rule &r);
 
+// Runtime tuning by key name: "<leaf>_ms" / "_speed" / "_curve" / "_enabled",
+// plus "grid_swap_style" / "strip_swap_style" / "jump_style". An empty value clears
+// one. Everything the plugin reads is still read from config every frame; only a key
+// set here is diverted. See the override map in anim.cpp for why it exists.
+bool setTuning(const std::string &key, const std::string &value);
+
+// Currently-active overrides, "key=value" -- so a harness can confirm what it set.
+[[nodiscard]] std::vector<std::string> tuningKeys();
+
 int  luaSetRule(lua_State *L);
 void registerAll(HANDLE handle);
 

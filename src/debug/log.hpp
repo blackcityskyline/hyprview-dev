@@ -44,6 +44,11 @@ void animEnd(int seq, double measuredMs);
 
 void animReject(const char *op, const char *why);
 
+// A multi-line scene dump, prefixed so it stays greppable alongside ANIM| records.
+// Multi-line on purpose: one line per tile is what a harness can diff against what it
+// asked for, and a single joined line would hide which tile changed.
+void emitState(const std::string &dump);
+
 } // namespace trace
 
 } // namespace gloview::debug
