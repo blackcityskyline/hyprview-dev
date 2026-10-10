@@ -20,7 +20,6 @@
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/state/WorkspaceState.hpp>
-#include <hyprutils/utils/ScopeGuard.hpp>
 
 using Render::GL::g_pHyprOpenGL;
 

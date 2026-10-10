@@ -60,11 +60,10 @@ private:
 
 // BUILD time (RENDER_LAST_MOMENT): mutate here, draw in draw().
 void Overview::renderStage(eRenderStage stage) {
-  if (stage == RENDER_LAST_MOMENT)
+  if (stage == RENDER_LAST_MOMENT) {
     ++m_frameTick;
-
-  if (stage == RENDER_LAST_MOMENT)
     syncRecency();
+  }
 
   // Parked open: the pass is registered anyway so draw() can run primeBackdrop, which
   // composites into a private framebuffer and draws nothing. Without this the pass is never
@@ -91,7 +90,9 @@ void Overview::renderStage(eRenderStage stage) {
   if (!m_active)
     return;
 
-  {
+  // debug::enabled() reads the live config, so this gate follows a runtime toggle;
+  // the block itself is ~20 std::to_string calls per frame.
+  if (debug::enabled()) {
     const double e  = eased();
     const float  k  = static_cast<float>(e);
     const float  kk = m_opening ? k : std::pow(k, 0.45F);

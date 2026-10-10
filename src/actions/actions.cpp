@@ -19,7 +19,6 @@
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/state/WorkspaceState.hpp>
-#include <hyprutils/utils/ScopeGuard.hpp>
 
 using Render::GL::g_pHyprOpenGL;
 
@@ -37,7 +36,8 @@ model::StripItem *Overview::homeStripCardFor(const PHLWINDOW &w) {
 bool Overview::dropOnStripCard(const PHLWINDOW &w, double lx, double ly,
                                int skipItem) {
   const int idx = stripItemAt(lx, ly);
-  {
+  // One to_string per card, built on every drop even with logs off.
+  if (debug::enabled()) {
     std::string s = "[DROP] at=" + std::to_string(static_cast<int>(lx)) + "," +
                     std::to_string(static_cast<int>(ly)) +
                     " idx=" + std::to_string(idx) +

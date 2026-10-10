@@ -17,7 +17,6 @@
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
-#include <hyprutils/utils/ScopeGuard.hpp>
 
 using Render::GL::g_pHyprOpenGL;
 

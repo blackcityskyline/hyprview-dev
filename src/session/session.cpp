@@ -29,7 +29,6 @@
 #include <hyprland/src/render/pass/ClearPassElement.hpp>
 #include <hyprland/src/render/pass/TexPassElement.hpp>
 #include <hyprland/src/state/MonitorState.hpp>
-#include <hyprutils/utils/ScopeGuard.hpp>
 
 using Render::GL::g_pHyprOpenGL;
 
