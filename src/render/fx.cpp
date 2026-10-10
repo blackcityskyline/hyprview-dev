@@ -215,8 +215,7 @@ void Overview::renderPulses(bool strip) const {
       for (size_t i = 0; i < m_scene.tiles().size(); ++i) {
         if (m_scene.tiles()[i].win.lock() != w)
           continue;
-        const LRect lb =
-            tileBox(i, currentBox(m_scene.tiles()[i], static_cast<int>(i)));
+        const LRect lb = tileRect(i);
         // The pulse tracks the tile's own radius, so it lands on the same arc.
         drawPulseRing(pxb(lb, s),
                       pxr(clampRound(cfg::look.preview_round, lb.w, lb.h), s),
@@ -263,7 +262,7 @@ void Overview::renderSwapFX() const {
     bool found = false;
     for (size_t i = 0; i < m_scene.tiles().size() && !found; ++i)
       if (m_scene.tiles()[i].win.lock() == w) {
-        to = tileBox(i, currentBox(m_scene.tiles()[i], static_cast<int>(i)));
+        to = tileRect(i);
         found = true;
       }
     for (size_t i = 0; i < m_strip.size() && !found; ++i) {

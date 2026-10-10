@@ -331,6 +331,9 @@ private:
   double newCardDur() const { return anim::cfg(anim::Id::NewCard).ms; }
   double tileProgress(int i) const;
   LRect currentBox(const model::Tile &t, int i) const;
+  // The drawn box of tile i: currentBox() letterboxed to the window's own aspect.
+  // Every consumer asking "where is tile i" wants this, not the pair spelled out.
+  LRect tileRect(size_t i) const;
   LRect dragBox() const;
   LRect dragStripBox() const;
   double dragLiftProgress() const;

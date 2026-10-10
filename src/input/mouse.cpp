@@ -281,8 +281,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           if (k < 0 || !m_view.carousel().cards[static_cast<size_t>(k)].visible)
             continue;
         }
-        const LRect cur = currentBox(m_scene.tiles()[i], static_cast<int>(i));
-        if (closeButtonRect(tileBox(i, cur)).contains(lx, ly)) {
+        if (closeButtonRect(tileRect(i)).contains(lx, ly)) {
           m_drag.press =
               model::Drag::Press::Consumed; // handled on press
           closeTileWindow(static_cast<int>(i));

@@ -110,6 +110,12 @@ LRect Overview::tileBox(size_t i, const LRect &slot) const {
   return fitInside(slot, aspect);
 }
 
+LRect Overview::tileRect(size_t i) const {
+  if (i >= m_scene.tiles().size())
+    return {};
+  return tileBox(i, currentBox(m_scene.tiles()[i], static_cast<int>(i)));
+}
+
 // THE tile: shadow, ring, focus ring, frost, content, pill, ✕ — each under the
 // next. A layout contributes a box and flags only.
 void Overview::drawTile(size_t i, const TileLook &look) const {
@@ -263,7 +269,7 @@ void Overview::renderTiles() const {
     if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w))
       continue; // flying via a landing: its slot is painted by renderSwapFX
     TileLook look;
-    look.box = tileBox(i, currentBox(m_scene.tiles()[i], static_cast<int>(i)));
+    look.box = tileRect(i);
     look.button = wantButtons;
     drawTile(i, look);
   }
