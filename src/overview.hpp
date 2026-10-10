@@ -217,6 +217,8 @@ private:
   // change while the overview is up (all-workspaces, digit jump).
   mutable bool m_landingEmpty = true;
   double tileAppear(int i) const; // staggered 0..1 for tile i
+  // The above, gated on the tile actually playing its entry (Tile::appear < 1).
+  double tileAppearNow(const model::Tile &t, int i) const;
   anim::Id entryLeaf() const;
   anim::Id ghostLeaf() const;
   anim::Id glideLeaf() const;
