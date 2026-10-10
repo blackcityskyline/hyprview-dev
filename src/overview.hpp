@@ -252,11 +252,22 @@ private:
   std::vector<ForcedRegion> m_forcedRegions;
   void kickPulse(const PHLWINDOW &w);
   void beginSwapFX(const PHLWINDOW &w, const LRect &from,
-                   model::SwapStyle style, double ms,
-                   const std::string &curve);
+                   model::SwapStyle style, double ms, const std::string &curve,
+                   bool toStrip = false);
   void landAfterMove(const PHLWINDOW &w, const LRect &oldBox, double ms,
-                     const std::string &curve);
-  [[nodiscard]] bool swapfxActive(const PHLWINDOW &w) const;
+                     const std::string &curve, bool strip);
+  // Both surfaces of a swap: the dragged one from the cursor, the bystander from where
+  // it was. See the note on the definition.
+  void landAfterSwap(const PHLWINDOW &w, const LRect &fromGrid,
+                     const LRect &fromStrip, const LRect &drop, double ms,
+                     const std::string &curve, bool draggedOnStrip);
+  [[nodiscard]] bool hasStripThumb(const PHLWINDOW &w) const;
+  // Where a window's strip thumbnail sits right now, empty if it has none.
+  [[nodiscard]] LRect stripThumbRect(const PHLWINDOW &w) const;
+  // Is this window flying on THIS surface? The grid asks false, the strip true, and each
+  // one only stands down for its own flight -- a shared predicate made the strip's
+  // thumbnail disappear while the card flew.
+  [[nodiscard]] bool swapfxActive(const PHLWINDOW &w, bool strip) const;
   void renderSwapFX() const;
 
   // close_trigger == "doubleclick": the first click waits behind a timer, and that
@@ -360,8 +371,11 @@ private:
   bool dropOnStripCard(const PHLWINDOW &w, double lx, double ly, int skipItem);
   model::StripItem *homeStripCardFor(const PHLWINDOW &w);
   void swapOnWorkspace(const PHLWINDOW &w, const model::StripItem &it);
-  void swapTiles(int a, int b);
-  bool swapWindows(const PHLWINDOW &a, const PHLWINDOW &b);
+  // `fromA` is where the initiator ACTUALLY is -- under the cursor at release, not the
+  // card slot it was dragged out of. Empty means "use the card slot".
+  void swapTiles(int a, int b, const LRect &fromA = {});
+  bool swapWindows(const PHLWINDOW &a, const PHLWINDOW &b,
+                   const LRect &fromA = {}, bool draggedOnStrip = true);
   void drawPulseRing(const CBox &boxPx, int round, float roundPow,
                      const CHyprColor &col, double p) const;
   void addWorkspace();

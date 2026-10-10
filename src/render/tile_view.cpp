@@ -266,7 +266,7 @@ void Overview::renderTiles() const {
     if (static_cast<int>(i) == dragIdx)
       continue; // the dragged tile floats over the strip; drawn later
     const auto w = m_scene.tiles()[i].win.lock();
-    if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w))
+    if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w, false))
       continue; // flying via a landing: its slot is painted by renderSwapFX
     TileLook look;
     look.box = tileRect(i);

@@ -44,6 +44,55 @@ class Scene {
       m_tiles[i].natural = at;
       m_tiles[i].parked = true;
     }
+    // Two windows swapped places: exchange which tile carries which window.
+//
+// Not a reordering for its own sake -- a swap Hyprland cannot express is invisible.
+// switchTargets exchanges two layout TARGETS, but when both windows already sit at the
+// same geometry (one behind the other, both tiled full) there is nothing for it to
+// move: goal() returns the same box for both before and after, the rebuild produces
+// the same layout from the same inputs, and the cards change place with nothing
+// travelling between the places.
+//
+// The overlay lays cards out by INDEX, so trading the two TARGETS is what makes the
+// exchange visible. Each window keeps its own natural -- the box startTileGlide
+// captured for it by window identity, i.e. where it actually was -- and is handed the
+// other's card slot, so it flies from where it was to where the other one was.
+//
+// Trading the whole tiles instead would be a no-op here: natural == target for both
+// (the rebuild reproduced the same layout), so exchanging the pairs exchanges identical
+// boxes and nothing moves.
+//
+// When the geometry DOES differ the two agree: Hyprland moves the windows for real, and
+// the next rebuild puts each window where this swap already drew it.
+void swapTiles(size_t a, size_t b) {
+  if (a >= m_tiles.size() || b >= m_tiles.size() || a == b)
+    return;
+  std::swap(m_tiles[a].target, m_tiles[b].target);
+}
+    // Did the rebuild leave this tile with nowhere to go? natural == target means the
+    // layout handed the window back the box it already had, so the glide has no distance
+    // to cover. That is the signal that the layout could not tell two windows apart, and
+    // the caller has to express the exchange in the card slots itself.
+    // Point a tile's glide at a different source box -- where a window was actually
+    // released, as opposed to the card slot it was picked up from.
+    void setNatural(size_t i, const LRect &box) {
+      if (i < m_tiles.size())
+        m_tiles[i].natural = box;
+    }
+    [[nodiscard]] bool tileAtRest(size_t i) const {
+  if (i >= m_tiles.size())
+    return false;
+  const LRect &a = m_tiles[i].natural, &b = m_tiles[i].target;
+  return a.x == b.x && a.y == b.y && a.w == b.w && a.h == b.h;
+}
+    // Which card slot carries this window, or -1. A caller swapping two windows needs
+    // the index to say WHICH cards to exchange, not just that the windows swapped.
+    [[nodiscard]] int tileIndexOf(const void *win) const {
+  for (std::size_t i = 0; i < m_tiles.size(); ++i)
+    if (m_tiles[i].win.lock().get() == win)
+      return static_cast<int>(i);
+  return -1;
+}
     // A window swapped back to where it was: the old box becomes its destination
     // and the entry animation is cancelled with it.
     void pinNatural(const void *win, const LRect &box) {

@@ -415,18 +415,15 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             }
           }
           if (vj) {
-            const LRect vOld = stripWinSlotRect(sit,
-                stripCardAt(cardIdx),
-                [&]{ for (size_t j=0;j<sit.wins.size();++j) if(sit.wins[j].win.lock()==vj) return (int)j; return 0; }());
-            if (swapWindows(w, vj)) {
-              landAfterMove(w, m_lastDragBox, anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve);
-              landAfterMove(vj, vOld, anim::cfg(anim::Id::SwapPartner).ms, anim::cfg(anim::Id::SwapPartner).curve);
-              kickPulse(w); kickPulse(vj);
-            } else damage();
+            if (swapWindows(w, vj, m_lastDragBox, true))
+              kickPulse(w), kickPulse(vj);
+            else damage();
           } else {
             swapOnWorkspace(w, m_strip[cardIdx]); // no slot hit → last-focused fallback
             kickPulse(w);
-            landAfterMove(w, m_lastDragBox, anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve);
+            landAfterSwap(w, m_lastDragBox, m_lastDragBox, m_lastDragBox,
+                          anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve,
+                          true);
           }
           return true;
         }
@@ -434,7 +431,9 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         // "+" (dropOnWorkspace already handles Kind::Plus) and moves the window in.
         if (dropOnStripCard(w, lx, ly, -1)) {
           kickPulse(w);
-          landAfterMove(w, m_lastDragBox, anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve);
+          landAfterSwap(w, m_lastDragBox, m_lastDragBox, m_lastDragBox,
+                        anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve,
+                        true);
           return true;
         }
         // A drop that resolved to nothing still flies back: fall through to the checks below.
@@ -479,7 +478,9 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             std::max(0.0, cfg::grid.gap / 2.0);
         if (best >= 0 && bestDist2 <= tol * tol) {
           debug::dbg("[REL] branch=Tile->gridSwap");
-          swapTiles(press, best);
+          // The release point, not the slot it was picked up from: the card has to land
+          // from under the cursor.
+          swapTiles(press, best, m_lastDragBox);
           return true;
         }
       }
@@ -571,13 +572,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
                 v->m_workspace == w->m_workspace;
             if (!rmb && !sameWs)
               break;
-            const LRect vOld = stripWinSlotRect(it, stripCardAt(i), j);
-            if (swapWindows(w, v)) {
+            if (swapWindows(w, v, fromBox, true)) {
               debug::dbg("[REL] branch=StripWin->slotSwap");
-              landAfterMove(w, fromBox, anim::cfg(anim::Id::SwapMain).ms,
-                            anim::cfg(anim::Id::SwapMain).curve); // the initiator
-              landAfterMove(v, vOld, anim::cfg(anim::Id::SwapPartner).ms,
-                            anim::cfg(anim::Id::SwapPartner).curve); // the partner
               kickPulse(w);
               kickPulse(v);
               return true;
@@ -592,7 +588,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         if (dropOnStripCard(w, lx, ly, stripItem)) {
           debug::dbg("[REL] branch=StripWin->dropOnStripCard");
           kickPulse(w);
-          landAfterMove(w, fromBox, anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve);
+          landAfterSwap(w, fromBox, fromBox, fromBox, anim::cfg(anim::Id::Drop).ms,
+                        anim::cfg(anim::Id::Drop).curve, true);
           return true;
         }
         const int homeIdx = stripItemAt(lx, ly);
@@ -641,11 +638,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             const double tol = std::max(0.0, cfg::grid.gap / 2.0 + 8.0);
             if (best >= 0 && bestDist2 <= tol * tol) {
               const auto vj = m_scene.tiles()[best].win.lock();
-              const LRect vOld = currentBox(m_scene.tiles()[best], best);
-              if (vj && swapWindows(w, vj)) {
+              if (vj && swapWindows(w, vj, fromBox, true)) {
                 debug::dbg("[REL] branch=StripWin->gridTileSwap");
-                landAfterMove(w,  fromBox, anim::cfg(anim::Id::SwapMain).ms,    anim::cfg(anim::Id::SwapMain).curve);
-                landAfterMove(vj, vOld,   anim::cfg(anim::Id::SwapPartner).ms, anim::cfg(anim::Id::SwapPartner).curve);
                 kickPulse(w); kickPulse(vj);
                 return true;
               }
@@ -656,7 +650,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
                 swapOnWorkspace(w, it);
                 debug::dbg("[REL] branch=StripWin->swapOnWorkspace(fallback)");
                 kickPulse(w);
-                landAfterMove(w, fromBox, anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve);
+                landAfterSwap(w, fromBox, fromBox, fromBox, anim::cfg(anim::Id::Drop).ms,
+                              anim::cfg(anim::Id::Drop).curve, true);
                 return true;
               }
             }
@@ -667,7 +662,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
                 dropOnWorkspace(w, it);
                 debug::dbg("[REL] branch=StripWin->dropOnWorkspace");
                 kickPulse(w);
-                landAfterMove(w, fromBox, anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve);
+                landAfterSwap(w, fromBox, fromBox, fromBox, anim::cfg(anim::Id::Drop).ms,
+                              anim::cfg(anim::Id::Drop).curve, true);
                 return true;
               }
             }

@@ -16,7 +16,6 @@
 #include "../config/config.hpp"
 #include "../overview.hpp"
 #include "../clock/curves.hpp"
-#include "../debug/log.hpp"
 #include "window_content.hpp"
 
 using Render::GL::g_pHyprOpenGL;
@@ -289,28 +288,31 @@ void Overview::renderSwapFX() const {
     const auto w = fx.win.lock();
     if (!w || !w->m_isMapped || w->isHidden())
       continue;
-    LRect to;
-    bool found = false;
-    for (size_t i = 0; i < m_scene.tiles().size() && !found; ++i)
-      if (m_scene.tiles()[i].win.lock() == w) {
-        to = tileRect(i);
-        found = true;
+    // The surface this flight belongs to, not every place the window is drawn. The
+    // all-workspaces view shows it twice at once, and the two are not the same gesture:
+    // the one the user dragged leaves the cursor, the other slides from where it already
+    // was. Both flights exist, tagged, and each painter stands down only for its own.
+    std::vector<LRect> dests;
+    if (!fx.toStrip) {
+      for (size_t i = 0; i < m_scene.tiles().size(); ++i)
+        if (m_scene.tiles()[i].win.lock() == w)
+          dests.push_back(tileRect(i));
+    } else {
+      for (size_t i = 0; i < m_strip.size(); ++i) {
+        const auto &it = m_strip[i];
+        if (it.kind != model::StripItem::Kind::Ws)
+          continue;
+        for (size_t j = 0; j < it.wins.size(); ++j)
+          if (it.wins[j].win.lock() == w)
+            dests.push_back(stripWinSlotRect(it, stripCardAt(i), j));
       }
-    for (size_t i = 0; i < m_strip.size() && !found; ++i) {
-      const auto &it = m_strip[i];
-      if (it.kind != model::StripItem::Kind::Ws)
-        continue;
-      for (size_t j = 0; j < it.wins.size() && !found; ++j)
-        if (it.wins[j].win.lock() == w) {
-          to = stripWinSlotRect(it, stripCardAt(i), j);
-          found = true;
-        }
     }
-    if (!found)
+    if (dests.empty())
       continue;
 
     const double t   = fx.clock.raw(fx.ms);
     const double p   = curves::eval(fx.curve, t);
+    for (const LRect &to : dests) {
     double bx = 0, by = 0, bw = 0, bh = 0;
     float alpha = 1.0F;
     bool ring = false;
@@ -374,6 +376,7 @@ void Overview::renderSwapFX() const {
     renderWindowLive(w, m, px, px, alpha, when,
                      contentRadiusPx(round, cfg::look.border_size, roundPow, s),
                      roundPow, true);
+    }
   }
 }
 

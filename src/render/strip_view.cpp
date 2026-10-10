@@ -274,7 +274,7 @@ void Overview::renderStripWindows() const {
       const auto w = it.wins[j].win.lock();
       if (!w || !w->m_isMapped || w->isHidden())
         continue;
-      if (swapfxActive(w))
+      if (swapfxActive(w, true))
         continue;
       const LRect slot = stripWinSlotRect(it, card, j);
       // A slot smaller than a pixel cannot carry content, and renderWindowLive drops
