@@ -18,6 +18,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
+#include <cctype>
 
 #include "../src/anim_types.hpp"
 
@@ -198,6 +200,85 @@ int main(int argc, char **argv) {
   assert(animSrc.find("std::string gridSwapStyle()") != std::string::npos);
   assert(animSrc.find("std::string stripSwapStyle()") != std::string::npos);
   std::puts("grid_swap_style / strip_swap_style read through their accessors");
+
+  // --- the Id enum and kRows cannot drift ----------------------------------------------
+  // cfg(Id) is cfg(kRows[(size_t)id].name), and kRows is std::array<Row, Id::Count>, so
+  // a missing row would not compile and the enum path cannot silently name nothing.
+  // Worth pinning anyway: the ORDER is the link, and an enum member reordered against
+  // the table would compile and make every Id resolve to another animation's config.
+  // grid_swap_style's bug was the string path; this is what keeps the enum path honest.
+  {
+    const auto animHdr = slurp((root + "/src/anim.hpp").c_str());
+    const auto animSrc = slurp((root + "/src/anim.cpp").c_str());
+
+    // Id members, minus the sentinel: `Count` is the array size, not a row.
+    std::vector<std::string> ids;
+    {
+      // From the brace that OPENS the body: "enum class Id : uint8_t {" has one
+      // already, and taking the text after the header keeps `std::uint8_t` out.
+      const auto decl = animHdr.find("enum class Id");
+      const auto e0 = animHdr.find('{', decl);
+      const auto e1 = animHdr.find("};", e0);
+      assert(e0 != std::string::npos && e1 != std::string::npos &&
+             "enum class Id not found");
+      const auto body = animHdr.substr(e0 + 1, e1 - e0 - 1);
+      std::string cur;
+      for (const char c : body) {
+        if (c == ',') {
+          if (!cur.empty())
+            ids.push_back(cur);
+          cur.clear();
+        } else if (!std::isspace(static_cast<unsigned char>(c))) {
+          cur.push_back(c);
+        }
+      }
+      if (!cur.empty())
+        ids.push_back(cur);
+      const auto at = std::find(ids.begin(), ids.end(), "Count");
+      assert(at != ids.end() && "Id::Count sentinel not found");
+      ids.erase(at);
+    }
+
+    // kRows, scoped to its initialiser so a Row literal elsewhere cannot leak in.
+    std::vector<std::string> rows;
+    {
+      const auto t0 = animSrc.find("std::array<Row");
+      const auto t1 = animSrc.find("= {{", t0);
+      const auto t2 = animSrc.find("}};", t1);
+      const auto body = animSrc.substr(t1, t2 - t1);
+      for (std::size_t p = body.find("{\""); p != std::string::npos;
+           p = body.find("{\"", p + 2)) {
+        const auto q = body.find('"', p + 2);
+        if (q != std::string::npos)
+          rows.push_back(body.substr(p + 2, q - (p + 2)));
+      }
+    }
+
+    if (ids.size() != rows.size()) {
+      std::printf("FAIL %zu ids vs %zu rows in kRows\n", ids.size(), rows.size());
+      std::exit(1);
+    }
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+      // The naming convention: Id::SwapMain <-> "swap_main", Id::StripStep <->
+      // "strip_step". Lowercase with an underscore before every capital that is not
+      // first. cfg(Id) is cfg(kRows[id].name), so getting this wrong would compile and
+      // silently give an Id another animation's duration -- which is the same class of
+      // quiet failure as grid_swap_style.
+      std::string want;
+      for (std::size_t k = 0; k < ids[i].size(); ++k) {
+        const char c = ids[i][k];
+        if (k && std::isupper(static_cast<unsigned char>(c)))
+          want.push_back('_');
+        want.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+      }
+      if (want != rows[i]) {
+        std::printf("FAIL Id::%s -> \"%s\", expected \"%s\"\n", ids[i].c_str(),
+                    rows[i].c_str(), want.c_str());
+        std::exit(1);
+      }
+    }
+    std::printf("%zu ids match kRows by name and order\n", ids.size());
+  }
 
   std::puts("OK");
   return 0;
