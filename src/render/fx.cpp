@@ -145,6 +145,37 @@ void Overview::renderDragWindow() const {
 
 // Brightness tracks how close the CURSOR is (m_killGlow, a smoothstepped
 // distance), so it guides the drop rather than switching on once you are on it.
+// Where the kill zone sits: a full-width band at the screen edge OPPOSITE the strip,
+// so the strip and the zone are never in the same place. Empty when disabled -- an
+// empty rect contains nothing and never closes a window.
+//
+// This is geometry, not lifecycle, so it lives here beside the one thing that draws it
+// rather than in session.cpp next to open()/close().
+LRect Overview::killZoneRect() const {
+  const auto m = m_monitor.lock();
+  if (!m)
+    return {};
+  if (cfg::behavior.kill_zone == 0)
+    return {};
+  const double kH = cfg::behavior.kill_zone_size;
+  const bool atTop = stripAnchor() == Anchor::Bottom;
+  return LRect{0.0, atTop ? 0.0 : m->m_size.y - kH, m->m_size.x, kH};
+}
+
+// Full brightness inside the zone, nothing by kill_zone_falloff px away,
+// smoothstepped between. A distance, not a bool: a zone blank until the cursor
+// crosses it says nothing while the user is still aiming it.
+double Overview::killZoneGlow(double lx, double ly) const {
+  const LRect z = killZoneRect();
+  if (z.w < 1.0 || z.h < 1.0)
+    return 0.0;
+  const double dx = std::max({z.x - lx, 0.0, lx - (z.x + z.w)});
+  const double dy = std::max({z.y - ly, 0.0, ly - (z.y + z.h)});
+  const double d  = std::sqrt(dx * dx + dy * dy);
+  const double t  = std::clamp(1.0 - d / cfg::behavior.kill_zone_falloff, 0.0, 1.0);
+  return t * t * (3.0 - 2.0 * t);
+}
+
 // One ramp whose alpha reaches ZERO at the far end: stacked rounded rectangles
 // have edges of their own and read as geometry, not light.
 void Overview::renderKillZone() const {

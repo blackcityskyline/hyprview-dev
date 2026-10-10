@@ -314,31 +314,6 @@ std::string Overview::cursorMode() const {
     return cfg::behavior.cursor_mode.get();
 }
 
-LRect Overview::killZoneRect() const {
-  const auto m = m_monitor.lock();
-  if (!m)
-    return {};
-  if (cfg::behavior.kill_zone == 0)
-    return {}; // disabled: an empty rect contains nothing and never closes a window
-  const double kH = cfg::behavior.kill_zone_size;
-  const bool atTop = stripAnchor() == Anchor::Bottom;
-  return LRect{0.0, atTop ? 0.0 : m->m_size.y - kH, m->m_size.x, kH};
-}
-
-// Full brightness inside the zone, nothing by kill_zone_falloff px away,
-// smoothstepped between. A distance, not a bool: a zone blank until the cursor
-// crosses it says nothing while the user is still aiming it.
-double Overview::killZoneGlow(double lx, double ly) const {
-  const LRect z = killZoneRect();
-  if (z.w < 1.0 || z.h < 1.0)
-    return 0.0;
-  const double dx = std::max({z.x - lx, 0.0, lx - (z.x + z.w)});
-  const double dy = std::max({z.y - ly, 0.0, ly - (z.y + z.h)});
-  const double d  = std::sqrt(dx * dx + dy * dy);
-  const double t  = std::clamp(1.0 - d / cfg::behavior.kill_zone_falloff, 0.0, 1.0);
-  return t * t * (3.0 - 2.0 * t);
-}
-
 Overview::Anchor Overview::stripAnchor() const {
   std::string a = cfg::strip.anchor.get();
   if (a.empty()) // back-compat knob
