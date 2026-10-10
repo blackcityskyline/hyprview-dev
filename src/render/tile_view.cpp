@@ -110,6 +110,12 @@ LRect Overview::tileBox(size_t i, const LRect &slot) const {
   return fitInside(slot, aspect);
 }
 
+LRect Overview::tileRect(size_t i) const {
+  if (i >= m_scene.tiles().size())
+    return {};
+  return tileBox(i, currentBox(m_scene.tiles()[i], static_cast<int>(i)));
+}
+
 // THE tile: shadow, ring, focus ring, frost, content, pill, ✕ — each under the
 // next. A layout contributes a box and flags only.
 void Overview::drawTile(size_t i, const TileLook &look) const {
@@ -161,7 +167,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
 
   // Transition frost: the cached blur at CONSTANT alpha (fading it leaks
   // C*e*(1-e) of the sharp desktop) plus the dim rect at the GLOBAL alpha e.
-  const double apNow = t.appear < 1.0 ? tileAppear(static_cast<int>(i)) : 1.0;
+  const double apNow = tileAppearNow(t, static_cast<int>(i));
   if (m_opening && (e < 0.999 || apNow < 0.999)) {
     if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
       const double pxW = static_cast<double>(m->m_pixelSize.x);
@@ -260,10 +266,10 @@ void Overview::renderTiles() const {
     if (static_cast<int>(i) == dragIdx)
       continue; // the dragged tile floats over the strip; drawn later
     const auto w = m_scene.tiles()[i].win.lock();
-    if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w))
+    if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w, false))
       continue; // flying via a landing: its slot is painted by renderSwapFX
     TileLook look;
-    look.box = tileBox(i, currentBox(m_scene.tiles()[i], static_cast<int>(i)));
+    look.box = tileRect(i);
     look.button = wantButtons;
     drawTile(i, look);
   }

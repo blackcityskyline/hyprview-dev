@@ -19,7 +19,6 @@
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/state/WorkspaceState.hpp>
-#include <hyprutils/utils/ScopeGuard.hpp>
 
 using Render::GL::g_pHyprOpenGL;
 
@@ -37,7 +36,8 @@ model::StripItem *Overview::homeStripCardFor(const PHLWINDOW &w) {
 bool Overview::dropOnStripCard(const PHLWINDOW &w, double lx, double ly,
                                int skipItem) {
   const int idx = stripItemAt(lx, ly);
-  {
+  // One to_string per card, built on every drop even with logs off.
+  if (debug::enabled()) {
     std::string s = "[DROP] at=" + std::to_string(static_cast<int>(lx)) + "," +
                     std::to_string(static_cast<int>(ly)) +
                     " idx=" + std::to_string(idx) +
@@ -160,7 +160,8 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
 
 // Rebuild is load-bearing: without it the tile slot desyncs from the
 // window's real goal().
-bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb) {
+bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
+                           const LRect &fromA, bool draggedOnStrip) {
   if (!wa || !wb || wa == wb ||
       Fullscreen::controller()->isFullscreen(wa) ||
       Fullscreen::controller()->isFullscreen(wb))
@@ -171,15 +172,43 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb) {
     return false;
 
   auto oldBoxes = captureCurrentBoxes();
+  // Captured before the rebuild, which replaces the strip: this is where the thumbnail
+  // was, and it is the origin of the slide the bystander surface plays.
+  const LRect thumbA = stripThumbRect(wa), thumbB = stripThumbRect(wb);
   g_layoutManager->switchTargets(ta, tb);
   replayReflow(oldBoxes);
-  for (const auto &[win, box] : oldBoxes)
-    if (win == wa)
-      landAfterMove(win, box, anim::cfg(anim::Id::SwapMain).ms,
-                    anim::cfg(anim::Id::SwapMain).curve); // the initiator
-    else if (win == wb)
-      landAfterMove(win, box, anim::cfg(anim::Id::SwapPartner).ms,
-                    anim::cfg(anim::Id::SwapPartner).curve); // the partner
+  // The overlay's own exchange, and ONLY when the rebuild left nothing to animate.
+  //
+  // switchTargets moves the REAL windows, but only when it can: two windows already at
+  // the same geometry (one behind the other, both tiled full) leave goal() unchanged,
+  // the rebuild hands each one back the box it had, and the glide has no distance to
+  // cover. Then the layout cannot tell them apart and the exchange has to be expressed
+  // in the card slots, which is what the user is looking at.
+  //
+  // Guarded on tileAtRest because when the rebuild DID move them, startTileGlide has
+  // already armed the exchange -- natural is the captured old box, target is the new
+  // one -- and trading the slots again would land each window back on its own box and
+  // cancel the flight. That is what made the FIRST swap animate and every one after it
+  // stand still.
+  const int ia = m_scene.tileIndexOf(wa.get());
+  const int ib = m_scene.tileIndexOf(wb.get());
+  if (m_scene.tileAtRest(ia) && m_scene.tileAtRest(ib))
+    m_scene.swapTiles(ia, ib);
+
+  // The initiator flies from where it was RELEASED, which is under the cursor and not
+  // the card slot it was picked up from -- that gap is the whole drag. Applied AFTER the
+  // exchange decision, which reads natural == target and would see this as "the rebuild
+  // moved it" and skip the swap.
+  const bool dropped = fromA.w > 0.0 && fromA.h > 0.0;
+  if (dropped)
+    m_scene.setNatural(ia, fromA);
+
+  for (const auto &[win, box] : oldBoxes) {
+    const bool isA = win == wa;
+    const auto leaf = isA ? anim::Id::SwapMain : anim::Id::SwapPartner;
+    landAfterSwap(win, box, isA ? thumbA : thumbB, isA && dropped ? fromA : LRect{},
+                  anim::cfg(leaf).ms, anim::cfg(leaf).curve, draggedOnStrip);
+  }
   kickPulse(wa);
   kickPulse(wb);
   damage();
@@ -187,13 +216,14 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb) {
   return true;
 }
 
-void Overview::swapTiles(int a, int b) {
+void Overview::swapTiles(int a, int b, const LRect &fromA) {
   if (a < 0 || b < 0 || a == b || a >= static_cast<int>(m_scene.tiles().size()) ||
       b >= static_cast<int>(m_scene.tiles().size())) {
     damage();
     return;
   }
-  if (!swapWindows(m_scene.tiles()[a].win.lock(), m_scene.tiles()[b].win.lock()))
+  if (!swapWindows(m_scene.tiles()[a].win.lock(), m_scene.tiles()[b].win.lock(),
+                   fromA, false)) // dragged on the grid
     damage();
 }
 
@@ -201,57 +231,98 @@ void Overview::swapTiles(int a, int b) {
 
 void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
                            model::SwapStyle style, double ms,
-                           const std::string &curve) {
+                           const std::string &curve, bool toStrip) {
   if (!w || !w->m_isMapped || w->isHidden())
     return;
-  m_fx.dropSwap([&w](const model::SwapFX &f) { return f.win.lock() == w; });
+  // Same surface only: a window in the all-workspaces view has two live flights at once,
+  // and dropping by window alone meant the second one cancelled the first.
+  m_fx.dropSwap([&w, toStrip](const model::SwapFX &f) {
+    return f.win.lock() == w && f.toStrip == toStrip;
+  });
   model::SwapFX fx;
-  fx.win   = w;
-  fx.from  = from;
-  fx.style = style;
-  fx.ms    = ms;
-  fx.curve = curve;
+  fx.win     = w;
+  fx.from    = from;
+  fx.toStrip = toStrip;
+  fx.style   = style;
+  fx.ms      = ms;
+  fx.curve   = curve;
   fx.clock.begin();
   m_fx.addSwap(std::move(fx));
   ensureAnimPump();
   damage();
 }
 
-bool Overview::swapfxActive(const PHLWINDOW &w) const {
+bool Overview::swapfxActive(const PHLWINDOW &w, bool strip) const {
   for (const auto &l : m_fx.swapfx())
-    if (l.win.lock() == w)
+    if (l.win.lock() == w && l.toStrip == strip)
       return true;
   return false;
 }
 
+// One surface's landing. `strip` says which one, and it picks the style key: a grid card
+// and a strip thumbnail are different gestures with their own config.
 void Overview::landAfterMove(const PHLWINDOW &w, const LRect &oldBox,
-                             double ms, const std::string &curve) {
+                             double ms, const std::string &curve, bool strip) {
   if (!w)
     return;
-  bool strip = false;
+  // Every style flies, grid included. This used to branch on
+  // gridSwapStyle() != Horizontal and fall through to pinNatural() otherwise, which
+  // made the DEFAULT style the one that showed no motion of its own: the user saw the
+  // pulse and two cards changing place with nothing travelling between the places.
+  //
+  // pinNatural() runs for the tile only -- it points the glide source back at where the
+  // window was, so the landing is continuous. A thumbnail has no glide to point.
+  if (!strip)
+    m_scene.pinNatural(w.get(), oldBox);
+  beginSwapFX(w, oldBox,
+              parseSwapStyle(strip ? anim::stripSwapStyle()
+                                   : anim::gridSwapStyle()),
+              ms, curve, strip);
+}
+
+// Both surfaces, from their own origins.
+//
+// The one the user DRAGGED leaves the cursor -- that is the whole gesture, and it is the
+// only one that may displace. The other is a bystander: it slides from where it already
+// was to where the exchange put it. Running both from the cursor made the strip's
+// thumbnail fly in from the middle of the screen, which read as a second window rather
+// than as this one moving.
+void Overview::landAfterSwap(const PHLWINDOW &w, const LRect &fromGrid,
+                             const LRect &fromStrip, const LRect &drop, double ms,
+                             const std::string &curve, bool draggedOnStrip) {
+  const bool dragging = drop.w > 0.0 && drop.h > 0.0;
+  // Each surface starts from where IT was. Only the surface the user let go of starts
+  // from the cursor: the other one is a bystander sliding from its own old place.
+  //
+  // Handing the bystander the dragged surface's origin instead is what made a strip drag
+  // launch the GRID card from the thumbnail's spot at the bottom of the screen -- it read
+  // as the cards flying in from off-screen rather than trading places.
+  landAfterMove(w, dragging && !draggedOnStrip ? drop : fromGrid, ms, curve, false);
+  if (hasStripThumb(w))
+    landAfterMove(w, dragging && draggedOnStrip ? drop : fromStrip, ms, curve, true);
+}
+
+LRect Overview::stripThumbRect(const PHLWINDOW &w) const {
+  for (size_t i = 0; i < m_strip.size(); ++i) {
+    const auto &it = m_strip[i];
+    if (it.kind != model::StripItem::Kind::Ws)
+      continue;
+    for (size_t j = 0; j < it.wins.size(); ++j)
+      if (it.wins[j].win.lock() == w)
+        return stripWinSlotRect(it, stripCardAt(i), j);
+  }
+  return {};
+}
+
+bool Overview::hasStripThumb(const PHLWINDOW &w) const {
   for (const auto &it : m_strip) {
     if (it.kind != model::StripItem::Kind::Ws)
       continue;
     for (const auto &sw : it.wins)
       if (sw.win.lock() == w)
-        strip = true;
+        return true;
   }
-  if (strip) { // strip thumbs have no glide machinery — always an FX flight
-    beginSwapFX(w, oldBox, parseSwapStyle(anim::style("strip_swap")), ms, curve);
-    return;
-  }
-  if (parseSwapStyle(anim::style("grid_swap")) !=
-    model::SwapStyle::Horizontal) {
-    beginSwapFX(w, oldBox, parseSwapStyle(anim::style("grid_swap")),
-                ms, curve);
-    return;
-  }
-  for (auto &t : m_scene.edit())
-    if (t.win.lock() == w) {
-      t.natural = oldBox;
-      t.appear = 1.0;
-      break;
-    }
+  return false;
 }
 
 void Overview::swapOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
@@ -309,11 +380,13 @@ void Overview::swapOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
   }
 
   replayReflow(oldBoxes);
-  landAfterMove(w, m_lastDragBox, anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve);
+  landAfterSwap(w, m_lastDragBox, m_lastDragBox, m_lastDragBox,
+                anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve,
+                true); // dragged on the strip
   for (const auto &[win, box] : oldBoxes)
     if (win == partner)
-      landAfterMove(partner, box, anim::cfg(anim::Id::SwapPartner).ms,
-                    anim::cfg(anim::Id::SwapPartner).curve);
+      landAfterSwap(partner, box, box, {}, anim::cfg(anim::Id::SwapPartner).ms,
+                    anim::cfg(anim::Id::SwapPartner).curve, true);
   damage();
 }
 
@@ -387,8 +460,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     m_view.setWsSlideDir( 0);
     m_view.setJumpMode( true);
     m_fx.clearGhosts();
-    for (auto &t : m_scene.edit())
-      t.appear = 1.0;
+    m_scene.settleAppear();
     m_clocks.rebuild.pinEnd(std::max(m_entry.ms, m_ghost.ms));
     m_clocks.tiles.pinEnd(glideDur());
     m_progress = 1.0;
@@ -398,8 +470,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     damage();
     return;
   }
-  for (auto &t : m_scene.edit())
-    t.appear = 0.0;
+  m_scene.armAppear();
   m_fx.clearGhosts();
   // Whether every window of the old workspace is still in the tile set. Declared true
   // and never assigned, so the "identical set" branch below always ran and called

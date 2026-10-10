@@ -21,8 +21,6 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 BUDGET = 0.08
 
-strip = None  # cscan owns the scanner; nothing here needs the stripped form
-
 
 def all_lines():
     yield from sorted(SRC.rglob("*.cpp"))
@@ -89,15 +87,6 @@ def main():
         f"within the 8% budget, {int(BUDGET * total_lines) - tc} lines of slack"
     )
     return 0
-
-
-def over_files():
-    """Files individually above 8% — the tail to squeeze if the total is tight."""
-    for f in all_lines():
-        com, code = count_lines(f.read_text())
-        total = com + code
-        if total and com / total > BUDGET:
-            print(f"{com / total * 100:5.1f}%  {f}")
 
 
 if __name__ == "__main__":

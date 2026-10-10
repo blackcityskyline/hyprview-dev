@@ -23,7 +23,6 @@ extern "C" {
 #include "config/config.hpp"
 #include "overview.hpp"
 
-inline HANDLE                             g_handle = nullptr;
 inline std::unique_ptr<gloview::Overview> g_overviewOwned;
 
 namespace {
@@ -71,8 +70,6 @@ APICALL EXPORT std::string PLUGIN_API_VERSION() {
 }
 
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
-    g_handle = handle;
-
     // build stamp first: grep the log to confirm a hot-reload loaded the new binary
     gloview::debug::dbg("[gloview] PLUGIN_INIT build=" __DATE__ " " __TIME__);
 

@@ -56,7 +56,8 @@ static std::array<Row, static_cast<std::size_t>(Id::Count)> kRows = {{
 }};
 
 static cfg::Int g_globallyEnabled;
-static const std::string s_grid = "horizontal", s_strip = "horizontal", s_jump = "instant";
+static const std::string s_jump = "instant";
+static const std::string s_gridSwap = "horizontal", s_stripSwap = "horizontal";
 static cfg::Str g_gridSwapStyle, g_stripSwapStyle, g_jumpStyle;
 
 // Shape parameters, in the same order as anim::Param.
@@ -78,8 +79,6 @@ const Rule *ruleFor(const char *n) {
   return it == g_rules.end() ? nullptr : &it->second;
 }
 } // namespace
-
-const char *name(Id id) { return kRows[static_cast<std::size_t>(id)].name; }
 
 Cfg cfg(Id id) { return cfg(kRows[static_cast<std::size_t>(id)].name); }
 
@@ -127,6 +126,14 @@ double param(Param p) {
 // are gone rather than fixed.
 std::string jumpStyle() { return g_jumpStyle.v ? g_jumpStyle.get() : s_jump; }
 
+std::string gridSwapStyle() {
+  return g_gridSwapStyle.v ? g_gridSwapStyle.get() : s_gridSwap;
+}
+
+std::string stripSwapStyle() {
+  return g_stripSwapStyle.v ? g_stripSwapStyle.get() : s_stripSwap;
+}
+
 void registerAll(HANDLE handle) {
   // deque: the keys must outlive registration (CIntValue keeps them as const char*).
   static std::deque<std::string> keys;
@@ -140,17 +147,16 @@ void registerAll(HANDLE handle) {
   g_globallyEnabled.def = 1;
   HyprlandAPI::addConfigValueV2(handle, g_globallyEnabled.v);
 
-  const auto plain = [&](const char *stem, const char *def) {
-    auto &h = (std::strcmp(stem, "grid_swap_style") == 0)   ? g_gridSwapStyle
-             : (std::strcmp(stem, "strip_swap_style") == 0) ? g_stripSwapStyle
-                                                            : g_jumpStyle;
+  const auto plain = [&](cfg::Str &h, const char *stem, const char *def) {
     h.v = makeShared<Config::Values::CStringValue>(key("", stem), "", def);
     h.def = def;
     HyprlandAPI::addConfigValueV2(handle, h.v);
   };
-  plain("grid_swap_style", "horizontal");
-  plain("strip_swap_style", "horizontal");
-  plain("jump_style", "instant");
+  // Read by gridSwapStyle()/stripSwapStyle(), not by style(): style() resolves a
+  // name against kRows and neither of these is a row. See anim.hpp.
+  plain(g_gridSwapStyle, "grid_swap_style", "horizontal");
+  plain(g_stripSwapStyle, "strip_swap_style", "horizontal");
+  plain(g_jumpStyle, "jump_style", "instant");
 
   for (std::size_t i = 0; i < static_cast<std::size_t>(Param::Count); ++i) {
     g_params[i].v = makeShared<Config::Values::CFloatValue>(

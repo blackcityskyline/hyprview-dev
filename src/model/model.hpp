@@ -17,7 +17,6 @@ struct Tile {
   LRect target;
   bool parked = false;
   std::string labelText;
-  void *labelKey = nullptr; // cache key for the caption; null = nothing to fit
   double appear = 1.0;  // 0 = new; ghosts reverse it
   SP<Render::ITexture> label;
 };
@@ -38,11 +37,6 @@ struct StripItem {
   LRect card;
   std::vector<StripWin> wins;
   SP<Render::ITexture> label;
-};
-
-struct LabelTex {
-  std::string text;
-  SP<Render::ITexture> tex;
 };
 
 struct Ghost {
@@ -89,6 +83,11 @@ enum class SwapStyle : int { Horizontal, SlideVert, Fade, Pop };
 struct SwapFX {
   PHLWINDOWREF win;
   LRect from;
+  // Which surface this flight belongs to. A window in the all-workspaces view is drawn
+  // twice at once -- a grid card and a strip thumbnail -- and one window can have TWO
+  // live flights, one per surface, because the two are not the same gesture: the one the
+  // user dragged leaves the cursor, the other slides from where it already was.
+  bool        toStrip = false;
   SwapStyle style = SwapStyle::Horizontal;
   double ms = 320;
   std::string curve = "easeinout";

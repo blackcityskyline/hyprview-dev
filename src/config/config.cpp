@@ -6,8 +6,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
-#include <deque>
-#include <optional>
 #include <unordered_map>
 
 #include <hyprland/src/plugins/PluginAPI.hpp>

@@ -38,7 +38,6 @@ class State {
     [[nodiscard]] bool jumpMode() const { return m_jumpMode; }
     void setJumpMode(bool on) { m_jumpMode = on; }
 
-    [[nodiscard]] double scale() const { return m_s; }
     [[nodiscard]] double ox() const { return m_ox; }
     [[nodiscard]] double oy() const { return m_oy; }
     void setTransform(double s, double ox, double oy) {
@@ -77,11 +76,6 @@ class State {
       m_carouselFor = selected;
       m_slot = std::move(slot);
     }
-    void clearRun() {
-      m_engine = Engine::Rows;
-      clearCards();
-    }
-    void invalidateRun() { m_carouselFor = -1; }
 
   private:
     bool m_desktop = false;

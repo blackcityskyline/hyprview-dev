@@ -5,7 +5,6 @@
 #include <hyprland/src/render/Texture.hpp>
 #include <hyprland/src/render/pass/PassElement.hpp>
 #include <hyprutils/math/Region.hpp>
-#include <hyprutils/utils/ScopeGuard.hpp>
 
 #include <GLES3/gl32.h>
 

@@ -108,6 +108,15 @@ double Overview::tileAppear(int i) const {
                 static_cast<int>(m_scene.tiles().size())));
 }
 
+// How far ALONG its entry a tile is right now. t.appear is the flag (0 = armed,
+// 1 = already on screen) and tileAppear(i) is the clock it is played against; a tile
+// that is not playing must not read the clock, or a stale rebuild clock would keep
+// shrinking cards that have already landed. Three readers asked this the same way
+// before it had a name.
+double Overview::tileAppearNow(const model::Tile &t, int i) const {
+  return t.appear < 1.0 ? tileAppear(i) : 1.0;
+}
+
 LRect Overview::currentBox(const model::Tile &t, int i) const {
   const std::string &curve = m_clocks.tileCurve.empty() ? m_glide.curve : m_clocks.tileCurve;
   const double e = curves::eval(curve, tileProgress(i));
@@ -130,7 +139,7 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
     const double cx = r.cx(), cy = r.cy();
     r = LRect{cx - r.w * k * 0.5, cy - r.h * k * 0.5, r.w * k, r.h * k};
   }
-  const double ap = t.appear < 1.0 ? tileAppear(i) : 1.0;
+  const double ap = tileAppearNow(t, i);
   if (ap >= 1.0)
     return r;
   if (m_view.wsSlideDir() != 0 && m_enterStyle != "pop") {
@@ -212,8 +221,7 @@ void Overview::updateAnimation() {
   if (m_clocks.rebuild.done(m_entry.ms) &&
       std::any_of(m_scene.tiles().begin(), m_scene.tiles().end(),
                   [](const model::Tile &t) { return t.appear < 1.0; }))
-    for (auto &t : m_scene.edit())
-      t.appear = 1.0;
+    m_scene.settleAppear();
 
   const auto pulse = anim::cfg(anim::Id::Pulse);
   m_fx.eachPulse([&](auto &p) {

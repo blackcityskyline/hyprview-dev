@@ -20,7 +20,6 @@
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/state/WorkspaceState.hpp>
-#include <hyprutils/utils/ScopeGuard.hpp>
 
 using Render::GL::g_pHyprOpenGL;
 
@@ -33,7 +32,7 @@ void Overview::buildTiles() {
     if (t.parked)
       if (const auto w = t.win.lock())
         priorTargets.emplace(w, std::pair{t.target, true});
-  m_scene.edit().clear();
+  m_scene.clear();
   const auto m = m_monitor.lock();
   const auto ws = m_workspace.lock();
   if (!m || !ws)
@@ -54,7 +53,7 @@ void Overview::buildTiles() {
     const auto s = w->sizeAnimation()->goal();
     t.natural = LRect{p.x - m->m_position.x, p.y - m->m_position.y,
                       std::max(1.0, s.x), std::max(1.0, s.y)};
-    m_scene.edit().push_back(t);
+    m_scene.add(std::move(t));
   }
 
   // NO makeEGLCurrent() here. buildTiles()/buildStrip() are reached from key handlers and
@@ -66,7 +65,8 @@ void Overview::buildTiles() {
   // pre-render is safe from renderStage and needs no context juggling here.
   if (g_pHyprOpenGL && g_pHyprRenderer) {
     const auto lblCol = cfg::colors.label.get();
-    for (auto &t : m_scene.edit()) {
+    for (size_t i = 0; i < m_scene.size(); ++i) {
+      auto &t = m_scene.tileAt(i);
       const auto w = t.win.lock();
       if (!w)
         continue;
@@ -75,7 +75,6 @@ void Overview::buildTiles() {
         text = w->m_class;
       if (text.size() > 80)
         text = text.substr(0, 79) + "…";
-      t.labelKey  = w.get();
       t.labelText = text;
       t.label = m_pixel.windowLabel(w, text, lblCol, 15);
     }
@@ -396,7 +395,8 @@ void Overview::layoutTiles() {
                                static_cast<double>(cfg.maxScale)});
     m_view.setTransform(s, usableX + (usableW - m->m_size.x * s) / 2.0,
                         usableY + (usableH - m->m_size.y * s) / 2.0);
-    for (auto &t : m_scene.edit()) {
+    for (size_t i = 0; i < m_scene.size(); ++i) {
+      auto &t = m_scene.tileAt(i);
       if (t.parked)
         continue;
       t.target = LRect{m_view.ox() + t.natural.x * s,
@@ -456,7 +456,7 @@ void Overview::layoutTiles() {
     for (int k = 0; k < n; ++k) {
       const auto i = slot[static_cast<std::size_t>(k)];
       const auto &c = m_view.carousel().cards[static_cast<std::size_t>(k)];
-      auto &t = m_scene.edit()[i];
+      auto &t = m_scene.tileAt(static_cast<size_t>(i));
       // Zero target = off-run: nothing paints it, and a zeroed box keeps the glide
       // from resizing the card on its way out.
       t.target = c.visible ? LRect{usable.x + m_view.carousel().originX + c.x,
@@ -486,8 +486,7 @@ void Overview::layoutTiles() {
 
   const auto out =
       computeLayout(nat, LRect{0, 0, m->m_size.x, m->m_size.y}, cfg);
-  for (size_t i = 0; i < m_scene.size(); ++i)
-    m_scene.edit()[i].target = out[i];
+  m_scene.setTargets(out);
 }
 
 // Survivors glide from their captured boxes; no chrome re-reveal.
@@ -509,7 +508,8 @@ void Overview::startTileGlide(
     const std::vector<std::pair<PHLWINDOW, LRect>> &oldBoxes) {
   bool newcomers = false;
   if (!oldBoxes.empty()) {
-    for (auto &t : m_scene.edit()) {
+    for (size_t i = 0; i < m_scene.size(); ++i) {
+      auto &t = m_scene.tileAt(i);
       t.natural = t.target;
       bool matched = false;
       for (const auto &[oldWin, oldBox] : oldBoxes)
@@ -525,14 +525,13 @@ void Overview::startTileGlide(
     m_fx.clearGhosts();
     for (const auto &[oldWin, oldBox] : oldBoxes) {
       bool kept = false;
-      for (auto &t : m_scene.edit())
+      for (const auto &t : m_scene.tiles())
         if (t.win.lock() == oldWin) { kept = true; break; }
       if (!kept)
         m_fx.addGhost(model::Ghost{oldWin, oldBox});
     }
   } else
-    for (auto &t : m_scene.edit())
-      t.appear = 1.0;
+    m_scene.settleAppear();
   m_clocks.tiles.begin();
   m_clocks.tileMs    = m_glide.ms;
   m_clocks.tileCurve = m_glide.curve; // snapshot: currentBox() must use THIS curve

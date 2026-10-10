@@ -85,19 +85,6 @@ inline CHyprColor argb(const CHyprColor &c, double alphaMul = 1.0) {
   return CHyprColor(c.r, c.g, c.b, c.a * std::clamp(alphaMul, 0.0, 1.0));
 }
 
-// not a tint
-inline void safetyBacking(const LRect &lb, double s, const CHyprColor &col,
-                          double alphaMul, int round, float roundPow) {
-  const LRect bb{lb.x + 1.0, lb.y + 1.0, std::max(0.0, lb.w - 2.0),
-                 std::max(0.0, lb.h - 2.0)};
-  // renderRect RASSERTs on non-positive boxes
-  if (bb.w < 0.5 || bb.h < 0.5)
-    return;
-  Render::GL::g_pHyprOpenGL->renderRect(pxb(bb, s), argb(col, alphaMul),
-                                        {.round = pxr(round, s),
-                                         .roundingPower = roundPow});
-}
-
 inline void dropShadow(const LRect &lb, double s, const CHyprColor &col,
                        double dy, double range, float alpha, int round,
                        float roundPow) {

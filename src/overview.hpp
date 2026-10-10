@@ -128,6 +128,15 @@ public:
     return (m_blur.fb && m_blur.fb->isAllocated()) ? m_blur.fb->getTexture()
                                                    : nullptr;
   }
+  // The composited (unblurred) backdrop, for anything that draws under the windows --
+  // strip cards fill the gaps their windows leave with it. Reads the composite's own
+  // state rather than reaching into its framebuffer: whether there IS a composite is
+  // backdrop.cpp's decision, not the caller's.
+  [[nodiscard]] SP<Render::ITexture> backdropSourceTexture() const;
+  // True when the blur cache must be recomputed. Separate from having a texture:
+  // a stale cache still holds the last blur, which is what the entry path falls back to.
+  [[nodiscard]] bool backdropBlurStale() const { return !m_blur.valid; }
+  [[nodiscard]] bool backdropDrawn() const { return m_backdropDrawn; }
   [[nodiscard]] SP<Render::ITexture> snapshot(const PHLWINDOW &w) const {
     return m_pixel.snapshot(w);
   }
@@ -208,6 +217,8 @@ private:
   // change while the overview is up (all-workspaces, digit jump).
   mutable bool m_landingEmpty = true;
   double tileAppear(int i) const; // staggered 0..1 for tile i
+  // The above, gated on the tile actually playing its entry (Tile::appear < 1).
+  double tileAppearNow(const model::Tile &t, int i) const;
   anim::Id entryLeaf() const;
   anim::Id ghostLeaf() const;
   anim::Id glideLeaf() const;
@@ -241,11 +252,22 @@ private:
   std::vector<ForcedRegion> m_forcedRegions;
   void kickPulse(const PHLWINDOW &w);
   void beginSwapFX(const PHLWINDOW &w, const LRect &from,
-                   model::SwapStyle style, double ms,
-                   const std::string &curve);
+                   model::SwapStyle style, double ms, const std::string &curve,
+                   bool toStrip = false);
   void landAfterMove(const PHLWINDOW &w, const LRect &oldBox, double ms,
-                     const std::string &curve);
-  [[nodiscard]] bool swapfxActive(const PHLWINDOW &w) const;
+                     const std::string &curve, bool strip);
+  // Both surfaces of a swap: the dragged one from the cursor, the bystander from where
+  // it was. See the note on the definition.
+  void landAfterSwap(const PHLWINDOW &w, const LRect &fromGrid,
+                     const LRect &fromStrip, const LRect &drop, double ms,
+                     const std::string &curve, bool draggedOnStrip);
+  [[nodiscard]] bool hasStripThumb(const PHLWINDOW &w) const;
+  // Where a window's strip thumbnail sits right now, empty if it has none.
+  [[nodiscard]] LRect stripThumbRect(const PHLWINDOW &w) const;
+  // Is this window flying on THIS surface? The grid asks false, the strip true, and each
+  // one only stands down for its own flight -- a shared predicate made the strip's
+  // thumbnail disappear while the card flew.
+  [[nodiscard]] bool swapfxActive(const PHLWINDOW &w, bool strip) const;
   void renderSwapFX() const;
 
   // close_trigger == "doubleclick": the first click waits behind a timer, and that
@@ -331,6 +353,9 @@ private:
   double newCardDur() const { return anim::cfg(anim::Id::NewCard).ms; }
   double tileProgress(int i) const;
   LRect currentBox(const model::Tile &t, int i) const;
+  // The drawn box of tile i: currentBox() letterboxed to the window's own aspect.
+  // Every consumer asking "where is tile i" wants this, not the pair spelled out.
+  LRect tileRect(size_t i) const;
   LRect dragBox() const;
   LRect dragStripBox() const;
   double dragLiftProgress() const;
@@ -346,8 +371,11 @@ private:
   bool dropOnStripCard(const PHLWINDOW &w, double lx, double ly, int skipItem);
   model::StripItem *homeStripCardFor(const PHLWINDOW &w);
   void swapOnWorkspace(const PHLWINDOW &w, const model::StripItem &it);
-  void swapTiles(int a, int b);
-  bool swapWindows(const PHLWINDOW &a, const PHLWINDOW &b);
+  // `fromA` is where the initiator ACTUALLY is -- under the cursor at release, not the
+  // card slot it was dragged out of. Empty means "use the card slot".
+  void swapTiles(int a, int b, const LRect &fromA = {});
+  bool swapWindows(const PHLWINDOW &a, const PHLWINDOW &b,
+                   const LRect &fromA = {}, bool draggedOnStrip = true);
   void drawPulseRing(const CBox &boxPx, int round, float roundPow,
                      const CHyprColor &col, double p) const;
   void addWorkspace();
@@ -390,7 +418,6 @@ private:
   void restoreFill();
   void stepAltTab(int dir);
   int tileOf(const PHLWINDOW &w) const;
-  void dbg(const std::string &msg) const;
   void damage() const;
 };
 

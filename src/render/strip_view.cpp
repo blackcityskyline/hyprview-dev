@@ -85,8 +85,7 @@ void Overview::renderStrip() const {
   // instability this removes.
   bandCol.a = std::clamp(cfg::strip.band_opacity.get() / 100.0, 0.0, 1.0) * bandE;
   const LRect bandR  = stripBand();
-  const Vector2D slide  = stripOffset(e);
-  const Vector2D scroll = stripScroll();
+  const Vector2D slide = stripOffset(e);
   safeRenderRect("band", pxb(CBox(bandR.x + slide.x, bandR.y + slide.y, bandR.w, bandR.h), s),
                  bandCol, {});
 
@@ -108,9 +107,7 @@ void Overview::renderStrip() const {
         m_drag.press == model::Drag::Press::StripWin &&
         static_cast<int>(i) == m_drag.idx;
     const bool hover = static_cast<int>(i) == m_scene.hoveredStrip();
-    LRect card = it.card;
-    card.x += slide.x + scroll.x;
-    card.y += slide.y + scroll.y;
+    LRect card = stripCardAt(i);
     if (m_newCardAnim && it.id == m_newCardId &&
         it.kind != model::StripItem::Kind::Plus && it.kind != model::StripItem::Kind::All) {
       const double f = newCardScale();
@@ -166,9 +163,7 @@ void Overview::renderStrip() const {
       // covers about 2% of the card, which read as "no wallpaper at all". The window
       // paints over it, so this only fills what the windows leave bare.
       if (cfg::strip.wallpaper != 0) {
-        SP<Render::ITexture> tex;
-        if (m_backdropSrcFB && m_backdropSrcFB->isAllocated())
-          tex = m_backdropSrcFB->getTexture();
+        SP<Render::ITexture> tex = backdropSourceTexture();
         if (tex && tex->ok()) {
           const double texW = std::max(1.0, static_cast<double>(tex->m_size.x));
           const double texH = std::max(1.0, static_cast<double>(tex->m_size.y));
@@ -260,8 +255,6 @@ void Overview::renderStripWindows() const {
   const double e = eased();
   if (e <= 0.01)
     return;
-  const Vector2D slide  = stripOffset(e);
-  const Vector2D scroll = stripScroll();
   const double scale = m->m_scale;
   const auto when    = Time::steadyNow();
   const int previewRound = cfg::look.preview_round;
@@ -271,9 +264,7 @@ void Overview::renderStripWindows() const {
     const auto &it = m_strip[i];
     if (it.kind == model::StripItem::Kind::Plus || it.kind == model::StripItem::Kind::All)
       continue;
-    LRect card = it.card;
-    card.x += slide.x + scroll.x;
-    card.y += slide.y + scroll.y;
+    LRect card = stripCardAt(i);
     for (size_t j = 0; j < it.wins.size(); ++j) {
       if (m_drag.lifted &&
           m_drag.press == model::Drag::Press::StripWin &&
@@ -283,7 +274,7 @@ void Overview::renderStripWindows() const {
       const auto w = it.wins[j].win.lock();
       if (!w || !w->m_isMapped || w->isHidden())
         continue;
-      if (swapfxActive(w))
+      if (swapfxActive(w, true))
         continue;
       const LRect slot = stripWinSlotRect(it, card, j);
       // A slot smaller than a pixel cannot carry content, and renderWindowLive drops

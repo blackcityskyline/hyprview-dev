@@ -16,7 +16,6 @@
 #include "../config/config.hpp"
 #include "../overview.hpp"
 #include "../clock/curves.hpp"
-#include "../debug/log.hpp"
 #include "window_content.hpp"
 
 using Render::GL::g_pHyprOpenGL;
@@ -145,6 +144,37 @@ void Overview::renderDragWindow() const {
 
 // Brightness tracks how close the CURSOR is (m_killGlow, a smoothstepped
 // distance), so it guides the drop rather than switching on once you are on it.
+// Where the kill zone sits: a full-width band at the screen edge OPPOSITE the strip,
+// so the strip and the zone are never in the same place. Empty when disabled -- an
+// empty rect contains nothing and never closes a window.
+//
+// This is geometry, not lifecycle, so it lives here beside the one thing that draws it
+// rather than in session.cpp next to open()/close().
+LRect Overview::killZoneRect() const {
+  const auto m = m_monitor.lock();
+  if (!m)
+    return {};
+  if (cfg::behavior.kill_zone == 0)
+    return {};
+  const double kH = cfg::behavior.kill_zone_size;
+  const bool atTop = stripAnchor() == Anchor::Bottom;
+  return LRect{0.0, atTop ? 0.0 : m->m_size.y - kH, m->m_size.x, kH};
+}
+
+// Full brightness inside the zone, nothing by kill_zone_falloff px away,
+// smoothstepped between. A distance, not a bool: a zone blank until the cursor
+// crosses it says nothing while the user is still aiming it.
+double Overview::killZoneGlow(double lx, double ly) const {
+  const LRect z = killZoneRect();
+  if (z.w < 1.0 || z.h < 1.0)
+    return 0.0;
+  const double dx = std::max({z.x - lx, 0.0, lx - (z.x + z.w)});
+  const double dy = std::max({z.y - ly, 0.0, ly - (z.y + z.h)});
+  const double d  = std::sqrt(dx * dx + dy * dy);
+  const double t  = std::clamp(1.0 - d / cfg::behavior.kill_zone_falloff, 0.0, 1.0);
+  return t * t * (3.0 - 2.0 * t);
+}
+
 // One ramp whose alpha reaches ZERO at the far end: stacked rounded rectangles
 // have edges of their own and read as geometry, not light.
 void Overview::renderKillZone() const {
@@ -215,8 +245,7 @@ void Overview::renderPulses(bool strip) const {
       for (size_t i = 0; i < m_scene.tiles().size(); ++i) {
         if (m_scene.tiles()[i].win.lock() != w)
           continue;
-        const LRect lb =
-            tileBox(i, currentBox(m_scene.tiles()[i], static_cast<int>(i)));
+        const LRect lb = tileRect(i);
         // The pulse tracks the tile's own radius, so it lands on the same arc.
         drawPulseRing(pxb(lb, s),
                       pxr(clampRound(cfg::look.preview_round, lb.w, lb.h), s),
@@ -259,28 +288,31 @@ void Overview::renderSwapFX() const {
     const auto w = fx.win.lock();
     if (!w || !w->m_isMapped || w->isHidden())
       continue;
-    LRect to;
-    bool found = false;
-    for (size_t i = 0; i < m_scene.tiles().size() && !found; ++i)
-      if (m_scene.tiles()[i].win.lock() == w) {
-        to = tileBox(i, currentBox(m_scene.tiles()[i], static_cast<int>(i)));
-        found = true;
+    // The surface this flight belongs to, not every place the window is drawn. The
+    // all-workspaces view shows it twice at once, and the two are not the same gesture:
+    // the one the user dragged leaves the cursor, the other slides from where it already
+    // was. Both flights exist, tagged, and each painter stands down only for its own.
+    std::vector<LRect> dests;
+    if (!fx.toStrip) {
+      for (size_t i = 0; i < m_scene.tiles().size(); ++i)
+        if (m_scene.tiles()[i].win.lock() == w)
+          dests.push_back(tileRect(i));
+    } else {
+      for (size_t i = 0; i < m_strip.size(); ++i) {
+        const auto &it = m_strip[i];
+        if (it.kind != model::StripItem::Kind::Ws)
+          continue;
+        for (size_t j = 0; j < it.wins.size(); ++j)
+          if (it.wins[j].win.lock() == w)
+            dests.push_back(stripWinSlotRect(it, stripCardAt(i), j));
       }
-    for (size_t i = 0; i < m_strip.size() && !found; ++i) {
-      const auto &it = m_strip[i];
-      if (it.kind != model::StripItem::Kind::Ws)
-        continue;
-      for (size_t j = 0; j < it.wins.size() && !found; ++j)
-        if (it.wins[j].win.lock() == w) {
-          to = stripWinSlotRect(it, stripCardAt(i), j);
-          found = true;
-        }
     }
-    if (!found)
+    if (dests.empty())
       continue;
 
     const double t   = fx.clock.raw(fx.ms);
     const double p   = curves::eval(fx.curve, t);
+    for (const LRect &to : dests) {
     double bx = 0, by = 0, bw = 0, bh = 0;
     float alpha = 1.0F;
     bool ring = false;
@@ -344,6 +376,7 @@ void Overview::renderSwapFX() const {
     renderWindowLive(w, m, px, px, alpha, when,
                      contentRadiusPx(round, cfg::look.border_size, roundPow, s),
                      roundPow, true);
+    }
   }
 }
 

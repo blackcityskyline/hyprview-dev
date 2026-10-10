@@ -20,7 +20,6 @@ class Recency {
   public:
     void promote(const void *window);
 
-    [[nodiscard]] bool ranked(const void *window) const;
     [[nodiscard]] std::size_t rank(const void *window) const;
 
     // Indices of `keys` into `out`, most-recent first; resized to keys.size().
@@ -31,8 +30,6 @@ class Recency {
     // Drops entries not in `live`: recency is a cache of the live set.
     void forgetDead(const std::vector<const void *> &live);
 
-    void clear() { m_front.clear(); }
-    [[nodiscard]] bool empty() const { return m_front.empty(); }
     [[nodiscard]] std::size_t size() const { return m_front.size(); }
 
   private:

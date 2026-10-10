@@ -119,6 +119,86 @@ int main(int argc, char **argv) {
   // not a comparison against its own name. So it works, and is reachable, just not by
   // a string test. A number BELOW the list size for any other entry would be a key the
   // user can set that nothing reads.
+
+  // --- the DEFAULT style must produce motion -------------------------------------------
+  // landAfterMove branched on `gridSwapStyle() != Horizontal` and fell through to
+  // pinNatural() when it WAS Horizontal -- so the default, the first value in the README
+  // and the one every config copying the example carries, was the only style that
+  // produced no flight of its own. A grid swap showed the pulse and two cards in their
+  // new places with nothing travelling between them.
+  //
+  // The general rule: no style may be a "no animation" spelling. Every swap style has to
+  // reach beginSwapFX, because switchTargets moves both windows in one frame and a plain
+  // glide cannot read as two cards trading places.
+  //
+  // This asserts the SHAPE of the call site rather than running it: a condition whose
+  // false arm returns without starting a flight is exactly the bug.
+  {
+    const auto actionsSrc = slurp((root + "/src/actions/actions.cpp").c_str());
+    // landAfterMove's body: from its signature to the next top-level function.
+    const auto start = actionsSrc.find("void Overview::landAfterMove");
+    assert(start != std::string::npos && "landAfterMove not found");
+    const auto end = actionsSrc.find("\nvoid Overview::", start + 10);
+    const auto body = actionsSrc.substr(
+        start, end == std::string::npos ? std::string::npos : end - start);
+
+    // The style must be READ (a style accessor or parseSwapStyle appears), and the
+    // flight must be started unconditionally within this function.
+    assert(body.find("beginSwapFX") != std::string::npos);
+    assert(body.find("parseSwapStyle") != std::string::npos);
+    // A bare `if (... style ... != Horizontal)` guard is the bug: it makes one style
+    // a spelling for "no flight". Reject the comparison outright.
+    assert(body.find("!= model::SwapStyle::Horizontal") == std::string::npos);
+    assert(body.find("!= model::SwapStyle") == std::string::npos);
+    std::puts("every swap style reaches beginSwapFX; none is a no-flight spelling");
+  }
+
+  // --- every style KEY resolves to something -----------------------------------------
+  // grid_swap_style and strip_swap_style are registered and documented, and for a long
+  // time nothing read them: the call sites asked anim::style("grid_swap"), which looks
+  // the name up in kRows -- where neither name exists -- so it returned {}. {} parses to
+  // SwapStyle::Horizontal, which is the default, so the key parsed and did nothing. No
+  // error, no log line: setting it just had no effect.
+  //
+  // The general shape of the bug is asking style() for a name style() cannot resolve.
+  // So assert the rule instead of the two instances: any anim::style("x") / anim::cfg("x")
+  // literal must name a kRows entry. kRows is the table, and the check is a substring scan
+  // of the table for the quoted name.
+  const auto animSrc = slurp((root + "/src/anim.cpp").c_str());
+  const auto rowsAreDeclared = [&animSrc](const std::string &name) {
+    // kRows rows start with {"name", -- so look for the name as a row's first field.
+    return animSrc.find("{\"" + name + "\",") != std::string::npos;
+  };
+
+  const auto styleCallers = {&clocks, &actions, &overview};
+  int styleCalls = 0;
+  for (const auto *src : styleCallers) {
+    for (std::size_t p = src->find("anim::style(\""); p != std::string::npos;
+         p = src->find("anim::style(\"", p + 1)) {
+      constexpr std::size_t kAt = 13; // strlen("anim::style(\"")
+      const auto e = src->find('"', p + kAt);
+      const std::string name = src->substr(p + kAt, e - (p + kAt));
+      ++styleCalls;
+      if (!rowsAreDeclared(name)) {
+        std::printf("FAIL anim::style(\"%s\") -- no such row in kRows, so it returns {}\n",
+                    name.c_str());
+        std::exit(1);
+      }
+    }
+  }
+  assert(styleCalls > 0);
+  std::printf("%d anim::style() call(s), every name is a kRows row\n", styleCalls);
+
+  // The two handle-backed keys must be read through their accessors, not through
+  // style() -- that is the whole fix, and this is what stops it reverting.
+  for (const auto *src : styleCallers) {
+    assert(src->find("anim::style(\"grid_swap\"") == std::string::npos);
+    assert(src->find("anim::style(\"strip_swap\"") == std::string::npos);
+  }
+  assert(animSrc.find("std::string gridSwapStyle()") != std::string::npos);
+  assert(animSrc.find("std::string stripSwapStyle()") != std::string::npos);
+  std::puts("grid_swap_style / strip_swap_style read through their accessors");
+
   std::puts("OK");
   return 0;
 }

@@ -29,7 +29,6 @@
 #include <hyprland/src/render/pass/ClearPassElement.hpp>
 #include <hyprland/src/render/pass/TexPassElement.hpp>
 #include <hyprland/src/state/MonitorState.hpp>
-#include <hyprutils/utils/ScopeGuard.hpp>
 
 using Render::GL::g_pHyprOpenGL;
 
@@ -313,35 +312,6 @@ bool Overview::initialize() {
 
 std::string Overview::cursorMode() const {
     return cfg::behavior.cursor_mode.get();
-}
-
-namespace {
-} // namespace
-static double kKillZoneFalloff() { return cfg::behavior.kill_zone_falloff; }
-
-LRect Overview::killZoneRect() const {
-  const auto m = m_monitor.lock();
-  if (!m)
-    return {};
-  if (cfg::behavior.kill_zone == 0)
-    return {}; // disabled: an empty rect contains nothing and never closes a window
-  const double kH = cfg::behavior.kill_zone_size;
-  const bool atTop = stripAnchor() == Anchor::Bottom;
-  return LRect{0.0, atTop ? 0.0 : m->m_size.y - kH, m->m_size.x, kH};
-}
-
-// Full brightness inside the zone, nothing by kKillZoneFalloff px away,
-// smoothstepped between. A distance, not a bool: a zone blank until the cursor
-// crosses it says nothing while the user is still aiming it.
-double Overview::killZoneGlow(double lx, double ly) const {
-  const LRect z = killZoneRect();
-  if (z.w < 1.0 || z.h < 1.0)
-    return 0.0;
-  const double dx = std::max({z.x - lx, 0.0, lx - (z.x + z.w)});
-  const double dy = std::max({z.y - ly, 0.0, ly - (z.y + z.h)});
-  const double d  = std::sqrt(dx * dx + dy * dy);
-  const double t  = std::clamp(1.0 - d / kKillZoneFalloff(), 0.0, 1.0);
-  return t * t * (3.0 - 2.0 * t);
 }
 
 Overview::Anchor Overview::stripAnchor() const {
@@ -881,9 +851,9 @@ void Overview::close() {
                        std::max(1.0, s.x), std::max(1.0, s.y)};
       }
     }
-    for (auto &t : m_scene.edit()) {
-      const int i = static_cast<int>(&t - m_scene.tiles().data());
-      t.target = currentBox(t, i);
+    for (size_t i = 0; i < m_scene.size(); ++i) {
+      auto &t = m_scene.tileAt(i);
+      t.target = currentBox(t, static_cast<int>(i));
       // The natural box is where the tile RETURNS TO -- so it is only a destination when
       // the window will really be there. Opening on an empty workspace, switching to all
       // and pressing Escape leaves nothing on the landing workspace: every card's natural
@@ -902,7 +872,8 @@ void Overview::close() {
         // When several windows share one geometry — maximized windows, off-screen
         // workspaces — the unfocused cards land under the focused one (drawn last), so
         // their exit is invisible whatever it animates to. Each gets its own exit.
-        if (carouselMode() && i != m_scene.focused() && selNat.w >= 1.0 &&
+        if (carouselMode() && static_cast<int>(i) != m_scene.focused() &&
+            selNat.w >= 1.0 &&
             std::abs(t.natural.x - selNat.x) < 1.0 &&
             std::abs(t.natural.y - selNat.y) < 1.0 &&
             std::abs(t.natural.w - selNat.w) < 1.0 &&
