@@ -172,6 +172,15 @@ SP<Render::ITexture> Overview::renderBackdropSource(int W, int H) const {
   return m_backdropDrawn ? m_backdropSrcFB->getTexture() : nullptr;
 }
 
+SP<Render::ITexture> Overview::backdropSourceTexture() const {
+  // Term for term what strip_view read inline. Whether a composite has been ADOPTED yet
+  // (m_backdropDrawn) is deliberately NOT part of this: adding that check would be a
+  // behaviour change in the render path, and this is a seam, not a fix.
+  return m_backdropSrcFB && m_backdropSrcFB->isAllocated()
+             ? m_backdropSrcFB->getTexture()
+             : nullptr;
+}
+
 // Runs on the parked-open frames. Builds the backdrop composite into a PRIVATE framebuffer and
 // promotes the open the moment a non-black one exists -- the overview therefore never becomes
 // visible on a frame that has nothing behind it. Two frames is the whole budget (see

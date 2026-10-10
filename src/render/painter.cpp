@@ -97,9 +97,11 @@ void Overview::renderStage(eRenderStage stage) {
     const float  k  = static_cast<float>(e);
     const float  kk = m_opening ? k : std::pow(k, 0.45F);
     const auto   sol = rm->m_solitaryClient.lock();
-    const bool   blurOK =
-        m_blur.valid && m_blur.fb && m_blur.fb->isAllocated() &&
-        m_blur.fb->getTexture() && m_blur.fb->getTexture()->ok();
+    // `valid` is load-bearing here and not part of backdropBlurTexture(): the FB keeps
+    // holding the last blur after the cache goes stale, so "has a texture" and "is the
+    // cache good" are different questions, and this line exists to answer the second.
+    const auto   blurTex = backdropBlurTexture();
+    const bool   blurOK = blurTex && blurTex->ok() && !backdropBlurStale();
     const auto ext = g_pHyprRenderer->m_renderData.damage.copy().getExtents();
     debug::dbg("F t=+" +
         std::to_string(
@@ -113,7 +115,7 @@ void Overview::renderStage(eRenderStage stage) {
         " kk=" + std::to_string(kk).substr(0, 6) +
         " frost=" + std::to_string(1.0 - e).substr(0, 6) +
         " blurOK=" + std::to_string(blurOK) +
-        " bdDrawn=" + std::to_string(m_backdropDrawn) +
+        " bdDrawn=" + std::to_string(backdropDrawn()) +
         " soli=" + std::to_string((bool)sol) +
         " dso=" + std::to_string(rm->m_directScanoutIsActive) +
         " dmg=" + std::to_string(ext.w) + "x" + std::to_string(ext.h) +

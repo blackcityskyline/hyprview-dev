@@ -128,6 +128,15 @@ public:
     return (m_blur.fb && m_blur.fb->isAllocated()) ? m_blur.fb->getTexture()
                                                    : nullptr;
   }
+  // The composited (unblurred) backdrop, for anything that draws under the windows --
+  // strip cards fill the gaps their windows leave with it. Reads the composite's own
+  // state rather than reaching into its framebuffer: whether there IS a composite is
+  // backdrop.cpp's decision, not the caller's.
+  [[nodiscard]] SP<Render::ITexture> backdropSourceTexture() const;
+  // True when the blur cache must be recomputed. Separate from having a texture:
+  // a stale cache still holds the last blur, which is what the entry path falls back to.
+  [[nodiscard]] bool backdropBlurStale() const { return !m_blur.valid; }
+  [[nodiscard]] bool backdropDrawn() const { return m_backdropDrawn; }
   [[nodiscard]] SP<Render::ITexture> snapshot(const PHLWINDOW &w) const {
     return m_pixel.snapshot(w);
   }

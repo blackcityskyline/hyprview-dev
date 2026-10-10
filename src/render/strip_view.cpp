@@ -163,9 +163,7 @@ void Overview::renderStrip() const {
       // covers about 2% of the card, which read as "no wallpaper at all". The window
       // paints over it, so this only fills what the windows leave bare.
       if (cfg::strip.wallpaper != 0) {
-        SP<Render::ITexture> tex;
-        if (m_backdropSrcFB && m_backdropSrcFB->isAllocated())
-          tex = m_backdropSrcFB->getTexture();
+        SP<Render::ITexture> tex = backdropSourceTexture();
         if (tex && tex->ok()) {
           const double texW = std::max(1.0, static_cast<double>(tex->m_size.x));
           const double texH = std::max(1.0, static_cast<double>(tex->m_size.y));
