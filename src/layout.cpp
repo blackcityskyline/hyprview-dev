@@ -121,8 +121,14 @@ std::vector<LRect> layoutGrid(const std::vector<LRect>& w, const LRect& area, co
         return {};
     const int    cols  = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n)))));
     const int    rows  = std::max(1, static_cast<int>(std::ceil(static_cast<double>(n) / cols)));
-    const double cellW = (area.w - (cols - 1) * cfg.gap) / cols;
-    const double cellH = (area.h - (rows - 1) * cfg.gap) / rows;
+    // The cell cannot be allowed to go negative, and nothing upstream stops it: inset()
+    // only guarantees the area is at least a pixel, so once the gaps between more than
+    // one column outgrow that area, (area.w - (cols - 1) * gap) is below zero and every
+    // scale derived from it is too. A negative box is what the compositor's render
+    // entry points assert on, so this floor is the difference between a missing tile
+    // and the session. layoutRows floors its scale for the same reason.
+    const double cellW = std::max(1.0, (area.w - (cols - 1) * cfg.gap) / cols);
+    const double cellH = std::max(1.0, (area.h - (rows - 1) * cfg.gap) / rows);
 
     std::vector<LRect> out(n);
     for (int i = 0; i < n; ++i) {

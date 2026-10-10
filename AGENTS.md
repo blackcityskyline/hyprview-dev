@@ -230,7 +230,7 @@ verify-config, правила анимаций) — все оказались н
 | `layout.hpp` / `.cpp` | чистая геометрия лейаута, без Hyprland (единственный юнит-домен) |
 | `model/` | `scene.hpp` (плитки, выбор, интенты), `strip.hpp`, `effects.hpp` (ghosts/pulses/swapfx), `recency.*`, `model.hpp`. Поля приватные, наружу — намерения |
 | `pixel/cache.cpp` | кэш подписей и снапшотов |
-| `tests/` | ctest: 14 проверок, включая `load_seam`, `hook_signatures`, `config_keys`, `anim_styles`, `draw_sites` |
+| `tests/` | ctest: 15 проверок, включая `load_seam`, `hook_signatures`, `config_keys`, `anim_styles`, `draw_sites`, `layout` |
 
 ## Открытые вопросы
 
