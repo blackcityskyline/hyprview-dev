@@ -246,12 +246,7 @@ void Overview::landAfterMove(const PHLWINDOW &w, const LRect &oldBox,
                 ms, curve);
     return;
   }
-  for (auto &t : m_scene.edit())
-    if (t.win.lock() == w) {
-      t.natural = oldBox;
-      t.appear = 1.0;
-      break;
-    }
+  m_scene.pinNatural(w.get(), oldBox);
 }
 
 void Overview::swapOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
@@ -387,8 +382,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     m_view.setWsSlideDir( 0);
     m_view.setJumpMode( true);
     m_fx.clearGhosts();
-    for (auto &t : m_scene.edit())
-      t.appear = 1.0;
+    m_scene.settleAppear();
     m_clocks.rebuild.pinEnd(std::max(m_entry.ms, m_ghost.ms));
     m_clocks.tiles.pinEnd(glideDur());
     m_progress = 1.0;
@@ -398,8 +392,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     damage();
     return;
   }
-  for (auto &t : m_scene.edit())
-    t.appear = 0.0;
+  m_scene.armAppear();
   m_fx.clearGhosts();
   // Whether every window of the old workspace is still in the tile set. Declared true
   // and never assigned, so the "identical set" branch below always ran and called

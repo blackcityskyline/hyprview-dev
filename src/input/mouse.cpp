@@ -490,9 +490,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         const LRect cur =
             m_scene.tiles()[press].target;
         const LRect parked{lx - grabDX, ly - grabDY, cur.w, cur.h};
-        auto &t = m_scene.edit()[press];
-        t.target = t.natural = parked;
-        t.parked = true;
+        m_scene.park(static_cast<size_t>(press), parked);
         m_scene.hover(-1, m_scene.hoveredStrip());
         damage();
         return true;

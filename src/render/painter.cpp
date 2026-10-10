@@ -165,8 +165,7 @@ void Overview::renderStage(eRenderStage stage) {
       // workspace switch the whole tile set is new content, and leaving a window unanimated
       // is what made this path look different from the plugin's own Tab switch, which sets
       // appear = 0 on everything. Same slide, same style key, whichever bind got here.
-      for (auto &t : m_scene.edit())
-        t.appear = 0.0;
+      m_scene.armAppear();
       m_clocks.rebuild.begin();
       // Arm the slide AFTER the rebuild clock starts. updateAnimation clears wsSlideDir
       // whenever both entry clocks already read done, and on a hop from an empty

@@ -876,9 +876,9 @@ void Overview::close() {
                        std::max(1.0, s.x), std::max(1.0, s.y)};
       }
     }
-    for (auto &t : m_scene.edit()) {
-      const int i = static_cast<int>(&t - m_scene.tiles().data());
-      t.target = currentBox(t, i);
+    for (size_t i = 0; i < m_scene.size(); ++i) {
+      auto &t = m_scene.tileAt(i);
+      t.target = currentBox(t, static_cast<int>(i));
       // The natural box is where the tile RETURNS TO -- so it is only a destination when
       // the window will really be there. Opening on an empty workspace, switching to all
       // and pressing Escape leaves nothing on the landing workspace: every card's natural
@@ -897,7 +897,8 @@ void Overview::close() {
         // When several windows share one geometry — maximized windows, off-screen
         // workspaces — the unfocused cards land under the focused one (drawn last), so
         // their exit is invisible whatever it animates to. Each gets its own exit.
-        if (carouselMode() && i != m_scene.focused() && selNat.w >= 1.0 &&
+        if (carouselMode() && static_cast<int>(i) != m_scene.focused() &&
+            selNat.w >= 1.0 &&
             std::abs(t.natural.x - selNat.x) < 1.0 &&
             std::abs(t.natural.y - selNat.y) < 1.0 &&
             std::abs(t.natural.w - selNat.w) < 1.0 &&

@@ -2,27 +2,67 @@
 
 #include "model.hpp"
 
+#include <utility>
 #include <vector>
 
 namespace gloview::model {
 
 // The cards in the main area, which one is focused, what the cursor is over.
 //
-// edit() is the only way to reach the tiles for WRITING, and the rule is greppable:
-// six files — the build paths, the close pinning, the swap, the desktop park,
-// teardown, and the clock pass that settles a finished entry. Every renderer and
-// input handler reads tiles() and cannot reorder the array. Recency ordering went
-// wrong once by sorting this array inside a layout pass, so a reader that wants to
-// reorder has to type edit().
+// Writes go through named intents -- armAppear, settleAppear, park, pinNatural --
+// plus tileAt() for the one caller that computes per tile. There is no
+// vector-issuing accessor: recency ordering once went wrong by sorting this array
+// inside a layout pass, and handing out the container is what allowed it.
 class Scene {
   public:
     [[nodiscard]] const std::vector<Tile> &tiles() const { return m_tiles; }
     [[nodiscard]] std::size_t size() const { return m_tiles.size(); }
     [[nodiscard]] bool empty() const { return m_tiles.empty(); }
 
-
-    [[nodiscard]] std::vector<Tile> &edit() { return m_tiles; }
     void clear() { m_tiles.clear(); }
+    // The builder appends; ordering is buildTiles' business and setTargets' output.
+    void add(Tile &&t) { m_tiles.push_back(std::move(t)); }
+
+    // The entry ladder, written from six files and forced back to 1 in two of them:
+    // 0 arms the scale-in, 1 means "already on screen". Naming both ends means a
+    // caller cannot set 0.5 by accident, and there is exactly one place that knows
+    // what each value means.
+    void armAppear() {
+      for (auto &t : m_tiles)
+        t.appear = 0.0;
+    }
+    void settleAppear() {
+      for (auto &t : m_tiles)
+        t.appear = 1.0;
+    }
+    // The desktop's parked cards: the natural box becomes the drop point, so a
+    // window released onto the desktop has somewhere to come back to.
+    void park(size_t i, const LRect &at) {
+      if (i >= m_tiles.size())
+        return;
+      m_tiles[i].target = at;
+      m_tiles[i].natural = at;
+      m_tiles[i].parked = true;
+    }
+    // A window swapped back to where it was: the old box becomes its destination
+    // and the entry animation is cancelled with it.
+    void pinNatural(const void *win, const LRect &box) {
+      for (auto &t : m_tiles)
+        if (t.win.lock().get() == win) {
+          t.natural = box;
+          t.appear = 1.0;
+          return;
+        }
+    }
+    // One tile, writable. Indexed and bounds-checked: a caller that needs to
+    // compute something per tile still can, but it cannot resize or reorder the
+    // array the way the vector-issuing edit() allowed.
+    Tile &tileAt(size_t i) { return m_tiles[i]; }
+    // A layout pass hands back one box per tile, in order.
+    void setTargets(const std::vector<LRect> &boxes) {
+      for (size_t i = 0; i < m_tiles.size() && i < boxes.size(); ++i)
+        m_tiles[i].target = boxes[i];
+    }
 
     [[nodiscard]] int selected() const { return m_selected; }
     [[nodiscard]] int hoveredTile() const { return m_hoveredTile; }

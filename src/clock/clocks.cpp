@@ -212,8 +212,7 @@ void Overview::updateAnimation() {
   if (m_clocks.rebuild.done(m_entry.ms) &&
       std::any_of(m_scene.tiles().begin(), m_scene.tiles().end(),
                   [](const model::Tile &t) { return t.appear < 1.0; }))
-    for (auto &t : m_scene.edit())
-      t.appear = 1.0;
+    m_scene.settleAppear();
 
   const auto pulse = anim::cfg(anim::Id::Pulse);
   m_fx.eachPulse([&](auto &p) {
