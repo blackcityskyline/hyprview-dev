@@ -75,7 +75,7 @@ inline void safeRenderRect(const char *tag, const CBox &b, const CHyprColor &col
 // STROKE, never a filled rect grown by borderSize
 inline void strokeRing(const LRect &lb, double s, const CHyprColor &col,
                        int size, int round, float roundPow) {
-  if (size < 1)
+  if (size < 1 || !drawable(lb, s))
     return;
   Render::GL::g_pHyprOpenGL->renderBorder(
       pxb(lb, s), Config::CGradientValueData(col),
