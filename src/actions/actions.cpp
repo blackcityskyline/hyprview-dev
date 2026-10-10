@@ -192,8 +192,13 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
   // stand still.
   const int ia = m_scene.tileIndexOf(wa.get());
   const int ib = m_scene.tileIndexOf(wb.get());
-  if (m_scene.tileAtRest(ia) && m_scene.tileAtRest(ib))
+  if (m_scene.tileAtRest(ia) && m_scene.tileAtRest(ib)) {
     m_scene.swapTiles(ia, ib);
+    // Both halves, together. The targets move the geometry; the slots carry the depth
+    // that goes with it. Without the second the run keeps each tile's OLD card, and the
+    // periphery -- now carrying depth 0 -- paints over the centre.
+    m_view.swapSlots(static_cast<std::size_t>(ia), static_cast<std::size_t>(ib));
+  }
 
   // The initiator flies from where it was RELEASED, which is under the cursor and not
   // the card slot it was picked up from -- that gap is the whole drag. Applied AFTER the
@@ -248,16 +253,33 @@ std::string Overview::runCommand(const std::string &args) {
                       std::to_string(m_scene.size()) + "|strip=" +
                       std::to_string(m_strip.size()) + "|allws=" +
                       std::to_string(showAllWorkspaces()) + "|carousel=" +
-                      std::to_string(carouselMode());
+                      std::to_string(carouselMode()) + "|ccx=" +
+                      // Where the run is centred, so a harness can tell which card is
+                      // the middle one without re-deriving the layout.
+                      std::to_string(static_cast<int>(m_view.carousel().area.x +
+                                                     m_view.carousel().originX +
+                                                     m_view.carousel().area.w / 2.0));
     for (std::size_t i = 0; i < m_scene.size(); ++i) {
       const auto w = m_scene.tiles()[i].win.lock();
+      const auto &t = m_scene.tiles()[i];
+      // depth travels with the card, not the tile: the run reads it as
+      // cards[slotOf(tile)].depth. Dumping it beside the box is what lets a harness
+      // catch a tile that moved and kept someone else's depth -- the bug that put the
+      // periphery over the centre, invisible to a geometry-only trace.
+      int depth = -1;
+      if (carouselMode()) {
+        const int k = m_view.slotOf(i);
+        if (k >= 0 && static_cast<std::size_t>(k) < m_view.carousel().cards.size())
+          depth = m_view.carousel().cards[static_cast<std::size_t>(k)].depth;
+      }
       out += "\nTILE|" + std::to_string(i) + "|" +
              (w ? w->m_class : std::string("gone")) + "|" +
              (w && w->m_workspace ? std::to_string(w->m_workspace->m_id) : std::string("-")) +
-             "|" + std::to_string(static_cast<int>(m_scene.tiles()[i].target.x)) +
-             "," + std::to_string(static_cast<int>(m_scene.tiles()[i].target.y)) +
-             "," + std::to_string(static_cast<int>(m_scene.tiles()[i].target.w)) +
-             "," + std::to_string(static_cast<int>(m_scene.tiles()[i].target.h));
+             "|" + std::to_string(static_cast<int>(t.target.x)) +
+             "," + std::to_string(static_cast<int>(t.target.y)) +
+             "," + std::to_string(static_cast<int>(t.target.w)) +
+             "," + std::to_string(static_cast<int>(t.target.h)) +
+             "|d=" + std::to_string(depth);
     }
     debug::trace::emitState(out);
     return "";

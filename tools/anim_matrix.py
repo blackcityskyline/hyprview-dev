@@ -103,8 +103,15 @@ def state():
         if line.startswith("STATE|"):
             st = fields(line)
         elif line.startswith("TILE|"):
-            _, i, cls, ws, box = line.split("|")
-            st[f"tile{i}"] = (cls, ws, box)
+            _, i, cls, ws, box = line.split("|")[:5]
+            # d=<depth>, present only when the run is active. Depth is what the
+            # painter sorts on, so a tile whose box moved while its depth stayed put
+            # is exactly the overlap bug; the trace has to carry both to show it.
+            depth = -1
+            for part in line.split("|")[5:]:
+                if part.startswith("d="):
+                    depth = int(part[2:])
+            st[f"tile{i}"] = (cls, ws, box, depth)
     return st
 
 
@@ -135,9 +142,55 @@ def preconditions():
     return st
 
 
+def check_depth(st):
+    """Depth must rank the geometry it belongs to.
+
+    The run paints far-to-near, so the card nearest the middle is depth 0 and is
+    drawn last, over everything. A tile whose box moved while its depth stayed put
+    inverts that: the periphery keeps depth 0 and covers the centre. The trace could
+    not see this before depth was dumped -- it recorded geometry only, and geometry
+    alone is consistent with both the right and the wrong painting.
+    """
+    # k[4:].isdigit(), not startswith("tile"): the STATE line carries `tiles=<count>`,
+    # which matches the prefix and arrives as a bare string.
+    tiles = {k: v for k, v in st.items()
+             if k.startswith("tile") and k[4:].isdigit()}
+    if not tiles or all(v[3] < 0 for v in tiles.values()):
+        return None  # not a carousel run; nothing to assert
+    live = [v for v in tiles.values() if v[3] >= 0]
+    if len(live) < 2:
+        return None
+    try:
+        mid = float(st.get("ccx", 0))
+    except ValueError:
+        return None
+    centres = sorted(((abs(int(v[2].split(",")[0]) + int(v[2].split(",")[2]) / 2 - mid), v)
+                      for v in live), key=lambda p: p[0])
+    for rank, (_, v) in enumerate(centres):
+        if v[3] != rank:
+            return (f"OVERLAP INVERTED: the card nearest the middle has depth "
+                    f"{v[3]}, expected {rank}")
+    return True
+
+
+def reset():
+    """Every cell starts from the same scene.
+
+    Without this the cells are not comparable: each swap moves the selection and the
+    run's centred card, so cell 12 was testing a different arrangement than cell 3 and
+    the same code passed in one run and failed in the next. A matrix whose cells are not
+    independent reports noise.
+    """
+    cmd("close", settle=0.7)
+    cmd("open", settle=0.9)
+    cmd("allws 1", settle=0.5)
+
+
 def one_cell(style, ms, surface, dry=False):
-    """Configure, act, and judge one cell. Returns (verdict, [findings])."""
+    """Configure, act, and judge one cell. Returns (verdict, [(ok, message)])."""
     findings = []
+    ok = True
+    reset()
     style_key = "grid_swap_style" if surface == "grid" else "strip_swap_style"
     # A swap moves TWO windows and both fly, so both leaves are pinned. Setting only
     # the initiator's tuning left the partner on the user's rule and the cell reported
@@ -162,10 +215,17 @@ def one_cell(style, ms, surface, dry=False):
     # so it drives the same call the release path makes.
     out = cmd("swap 0 1", settle=0.15)
     if "CMD|err" in out:
-        findings.append(f"swap rejected: {out.split('CMD|err|')[-1]}")
+        findings.append((False, f"swap rejected: {out.split('CMD|err|')[-1]}"))
         return "FAIL", findings
     time.sleep(ms / 1000.0 + 0.45)
     run = tail_from(before)
+    after = state()
+    # None = not a run, True = fine, str = the bug. Sets ok, which the flight checks
+    # below do not -- overlap is a property of the resting scene, not of the flight.
+    depth_problem = check_depth(after)
+    if depth_problem and depth_problem is not True:
+        findings.append((False, depth_problem))
+        ok = False
 
     begins = [fields(l) for l in run.splitlines() if l.startswith("ANIM|begin|")]
     ends = {fields(l)["seq"]: int(fields(l)["ms"])
@@ -178,7 +238,6 @@ def one_cell(style, ms, surface, dry=False):
         findings.append((False, "no ANIM|begin -- nothing animated"))
         return "FAIL", findings
 
-    ok = True
     for b in begins:
         if b.get("surface") != surface:
             continue
@@ -230,6 +289,10 @@ def main():
         return 2
     st = preconditions()
     if st is None:
+        return 2
+    if int(st.get("carousel", 0)) == 0:
+        print("run is not active, so the overlap invariant cannot be checked; "
+              "the matrix would be measuring a layout nobody sees.")
         return 2
 
     print(f"preconditions ok: {st.get('tiles')} tiles, allws={st.get('allws')}, "

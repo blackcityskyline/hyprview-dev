@@ -63,6 +63,30 @@ class State {
       return -1;
     }
 
+    // Hand card k_a's tile to card k_b and the other way round.
+    //
+    // Scene::swapTiles exchanges two tiles' TARGETS, which is what makes the exchange
+    // move. But a tile's depth is not its own: the carousel reads it as
+    // cards[slotOf(tile)].depth, and slotOf is the inverse of slot. Swap the targets
+    // alone and every tile keeps the card it used to occupy -- so the card that just
+    // travelled to the periphery still says depth 0, the one sitting in the middle says
+    // depth 1, and the run paints the periphery over its own centre.
+    //
+    // Swapping the slot entries travels with the geometry: a tile is now drawn from the
+    // card whose box it was given.
+    void swapSlots(std::size_t a, std::size_t b) {
+      const auto pos = [this](std::size_t tile) {
+        for (std::size_t k = 0; k < m_slot.size(); ++k)
+          if (m_slot[k] == tile)
+            return k;
+        return m_slot.size();
+      };
+      const std::size_t ka = pos(a), kb = pos(b);
+      if (ka >= m_slot.size() || kb >= m_slot.size() || ka == kb)
+        return;
+      std::swap(m_slot[ka], m_slot[kb]);
+    }
+
     void setEngine(Engine e) { m_engine = e; }
     void clearCards() {
       m_carousel = {};
