@@ -33,7 +33,10 @@ than reporting a matrix of failures that are really a precondition.
 
 import argparse
 import os
+import json
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -133,6 +136,79 @@ def state():
             st.setdefault("cards", []).append(kind)
             st[f"card{i}"] = (kind, int(n))
     return st
+
+
+def terminal():
+    """The user's terminal, not a hardcoded one.
+
+    Read from the config that will also launch them: the harness puts windows on the
+    user's screen, and putting up the wrong terminal app on someone's desktop to test
+    someone else's plugin is a worse surprise than the thing being tested. M.terminal
+    is where this config keeps it; override with --terminal when it is somewhere else.
+    """
+    for path in (os.path.expanduser("~/.config/hypr/config/variables.lua"),):
+        try:
+            with open(path) as f:
+                for line in f:
+                    m = re.search(r'M\.terminal\s*=\s*"([^"]+)"', line)
+                    if m:
+                        return m.group(1)
+        except OSError:
+            pass
+    return shutil.which("foot") and "foot" or "xterm"
+
+
+def hyprctl(args, **kw):
+    return subprocess.run(["hyprctl", *args], env=ENV, capture_output=True,
+                          check=False, **kw)
+
+
+def build_scene(n, term=None, workspace=1):
+    """Open `n` windows on one workspace and wait until they are really mapped.
+
+    The harness used to inherit whatever the desktop happened to look like, so "run
+    the scenarios" silently meant "run them if your window layout happens to satisfy
+    the preconditions". Two windows on one workspace is the whole requirement for
+    seven of the eight scenarios, and the eighth needs a card holding two windows,
+    which is what a workspace with two windows IS.
+
+    Windows are left open on purpose: they are the only evidence afterwards of what
+    the run was measured against, and killing the user's terminals at the end of a
+    test is not this script's call to make.
+    """
+    term = term or terminal()
+    if not shutil.which(shlex.split(term)[0]):
+        print(f"terminal {term!r} not found; pass --terminal")
+        return False
+
+    # Spawned directly, not through `hyprctl dispatch exec`. Two reasons, both
+    # measured: under a Lua config the dispatcher is a shorthand that wants
+    # hl.dsp.exec_cmd(...) and does not spawn from `hyprctl dispatch` at all, and a
+    # process started here is already in the session -- the compositor picks up its
+    # window through the same socket this script is talking to.
+    hyprctl(["dispatch", f"workspace {workspace}"])
+    time.sleep(0.4)
+    before = count_windows()
+    for _ in range(n):
+        subprocess.Popen(shlex.split(term), env=ENV,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+        time.sleep(0.9)  # a terminal that has not mapped yet is not a tile
+
+    have = count_windows()
+    print(f"scene: {have} window(s) on ws{workspace} (was {before}), {term}")
+    if have < 2:
+        print("still fewer than 2 windows -- the scenes are not mapping. Check the log.")
+        return False
+    return True
+
+
+def count_windows():
+    try:
+        out = hyprctl(["clients", "-j"]).stdout
+        return len(json.loads(out))
+    except (ValueError, OSError):
+        return -1
 
 
 def setup():
@@ -326,7 +402,7 @@ SCENARIOS = [
     ("grid->grid swap",     "swap 0 1",         True),
     ("grid->strip card",    "dropcard 0 1",     True),
     ("grid->strip +",       "dropcard 0 PLUS",  True),
-    ("strip->strip slot",   "dropslot 0 CARD 0", True),
+    ("strip->strip slot",   "dropslot 0 CARD SLOT", True),
     ("strip->grid",         "stripgrid 0 1",    True),
     ("grid->kill zone",     "killz 0",          True),
     ("enter commit",        "commit",           False),
@@ -335,15 +411,32 @@ SCENARIOS = [
 
 
 def card_with_two_windows(st):
-    """Index of a card holding at least two windows, or None.
+    """(card index, slot count) of a card holding at least two windows, or (None, 0).
 
     strip->strip needs a partner slot in the SAME card; a card with one window has no
     partner, which is a precondition and not a failure.
     """
     for k, v in st.items():
         if k.startswith("card") and k[4:].isdigit() and v[1] >= 2:
-            return int(k[4:])
-    return None
+            return int(k[4:]), v[1]
+    return None, 0
+
+
+def partner_slot(tile, ci, nslots):
+    """A slot in card `ci` holding a window other than `tile`'s.
+
+    Every slot but the first is a candidate, but which one holds tile 0's window
+    depends on how the grid order and the card order happen to relate, and the plugin
+    answers "slot empty or is the same window" for a self-drop rather than swapping a
+    window with itself. Trying them in turn turns "this layout happened to line up" into
+    a fact instead of a coin flip -- and a failure here means every slot was rejected,
+    which is a real failure worth reporting.
+    """
+    for si in range(1, nslots):
+        out = cmd(f"dropslot {tile} {ci} {si}", settle=0.15)
+        if "CMD|err" not in out:
+            return si, out
+    return None, ""
 
 
 def scenario(label, command, expect_flight):
@@ -351,13 +444,19 @@ def scenario(label, command, expect_flight):
     findings, ok = [], True
     reset("carousel")
     before = log_size()
+    out = ""
     if "CARD" in command:
         st = state()
-        ci = card_with_two_windows(st)
+        ci, nslots = card_with_two_windows(st)
         if ci is None:
             return "SKIP", [(True, "no card holds two windows")]
-        command = command.replace("CARD", str(ci))
-    out = cmd(command, settle=0.15)
+        si, out = partner_slot(0, ci, nslots)
+        if si is None:
+            return "FAIL", [(False, f"no partner slot in card {ci} "
+                                    f"({nslots} window(s) there)")]
+        command = command.replace("CARD SLOT", f"{ci} {si}")
+    if not out:
+        out = cmd(command, settle=0.15)
     if "CMD|err" in out:
         return "FAIL", [(False, f"{out.split('CMD|err|')[-1]}")]
     time.sleep(1.0)
@@ -412,7 +511,15 @@ def main():
                     help="smoke the view axis: every engine, one style/duration")
     ap.add_argument("--scenarios", action="store_true",
                     help="walk the release branches instead of the style matrix")
+    ap.add_argument("--setup", nargs="?", const=3, type=int, metavar="N",
+                    help="open N windows on ws1 first, so the run does not depend "
+                         "on how the desktop happens to be arranged")
+    ap.add_argument("--terminal", help="override the terminal --setup launches")
     args = ap.parse_args()
+
+    if args.setup:
+        if not build_scene(args.setup, args.terminal):
+            return 2
 
     styles, durations = (STYLES[:1], DURATIONS[1:2]) if args.quick else (STYLES, DURATIONS)
     surfaces = ["grid"] if args.quick else SURFACES
