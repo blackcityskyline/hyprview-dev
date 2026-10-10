@@ -281,6 +281,17 @@ std::string Overview::runCommand(const std::string &args) {
              "," + std::to_string(static_cast<int>(t.target.h)) +
              "|d=" + std::to_string(depth);
     }
+    // Cards with their window counts. A strip-to-strip exchange needs two windows on ONE
+    // workspace; asking on a card that holds one is a precondition, and without this the
+    // harness cannot tell "nothing to swap with" from "the drop is broken".
+    for (std::size_t i = 0; i < m_strip.size(); ++i) {
+      const auto &it = m_strip[i];
+      const char *kind = it.kind == model::StripItem::Kind::Ws   ? "Ws"
+                         : it.kind == model::StripItem::Kind::Plus ? "Plus"
+                                                                  : "All";
+      out += "\nCARD|" + std::to_string(i) + "|" + kind + "|" +
+             std::to_string(it.wins.size());
+    }
     debug::trace::emitState(out);
     return "";
   }
@@ -350,6 +361,118 @@ std::string Overview::runCommand(const std::string &args) {
       return "swap: refused by Hyprland";
     kickPulse(m_scene.tiles()[a].win.lock());
     kickPulse(m_scene.tiles()[b].win.lock());
+    damage();
+    return "";
+  }
+
+  // --- drag scenarios ----------------------------------------------------------------
+  // Each mirrors ONE release branch in input/mouse.cpp and calls the same functions the
+  // pointer path calls, so the landing, the ghost set and the flight are the real ones.
+  // What this does NOT cover is the hit test that picks the branch: it resolves the
+  // target by index and synthesises the point, so "nearest tile within gap/2" and
+  // "which card is under the cursor" stay untested. That is the trade for having any
+  // coverage at all without moving a real pointer.
+  const auto tile = [&](int i) -> PHLWINDOW {
+    return i >= 0 && i < static_cast<int>(m_scene.size())
+               ? m_scene.tiles()[static_cast<std::size_t>(i)].win.lock()
+               : nullptr;
+  };
+  const auto cardCentre = [&](int i, double &x, double &y) {
+    if (i < 0 || i >= static_cast<int>(m_strip.size()))
+      return false;
+    const LRect c = stripCardAt(static_cast<std::size_t>(i));
+    x = c.x + c.w / 2.0;
+    y = c.y + c.h / 2.0;
+    return true;
+  };
+
+  // Grid tile onto a strip card. The "+" card is Kind::Plus and creates the workspace --
+  // the same call the LMB branch makes, so "grid -> +" needs no separate command.
+  if (tok[0] == "dropcard") {
+    const int t = num(1), ci = num(2);
+    const auto w = tile(t);
+    double x = 0, y = 0;
+    if (!w)
+      return "dropcard: bad tile";
+    if (!cardCentre(ci, x, y))
+      return "dropcard: bad card";
+    if (!dropOnStripCard(w, x, y, -1))
+      return "dropcard: refused";
+    kickPulse(w);
+    landAfterSwap(w, m_lastDragBox, m_lastDragBox, m_lastDragBox,
+                  anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve, true);
+    return "";
+  }
+
+  // Strip thumbnail onto a slot in another card -- the strip-to-strip exchange.
+  if (tok[0] == "dropslot") {
+    const int t = num(1), ci = num(2), si = num(3);
+    const auto w = tile(t);
+    if (!w)
+      return "dropslot: bad tile";
+    if (ci < 0 || ci >= static_cast<int>(m_strip.size()))
+      return "dropslot: bad card";
+    const auto &sit = m_strip[static_cast<std::size_t>(ci)];
+    if (si < 0 || si >= static_cast<int>(sit.wins.size()))
+      return "dropslot: bad slot";
+    const auto v = sit.wins[static_cast<std::size_t>(si)].win.lock();
+    if (!v || v == w)
+      return "dropslot: slot empty or is the same window";
+    if (!swapWindows(w, v, m_lastDragBox, true))
+      return "dropslot: refused by Hyprland";
+    kickPulse(w);
+    kickPulse(v);
+    return "";
+  }
+
+  // Strip thumbnail onto the grid's other tile -- strip-to-grid.
+  if (tok[0] == "stripgrid") {
+    const int t = num(1), other = num(2);
+    const auto w = tile(t), v = tile(other);
+    if (!w || !v || t == other)
+      return "stripgrid: bad tiles";
+    if (!swapWindows(w, v, m_lastDragBox, true))
+      return "stripgrid: refused by Hyprland";
+    kickPulse(w);
+    kickPulse(v);
+    return "";
+  }
+
+  // Onto the closing zone. Closes the tile and flies it out, as Tile->killZone does.
+  if (tok[0] == "killz") {
+    const int t = num(1);
+    const auto w = tile(t);
+    if (!w)
+      return "killz: bad tile";
+    if (t == m_scene.selected() && m_scene.size() > 1)
+      m_scene.select(static_cast<int>(t % (m_scene.size() - 1)));
+    closeTileWindow(t);
+    beginSwapFX(w, m_lastDragBox, model::SwapStyle::Horizontal,
+                anim::cfg(anim::Id::SwapFly).ms, anim::cfg(anim::Id::SwapFly).curve, false);
+    ensureAnimPump();
+    damage();
+    return "";
+  }
+
+  if (tok[0] == "carousel") {
+    const bool want = num(1) != 0;
+    if (want != carouselMode())
+      toggleCarousel();
+    return "";
+  }
+
+  // Enter commits the focused window, Escape cancels. Same decision the key handler makes,
+  // so this exercises toggleIntent and the close path that follows it.
+  if (tok[0] == "commit" || tok[0] == "cancel") {
+    const bool commit = tok[0] == "commit";
+    if (!openedOrParked())
+      return "not open";
+    const auto intent = anim::toggleIntent(true, m_scene.hasSelection() && commit);
+    if (intent == anim::DismissIntent::Commit) {
+      if (const auto w = m_scene.tiles()[static_cast<std::size_t>(std::max(0, m_scene.focused()))].win.lock())
+        closeTileWindow(m_scene.focused());
+    }
+    close();
     damage();
     return "";
   }

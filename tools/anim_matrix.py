@@ -128,6 +128,10 @@ def state():
                 if part.startswith("d="):
                     depth = int(part[2:])
             st[f"tile{i}"] = (cls, ws, box, depth)
+        elif line.startswith("CARD|"):
+            _, i, kind, n = line.split("|")
+            st.setdefault("cards", []).append(kind)
+            st[f"card{i}"] = (kind, int(n))
     return st
 
 
@@ -314,6 +318,91 @@ def one_cell(style, ms, surface, view="carousel"):
     return ("PASS" if ok else "FAIL"), findings
 
 
+# The release branches in input/mouse.cpp, one row each. Each entry is
+# (label, command). `expect_flight` says whether a correct run must produce at least one
+# ANIM|begin: a swap flies, a workspace switch may have nothing to fly if the geometry
+# did not move, and a dismissal has no flight at all -- it is an exit ramp.
+SCENARIOS = [
+    ("grid->grid swap",     "swap 0 1",         True),
+    ("grid->strip card",    "dropcard 0 1",     True),
+    ("grid->strip +",       "dropcard 0 PLUS",  True),
+    ("strip->strip slot",   "dropslot 0 CARD 0", True),
+    ("strip->grid",         "stripgrid 0 1",    True),
+    ("grid->kill zone",     "killz 0",          True),
+    ("enter commit",        "commit",           False),
+    ("escape cancel",       "cancel",           False),
+]
+
+
+def card_with_two_windows(st):
+    """Index of a card holding at least two windows, or None.
+
+    strip->strip needs a partner slot in the SAME card; a card with one window has no
+    partner, which is a precondition and not a failure.
+    """
+    for k, v in st.items():
+        if k.startswith("card") and k[4:].isdigit() and v[1] >= 2:
+            return int(k[4:])
+    return None
+
+
+def scenario(label, command, expect_flight):
+    """One release branch, driven through its own command and judged on the trace."""
+    findings, ok = [], True
+    reset("carousel")
+    before = log_size()
+    if "CARD" in command:
+        st = state()
+        ci = card_with_two_windows(st)
+        if ci is None:
+            return "SKIP", [(True, "no card holds two windows")]
+        command = command.replace("CARD", str(ci))
+    out = cmd(command, settle=0.15)
+    if "CMD|err" in out:
+        return "FAIL", [(False, f"{out.split('CMD|err|')[-1]}")]
+    time.sleep(1.0)
+    run = tail_from(before)
+    begins = [fields(l, 2) for l in run.splitlines() if l.startswith("ANIM|begin|")]
+    if expect_flight and not begins:
+        return "FAIL", [(False, "no flight")]
+    for b in begins:
+        if b.get("from") == b.get("to"):
+            findings.append((False, "zero distance"))
+            ok = False
+    detail = [f"{b['surface']}/{b['style']}" for b in begins] or ["no flight"]
+    findings.append((ok, ", ".join(detail)))
+    return ("PASS" if ok else "FAIL"), findings
+
+
+def run_scenarios():
+    """Every release branch, one row. Separate from the style matrix on purpose: these
+    check WHICH path ran, the matrix checks HOW a path behaved."""
+    if not setup():
+        return 2
+    st = preconditions()
+    if st is None:
+        return 2
+    print(f"preconditions ok: {st.get('tiles')} tiles, "
+          f"allws={st.get('allws')}, carousel={st.get('carousel')}\n")
+    print(f"{'scenario':20} {'verdict':7}  detail")
+    fails = skips = ran = 0
+    for label, command, expect in SCENARIOS:
+        verdict, findings = scenario(label, command, expect)
+        if verdict == "SKIP":
+            skips += 1
+        else:
+            ran += 1
+            if verdict == "FAIL":
+                fails += 1
+        print(f"{label:20} {verdict:7}  {'; '.join(m for _, m in findings) or '-'}")
+    cmd("close", settle=0.8)
+    summary = f"\n{ran - fails}/{ran} passed"
+    if skips:
+        summary += f", {skips} skipped"
+    print(summary)
+    return 1 if fails else 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true", help="one style, one duration")
@@ -321,6 +410,8 @@ def main():
     ap.add_argument("--keep", action="store_true", help="leave tuning overrides behind")
     ap.add_argument("--views", action="store_true",
                     help="smoke the view axis: every engine, one style/duration")
+    ap.add_argument("--scenarios", action="store_true",
+                    help="walk the release branches instead of the style matrix")
     args = ap.parse_args()
 
     styles, durations = (STYLES[:1], DURATIONS[1:2]) if args.quick else (STYLES, DURATIONS)
@@ -330,6 +421,9 @@ def main():
               for s in (SMOKE_STYLE,) for m in (SMOKE_MS,)]
              if args.views else
              [(s, m, f, "carousel") for f in surfaces for s in styles for m in durations])
+    if args.scenarios:
+        return run_scenarios()
+
     if args.list:
         print(f"{len(cells)} cells: " +
               " ".join(f"{s}/{m}/{f}/{v}" for s, m, f, v in cells))
