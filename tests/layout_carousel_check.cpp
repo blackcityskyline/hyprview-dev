@@ -212,10 +212,11 @@ void sectionD_selectionDoesNotMoveTheRun() {
       yes(sw == ws, "box sizes never depend on the selection");
       near(L.stripW, firstStrip, "strip width never depends on the selection");
     }
-    // Exactly one centred card, at the middle.
+    // Exactly one centred card, at the middle. depth 0 IS the caption card:
+    // showCaption was a second name for `slot == 0` that no renderer read.
     int centred = 0;
     for (const auto &c : L.cards)
-      if (c.showCaption)
+      if (c.depth == 0)
         ++centred;
     yes(centred == 1, "exactly one card is centred");
   }
@@ -225,9 +226,9 @@ void sectionD_selectionDoesNotMoveTheRun() {
 void sectionE_wrappingAndEdges() {
   const auto mt = defaults();
   const auto a = computeCarousel(5, -1, LRect{0, 0, kUsableW, kUsableH}, mt);
-  yes(a.cards[4].showCaption, "selected -1 wraps to the last card");
+  yes(a.cards[4].depth == 0, "selected -1 wraps to the last card");
   const auto b = computeCarousel(5, 5, LRect{0, 0, kUsableW, kUsableH}, mt);
-  yes(b.cards[0].showCaption, "selected == count wraps to the first card");
+  yes(b.cards[0].depth == 0, "selected == count wraps to the first card");
   near(b.cards[0].x, a.cards[4].x, "a wrapped selection centres identically");
 
   const auto e = computeCarousel(0, 0, LRect{0, 0, kUsableW, kUsableH}, mt);

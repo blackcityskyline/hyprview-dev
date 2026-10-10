@@ -72,8 +72,7 @@ struct CarouselMetrics {
 struct CarouselLayout {
     struct Card {
         bool   visible = false;
-        bool   showCaption = false;
-        int    depth = 3;      // 0 = selected, 1 = near, 2+ farther
+        int    depth = 3;      // 0 = selected (the one that gets the caption), 1 = near, 2+ farther
         double x = 0.0, y = 0.0, w = 0.0, h = 0.0;
     };
     std::vector<Card> cards;

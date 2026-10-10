@@ -266,7 +266,6 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
         const int slot = slotOf[static_cast<size_t>(idx)];
         CarouselLayout::Card& c = L.cards[static_cast<size_t>(idx)];
         c.visible = true;
-        c.showCaption = slot == 0;
         c.depth = std::abs(slot);
         // Each card centred on its own slot's position, at its depth's size.
         c.w = boxW * sizeAt(std::abs(slot)) * kCard;
