@@ -57,6 +57,7 @@ static std::array<Row, static_cast<std::size_t>(Id::Count)> kRows = {{
 
 static cfg::Int g_globallyEnabled;
 static const std::string s_jump = "instant";
+static const std::string s_gridSwap = "horizontal", s_stripSwap = "horizontal";
 static cfg::Str g_gridSwapStyle, g_stripSwapStyle, g_jumpStyle;
 
 // Shape parameters, in the same order as anim::Param.
@@ -125,6 +126,14 @@ double param(Param p) {
 // are gone rather than fixed.
 std::string jumpStyle() { return g_jumpStyle.v ? g_jumpStyle.get() : s_jump; }
 
+std::string gridSwapStyle() {
+  return g_gridSwapStyle.v ? g_gridSwapStyle.get() : s_gridSwap;
+}
+
+std::string stripSwapStyle() {
+  return g_stripSwapStyle.v ? g_stripSwapStyle.get() : s_stripSwap;
+}
+
 void registerAll(HANDLE handle) {
   // deque: the keys must outlive registration (CIntValue keeps them as const char*).
   static std::deque<std::string> keys;
@@ -143,10 +152,8 @@ void registerAll(HANDLE handle) {
     h.def = def;
     HyprlandAPI::addConfigValueV2(handle, h.v);
   };
-  // grid_swap_style / strip_swap_style are registered and documented but nothing
-  // reads them: the exchange flight takes its style from the fx layer. Kept
-  // registered so existing user configs keep loading -- Hyprland errors on an
-  // unknown plugin key rather than ignoring it.
+  // Read by gridSwapStyle()/stripSwapStyle(), not by style(): style() resolves a
+  // name against kRows and neither of these is a row. See anim.hpp.
   plain(g_gridSwapStyle, "grid_swap_style", "horizontal");
   plain(g_stripSwapStyle, "strip_swap_style", "horizontal");
   plain(g_jumpStyle, "jump_style", "instant");

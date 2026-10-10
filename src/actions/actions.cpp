@@ -237,13 +237,11 @@ void Overview::landAfterMove(const PHLWINDOW &w, const LRect &oldBox,
         strip = true;
   }
   if (strip) { // strip thumbs have no glide machinery — always an FX flight
-    beginSwapFX(w, oldBox, parseSwapStyle(anim::style("strip_swap")), ms, curve);
+    beginSwapFX(w, oldBox, parseSwapStyle(anim::stripSwapStyle()), ms, curve);
     return;
   }
-  if (parseSwapStyle(anim::style("grid_swap")) !=
-    model::SwapStyle::Horizontal) {
-    beginSwapFX(w, oldBox, parseSwapStyle(anim::style("grid_swap")),
-                ms, curve);
+  if (parseSwapStyle(anim::gridSwapStyle()) != model::SwapStyle::Horizontal) {
+    beginSwapFX(w, oldBox, parseSwapStyle(anim::gridSwapStyle()), ms, curve);
     return;
   }
   m_scene.pinNatural(w.get(), oldBox);

@@ -43,6 +43,12 @@ enum class Id : std::uint8_t {
 
 // Not animation styles: behaviour selectors that happen to live in the same config section.
 [[nodiscard]] std::string jumpStyle();
+// grid_swap_style / strip_swap_style are NOT kRows entries, so style() cannot reach
+// them: style() resolves a name against the animation table, and neither name is in
+// it -- asking for one returned {} silently, and {} parses to Horizontal, so the
+// documented key did nothing. These read the registered handles directly instead.
+[[nodiscard]] std::string gridSwapStyle();
+[[nodiscard]] std::string stripSwapStyle();
 
 void setRule(const char *name, const Rule &r);
 
