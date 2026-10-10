@@ -41,7 +41,10 @@
    округляет, поэтому бокс меньше полупикселя становится нулём, даже если непустой.
    Свой хелпер с этой целью — уже была ошибка: `strip_view` проверял `< 0` и пропускал
    ноль в тот самый ассерт. `renderTexture` не требует защиты: там только `pMonitor`
-   и nullptr-текстура.
+   и nullptr-текстура. Тест `draw_sites` (`tests/draw_sites_check.cpp`) проверяет
+   именно это: сырых вызовов вне `gl_util.hpp` быть не должно, а каждая обёртка —
+   обязана звать `drawable()`. Он grep, а не линк: стабы для `CHyprColor` молчали бы
+   портили цвет.
 7. **Конфиг читается только через `cfg*`-хелперы** (V2 `value()`), НЕ через
    deprecated `HyprlandAPI::getConfigValue()` — последний игнорирует Lua-конфиг.
 8. **Порядок `paint()` менять осознанно** (`render/painter.cpp:217`): backdrop →
@@ -227,7 +230,7 @@ verify-config, правила анимаций) — все оказались н
 | `layout.hpp` / `.cpp` | чистая геометрия лейаута, без Hyprland (единственный юнит-домен) |
 | `model/` | `scene.hpp` (плитки, выбор, интенты), `strip.hpp`, `effects.hpp` (ghosts/pulses/swapfx), `recency.*`, `model.hpp`. Поля приватные, наружу — намерения |
 | `pixel/cache.cpp` | кэш подписей и снапшотов |
-| `tests/` | ctest: 13 проверок, включая `load_seam`, `hook_signatures`, `config_keys`, `anim_styles` |
+| `tests/` | ctest: 14 проверок, включая `load_seam`, `hook_signatures`, `config_keys`, `anim_styles`, `draw_sites` |
 
 ## Открытые вопросы
 
