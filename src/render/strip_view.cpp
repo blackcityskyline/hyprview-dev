@@ -24,18 +24,6 @@ namespace {
 
 CBox box(const LRect &r) { return CBox{r.x, r.y, r.w, r.h}; }
 
-// renderRect RASSERTs on non-positive boxes (session goes down): log and skip.
-void safeRenderRect(const char *tag, const CBox &b, const CHyprColor &col,
-                    Render::GL::CHyprOpenGLImpl::SRectRenderData opts) {
-  if (b.width < 0 || b.height < 0) {
-    debug::dbg(std::string("renderStrip NEG box @") + tag + ": " +
-               std::to_string(b.width) + "x" + std::to_string(b.height) +
-               " at " + std::to_string(b.x) + "," + std::to_string(b.y));
-    return;
-  }
-  g_pHyprOpenGL->renderRect(b, col, opts);
-}
-
 }
 
 // Z2 strip chrome. Thumbnails follow in renderStripWindows, hints/close in
@@ -416,7 +404,7 @@ void Overview::renderStripButtons() const {
     if (showClose) {
       const LRect br = closeButtonRect(card);
       const double rad = br.w / 2.0;
-      g_pHyprOpenGL->renderRect(
+      safeRenderRect("closebtn", 
           pxb(box(br), s),
           cfg::colors.close_button.get(e),
           {.round = pxr(rad, s)});

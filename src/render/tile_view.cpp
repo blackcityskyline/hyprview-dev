@@ -189,7 +189,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
       uvTL = Vector2D{-1.0, -1.0};
       uvBR = Vector2D{-1.0, -1.0};
       // The frost covers the global dim: re-apply it at the global alpha.
-      g_pHyprOpenGL->renderRect(boxPx, cfg::blur.backdrop.get(static_cast<float>(e)),
+      safeRenderRect("tile", boxPx, cfg::blur.backdrop.get(static_cast<float>(e)),
                                 {.round = pxr(round, s), .roundingPower = roundPow});
     }
   }
@@ -198,7 +198,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                    roundPow, m_clocks.tiles.done(glideDur()), look.contain);
 
   if (look.tone > 0.0)
-    g_pHyprOpenGL->renderRect(pxb(box, s), argb(shadowCol, look.tone * e * f),
+    safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
                               {.round = pxr(round, s), .roundingPower = roundPow});
 
   if ((framed || selected) && !look.lift && t.label && t.label->m_size.x > 0) {
@@ -220,7 +220,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const Vector2D push = pushOut(LRect{px, py, pw, ph});
     const double ux = px + push.x;
     const double uy = py + push.y;
-    g_pHyprOpenGL->renderRect(pxb(CBox(ux, uy, pw, ph), s),
+    safeRenderRect("tile", pxb(CBox(ux, uy, pw, ph), s),
                               cfg::colors.title_pill.get(e * f),
                               {.round = pxr(ph / 2.0, s)});
     g_pHyprOpenGL->renderTexture(t.label, pxb(CBox(ux + padX, uy + padY, lw, lh), s),
@@ -230,7 +230,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
   const auto closeGlyph = m_pixel.closeGlyph();
     if (look.button && !look.lift && closeGlyph && closeGlyph->m_size.x > 0) {
     const LRect br = closeButtonRect(box);
-    g_pHyprOpenGL->renderRect(pxb(br, s), cfg::colors.close_button.get(e),
+    safeRenderRect("tile", pxb(br, s), cfg::colors.close_button.get(e),
                               {.round = pxr(br.h / 2.0, s)});
     const double gw = closeGlyph->m_size.x, gh = closeGlyph->m_size.y;
     const double gs = std::min((br.w * cfg::look.close_glyph_fill) / std::max(1.0, gw),

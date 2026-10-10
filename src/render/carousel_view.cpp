@@ -160,7 +160,7 @@ void Overview::renderCarouselCounter() const {
     const Vector2D push = pushOut(pill);
     const LRect pillAt{pill.x + push.x, pill.y + push.y, pill.w, pill.h};
     // Radius == half the height with power 1.0 is a true capsule, not a rounded rect.
-    g_pHyprOpenGL->renderRect(
+    safeRenderRect("carousel", 
         pxb(CBox(pillAt.x, pillAt.y, pillAt.w, pillAt.h), s),
         cfg::colors.carousel_count_pill.get(eased()),
         {.round = pxr(pillAt.h / 2.0, s), .roundingPower = 1.0});

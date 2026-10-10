@@ -9,6 +9,7 @@
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 
+#include "../debug/log.hpp"
 #include "../layout.hpp"
 
 namespace gloview {
@@ -43,6 +44,34 @@ inline CHyprColor argb(Hyprlang::INT raw, double alphaMul = 1.0) {
   return CHyprColor(r, g, b, a * std::clamp(alphaMul, 0.0, 1.0));
 }
 
+// Hyprland asserts on a non-positive box in every immediate-mode render entry point,
+// and that assert is a crash inside the compositor -- the whole session goes, it is
+// not a no-op:
+//   OpenGL.cpp:1071  renderRect (via renderRectWithDamageInternal)
+//   OpenGL.cpp:2163  renderBorder
+//   OpenGL.cpp:2341  renderRoundedShadow
+// pxb() rounds, so a box under half a pixel becomes zero even while non-empty.
+//
+// ONE predicate, in the shared header, instead of a guard per call site. strip_view
+// had its own and it tested `width < 0`, which hands a zero-sized box straight to the
+// assert the helper exists to prevent; the flight's shadow had no guard at all and
+// cost a session on 2026-10-10 (crash report 45823).
+inline bool drawable(const CBox &b) { return b.w > 0 && b.h > 0; }
+inline bool drawable(const LRect &r, double s) { return drawable(pxb(r, s)); }
+
+// Logs instead of dropping silently: "why is there no rect here" is unanswerable
+// after the fact without the numbers.
+inline void safeRenderRect(const char *tag, const CBox &b, const CHyprColor &col,
+                           Render::GL::CHyprOpenGLImpl::SRectRenderData opts) {
+  if (!drawable(b)) {
+    debug::dbg(std::string("NEG box @") + tag + ": " + std::to_string(b.w) + "x" +
+               std::to_string(b.h) + " at " + std::to_string(b.x) + "," +
+               std::to_string(b.y));
+    return;
+  }
+  Render::GL::g_pHyprOpenGL->renderRect(b, col, opts);
+}
+
 // STROKE, never a filled rect grown by borderSize
 inline void strokeRing(const LRect &lb, double s, const CHyprColor &col,
                        int size, int round, float roundPow) {
@@ -72,6 +101,8 @@ inline int contentRadiusPx(int round, int width, float roundPow, double scale,
 
 inline void strokeRingPx(const CBox &b, const CHyprColor &col, float alpha,
                          int round, float roundPow) {
+  if (!drawable(b))
+    return;
   Render::GL::g_pHyprOpenGL->renderBorder(
       b, Config::CGradientValueData(col),
       {.round = round,
@@ -88,6 +119,8 @@ inline CHyprColor argb(const CHyprColor &c, double alphaMul = 1.0) {
 inline void dropShadow(const LRect &lb, double s, const CHyprColor &col,
                        double dy, double range, float alpha, int round,
                        float roundPow) {
+  if (!drawable(lb, s))
+    return;
   Render::GL::g_pHyprOpenGL->renderRoundedShadow(
       pxb(LRect{lb.x, lb.y + dy, lb.w, lb.h}, s), pxr(round, s), roundPow,
       static_cast<int>(range * s), Config::CGradientValueData(col), alpha);

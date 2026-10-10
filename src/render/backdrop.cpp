@@ -108,7 +108,7 @@ SP<Render::ITexture> Overview::renderBackdropSource(int W, int H) const {
 
   // Always filled: the scratch holds a previous attempt, and blending onto it would smear.
   static auto PBG = CConfigValue<Config::INTEGER>("misc:background_color");
-  g_pHyprOpenGL->renderRect(CBox(0, 0, W, H), argb(*PBG, 1.0), {});
+  safeRenderRect("backdrop", CBox(0, 0, W, H), argb(*PBG, 1.0), {});
 
   if (m->m_background && m->m_background->ok()) {
     const double MONRATIO = static_cast<double>(W) / H;
@@ -352,7 +352,7 @@ void Overview::renderBackdrop() const {
     const auto col = argb(baseCol, dimK);
     if (col.a <= 0.0)
       return;
-    g_pHyprOpenGL->renderRect(fullPx, col, {});
+    safeRenderRect("backdrop", fullPx, col, {});
     return;
   }
 
@@ -410,7 +410,7 @@ void Overview::renderBackdrop() const {
       debug::dbg("backdrop FALLBACK: blur unavailable / no source");
       // No fill. The entry base is already on screen, and misc:background_color is black
       // whenever the wallpaper is a layer surface -- filling here IS the flash.
-      g_pHyprOpenGL->renderRect(fullPx, argb(baseCol, dimK), {});
+      safeRenderRect("backdrop", fullPx, argb(baseCol, dimK), {});
       return;
     }
     m_blur.valid = true;
@@ -440,7 +440,7 @@ void Overview::renderBackdrop() const {
 
   const auto dimCol = argb(baseCol, dimK);
   if (dimCol.a > 0.0)
-    g_pHyprOpenGL->renderRect(fullPx, dimCol, {});
+    safeRenderRect("backdrop", fullPx, dimCol, {});
 
 
 }

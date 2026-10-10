@@ -1,6 +1,7 @@
 #include "cursor.hpp"
 
 #include <algorithm>
+#include "render/gl_util.hpp"
 #include <hyprutils/math/Region.hpp>
 
 using Render::GL::g_pHyprOpenGL;
@@ -82,7 +83,7 @@ void CCursorModule::renderOnTop(PHLMONITOR monitor, const CHyprColor& backdropCo
         };
         const CBox lastPx = CBox{std::round(lastPl.x), std::round(lastPl.y),
                                  std::round(lastPl.w), std::round(lastPl.h)};
-        g_pHyprOpenGL->renderRect(lastPx,
+        safeRenderRect("cursor", lastPx,
                                   CHyprColor(backdropColor.r, backdropColor.g,
                                              backdropColor.b, 1.0),
                                   {});
