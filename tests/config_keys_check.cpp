@@ -15,6 +15,8 @@
 // from the README is a doc hole, reported last and only after the real failures.
 
 #include <algorithm>
+#include <cassert>
+#include <cctype>
 #include <cstdio>
 #include <fstream>
 #include <set>
@@ -230,6 +232,82 @@ int main(int argc, char **argv) {
   if (undocumented) {
     std::puts("FAIL: a key exists that the README never mentions");
     return 1;
+  }
+
+  // --- every value wrapper honours cfg::override ------------------------------------
+  // `gloview.cmd set <key> <value>` reaches cfg::override, and the four Int/Float/Str/
+  // Color wrappers are where a key actually gets READ. A wrapper whose get() forgets
+  // override::find accepts the set, reports success -- setTuning writes it and
+  // isConfigKey() is true for every registered key, colour keys included -- and then
+  // changes nothing. Silent, and indistinguishable from a typo.
+  //
+  // The general rule, not the four instances: any class in config.hpp that holds a
+  // `const char *key` is a config value wrapper, and its get() must consult override.
+  // A fifth wrapper added later inherits the check, not the exception.
+  {
+    const auto cfgHdr = slurp(root + "/src/config/config.hpp");
+    const auto cfgSrc = slurp(root + "/src/config/config.cpp");
+
+    std::vector<std::pair<std::string, std::string>> wrappers; // name, body
+    for (size_t p = cfgHdr.find("class "); p != std::string::npos;
+         p = cfgHdr.find("class ", p + 6)) {
+      // The identifier starts after the `class` keyword, not at it -- taking it from the
+      // line start made every wrapper report as "class Color", and then no out-of-line
+      // definition was ever found for it.
+      size_t nameStart = p + 6;
+      while (nameStart < cfgHdr.size() &&
+             std::isspace(static_cast<unsigned char>(cfgHdr[nameStart])))
+        ++nameStart;
+      const size_t open      = cfgHdr.find('{', p);
+      const size_t close     = cfgHdr.find("\n};", open);
+      if (open == std::string::npos || close == std::string::npos || close < open)
+        continue;
+      const auto body = cfgHdr.substr(open, close - open);
+      // A wrapper carries the registered key; a plain helper struct does not.
+      if (body.find("const char *key") == std::string::npos)
+        continue;
+      {
+        auto n = cfgHdr.substr(nameStart, open - nameStart);
+        while (!n.empty() && std::isspace((unsigned char)n.back()))
+          n.pop_back();
+        wrappers.emplace_back(n, body);
+      }
+    }
+    assert(wrappers.size() >= 4 && "config value wrappers not found in config.hpp");
+
+    for (const auto &[name, body] : wrappers) {
+      // Int/Float/Str define get() inline, so override::find is in the class body.
+      // Color declares it and defines it in config.cpp, which caches the parsed colour
+      // against the string -- and that cache is where the override has to be read,
+      // BEFORE the cache, or a set value would be looked up under the old key.
+
+      // Color declares get() and defines it in config.cpp, which caches the parsed colour
+      // against the string it was parsed from. Read the whole definition body rather than
+      // counting characters: an explanatory comment above the override would otherwise
+      // push it past any threshold, and the comment is exactly what will grow.
+      const std::string def = name + "::get";
+      const size_t at       = cfgSrc.find(def);
+      size_t bodyEnd        = 0;
+      if (at != std::string::npos) {
+        const size_t brace = cfgSrc.find('{', at);
+        bodyEnd            = cfgSrc.find("\n}", brace);
+      }
+      const std::string outOfLine =
+          at == std::string::npos ? std::string()
+                                  : cfgSrc.substr(at, bodyEnd == std::string::npos
+                                                      ? std::string::npos
+                                                      : bodyEnd - at);
+      const bool honours = body.find("override::find") != std::string::npos ||
+                           outOfLine.find("override::find") != std::string::npos;
+      if (!honours) {
+        std::printf("FAIL %s::get never reads cfg::override -- `set <key> ...` would "
+                    "report success and change nothing\n",
+                    name.c_str());
+        return 1;
+      }
+    }
+    std::printf("%d config value wrapper(s), every get() reads cfg::override\n",
+                (int)wrappers.size());
   }
 
   std::puts("OK");

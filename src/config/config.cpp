@@ -59,7 +59,12 @@ std::unordered_map<const Color *, std::pair<std::string, CHyprColor>>
 } // namespace
 
 CHyprColor Color::get(float alphaMul) const {
-  const std::string raw = v ? std::string(v->value()) : std::string(def);
+  // The override is resolved BEFORE the cache lookup, not after. The cache is keyed on
+  // the string it was parsed from, so an override read past the cache would keep serving
+  // whatever was parsed first and `set <colour-key> <value>` would report success and
+  // change nothing. Int/Float/Str have no cache and were never exposed to this.
+  const std::string *ov = override::find(key);
+  const std::string raw = ov ? *ov : (v ? std::string(v->value()) : std::string(def));
   auto &c = g_colorCache[this];
   if (c.first != raw) {
     c.first  = raw;
