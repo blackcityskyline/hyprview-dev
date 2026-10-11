@@ -145,6 +145,11 @@ add_test(NAME layout
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/layout_check.cpp ${CMAKE_SOURCE_DIR}/src/layout.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/layout_check && ${CMAKE_CURRENT_BINARY_DIR}/layout_check")
 
+# Two Hyprland-type rules, both of which were paragraphs in AGENTS.md. See the header of
+# the check for why the second one is about the value type and not the key type.
+add_test(NAME hypr_types
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/hypr_types_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check && ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check ${CMAKE_SOURCE_DIR}/src")
+
 # The tile engines, as arithmetic. computeCarousel has its own check; computeLayout,
 # which produces every box the grid/rows/natural views hand the renderer, had none --
 # and layoutGrid could emit a NEGATIVE box when the gaps outgrew the area, which is
