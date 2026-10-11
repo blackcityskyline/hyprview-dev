@@ -232,7 +232,7 @@ def strip_scroll_clamps(c):
     out = cmd("open", settle=0.6)
     out += cmd("allws 2", settle=0.5)
     out += cmd("close", settle=0.5)
-    bad, seen = [], 0
+    bad, seen, meaningful = [], 0, 0
     for line in out.splitlines():
         if not line.startswith("SCROLL|"):
             continue
@@ -246,14 +246,24 @@ def strip_scroll_clamps(c):
             mx, cur = float(f["max"]), float(f["current"])
         except (KeyError, ValueError):
             continue
+        if mx > 0.0:
+            meaningful += 1
         if cur < -0.001 or cur > mx + 0.001:
             bad.append("current=%g outside max=%g" % (cur, mx))
     c.saw(seen)
-    if not seen:
-        return c.skip("no SCROLL| records -- debug_trace off, or the strip never rebuilt")
     if bad:
         return c.fail("scroll out of range or unparseable: %s" % bad[:3])
-    return c.ok("%d scroll record(s), every position within [0, max]" % seen)
+    # Records alone are not evidence. A strip whose cards all fit the band emits max=0
+    # scrollable=0 on every rebuild, and `0 <= current <= 0` is true of everything -- the
+    # first run of this check passed that way, on four records that tested nothing.
+    # Counting records was the guard; it was not enough. The invariant has to have been
+    # live somewhere in what was observed.
+    if not meaningful:
+        return c.skip("%d scroll record(s), all with max=0 -- every card fits the band, "
+                      "so [0,max] was never exercised. Widen the strip or add cards, then "
+                      "scroll it by hand." % seen)
+    return c.ok("%d scroll record(s), %d with a non-empty range; every position within "
+                "[0, max]" % (seen, meaningful))
 
 
 # --- drag ---------------------------------------------------------------------------
