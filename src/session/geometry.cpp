@@ -59,9 +59,14 @@ double Overview::stripThickness() const {
   if (!m)
     return 150.0;
   const double cross = stripHorizontal() ? m->m_size.y : m->m_size.x;
-  return std::clamp(
-      static_cast<double>(cfg::strip.height), 100.0,
-      cross * cfg::strip.offset_max);
+  // std::clamp requires !comp(hi, lo); it is not checked here (no _GLIBCXX_ASSERTIONS),
+  // so a small strip_offset_max silently inverted the range instead of aborting. Below
+  // 100/cross -- about 0.09 on a 1080p monitor -- the 100px floor vanished and the band
+  // came out as thin as the number asked for, with no diagnostic. offset_max is a
+  // kFloats entry with no bound, so the value is reachable from a config.
+  const double hi   = cross * cfg::strip.offset_max;
+  const double floor = std::min(100.0, hi);
+  return std::clamp(static_cast<double>(cfg::strip.height), floor, hi);
 }
 
 double Overview::stripOffset() const {
