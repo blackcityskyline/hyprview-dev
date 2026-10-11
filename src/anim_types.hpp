@@ -132,6 +132,44 @@ inline constexpr const char *const kSwapStyles[] = {"horizontal", "slidevert", "
   return false;
 }
 
+// ws_enter_style / ws_exit_style, resolved once instead of at every comparison.
+//
+// These were raw std::string compared in two files independently (clocks.cpp read three
+// names, tile_view.cpp two more), so the legal values existed only as those comparisons:
+// the same disease kEnterStyles was declared to cure, one layer up. "pop" is an enter-only
+// style -- it scales the tile in rather than sliding it -- and it is what a name falls
+// through to when it matches none of the branches, so keeping it an enum member rather
+// than a fallthrough is what makes "which names do exit actually answer to" answerable.
+//
+// Unknown names resolve to Slide, which is the kRows default for both keys
+// (anim.cpp:40-41) and the value the README documents. Before, a typo matched no branch
+// and silently took pop's path; that was an accident of branch order, not a policy.
+enum class WsStyle : int { Slide, SlideVert, Fade, Pop };
+
+[[nodiscard]] constexpr WsStyle parseWsStyle(std::string_view s) {
+  return s == "slidevert" ? WsStyle::SlideVert
+       : s == "fade"     ? WsStyle::Fade
+       : s == "pop"      ? WsStyle::Pop
+                          : WsStyle::Slide;
+}
+
+// For the trace line in painter.cpp and for the test's round-trip check: the enum has to
+// be able to say its own name, or "every declared name parses" is not checkable.
+[[nodiscard]] constexpr const char *wsStyleName(WsStyle s) {
+  return s == WsStyle::SlideVert ? "slidevert"
+       : s == WsStyle::Fade     ? "fade"
+       : s == WsStyle::Pop      ? "pop"
+                                : "slide";
+}
+
+// Styles that carry the tile in on a slide rather than scaling it in. ws_enter_style's
+// branch at clocks.cpp:145 returns early for these and falls through to the pop scale for
+// everything else, so this set IS that early return -- listing it next to the enum keeps
+// the two from drifting.
+[[nodiscard]] constexpr bool wsStyleSlides(WsStyle s) {
+  return s != WsStyle::Pop;
+}
+
 // The entry stagger, as pure arithmetic.
 //
 // staggered() in clocks.cpp reads the spread from anim::param() and is therefore not

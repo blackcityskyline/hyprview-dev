@@ -142,16 +142,14 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
   const double ap = tileAppearNow(t, i);
   if (ap >= 1.0)
     return r;
-  if (m_view.wsSlideDir() != 0 && m_enterStyle != "pop") {
+  if (m_view.wsSlideDir() != 0 && anim::wsStyleSlides(m_enterStyle)) {
     if (const auto m = m_monitor.lock()) {
-      if (m_enterStyle == "slide")
+      if (m_enterStyle == anim::WsStyle::Slide)
         r.x += static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * (1.0 - ap);
-      else if (m_enterStyle == "slidevert")
+      else if (m_enterStyle == anim::WsStyle::SlideVert)
         r.y -= static_cast<double>(m->m_size.y) * (1.0 - ap);
     }
-    if (m_enterStyle == "slide" || m_enterStyle == "slidevert" ||
-        m_enterStyle == "fade")
-      return r;
+    return r;
   }
   // How small a tile is at the start of its scale-in, from anim::param so a user can
   // deepen or flatten the pop. The 0.15 was a literal here and meant to be tuned.
@@ -165,8 +163,8 @@ void Overview::updateAnimation() {
   m_entry      = anim::cfg(entryLeaf());
   m_ghost      = anim::cfg(ghostLeaf());
   m_lift       = anim::cfg(anim::Id::Lift);
-  m_enterStyle = anim::style("ws_enter");
-  m_exitStyle  = anim::style("ws_exit");
+  m_enterStyle = anim::parseWsStyle(anim::style("ws_enter"));
+  m_exitStyle  = anim::parseWsStyle(anim::style("ws_exit"));
 
   const double dur = animDuration();
   // stall guard: rewind every clock past a render hole

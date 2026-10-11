@@ -13,6 +13,7 @@
 
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <set>
 #include <sstream>
@@ -115,6 +116,54 @@ int main(int argc, char **argv) {
   const int swapHit  = reach(kSwapStyles, std::size(kSwapStyles));
   std::printf("enter styles reached: %d/%zu, swap styles reached: %d/%zu\n", enterHit,
               std::size(kEnterStyles), swapHit, std::size(kSwapStyles));
+
+  // --- every declared name round-trips through its parser -----------------------------
+  // The generalisation the two-point grep could not give. kEnterStyles and kSwapStyles were
+  // lists of strings and the motion code compared them one by one, so a name in the list
+  // with no branch reading it was invisible: the membership test passes, the style is just
+  // never used. That is exactly the "key the user can set that nothing reads" class.
+  //
+  // parseWsStyle closes it differently than the swap family does, and the difference is
+  // worth pinning. It RESOLVES rather than compares: name -> enum in one place, so a
+  // declared name with no reader is impossible by construction. The test is therefore the
+  // round trip -- parse(name) must produce an enum whose name() is name again. If a member
+  // is added to WsStyle without a spelling in wsStyleName, or a spelling is added to
+  // parseWsStyle that no member can carry, this goes red.
+  {
+    int roundTripped = 0;
+    for (const char *name : kEnterStyles) {
+      const WsStyle s = parseWsStyle(name);
+      if (std::strcmp(wsStyleName(s), name) != 0) {
+        std::printf("FAIL \"%s\" parses to %s and back, not itself\n", name,
+                    wsStyleName(s));
+        std::exit(1);
+      }
+      ++roundTripped;
+    }
+    // Only the enter family round-trips: its enum lives here, in a header a test can
+    // include. The swap parser is parseSwapStyle in overview.hpp, which drags in hyprland/
+    // and cannot be linked -- so that family stays on the `reach` count above, which
+    // proves the same thing the other way (each name is compared somewhere).
+    assert(roundTripped == static_cast<int>(std::size(kEnterStyles)));
+    std::printf("%d enter style name(s) round-trip through parseWsStyle\n", roundTripped);
+
+    // A name outside the family must land on the kRows default (anim.cpp:40-41), not on
+    // whatever the last branch happened to return. "horizontal" is the swap spelling.
+    assert(parseWsStyle("horizontal") == WsStyle::Slide);
+    assert(parseWsStyle("") == WsStyle::Slide);
+    assert(parseWsStyle("Slide") == WsStyle::Slide);
+    std::puts("a name outside the family falls back to the kRows default");
+  }
+
+  // The slide/pop split is the whole shape of ws_enter's branch (clocks.cpp:145): slides
+  // return early, pop falls through to the scale-in. If WsStyle grows a member that
+  // answers "slides", it has to be a deliberate choice, so the set is asserted here
+  // rather than left to the ternary in anim_types.hpp.
+  assert(wsStyleSlides(WsStyle::Slide));
+  assert(wsStyleSlides(WsStyle::SlideVert));
+  assert(wsStyleSlides(WsStyle::Fade));
+  assert(!wsStyleSlides(WsStyle::Pop));
+  std::puts("pop is the only ws_enter style that scales instead of sliding");
 
   // Reading these numbers: "horizontal" sits at 3/4 on purpose. parseSwapStyle ends in
   // ": SwapStyle::Horizontal" -- it is the branch that catches everything unrecognised,

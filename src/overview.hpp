@@ -201,7 +201,7 @@ private:
   double m_stripScrollFrom = 0.0;
   void animateStripTo(double from, double to);
   anim::Cfg m_glide, m_entry, m_ghost, m_lift;
-  std::string m_enterStyle, m_exitStyle;
+  anim::WsStyle m_enterStyle = anim::WsStyle::Slide, m_exitStyle = anim::WsStyle::Slide;
   bool animBusy() const;
   // Clocks that outlive the master: the pump must name every clock or the next one
   // added never arms it.

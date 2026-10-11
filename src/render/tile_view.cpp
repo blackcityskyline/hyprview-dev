@@ -89,7 +89,7 @@ double Overview::entryFade(size_t i) const {
   // (AGENTS.md), so every tile that does go home stays at full alpha and flies.
   if (!m_opening && anim::tileExit(tileGoesHome(t)) == anim::TileExit::InPlace)
     return eased();
-  if (t.appear >= 1.0 || m_view.wsSlideDir() == 0 || m_enterStyle != "fade")
+  if (t.appear >= 1.0 || m_view.wsSlideDir() == 0 || m_enterStyle != anim::WsStyle::Fade)
     return 1.0;
   return tileAppear(static_cast<int>(i));
 }
@@ -301,9 +301,9 @@ void Overview::renderGhosts() const {
                     g.box.w * k, g.box.h * k};
     LRect slidBox = box;
     float gAlpha = static_cast<float>((1.0 - eOut) * 0.85);
-    if (m_view.wsSlideDir() != 0 && m_exitStyle == "slide") {
+    if (m_view.wsSlideDir() != 0 && m_exitStyle == anim::WsStyle::Slide) {
       slidBox.x -= static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * eOut;
-    } else if (m_view.wsSlideDir() != 0 && m_exitStyle == "slidevert") {
+    } else if (m_view.wsSlideDir() != 0 && m_exitStyle == anim::WsStyle::SlideVert) {
       slidBox.y -= static_cast<double>(m_view.wsSlideDir()) * m->m_size.y * eOut;
     }
     const CBox px = pxb(slidBox, scale);

@@ -184,7 +184,7 @@ void Overview::renderStage(eRenderStage stage) {
             ++appearing;
         debug::dbg("WSFOLLOW ->" + std::to_string(m->m_activeWorkspace->m_id) +
                    " dir=" + std::to_string(m_view.wsSlideDir()) +
-                   " style=[" + m_enterStyle + "] tiles=" +
+                   " style=[" + anim::wsStyleName(m_enterStyle) + "] tiles=" +
                    std::to_string(m_scene.tiles().size()) + " animating=" +
                    std::to_string(appearing) + " oldBoxes=" +
                    std::to_string(shown.size()));
