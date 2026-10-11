@@ -102,6 +102,18 @@ void Overview::toggleAllWorkspaces() {
   m_view.setExpoFlip( wasAll ? -1 : 1);
   auto oldBoxes = captureCurrentBoxes();
   replayReflow(oldBoxes);
+  // An empty workspace means no tile has ever been on screen, so captureCurrentBoxes()
+  // returns empty and startTileGlide takes its `else` branch: settleAppear(), appear=1.
+  // tileAppearNow() then answers 1.0 for every card, and the gate at clocks.cpp:145
+  // (`if (ap >= 1.0) return r`) returns BEFORE the slide branch. Armed in this order the
+  // fix is a no-op -- replayReflow writes appear=1 straight back over it -- so it has to
+  // land AFTER the rebuild, like the direction below.
+  //
+  // What is on screen otherwise is just the natural->target glide, which is why it reads
+  // as a fullscreen window shrinking into its slot rather than as an entry. The flip's
+  // content is new either way; see the same argument in painter.cpp.
+  if (oldBoxes.empty())
+    m_scene.armAppear();
   // Direction is armed AFTER the rebuild, for the reason painter.cpp arms it after
   // m_clocks.rebuild.begin(): updateAnimation clears it the moment the rebuild and entry
   // clocks read done, and a flip made from an EMPTY workspace has nothing to animate --
