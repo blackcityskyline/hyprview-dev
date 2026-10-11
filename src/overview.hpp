@@ -174,9 +174,17 @@ private:
   model::Lifecycle m_life;
   model::Recency m_recency;
   PHLWINDOWREF m_lastFocus;
-  // The compositor's focus when the overlay opened, held for its whole lifetime.
-  // Inside, the run's selection is INTERNAL and never touches the compositor, so
-  // hovering a card cannot change what a passthrough bind acts on.
+  // UNUSED. Never assigned -- only reset, in close() and deactivate(). The comment that used
+  // to sit here claimed it held "the compositor's focus when the overlay opened, so hovering
+  // a card cannot change what a passthrough bind acts on". No such snapshot exists:
+  // input/keys.cpp reads Desktop::focusState()->window() live, and nothing else stores it.
+  //
+  // The property it described is probably true anyway, for a different reason: hover is
+  // model-only (Scene::hover never touches the compositor) and open() drops focus from the
+  // windows. That is a fact about the code, not about this field. Left in place rather than
+  // deleted because the intent may still be wanted -- implementing it would mean deciding
+  // what a passthrough bind should act on while the overview is up, which is a product
+  // question, not a refactor.
   PHLWINDOWREF m_focusOutside;
   // A step the run must apply BEFORE it resolves its centre, so the opening
   // motion plays for the target window instead of landing on one and swapping to
