@@ -216,7 +216,9 @@ verify-config, правила анимаций) — все оказались н
 | `main.cpp` | регистрация: конфиг-таблицы, единый реестр действий |
 | `anim.hpp` / `anim.cpp` | **реестр анимаций**: enum Id, `kRows`, дефолты, Lua-правила. `config.*` о нём не знает |
 | `config/config.hpp` / `.cpp` | типизированная схема значений + `kInts`/`kFloats`/`kStrs`/`kColors` |
-| `session/session.cpp` | lifecycle (open/close/hardClose/deactivate), хуки, геометрия стрипа |
+| `session/hooks.cpp` | демонтаж и `initialize()`: хуки, и только они. Правится на смене ABI Hyprland, ошибка стоит сессии — рядом с `hook_signatures` |
+| `session/geometry.cpp` | геометрия стрипа (`stripAnchor`…`stripPush`), blur-акцессоры, `tileGoesHome`, forced-visibility |
+| `session/lifecycle.cpp` | `open`/`close`/`hardClose`/`toggle`/`deactivate` + предикаты плиток |
 | `build/build.cpp` | buildTiles/buildStrip/layoutTiles/replayReflow/syncTiles, `stripCardAt` |
 | `input/mouse.cpp`, `input/keys.cpp` | мышь, клавиатура, alt-tab, digit-jump |
 | `actions/actions.cpp` | drop/swap, `swapWindows`, `landAfterSwap`, `switchToWorkspace` |
@@ -230,7 +232,7 @@ verify-config, правила анимаций) — все оказались н
 | `layout.hpp` / `.cpp` | чистая геометрия лейаута, без Hyprland (единственный юнит-домен) |
 | `model/` | `scene.hpp` (плитки, выбор, интенты), `strip.hpp`, `effects.hpp` (ghosts/pulses/swapfx), `recency.*`, `model.hpp`. Поля приватные, наружу — намерения |
 | `pixel/cache.cpp` | кэш подписей и снапшотов |
-| `tests/` | ctest: 15 проверок, включая `load_seam`, `hook_signatures`, `config_keys`, `anim_styles`, `draw_sites`, `layout` |
+| `tests/` | ctest: 16 проверок, включая `load_seam`, `hook_signatures`, `config_keys`, `anim_styles`, `draw_sites`, `layout`, `hypr_types` |
 
 ## Открытые вопросы
 
@@ -246,6 +248,25 @@ verify-config, правила анимаций) — все оказались н
   которого нет. Пока не появится — не трогать.
 
 ## Что сделано и закрыто
+- **`ws_enter_style` / `ws_exit_style` разбирались в двух файлах независимо.**
+  `m_enterStyle`/`m_exitStyle` — строки, `clocks.cpp` читал три имени,
+  `tile_view.cpp` ещё два. Теперь `anim::WsStyle` + `parseWsStyle()`. Неизвестное
+  имя даёт `Slide` (дефолт `kRows`, `anim.cpp:40-41`); раньше промахивалось мимо
+  всех веток и молча уезжало в путь `pop` — это был порядок веток, а не политика.
+- **Инвариант «`m_backdropDrawn` только если `m_backdropSrcTex` равен
+  `m_lastObservedTex`» НЕВЕРЕН**, и вынесение `BackdropState` под предлогом
+  «оформить его» записало бы assert, падающий на видео-обоях: там
+  `m_srcAnimated` держит композит (одна замороженная кадра), а
+  `m_lastObservedTex` едет каждый кадр. Настоящая проверка на чтении,
+  `backdrop.cpp:73`.
+- **`session.cpp` резан по границам функций на три файла**, без переименований:
+  хуки (142-312), геометрия+forced-visibility (313-609), lifecycle (611-1201).
+  `dropFocusFromWindows` остался в lifecycle: его зовут `close()` и
+  `deactivate()`, а анонимный namespace не виден между TU.
+- **Allow-list на `PHLWINDOW` был бы константой из 15 строк**, которая ничего не
+  блокирует: типы используют 15 файлов. Держащаяся граница — не типы, а
+  отсутствие `#include <hyprland/`. Это и закреплено.
+
 
 - **`grid_swap_style` / `strip_swap_style` ничего не делали.** Ключи
   зарегистрированы и задокументированы, но call sites просили `anim::style("grid_swap")`,
@@ -320,7 +341,15 @@ rule из `gloview.animation` → config-значение. **Rule бьёт confi
   (`captureCurrentBoxes`, `releaseNewWorkspaces`, `tileRect`, `landAfterSwap` —
   образцы). Хит-тесты — через `LRect::contains`.
 - **Новые карты по окнам** не ключевые raw-указателями (ABA при переиспользовании
-  адреса) — PHLWINDOWREF или явный жизненный цикл с очисткой.
+  адреса) — PHLWINDOWREF или явный жизненный цикл с очисткой. Ключ проверять
+  бессмысленно: все три map'а в `pixel/cache.hpp` ключуются сырым `CWindow*` и
+  все три правы, потому что **значение держит `owner` и роняет запись при
+  `expired()`**. Проверяет `hypr_types`, именно по владельцу.
+- **Файлы, которые ctest компилирует без `hyprland/`, не получают его include
+  никогда** (`layout.*`, `model/recency.*`, `clock/clock.cpp`, `view/state.hpp`).
+  Один include превращает тест на 0.4 с в ошибку линковки — и это единственная
+  защита юнит-домена, который иначе разъезжается сам собой. Проверяет
+  `hypr_types`.
 - Стиль: 2 пробела, clang-format-подобный; `layout.*` исторически 4 пробела —
   не переформатировать целиком.
 - Без эмодзи. README обновлять, если меняется пользовательское поведение или
