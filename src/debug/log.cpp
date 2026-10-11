@@ -126,6 +126,21 @@ void animReject(const char *op, const char *why) {
   emit("ANIM|reject|op=" + tok(op) + "|why=" + tok(why));
 }
 
+void drag(const char *event, const std::string &state) {
+  if (!enabled())
+    return;
+  emit("DRAG|" + tok(event) + "|" + state);
+}
+
+void dragBranch(const char *name, const std::string &extra) {
+  if (!enabled())
+    return;
+  std::string s = "DRAG|branch|name=" + tok(name);
+  if (!extra.empty())
+    s += "|" + extra;
+  emit(std::move(s));
+}
+
 } // namespace trace
 
 } // namespace gloview::debug

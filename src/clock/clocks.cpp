@@ -180,18 +180,18 @@ void Overview::updateAnimation() {
       m_clocks.strip.compensateStall(gapMs, anim::cfg(anim::Id::StripStep).ms);
       if (m_newCardAnim)
         m_clocks.newCard.compensateStall(gapMs, newCardDur());
-      if (m_drag.lifted)
+      if (m_drag.lifted())
         m_clocks.dragLift.compensateStall(gapMs, anim::cfg(anim::Id::Lift).ms);
       m_fx.eachSwap([&](auto &fx) { fx.clock.compensateStall(gapMs, fx.ms); });
     }
   }
   m_lastAnimTick = now;
 
-  if (m_drag.armed() && !m_drag.lifted) {
+  if (m_drag.armed() && !m_drag.lifted()) {
     const double elapsedMs = std::chrono::duration<double, std::milli>(
-        now - m_drag.holdStartMs).count();
+        now - m_drag.holdFrom()).count();
     if (elapsedMs >= static_cast<double>(cfg::behavior.hold_lift_ms.get())) {
-      m_drag.lifted = true;
+      m_drag.setLifted(true);
       m_clocks.dragLift.begin();
       damage();
     } else {
@@ -281,7 +281,7 @@ void Overview::updateAnimation() {
 bool Overview::animBusy() const {
   return m_active &&
          (secondaryAnimsActive() || !m_clocks.tiles.done(glideDur()) ||
-          m_newCardAnim || m_drag.lifted || !m_fx.swapfx().empty() ||
+          m_newCardAnim || m_drag.lifted() || !m_fx.swapfx().empty() ||
           m_pendingJumpClose || m_pendingDeactivate ||
           (m_opening && m_progress < 1.0) || (!m_opening && m_progress > 0.0));
 }

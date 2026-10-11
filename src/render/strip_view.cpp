@@ -91,9 +91,9 @@ void Overview::renderStrip() const {
   for (size_t i = 0; i < m_strip.size(); ++i) {
     const auto &it = m_strip[i];
     const bool suppressContent =
-        m_drag.lifted &&
-        m_drag.press == model::Drag::Press::StripWin &&
-        static_cast<int>(i) == m_drag.idx;
+        m_drag.lifted() &&
+        m_drag.press() == model::Drag::Press::StripWin &&
+        static_cast<int>(i) == m_drag.idx();
     const bool hover = static_cast<int>(i) == m_scene.hoveredStrip();
     LRect card = stripCardAt(i);
     if (m_newCardAnim && it.id == m_newCardId &&
@@ -232,8 +232,8 @@ void Overview::renderStrip() const {
 }
 
 bool Overview::stripSlotGrabbed(size_t i, size_t j) const {
-  return m_drag.press == model::Drag::Press::StripWin && !m_drag.lifted &&
-         static_cast<int>(i) == m_drag.idx && static_cast<int>(j) == m_drag.winIdx;
+  return m_drag.press() == model::Drag::Press::StripWin && !m_drag.lifted() &&
+         static_cast<int>(i) == m_drag.idx() && static_cast<int>(j) == m_drag.winIdx();
 }
 
 void Overview::renderStripWindows() const {
@@ -254,10 +254,10 @@ void Overview::renderStripWindows() const {
       continue;
     LRect card = stripCardAt(i);
     for (size_t j = 0; j < it.wins.size(); ++j) {
-      if (m_drag.lifted &&
-          m_drag.press == model::Drag::Press::StripWin &&
-          static_cast<int>(i) == m_drag.idx &&
-          static_cast<int>(j) == m_drag.winIdx)
+      if (m_drag.lifted() &&
+          m_drag.press() == model::Drag::Press::StripWin &&
+          static_cast<int>(i) == m_drag.idx() &&
+          static_cast<int>(j) == m_drag.winIdx())
         continue;
       const auto w = it.wins[j].win.lock();
       if (!w || !w->m_isMapped || w->isHidden())
@@ -309,17 +309,17 @@ void Overview::renderStripButtons() const {
   const float roundPow = cfg::look.preview_round_power;
   const bool showClose = m_view.desktop() || closeButtonsAlwaysOn();
   const bool travelling = m_drag.travelSq() > 64.0;
-  const bool dropping = m_drag.armed() && m_drag.lifted && travelling;
-  const bool isRmb = dropping && m_drag.button == BTN_RIGHT;
+  const bool dropping = m_drag.armed() && m_drag.lifted() && travelling;
+  const bool isRmb = dropping && m_drag.button() == BTN_RIGHT;
   // Both buttons swap on a slot drop, so slot rings apply to either.
-  const bool rmbSwap = dropping && m_drag.press == model::Drag::Press::StripWin;
+  const bool rmbSwap = dropping && m_drag.press() == model::Drag::Press::StripWin;
 
-  if (rmbSwap && m_drag.idx >= 0 &&
-      m_drag.idx < static_cast<int>(m_strip.size()) &&
-      m_drag.winIdx < static_cast<int>(m_strip[m_drag.idx].wins.size())) {
-    strokeRingPx(pxb(stripWinSlotRect(m_strip[m_drag.idx],
-                                      stripCardAt(m_drag.idx),
-                                      m_drag.winIdx),
+  if (rmbSwap && m_drag.idx() >= 0 &&
+      m_drag.idx() < static_cast<int>(m_strip.size()) &&
+      m_drag.winIdx() < static_cast<int>(m_strip[m_drag.idx()].wins.size())) {
+    strokeRingPx(pxb(stripWinSlotRect(m_strip[m_drag.idx()],
+                                      stripCardAt(m_drag.idx()),
+                                      m_drag.winIdx()),
                      s),
                  cfg::colors.select_border.get(e),
                  0.7F * static_cast<float>(e),
@@ -327,7 +327,7 @@ void Overview::renderStripButtons() const {
                  roundPow);
   }
 
-  const auto dragW = m_drag.win.lock();
+  const auto dragW = m_drag.win().lock();
 
   for (size_t i = 0; i < m_strip.size(); ++i) {
     const auto &it = m_strip[i];
@@ -346,7 +346,7 @@ void Overview::renderStripButtons() const {
           if (!v || v == dragW || !v->m_isMapped || v->isHidden())
             continue;
           const LRect sl = stripWinSlotRect(it, card, j);
-          if (!sl.contains(m_drag.x, m_drag.y))
+          if (!sl.contains(m_drag.x(), m_drag.y()))
             continue;
           const int sr = clampRound(cfg::look.preview_round, sl.w, sl.h);
           safeRenderRect("rmbswaphint",
@@ -365,7 +365,7 @@ void Overview::renderStripButtons() const {
           if (!v || v == dragW)
             continue;
           const LRect sl = stripWinSlotRect(it, card, j);
-          if (!sl.contains(m_drag.x, m_drag.y))
+          if (!sl.contains(m_drag.x(), m_drag.y()))
             continue;
           slotFound = true;
           const int sr = clampRound(cfg::look.preview_round, sl.w, sl.h);
@@ -373,11 +373,11 @@ void Overview::renderStripButtons() const {
             LRect half = sl;
             if (sl.w >= sl.h) {
               half.w = sl.w / 2.0;
-              if (m_drag.x >= sl.cx())
+              if (m_drag.x() >= sl.cx())
                 half.x = sl.cx();
             } else {
               half.h = sl.h / 2.0;
-              if (m_drag.y >= sl.cy())
+              if (m_drag.y() >= sl.cy())
                 half.y = sl.cy();
             }
             const int hr = clampRound(cfg::look.preview_round, half.w, half.h);

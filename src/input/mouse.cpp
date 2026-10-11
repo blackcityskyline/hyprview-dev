@@ -86,7 +86,7 @@ void Overview::onMouseMove() {
   {
     double g = 0.0;
     if (m_active && (draggedTile() >= 0 ||
-                     m_drag.press == model::Drag::Press::StripWin)) {
+                     m_drag.press() == model::Drag::Press::StripWin)) {
       const auto mc = g_pInputManager->getMouseCoordsInternal();
       g = killZoneGlow(mc.x - m->m_position.x, mc.y - m->m_position.y);
     }
@@ -145,17 +145,17 @@ int Overview::stripItemAt(double lx, double ly) const {
 // A press that never travelled is a click, not a drag: drop the lift so the card
 // lands back down. Both release paths need this.
 void Overview::dropLiftIfNotMoved() {
-  if (m_drag.lifted && m_drag.travelSq() < 64.0) {
-    m_drag.lifted = false;
+  if (m_drag.lifted() && m_drag.travelSq() < 64.0) {
+    m_drag.setLifted(false);
     m_clocks.dragLift.reset();
     damage();
   }
 }
 
 int Overview::draggedTile() const {
-  return (m_drag.press == model::Drag::Press::Tile && m_drag.lifted &&
-          m_drag.idx < static_cast<int>(m_scene.tiles().size()))
-             ? m_drag.idx
+  return (m_drag.onTile() && m_drag.lifted() &&
+          m_drag.idx() < static_cast<int>(m_scene.tiles().size()))
+             ? m_drag.idx()
              : -1;
 }
 
@@ -170,12 +170,9 @@ void Overview::updateHover() {
   const double ly = mc.y - m->m_position.y;
 
   if (m_drag.armed()) {
-    if (m_drag.lifted) {
-      m_drag.x = lx;
-      m_drag.y = ly;
-      m_scene.hover((m_drag.press == model::Drag::Press::Tile)
-                      ? m_drag.idx
-                      : -1, stripItemAt(lx, ly));
+    if (m_drag.lifted()) {
+      m_drag.moveTo(lx, ly);
+      m_scene.hover(m_drag.onTile() ? m_drag.idx() : -1, stripItemAt(lx, ly));
       damage();
       return;
     }
@@ -258,9 +255,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
   const double ly = mc.y - m->m_position.y;
 
   if (e.state == WL_POINTER_BUTTON_STATE_PRESSED) {
-    m_drag = {};
-    m_drag.press = model::Drag::Press::Empty;
-    m_drag.button = e.button;
+    m_drag.clear();
+    m_drag.miss(e.button);
 
     if (e.button == BTN_MIDDLE) {
       const int idx = stripItemAt(lx, ly);
@@ -282,8 +278,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             continue;
         }
         if (closeButtonRect(tileRect(i)).contains(lx, ly)) {
-          m_drag.press =
-              model::Drag::Press::Consumed; // handled on press
+          m_drag.consume(e.button); // handled on press
           closeTileWindow(static_cast<int>(i));
           return true;
         }
@@ -297,7 +292,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         const LRect c = stripCardAt(i);
         const LRect br = closeButtonRect(c);
         if (br.contains(lx, ly)) {
-          m_drag.press = model::Drag::Press::Consumed;
+          m_drag.consume(e.button);
           closeWorkspaceWindows(m_strip[i]);
           return true;
         }
@@ -310,10 +305,10 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         continue;
       auto &it = m_strip[i];
       if (it.kind == model::StripItem::Kind::All) {
-        m_drag.press = model::Drag::Press::Consumed;
+        m_drag.consume(e.button);
         toggleAllWorkspaces();
       } else if (it.kind == model::StripItem::Kind::Plus) {
-        m_drag.press = model::Drag::Press::Consumed;
+        m_drag.consume(e.button);
         addWorkspace();
       } else {
         bool hitSlot = false;
@@ -323,70 +318,57 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             continue;
           const LRect wb = stripWinSlotRect(it, c, j);
           if (wb.contains(lx, ly)) {
-            m_drag.press   = model::Drag::Press::StripWin;
-            m_drag.idx     = static_cast<int>(i);
-            m_drag.winIdx  = static_cast<int>(j);
-            m_drag.win     = w;
-            m_drag.pressX = m_drag.x = lx;
-            m_drag.pressY = m_drag.y = ly;
-            m_drag.grabDX = lx - wb.x;
-            m_drag.grabDY = ly - wb.y;
-            m_drag.fromBox = stripWinSlotRect(it, c, j);
-            m_drag.holdStartMs = std::chrono::steady_clock::now();
+            m_drag.beginStripWin(static_cast<int>(i), static_cast<int>(j), lx, ly,
+                                  e.button, lx - wb.x, ly - wb.y,
+                                  stripWinSlotRect(it, c, j), w,
+                                  std::chrono::steady_clock::now());
             hitSlot = true;
             break;
           }
         }
         if (!hitSlot) {
-          m_drag.press = model::Drag::Press::Consumed;
+          m_drag.consume(e.button);
           switchToWorkspace(it);
         }
       }
       return true;
     }
     if (const int hit = tileAt(lx, ly); hit >= 0) {
-      m_drag.press = model::Drag::Press::Tile;
-      m_drag.idx = hit;
       const LRect b = currentBox(m_scene.tiles()[hit], hit);
-      m_drag.pressX = m_drag.x = lx;
-      m_drag.pressY = m_drag.y = ly;
-      m_drag.grabDX = lx - b.x;
-      m_drag.grabDY = ly - b.y;
-      m_drag.fromBox = tileBox(static_cast<size_t>(hit), b);
-      m_drag.holdStartMs = std::chrono::steady_clock::now();
+      m_drag.beginTile(hit, lx, ly, e.button, lx - b.x, ly - b.y,
+                       tileBox(static_cast<size_t>(hit), b),
+                       std::chrono::steady_clock::now());
       return true;
     }
-    m_drag.press = model::Drag::Press::Empty;
+    m_drag.miss(e.button);
     return true;
   }
 
   if (e.button == BTN_MIDDLE)
     return true; // middle was fully handled on press
 
-  switch (m_drag.press) {
+  switch (m_drag.press()) {
   case model::Drag::Press::Consumed: { // handled on press
-    debug::dbg("[REL] press=Consumed");
-    m_drag = {};
+    debug::trace::drag("release", m_drag.describe());
+    m_drag.clear();
     m_killGlow = 0.0;
     damage();
     return true;
   }
   case model::Drag::Press::Tile: {
-    const int press = m_drag.idx;
+    const int press = m_drag.idx();
     m_killGlow = 0.0; // a stale glow would stay painted after the drop
     const auto w = m_scene.tiles()[press].win.lock();
-    const double grabDX = m_drag.grabDX, grabDY = m_drag.grabDY;
-    debug::dbg("[REL] press=Tile lifted=" + std::to_string(m_drag.lifted) +
-               " rmb=" + std::to_string(m_drag.button == BTN_RIGHT) +
-               " dxMoved=" + std::to_string(m_drag.travelSq()) +
-               " idx=" + std::to_string(press) +
-               " win=" + (w ? "valid" : "expired"));
+    const double grabDX = m_drag.grabX(), grabDY = m_drag.grabY();
+    debug::trace::drag("release", m_drag.describe() + "|rmb=" +
+                       std::to_string(m_drag.button() == BTN_RIGHT) + "|win=" +
+                       (w ? "valid" : "expired"));
     dropLiftIfNotMoved();
-    if (m_drag.lifted) {
-      const bool rmb = m_drag.button == BTN_RIGHT;
+    if (m_drag.lifted()) {
+      const bool rmb = m_drag.button() == BTN_RIGHT;
       m_lastDragBox = dragVisualBox();
       auto oldBoxes = captureCurrentBoxes(w);
-      m_drag = {};
+      m_drag.clear();
       int cardIdx = -1;
       for (int i = 0; i < static_cast<int>(m_strip.size()); ++i)
         if (stripCardAt(i).contains(lx, ly)) {
@@ -400,8 +382,9 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         // with dropOnStripCard never entered). A press on "+" is a click, but a DRAG that
         // ends there starts elsewhere and never goes through the press handler.
         const bool wsCard = m_strip[cardIdx].kind == model::StripItem::Kind::Ws;
-        debug::dbg("[REL] branch=Tile->stripCard(rmb=" + std::to_string(rmb) +
-                   " kind=" + std::to_string(wsCard ? 1 : 0) + ")");
+        debug::trace::dragBranch("Tile->stripCard",
+                                 "rmb=" + std::to_string(rmb) + "|kind=" +
+                                     std::to_string(wsCard ? 1 : 0));
         if (rmb && wsCard) {
           PHLWINDOW vj;
           const auto &sit = m_strip[cardIdx];
@@ -441,7 +424,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       // The closing zone wins over everything else: a card dropped on it closes,
       // whether the run is a carousel or a plain layout.
       if (w && killZoneRect().contains(lx, ly)) {
-        debug::dbg("[REL] branch=Tile->killZone");
+        debug::trace::dragBranch("Tile->killZone");
         // Hand the centre to whatever lands in the closed window's place. By
         // index: the tile is being rebuilt and its neighbour shifts into this slot.
         if (press == m_scene.selected() && m_scene.tiles().size() > 1) {
@@ -477,7 +460,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         const double tol =
             std::max(0.0, cfg::grid.gap / 2.0);
         if (best >= 0 && bestDist2 <= tol * tol) {
-          debug::dbg("[REL] branch=Tile->gridSwap");
+          debug::trace::dragBranch("Tile->gridSwap");
           // The release point, not the slot it was picked up from: the card has to land
           // from under the cursor.
           swapTiles(press, best, m_lastDragBox);
@@ -487,7 +470,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       // Desktop mode parks the preview; the box lives on the Tile so
       // rebuilds keep it.
       if (m_view.desktop() && w) {
-        debug::dbg("[REL] branch=Tile->desktopPark");
+        debug::trace::dragBranch("Tile->desktopPark");
         const LRect cur =
             m_scene.tiles()[press].target;
         const LRect parked{lx - grabDX, ly - grabDY, cur.w, cur.h};
@@ -496,7 +479,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         damage();
         return true;
       }
-      debug::dbg("[REL] branch=Tile->flyback");
+      debug::trace::dragBranch("Tile->flyback");
       // Its own glide source: captureCurrentBoxes excludes it, so startTileGlide
       // called it a newcomer and it faded in while a swap FX flew a second copy.
       if (w)
@@ -506,12 +489,12 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       damage();
       return true;
     }
-    m_drag = {};
+    m_drag.clear();
     // The run comes to the card you clicked; only the FOCUSED card commits.
     // Setting m_scene.selected() is enough — relayoutCarousel glides the run around it.
     if (carouselMode() && press >= 0 && press < static_cast<int>(m_scene.tiles().size()) &&
         press != m_scene.selected()) {
-      debug::dbg("[REL] branch=Tile->carouselFocus idx=" + std::to_string(press));
+      debug::trace::dragBranch("Tile->carouselFocus", "idx=" + std::to_string(press));
       m_scene.select(press);
       damage();
       return true;
@@ -541,20 +524,17 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
   }
 
   case model::Drag::Press::StripWin: {
-    const int stripItem = m_drag.idx;
-    const auto w = m_drag.win.lock();
-    const bool rmb = m_drag.button == BTN_RIGHT;
+    const int stripItem = m_drag.idx();
+    const auto w = m_drag.win().lock();
+    const bool rmb = m_drag.button() == BTN_RIGHT;
     dropLiftIfNotMoved();
-    const bool lifted = m_drag.lifted;
+    const bool lifted = m_drag.lifted();
     const LRect fromBox = dragVisualBox();
     m_lastDragBox = fromBox;
-    debug::dbg("[REL] press=StripWin lifted=" + std::to_string(lifted) +
-               " rmb=" + std::to_string(rmb) +
-               " dxMoved=" + std::to_string(m_drag.travelSq()) +
-               " idx=" + std::to_string(m_drag.idx) +
-               " winIdx=" + std::to_string(m_drag.winIdx) +
-               " win=" + (w ? "valid" : "expired"));
-    m_drag = {};
+    debug::trace::drag("release", m_drag.describe() + "|rmb=" +
+                       std::to_string(rmb) + "|win=" +
+                       (w ? "valid" : "expired"));
+    m_drag.clear();
     if (lifted) {
       if (w) {
         // Slot hit swaps tiling slots for RMB or a same-workspace partner.
@@ -573,12 +553,12 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             if (!rmb && !sameWs)
               break;
             if (swapWindows(w, v, fromBox, true)) {
-              debug::dbg("[REL] branch=StripWin->slotSwap");
+              debug::trace::dragBranch("StripWin->slotSwap");
               kickPulse(w);
               kickPulse(v);
               return true;
             }
-            debug::dbg("[REL] branch=StripWin->slotSwapFailed");
+            debug::trace::dragBranch("StripWin->slotSwapFailed");
             damage();
             return true;
           }
@@ -586,7 +566,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       }
       if (w) {
         if (dropOnStripCard(w, lx, ly, stripItem)) {
-          debug::dbg("[REL] branch=StripWin->dropOnStripCard");
+          debug::trace::dragBranch("StripWin->dropOnStripCard");
           kickPulse(w);
           landAfterSwap(w, fromBox, fromBox, fromBox, anim::cfg(anim::Id::Drop).ms,
                         anim::cfg(anim::Id::Drop).curve, true);
@@ -594,7 +574,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         }
         const int homeIdx = stripItemAt(lx, ly);
         if (homeIdx == stripItem || homeIdx < 0) {
-          debug::dbg("[REL] branch=StripWin->snapBack");
+          debug::trace::dragBranch("StripWin->snapBack");
           LRect ownSlot = fromBox;
           for (size_t si = 0; si < m_strip.size(); ++si) {
             const auto &sit = m_strip[si];
@@ -639,7 +619,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             if (best >= 0 && bestDist2 <= tol * tol) {
               const auto vj = m_scene.tiles()[best].win.lock();
               if (vj && swapWindows(w, vj, fromBox, true)) {
-                debug::dbg("[REL] branch=StripWin->gridTileSwap");
+                debug::trace::dragBranch("StripWin->gridTileSwap");
                 kickPulse(w); kickPulse(vj);
                 return true;
               }
@@ -648,7 +628,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
               if (it.kind != model::StripItem::Kind::Plus &&
                   it.kind != model::StripItem::Kind::All && it.active) {
                 swapOnWorkspace(w, it);
-                debug::dbg("[REL] branch=StripWin->swapOnWorkspace(fallback)");
+                debug::trace::dragBranch("StripWin->swapOnWorkspace");
                 kickPulse(w);
                 landAfterSwap(w, fromBox, fromBox, fromBox, anim::cfg(anim::Id::Drop).ms,
                               anim::cfg(anim::Id::Drop).curve, true);
@@ -660,7 +640,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
               if (it.kind != model::StripItem::Kind::Plus &&
                   it.kind != model::StripItem::Kind::All && it.active) {
                 dropOnWorkspace(w, it);
-                debug::dbg("[REL] branch=StripWin->dropOnWorkspace");
+                debug::trace::dragBranch("StripWin->dropOnWorkspace");
                 kickPulse(w);
                 landAfterSwap(w, fromBox, fromBox, fromBox, anim::cfg(anim::Id::Drop).ms,
                               anim::cfg(anim::Id::Drop).curve, true);
@@ -671,7 +651,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         }
       }
       if (lifted) {
-        debug::dbg("[REL] branch=StripWin->flyback");
+        debug::trace::dragBranch("StripWin->flyback");
         if (auto *home = homeStripCardFor(w))
           switchToWorkspace(*home);
         beginSwapFX(w, fromBox, model::SwapStyle::Horizontal,
@@ -680,7 +660,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       damage();
       return true;
     }
-    debug::dbg("[REL] branch=StripWin->shortClick");
+    debug::trace::dragBranch("StripWin->shortClick");
     if (auto *home = homeStripCardFor(w))
       switchToWorkspace(*home);
     return true;

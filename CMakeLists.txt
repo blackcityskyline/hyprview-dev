@@ -152,6 +152,14 @@ add_test(NAME layout
 add_test(NAME hypr_types
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/hypr_types_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check && ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check ${CMAKE_SOURCE_DIR}/src")
 
+# The drag FSM. model/drag.hpp is templated on its window handle so it carries no
+# hyprland/ include, which is what makes the state machine reachable from here at all --
+# every one of its invariants was previously a property of the order of fourteen field
+# assignments in input/mouse.cpp.
+add_test(NAME drag
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/drag_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/drag_check && ${CMAKE_CURRENT_BINARY_DIR}/drag_check")
+
 # The tile engines, as arithmetic. computeCarousel has its own check; computeLayout,
 # which produces every box the grid/rows/natural views hand the renderer, had none --
 # and layoutGrid could emit a NEGATIVE box when the gaps outgrew the area, which is

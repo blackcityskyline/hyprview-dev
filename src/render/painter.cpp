@@ -127,8 +127,8 @@ void Overview::renderStage(eRenderStage stage) {
         std::to_string(m_workspace.lock() ? m_workspace.lock()->m_id : -1) +
         " liveWs=" +
         std::to_string(m->m_activeWorkspace ? m->m_activeWorkspace->m_id : -1) +
-        " drag=" + std::to_string((int)m_drag.press) + "/" +
-        std::to_string(m_drag.lifted) + "/" + std::to_string(m_drag.idx) +
+        " drag=" + std::to_string((int)m_drag.press()) + "/" +
+        std::to_string(m_drag.lifted()) + "/" + std::to_string(m_drag.idx()) +
         " sfx=" + std::to_string(m_fx.swapfx().size()) +
         " dir=" + std::to_string(m_view.wsSlideDir()) +
         " gh=" + std::to_string(m_fx.ghosts().size()) +
@@ -205,7 +205,7 @@ void Overview::renderStage(eRenderStage stage) {
   {
     const bool busy = secondaryAnimsActive() ||
                       !m_clocks.tiles.done(glideDur()) || m_newCardAnim ||
-                      m_drag.lifted || !m_fx.pulses().empty() ||
+                      m_drag.lifted() || !m_fx.pulses().empty() ||
                       !m_fx.swapfx().empty() ||
                       (m_opening ? m_progress < 1.0 : m_progress > 0.0);
     if (busy)
@@ -237,7 +237,7 @@ void Overview::paint() {
 
   const bool dragging =
       draggedTile() >= 0 ||
-      (m_drag.press == model::Drag::Press::StripWin && m_drag.lifted);
+      (m_drag.press() == model::Drag::Press::StripWin && m_drag.lifted());
   if (dragging) {
     renderDragTile();
     renderDragWindow();

@@ -40,21 +40,21 @@ LRect Overview::dragBox() const {
     return LRect{0, 0, 0, 0};
   const LRect base = m_scene.tiles()[dragIdx].target;
   if (m_view.desktop())
-    return LRect{m_drag.x - m_drag.grabDX, m_drag.y - m_drag.grabDY,
+    return LRect{m_drag.x() - m_drag.grabX(), m_drag.y() - m_drag.grabY(),
                  base.w, base.h};
   const LRect full = tileBox(static_cast<size_t>(dragIdx), base);
   const double k   = dragScale();
-  return LRect{m_drag.x + dragOffsetX(), m_drag.y + dragOffsetY(), full.w * k, full.h * k};
+  return LRect{m_drag.x() + dragOffsetX(), m_drag.y() + dragOffsetY(), full.w * k, full.h * k};
 }
 
 LRect Overview::dragStripBox() const {
-  if (m_drag.win.expired())
+  if (m_drag.win().expired())
     return LRect{0, 0, 0, 0};
-  const double sw    = m_drag.fromBox.w > 1.0 ? m_drag.fromBox.w : 150.0;
+  const double sw    = m_drag.fromBox().w > 1.0 ? m_drag.fromBox().w : 150.0;
   const double ww    = sw * dragScale();
-  const auto size    = m_drag.win.lock()->sizeAnimation()->goal();
+  const auto size    = m_drag.win().lock()->sizeAnimation()->goal();
   const double aspect = (size.x > 0 && size.y > 0) ? size.x / size.y : 16.0 / 9.0;
-  return LRect{m_drag.x + dragOffsetX(), m_drag.y + dragOffsetY(), ww, ww / std::max(0.1, aspect)};
+  return LRect{m_drag.x() + dragOffsetX(), m_drag.y() + dragOffsetY(), ww, ww / std::max(0.1, aspect)};
 }
 
 double Overview::dragLiftProgress() const {
@@ -62,10 +62,10 @@ double Overview::dragLiftProgress() const {
 }
 
 LRect Overview::dragVisualBox() const {
-  const LRect to = m_drag.press == model::Drag::Press::Tile ? dragBox()
+  const LRect to = m_drag.press() == model::Drag::Press::Tile ? dragBox()
                                                                : dragStripBox();
   const double p = dragLiftProgress();
-  LRect b = (p < 1.0 && m_drag.lifted) ? lerp(m_drag.fromBox, to, p) : to;
+  LRect b = (p < 1.0 && m_drag.lifted()) ? lerp(m_drag.fromBox(), to, p) : to;
 
   // Scale/raise apply unconditionally: a stationary hold (fromBox == to) must
   // still animate.
@@ -80,7 +80,7 @@ void Overview::renderDragTile() const {
   const int dragIdx = draggedTile();
   if (dragIdx < 0) {
     // A window dragged OUT of the strip has no tile; it gets its own chrome.
-    if (m_drag.press == model::Drag::Press::StripWin && !m_drag.win.expired())
+    if (m_drag.press() == model::Drag::Press::StripWin && !m_drag.win().expired())
       drawDragStripChrome();
     return;
   }
@@ -93,7 +93,7 @@ void Overview::renderDragTile() const {
 
 void Overview::drawDragStripChrome() const {
   const auto m = m_monitor.lock();
-  const auto w = m_drag.win.lock();
+  const auto w = m_drag.win().lock();
   if (!m || !w)
     return;
   const double s        = m->m_scale;
@@ -119,10 +119,10 @@ void Overview::renderDragWindow() const {
   if (draggedTile() >= 0)
     return; // drawn whole by renderDragTile
   const auto m = m_monitor.lock();
-  const auto w = m_drag.win.lock();
+  const auto w = m_drag.win().lock();
   if (!m || !w || !w->m_isMapped || w->isHidden())
     return;
-  if (m_drag.press != model::Drag::Press::StripWin)
+  if (m_drag.press() != model::Drag::Press::StripWin)
     return;
 
   const double scale = m->m_scale;

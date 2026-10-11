@@ -57,7 +57,7 @@ bool Overview::dropOnStripCard(const PHLWINDOW &w, double lx, double ly,
   // COPY: the rebuild below frees the element a reference would dangle on.
   const auto it = m_strip[idx];
   if (it.kind != model::StripItem::Kind::Ws) {
-    if (m_drag.button == BTN_RIGHT)
+    if (m_drag.button() == BTN_RIGHT)
       swapOnWorkspace(w, it);
     else
       dropOnWorkspace(w, it);
@@ -95,7 +95,7 @@ bool Overview::dropOnStripCard(const PHLWINDOW &w, double lx, double ly,
 
   if (vj)
     swapWindows(w, vj);
-  else if (m_drag.button == BTN_RIGHT)
+  else if (m_drag.button() == BTN_RIGHT)
     swapOnWorkspace(w, it);
   else
     dropOnWorkspace(w, it);

@@ -8,6 +8,7 @@
 
 #include "../clock/clocks.hpp"
 #include "../layout.hpp"
+#include "drag.hpp"
 
 namespace gloview::model {
 
@@ -51,32 +52,9 @@ struct WinPulse {
   std::chrono::steady_clock::time_point last;
 };
 
-// visuals gate on `lifted`, not `press`
-struct Drag {
-  enum class Press : int {
-    Tile,
-    StripWin,
-    Empty,
-    Consumed,
-  };
-  Press press = Press::Empty;
-  int idx = -1, winIdx = -1;
-  PHLWINDOWREF win;
-  int button = 0;
-  double pressX = 0, pressY = 0;
-  double grabDX = 0, grabDY = 0;
-  double x = 0, y = 0;
-  bool lifted = false;
-  std::chrono::steady_clock::time_point holdStartMs;
-  LRect fromBox;
-  bool armed() const {
-    return press == Press::Tile || press == Press::StripWin;
-  }
-  double travelSq() const {
-    const double dx = x - pressX, dy = y - pressY;
-    return dx * dx + dy * dy;
-  }
-};
+// The plugin's instantiation of the drag FSM. The template is on the window handle so the
+// FSM itself stays free of hyprland/ and reachable from tests/drag_check.cpp.
+using Drag = DragT<PHLWINDOWREF>;
 
 enum class SwapStyle : int { Horizontal, SlideVert, Fade, Pop };
 

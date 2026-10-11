@@ -38,7 +38,7 @@ void Overview::relayoutCarousel() {
     return;
   // Never mid-drag: a relayout moves every slot, so the run would shift under the
   // window the user is carrying.
-  if (draggedTile() >= 0 || m_drag.press == model::Drag::Press::StripWin)
+  if (draggedTile() >= 0 || m_drag.press() == model::Drag::Press::StripWin)
     return;
   // Never during a close: a relayout rewrites every natural, which for maximized
   // windows is one shared rectangle — all the cards land in one point.
