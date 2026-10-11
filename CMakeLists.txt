@@ -194,6 +194,12 @@ add_test(NAME scroll
 add_test(NAME lifecycle
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/lifecycle_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/lifecycle_check && ${CMAKE_CURRENT_BINARY_DIR}/lifecycle_check")
+
+# The render geometry that computes boxes and draws nothing. Header-only and Hyprland-free,
+# so the same file the plugin compiles is the file the test compiles.
+add_test(NAME render_geometry
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/render_geometry_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/render_geometry_check && ${CMAKE_CURRENT_BINARY_DIR}/render_geometry_check")
          add_test(NAME load_seam
          COMMAND bash ${CMAKE_SOURCE_DIR}/tests/load_seam_check.sh
                  $<TARGET_FILE:gloview> ${HYPRLAND_BIN}

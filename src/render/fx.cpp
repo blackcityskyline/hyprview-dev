@@ -11,6 +11,7 @@
 #include <hyprland/src/render/pass/SurfacePassElement.hpp>
 #include <hyprland/src/helpers/time/Time.hpp>
 
+#include "geometry.hpp"
 #include "gl_util.hpp"
 #include "tile_look.hpp"
 #include "../config/config.hpp"
@@ -64,15 +65,8 @@ double Overview::dragLiftProgress() const {
 LRect Overview::dragVisualBox() const {
   const LRect to = m_drag.press() == model::Drag::Press::Tile ? dragBox()
                                                                : dragStripBox();
-  const double p = dragLiftProgress();
-  LRect b = (p < 1.0 && m_drag.lifted()) ? lerp(m_drag.fromBox(), to, p) : to;
-
-  // Scale/raise apply unconditionally: a stationary hold (fromBox == to) must
-  // still animate.
-  const double s  = 1.0 + anim::param(anim::Param::LiftScale) * p;
-  const double dy = -anim::param(anim::Param::LiftRise) * p;
-  const double cx = b.cx(), cy = b.cy();
-  return LRect{cx - b.w * s / 2.0, cy - b.h * s / 2.0 + dy, b.w * s, b.h * s};
+  return render::dragVisualBox(m_drag.fromBox(), to, m_drag.lifted(), dragLiftProgress(),
+                               anim::param(anim::Param::LiftScale), anim::param(anim::Param::LiftRise));
 }
 
 // A dragged tile is the same tile, lifted: taller shadow, framed, no pill.
@@ -159,14 +153,7 @@ LRect Overview::killZoneRect() const {
 // smoothstepped between. A distance, not a bool: a zone blank until the cursor
 // crosses it says nothing while the user is still aiming it.
 double Overview::killZoneGlow(double lx, double ly) const {
-  const LRect z = killZoneRect();
-  if (z.w < 1.0 || z.h < 1.0)
-    return 0.0;
-  const double dx = std::max({z.x - lx, 0.0, lx - (z.x + z.w)});
-  const double dy = std::max({z.y - ly, 0.0, ly - (z.y + z.h)});
-  const double d  = std::sqrt(dx * dx + dy * dy);
-  const double t  = std::clamp(1.0 - d / cfg::behavior.kill_zone_falloff, 0.0, 1.0);
-  return t * t * (3.0 - 2.0 * t);
+  return render::killZoneGlow(killZoneRect(), lx, ly, cfg::behavior.kill_zone_falloff);
 }
 
 // One ramp whose alpha reaches ZERO at the far end: stacked rounded rectangles

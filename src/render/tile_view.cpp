@@ -11,6 +11,7 @@
 #include <hyprland/src/render/Texture.hpp>
 #include <hyprland/src/render/pass/TexPassElement.hpp>
 
+#include "geometry.hpp"
 #include "gl_util.hpp"
 #include "tile_look.hpp"
 #include "../config/config.hpp"
@@ -59,23 +60,13 @@ bool Overview::tileCloseButtons() const {
 }
 
 LRect Overview::closeButtonRect(const LRect &lb) const {
-  const double scale = std::max(0.3, static_cast<double>(
-                                         cfg::look.close_button_size));
-  const double r     = std::clamp(std::min(lb.w, lb.h) * 0.11, 9.0, 18.0) * scale;
-  const double inset = r + 6.0;
-  const std::string pos = cfg::look.close_button_position.get();
-  double cx = lb.x + lb.w - inset, cy = lb.y + inset;
-  if (pos == "top-left") {
-    cx = lb.x + inset;
-    cy = lb.y + inset;
-  } else if (pos == "bottom-right") {
-    cx = lb.x + lb.w - inset;
-    cy = lb.y + lb.h - inset;
-  } else if (pos == "bottom-left") {
-    cx = lb.x + inset;
-    cy = lb.y + lb.h - inset;
-  }
-  return LRect{cx - r, cy - r, 2 * r, 2 * r};
+  const std::string p = cfg::look.close_button_position.get();
+  const render::Corner corner =
+      p == "top-left"     ? render::Corner::TopLeft
+    : p == "bottom-right" ? render::Corner::BottomRight
+    : p == "bottom-left"  ? render::Corner::BottomLeft
+                          : render::Corner::TopRight;
+  return render::closeButtonRect(lb, cfg::look.close_button_size, corner);
 }
 
 double Overview::entryFade(size_t i) const {
