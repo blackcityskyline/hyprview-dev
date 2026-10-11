@@ -192,6 +192,29 @@ void Overview::primeBackdrop() {
     if (!m_life.promote())
       return; // not parked: there is no first visible frame to give
     debug::trace::life("promote", m_life.describe());
+    // What the entry animation is actually given on its first painted frame. Once per
+    // open, at the moment the overlay has just become visible and every input to the
+    // entry decision is settled. Two fixes for this bug were written on reasoning alone
+    // and both missed: the inputs live in four places and none of them is where the
+    // decision is made. This records all of them, once, so the next toggle is evidence.
+    {
+      static const model::Tile kEmpty{};
+      const auto &t0 = m_scene.tiles().empty() ? kEmpty : m_scene.tiles()[0];
+      debug::trace::life(
+          "open",
+          "dir=" + std::to_string(m_view.wsSlideDir()) + "|style=" +
+              std::to_string(static_cast<int>(m_enterStyle)) + "|appear0=" +
+              std::to_string(t0.appear) + "|tiles=" +
+              std::to_string(m_scene.tiles().size()) + "|allws=" +
+              std::to_string(showAllWorkspaces() ? 1 : 0) + "|run=" +
+              std::to_string(carouselMode() ? 1 : 0) + "|rebuildRaw=" +
+              std::to_string(m_clocks.rebuild.raw(m_entry.ms)) + "|natural=" +
+              std::to_string(t0.natural.x) + "," + std::to_string(t0.natural.y) + "," +
+              std::to_string(t0.natural.w) + "," + std::to_string(t0.natural.h) +
+              "|target=" + std::to_string(t0.target.x) + "," +
+              std::to_string(t0.target.y) + "," + std::to_string(t0.target.w) + "," +
+              std::to_string(t0.target.h));
+    }
     hideLayers(); // deferred from open(): fades only once there is something drawn over it
   };
 

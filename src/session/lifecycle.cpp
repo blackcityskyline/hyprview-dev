@@ -112,8 +112,20 @@ void Overview::toggleAllWorkspaces() {
   // What is on screen otherwise is just the natural->target glide, which is why it reads
   // as a fullscreen window shrinking into its slot rather than as an entry. The flip's
   // content is new either way; see the same argument in painter.cpp.
-  if (oldBoxes.empty())
+  if (oldBoxes.empty()) {
     m_scene.armAppear();
+    // And the clock, which is the half that was missing. replayReflow() begins only the
+    // tile glide (m_clocks.tiles) -- nothing begins the rebuild clock, so it reads done,
+    // m_clocks.rebuild.raw() answers 1.0, tileAppearNow() answers 1.0 for every card and
+    // the gate at clocks.cpp:145 returns before the slide branch. What was on screen was
+    // just the natural->target glide, which for a maximized window reads as a fullscreen
+    // card shrinking into its slot.
+    //
+    // painter.cpp arms the same pair on the workspace-follow path; this flip was doing
+    // neither. Order matters: the clock starts BEFORE the direction, or updateAnimation
+    // clears it in the same tick.
+    m_clocks.rebuild.begin();
+  }
   // Direction is armed AFTER the rebuild, for the reason painter.cpp arms it after
   // m_clocks.rebuild.begin(): updateAnimation clears it the moment the rebuild and entry
   // clocks read done, and a flip made from an EMPTY workspace has nothing to animate --
