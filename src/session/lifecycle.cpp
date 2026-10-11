@@ -125,6 +125,7 @@ void Overview::toggleAllWorkspaces() {
     // neither. Order matters: the clock starts BEFORE the direction, or updateAnimation
     // clears it in the same tick.
     m_clocks.rebuild.begin();
+    debug::trace::animStart("entry", "entry", "slide", m_entry.ms, m_entry.curve.c_str());
     // A slide is an ENTRY, not a relocation: the card is already the right shape and
     // arrives from the edge. Left at natural, every card starts at the window's REAL
     // geometry and shrinks into its slot -- 1354x756 down to 909x508, measured -- and that
@@ -136,12 +137,12 @@ void Overview::toggleAllWorkspaces() {
     for (std::size_t i = 0; i < m_scene.tiles().size(); ++i)
       m_scene.setNatural(i, m_scene.tiles()[i].target);
   }
-  // Direction is armed AFTER the rebuild, for the reason painter.cpp arms it after
-  // m_clocks.rebuild.begin(): updateAnimation clears it the moment the rebuild and entry
-  // clocks read done, and a flip made from an EMPTY workspace has nothing to animate --
-  // captureCurrentBoxes() comes back empty, no clock runs, and the wipe lands in the very
-  // frame the direction was set. The tiles then fell through the gate at clocks.cpp:145
-  // into the scale-in, which reads as arriving from the centre instead of from the edge.
+  // Direction is armed AFTER the rebuild clock starts, for the reason painter.cpp arms it
+  // after its own: updateAnimation clears it the moment the rebuild and entry clocks read
+  // done, and a flip made from an EMPTY workspace has nothing to animate -- capture
+  // CurrentBoxes() comes back empty, no clock runs, and the wipe lands in the very frame
+  // the direction was set. The tiles then fell through the gate in clocks.cpp into the
+  // scale-in, which reads as arriving from the centre instead of from the edge.
   //
   // painter.cpp carries a comment claiming "same slide, same style key, whichever bind
   // got here". That held for the slide and not for the order: this is the bind that still
@@ -276,7 +277,9 @@ void Overview::open() {
   m_landingEmpty = !workspaceHasWindows(m_liveWsAtOpen.lock());
   debug::dbg("open: ws=" + std::to_string(m_liveWsAtOpen.lock() ? m_liveWsAtOpen.lock()->m_id : -1) + " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
   m_clocks.master.begin();
+  debug::trace::animStart("master", "master", "", m_glide.ms, m_glide.curve.c_str());
   m_clocks.tiles.begin();
+  debug::trace::animStart("open", "glide", m_enterStyle == anim::WsStyle::Pop ? "pop" : "slide", m_glide.ms, m_glide.curve.c_str());
   m_lastAnimTick = {};
   // hideLayers() is deliberately NOT called here: it runs at promotion instead. Fading the
   // layers now would leave the desktop bare on frames where the overview draws nothing.

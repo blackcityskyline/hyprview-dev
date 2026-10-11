@@ -193,6 +193,7 @@ void Overview::updateAnimation() {
     if (elapsedMs >= static_cast<double>(cfg::behavior.hold_lift_ms.get())) {
       m_drag.setLifted(true);
       m_clocks.dragLift.begin();
+      debug::trace::animStart("drag_lift", "lift", "", m_lift.ms, m_lift.curve.c_str());
       damage();
     } else {
       static auto lastHoldDamage = std::chrono::steady_clock::time_point{};
@@ -307,6 +308,7 @@ void Overview::animateStripTo(double from, double to) {
   if (!m_clocks.strip.done(st.ms))
     m_scroll.beginGlide(m_scroll.current(), m_scroll.target());
   m_clocks.strip.begin();
+  debug::trace::animStart("strip_scroll", "strip_step", "", st.ms, st.curve.c_str());
   ensureAnimPump();
 }
 

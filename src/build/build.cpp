@@ -536,6 +536,7 @@ void Overview::startTileGlide(
   } else
     m_scene.settleAppear();
   m_clocks.tiles.begin();
+  debug::trace::animStart("glide", "glide", "", m_glide.ms, m_glide.curve.c_str());
   m_clocks.tileMs    = m_glide.ms;
   m_clocks.tileCurve = m_glide.curve; // snapshot: currentBox() must use THIS curve
   // EVERY card is about to move: natural was just rewritten to the box each one occupied,
@@ -550,6 +551,7 @@ void Overview::startTileGlide(
   damage();
   if (newcomers || !m_fx.ghosts().empty()) {
     m_clocks.rebuild.begin();
+    debug::trace::animStart("rebuild", "ghosts", "", m_ghost.ms, m_ghost.curve.c_str());
     ensureAnimPump(); // frames must keep coming while population runs
   }
 }

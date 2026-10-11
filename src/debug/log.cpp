@@ -132,6 +132,15 @@ void record(const char *tag, const char *event, const std::string &state) {
   emit(tok(tag) + "|" + tok(event) + "|" + state);
 }
 
+void animStart(const char *op, const char *leaf, const char *style, double ms,
+               const char *curve) {
+  if (!enabled())
+    return;
+  emit("ANIM|begin|seq=" + std::to_string(nextSeq()) + "|op=" + tok(op) + "|leaf=" +
+       tok(leaf) + "|style=" + tok(style) + "|ms=" + std::to_string(ms) + "|curve=" +
+       tok(curve));
+}
+
 void dragBranch(const char *name, const std::string &extra) {
   if (!enabled())
     return;

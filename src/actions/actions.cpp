@@ -121,6 +121,7 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
     target = State::workspaceState()->create(id, m->m_id);
     m_newCardId = id;
     m_clocks.newCard.begin();
+    debug::trace::animStart("new_card", "card", "", m_entry.ms, m_entry.curve.c_str());
     m_newCardAnim = true;
   } else if (it.virtualWs) {
     // Placeholder card: create exactly this id, persistent or it is reaped.
@@ -132,6 +133,7 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
       m_fx.addNewWorkspace(target);
       m_newCardId = it.id;
       m_clocks.newCard.begin();
+    debug::trace::animStart("new_card", "card", "", m_entry.ms, m_entry.curve.c_str());
       m_newCardAnim = true;
     }
   } else
@@ -828,6 +830,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     startTileGlide(oldBoxes);
   } else
     m_clocks.rebuild.begin();
+    debug::trace::animStart("entry", "entry", "", m_entry.ms, m_entry.curve.c_str());
   ensureAnimPump();
   if (!sameSet || oldBoxes.empty())
     m_clocks.tiles.pinEnd(glideDur());
@@ -883,6 +886,7 @@ void Overview::addWorkspace() {
   m_fx.addNewWorkspace(ws);
   m_newCardId = id;
   m_clocks.newCard.begin();
+    debug::trace::animStart("new_card", "card", "", m_entry.ms, m_entry.curve.c_str());
   m_newCardAnim = true;
   debug::dbg("added workspace " + std::to_string(id));
   if (cfg::behavior.switch_on_new_workspace != 0) {

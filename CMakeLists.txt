@@ -182,6 +182,9 @@ add_test(NAME curves
 # built: `ctest -R load_seam` afterwards, or CI, where the .so always exists.
 # SKIP_RETURN_CODE so a machine without Hyprland reports skip, not a fake failure.
 find_program(HYPRLAND_BIN Hyprland)
+add_test(NAME scan_anim_coverage
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/anim_coverage_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/anim_cov_check && ${CMAKE_CURRENT_BINARY_DIR}/anim_cov_check ${CMAKE_SOURCE_DIR}")
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll

@@ -86,6 +86,22 @@ inline void life(const char *event, const std::string &state) {
 // `name` is first and carries the whole decision; `extra` is the branch's own fields, in
 // the same key=value grammar. A harness can count branches without turning on the frame
 // log at all.
+// An animation that is applied but never recorded cannot be told apart from one that did
+// not run at all -- both are silent. This is the non-flight form: the entry, the glide,
+// the master clock. Same leading grammar as the swap record, without win/surface/boxes,
+// which only a flight has.
+//
+//   ANIM|begin|seq=<n>|op=<open|close|entry|glide|card|...>|leaf=<...>|style=<...>
+//        |ms=<n>|curve=<...>
+//   ANIM|end|seq=<n>|ms=<measured>
+//
+// scan_anim_coverage requires every m_clocks.*.begin() to sit next to one of these, or to
+// be on an exemption list carrying a reason. Before it, beginSwapFX was the only emitter,
+// so an entry that never started wrote nothing at all -- indistinguishable from one that
+// started with the wrong style.
+void animStart(const char *op, const char *leaf, const char *style, double ms,
+               const char *curve);
+
 void dragBranch(const char *name, const std::string &extra = {});
 
 // Strip scroll events. Per EVENT, not per frame: advance() runs every tick while a glide

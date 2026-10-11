@@ -169,6 +169,7 @@ void Overview::renderStage(eRenderStage stage) {
       // appear = 0 on everything. Same slide, same style key, whichever bind got here.
       m_scene.armAppear();
       m_clocks.rebuild.begin();
+      debug::trace::animStart("entry", "entry", "", m_entry.ms, m_entry.curve.c_str());
       // Arm the slide AFTER the rebuild clock starts. updateAnimation clears wsSlideDir
       // whenever both entry clocks already read done, and on a hop from an empty
       // workspace the previous frame's clocks are done -- so a direction armed earlier
