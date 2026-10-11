@@ -61,7 +61,21 @@ void emitState(const std::string &dump);
 // Emitted from the only file that mutates the FSM, so the record is complete by
 // construction: a transition that did not happen cannot be logged, because there is no
 // other way to reach one.
-void drag(const char *event, const std::string &state);
+// One machine-readable record for a subsystem transition. `tag` is the record family
+// (DRAG, LIFE), `event` is what happened (release, promote, deactivate), `state` is the
+// subsystem's own describe(). The grammar is the ANIM| one, so one parser reads all three.
+void record(const char *tag, const char *event, const std::string &state);
+
+inline void drag(const char *event, const std::string &state) {
+  record("DRAG", event, state);
+}
+
+// Screen ownership: park, promote, deactivate. The record is emitted from the transitions
+// themselves, so it cannot be forgotten by a caller that reaches the same state by a
+// different route -- which is exactly the failure this subsystem had.
+inline void life(const char *event, const std::string &state) {
+  record("LIFE", event, state);
+}
 
 // Which branch a release took. These were `[REL] branch=Tile->stripCard(rmb=0 kind=1)`
 // under debug_logs -- a human log, off unless someone turned it on, and unparseable

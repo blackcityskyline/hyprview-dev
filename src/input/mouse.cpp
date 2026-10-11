@@ -24,7 +24,7 @@ namespace gloview {
 
 
 bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
-  if (!m_active)
+  if (!active())
     return false;
   const double notches = e.deltaDiscrete != 0
                              ? static_cast<double>(e.deltaDiscrete)
@@ -85,7 +85,7 @@ void Overview::onMouseMove() {
   // it untouched and kept the zone dark for anyone with a hardware cursor.
   {
     double g = 0.0;
-    if (m_active && (draggedTile() >= 0 ||
+    if (active() && (draggedTile() >= 0 ||
                      m_drag.press() == model::Drag::Press::StripWin)) {
       const auto mc = g_pInputManager->getMouseCoordsInternal();
       g = killZoneGlow(mc.x - m->m_position.x, mc.y - m->m_position.y);
@@ -102,7 +102,7 @@ void Overview::onMouseMove() {
   }
   const CBox unionBox = m_cursor.moveDamage(m);
   updateHover();
-  if (!m_active || unionBox.w <= 0 || unionBox.h <= 0)
+  if (!active() || unionBox.w <= 0 || unionBox.h <= 0)
     return;
   if (g_pHyprRenderer)
     g_pHyprRenderer->damageBox(unionBox);
@@ -160,7 +160,7 @@ int Overview::draggedTile() const {
 }
 
 void Overview::updateHover() {
-  if (!m_active)
+  if (!active())
     return;
   const auto m = m_monitor.lock();
   if (!m)
@@ -241,7 +241,7 @@ const auto dblclickWindow = [] {
 } // namespace
 
 bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
-  if (!m_active)
+  if (!active())
     return false;
 
   const auto m = m_monitor.lock();
@@ -512,7 +512,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           [this](SP<CEventLoopTimer>, void *) {
             const auto pw = m_pendingClickWin.lock();
             m_pendingClickWin.reset();
-            if (pw && m_active)
+            if (pw && active())
               focusAndClose(pw, Desktop::FOCUS_REASON_CLICK);
           },
           nullptr);

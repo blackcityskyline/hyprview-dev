@@ -87,7 +87,7 @@ double Overview::entryFade(size_t i) const {
   // still until the overlay is torn out from under it. Only ever on a close that is NOT
   // committing: fading a window that is about to become real reads as a double image
   // (AGENTS.md), so every tile that does go home stays at full alpha and flies.
-  if (!m_opening && anim::tileExit(tileGoesHome(t)) == anim::TileExit::InPlace)
+  if (!opening() && anim::tileExit(tileGoesHome(t)) == anim::TileExit::InPlace)
     return eased();
   if (t.appear >= 1.0 || m_view.wsSlideDir() == 0 || m_enterStyle != anim::WsStyle::Fade)
     return 1.0;
@@ -168,7 +168,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
   // Transition frost: the cached blur at CONSTANT alpha (fading it leaks
   // C*e*(1-e) of the sharp desktop) plus the dim rect at the GLOBAL alpha e.
   const double apNow = tileAppearNow(t, static_cast<int>(i));
-  if (m_opening && (e < 0.999 || apNow < 0.999)) {
+  if (opening() && (e < 0.999 || apNow < 0.999)) {
     if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
       const double pxW = static_cast<double>(m->m_pixelSize.x);
       const double pxH = static_cast<double>(m->m_pixelSize.y);

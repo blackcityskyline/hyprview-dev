@@ -50,7 +50,7 @@ uint32_t Overview::altTabModBit() const {
 }
 
 void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
-  if (!m_active)
+  if (!active())
     return;
   const bool passthrough = cfg::behavior.passthrough_keys != 0;
 
@@ -151,7 +151,7 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
         if (instant)
           close();
         else
-          m_pendingJumpClose = true;
+          m_life.setJumpClosing();
       }
     }
   } else

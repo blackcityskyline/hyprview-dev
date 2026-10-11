@@ -117,13 +117,22 @@ public:
   bool shouldHideWindow(const PHLWINDOW &w, const PHLMONITOR &m) const;
   [[nodiscard]] bool isTileWindow(const PHLWINDOW &w) const;
 
-  [[nodiscard]] bool active() const { return m_active; }
-  // open() parks before it becomes visible, so "did the open take" is active OR parked.
-  // Every caller that tests m_active right after open() must test this instead, or it reads
-  // a waiting open as a failed one -- that is what silently disarmed alt+tab.
-  // Also the predicate for input ownership: a parked frame already covers the windows.
-  [[nodiscard]] bool openedOrParked() const { return m_active || m_pendingOpen; }
-  [[nodiscard]] bool opening() const { return m_opening; } // entry anim only
+  // The three lifecycle questions, delegated. They used to be three free booleans and each
+  // one is still three booleans' worth of truth, so a reader could not tell which question
+  // any given site was asking.
+  //
+  //   active()       visible -- the compositor should be painting the overlay. Parked is
+  //                  NOT active: nothing is drawn yet.
+  //   openedOrParked() owns the screen -- parked counts, because the windows must lose
+  //                  focus on the first parked frame, not when the overlay appears. Every
+  //                  caller that tested m_active right after open() must test this instead,
+  //                  or it reads a waiting open as a failed one -- that is what silently
+  //                  disarmed alt+tab.
+  //   opening()      the entry animation is playing. Not the same axis: replayReflow and
+  //                  switchToWorkspace set it on an overlay that is already on screen.
+  [[nodiscard]] bool active() const { return m_life.active(); }
+  [[nodiscard]] bool openedOrParked() const { return m_life.ownsScreen(); }
+  [[nodiscard]] bool opening() const { return m_life.opening(); }
   [[nodiscard]] std::uint64_t frameTick() const { return m_frameTick; }
   [[nodiscard]] PHLMONITOR monitor() const { return m_monitor.lock(); }
   [[nodiscard]] bool blurEnabled() const;
@@ -147,22 +156,22 @@ public:
 
 private:
   HANDLE m_handle = nullptr;
-  bool m_active = false;
-  bool m_opening = false;
   std::chrono::steady_clock::time_point m_openStamp{}; // frame-trace t=0
   std::uint64_t m_frameTick = 0;
 
-  // The close hit 0 THIS frame and shouldRenderWindow already ran, so flipping
-  // m_active off now skips the overlay.
-  bool m_pendingDeactivate = false;
-  // Open in two phases: nothing is visible until a backdrop exists. open() parks here, the
-  // pass computes the composite into a PRIVATE framebuffer for a frame or two (nothing is
-  // drawn), and the first non-black composite promotes the open. Measured reason: the frame
-  // the overview is first visible had no backdrop of its own, and the wallpaper texture is
-  // mid-recreation right then, so it composed black. Painting late beats painting black.
-  bool m_pendingOpen = false;
-  int m_pendingTicks = 0;
-  bool m_pendingJumpClose  = false; // set after a jump ws-slide
+  // Who owns the screen, and whether the entry animation is playing.
+  //
+  // Six booleans used to be this, and the two facts that decide whether the overlay paints
+  // at all lived in their write pattern rather than anywhere checkable: m_active and
+  // m_pendingOpen are ONE axis (open parks, primeBackdrop promotes, close clears both),
+  // while m_opening is not on it -- replayReflow and switchToWorkspace set it on an overlay
+  // already on screen, which is why nine sites spell `m_active && m_opening`.
+  //
+  // Parked is the state that is neither visible nor closed: nothing is drawn, but the
+  // windows already lost focus. Painting late beats painting black -- the frame the
+  // overview is first visible had no backdrop of its own, and the wallpaper texture is
+  // mid-recreation right then.
+  model::Lifecycle m_life;
   model::Recency m_recency;
   PHLWINDOWREF m_lastFocus;
   // The compositor's focus when the overlay opened, held for its whole lifetime.

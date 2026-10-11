@@ -230,9 +230,9 @@ verify-config, правила анимаций) — все оказались н
 | `clock/clock.cpp`, `clocks.cpp`, `curves.cpp` | домен времени: tween, прогрессы, resolved anim cfg, реестр кривых |
 | `cursor.*` | HW/SW курсор поверх оверлея (следствие RENDER_LAST_MOMENT) |
 | `layout.hpp` / `.cpp` | чистая геометрия лейаута, без Hyprland (единственный юнит-домен; второй — `model/drag.hpp`) |
-| `model/` | `scene.hpp` (плитки, выбор, интенты), `strip.hpp`, `effects.hpp` (ghosts/pulses/swapfx), `drag.hpp` (**ФСМ перетаскивания, поля приватные**; шаблон на тип-ручку — из-за этого юнит-тестируется), `recency.*`, `model.hpp`. Поля приватные, наружу — намерения |
+| `model/` | `scene.hpp` (плитки, выбор, интенты), `strip.hpp`, `effects.hpp` (ghosts/pulses/swapfx), `drag.hpp` (**ФСМ перетаскивания, поля приватные**; шаблон на тип-ручку — из-за этого юнит-тестируется), `lifecycle.hpp` (**ФСМ владения экраном**: Closed/Parked/Screen + отдельный флаг входа-анимации), `recency.*`, `model.hpp`. Поля приватные, наружу — намерения |
 | `pixel/cache.cpp` | кэш подписей и снапшотов |
-| `tests/` | ctest: 17 проверок. `scan_*` — статика (читает исходники), остальные исполняют логику, бинарник или реальную таблицу символов. Включая `load_seam`, `hook_signatures`, `layout`, `drag` |
+| `tests/` | ctest: 18 проверок. `scan_*` — статика (читает исходники), остальные исполняют логику, бинарник или реальную таблицу символов. Включая `layout`, `drag`, `lifecycle` |
 
 ## Открытые вопросы
 
@@ -272,7 +272,7 @@ verify-config, правила анимаций) — все оказались н
 | Подсистема | Поля | Пишут | Итог |
 |---|---|---|---|
 | Drag FSM | `m_drag`, `m_lastDragBox` | 1 файл | **сделано**: `model/drag.hpp` + `drag_check` + `DRAG|` |
-| Lifecycle FSM | `m_active`, `m_opening`, `m_pendingOpen/Deactivate/Ticks/JumpClose` | 4 файла | следующий. Два инварианта уже описаны прозой выше |
+| Lifecycle FSM | `m_active`, `m_opening`, `m_pendingOpen/Deactivate/Ticks/JumpClose` | 4 файла | **сделано**: `model/lifecycle.hpp` + `lifecycle_check` + `LIFE|` |
 | Strip scroll | `m_stripScroll*`, `m_scrollAccum` | 2 файла | после lifecycle |
 | Focus | `m_lastFocus`, `m_focusOutside`, `m_pendingFocus`, `m_pendingClickWin` | 2 файла | после lifecycle |
 

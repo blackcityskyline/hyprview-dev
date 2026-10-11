@@ -248,8 +248,8 @@ std::string Overview::runCommand(const std::string &args) {
   // "state" first: it is how a harness learns what it is driving, and it must work
   // whether or not the overlay is open.
   if (tok[0] == "state") {
-    std::string out = "STATE|open=" + std::to_string(m_active) +
-                      "|pending=" + std::to_string(m_pendingOpen) + "|tiles=" +
+    std::string out = "STATE|open=" + std::to_string(m_life.active()) +
+                      "|pending=" + std::to_string(m_life.parked()) + "|tiles=" +
                       std::to_string(m_scene.size()) + "|strip=" +
                       std::to_string(m_strip.size()) + "|allws=" +
                       std::to_string(showAllWorkspaces()) + "|carousel=" +
@@ -299,7 +299,7 @@ std::string Overview::runCommand(const std::string &args) {
   // Mode switches a matrix has to set up before it can measure anything. They call the
   // same methods the binds do, so a harness and a user drive identical code.
   if (tok[0] == "open") {
-    if (!m_active && !m_pendingOpen)
+    if (!m_life.ownsScreen())
       open();
     return "";
   }
@@ -778,7 +778,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     m_clocks.rebuild.pinEnd(std::max(m_entry.ms, m_ghost.ms));
     m_clocks.tiles.pinEnd(glideDur());
     m_progress = 1.0;
-    m_opening = true;
+    m_life.replayEntry();
     m_clocks.master.pinEnd(animDuration());
     ensureAnimPump();
     damage();
@@ -810,7 +810,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
   if (!sameSet || oldBoxes.empty())
     m_clocks.tiles.pinEnd(glideDur());
   m_progress = 1.0;
-  m_opening = true;
+  m_life.replayEntry();
   m_clocks.master.pinEnd(animDuration());
   damage();
 }

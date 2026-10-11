@@ -33,7 +33,7 @@ anim::Id Overview::ghostLeaf() const {
 }
 
 anim::Id Overview::glideLeaf() const {
-  if (m_view.jumpMode()) return m_opening ? anim::Id::JumpIn : anim::Id::JumpOut;
+  if (m_view.jumpMode()) return opening() ? anim::Id::JumpIn : anim::Id::JumpOut;
   if (m_view.expoFlip() != 0)
     return m_view.expoFlip() > 0 ? anim::Id::ExpoIn : anim::Id::ExpoOut;
   return carouselMode() ? anim::Id::CarouselStep : anim::Id::Glide;
@@ -43,7 +43,7 @@ anim::Id Overview::glideLeaf() const {
 // below and animDuration() -- they were separate expressions of the same question and
 // nothing checked that they agreed.
 anim::Id Overview::masterId() const {
-  switch (anim::masterLeaf(m_view.jumpMode(), m_opening)) {
+  switch (anim::masterLeaf(m_view.jumpMode(), opening())) {
     case anim::MasterLeaf::Open:    return anim::Id::Open;
     case anim::MasterLeaf::JumpOut: return anim::Id::JumpOut;
     case anim::MasterLeaf::Close:   break;
@@ -54,7 +54,7 @@ anim::Id Overview::masterId() const {
 // How far the close has run, 0 -> 1. m_progress runs DOWN on a close (1 open -> 0 closed);
 // read forwards it looks exactly like no animation. Every exit fraction reads it here so
 // the shrink, the fade and the clock cannot disagree about where the close is.
-double Overview::exitT() const { return m_opening ? 0.0 : 1.0 - m_progress; }
+double Overview::exitT() const { return opening() ? 0.0 : 1.0 - m_progress; }
 
 double Overview::eased() const {
   return curves::eval(anim::cfg(masterId()).curve, m_progress);
@@ -80,7 +80,7 @@ bool Overview::backdropSettled() const {
 // WINDOWED exit is the one exception: the backdrop must stay until Hyprland has rebuilt
 // its blur. Fading out before that is what exposed a sharp desktop mid-flight.
 double Overview::blurAlpha() const {
-  if (!anim::backdropFades(m_opening, m_landingEmpty))
+  if (!anim::backdropFades(opening(), m_landingEmpty))
     return 1.0;
   return std::clamp(eased(), 0.0, 1.0);
 }
@@ -93,7 +93,7 @@ double Overview::tileProgress(int i) const {
   const double glideMs = (m_clocks.tileMs > 0) ? m_clocks.tileMs : m_glide.ms;
   // currentBox lerps natural -> target as e RISES, so close feeds it m_progress
   // as-is. Flipping it put every card on its natural box on the first close frame.
-  const double base = m_opening ? m_clocks.tiles.raw(glideMs) : m_progress;
+  const double base = opening() ? m_clocks.tiles.raw(glideMs) : m_progress;
   // The FOCUSED tile is never staggered: stagger() assumes a rising 0..1, so on
   // close it would delay the landing — the same flight, timed differently.
   if (carouselMode() || i == m_scene.focused())
@@ -133,7 +133,7 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
   // backdrop faded and was gone in a frame. The run stands down here: it knows the card's
   // depth, which this does not, and applies the same predicate itself -- two shrinks of the
   // same card would compound into k*k.
-  if (!carouselMode() && !m_opening && anim::cardHides(0, tileGoesHome(t))) {
+  if (!carouselMode() && !opening() && anim::cardHides(0, tileGoesHome(t))) {
     const double k =
         anim::hideShrink(exitT(), anim::param(anim::Param::Collapse));
     const double cx = r.cx(), cy = r.cy();
@@ -238,8 +238,7 @@ void Overview::updateAnimation() {
   if (m_clocks.rebuild.done(m_ghost.ms) && m_clocks.rebuild.done(m_entry.ms)) {
     m_view.setWsSlideDir( 0);
     m_view.setExpoFlip( 0);
-    if (m_pendingJumpClose) {
-      m_pendingJumpClose = false;
+    if (m_life.consumeJumpClosing()) {
       close();
     }
   }
@@ -258,7 +257,7 @@ void Overview::updateAnimation() {
   });
 
   const double t = m_clocks.master.raw(dur);
-  m_progress = m_opening ? t : 1.0 - t;
+  m_progress = opening() ? t : 1.0 - t;
   if (m_newCardAnim && m_clocks.newCard.done(newCardDur())) {
     m_newCardAnim = false;
     m_newCardId = 0;
@@ -268,22 +267,23 @@ void Overview::updateAnimation() {
   // outlives the close animation, and at exactly 0 the overlay paints nothing, Hyprland
   // has no damage to serve, and the ramp runs on with no frames to show it (measured:
   // 769ms of ticks with no render).
-  if (!m_opening && t >= 1.0 && m_progress <= 0.0)
+  if (!opening() && t >= 1.0 && m_progress <= 0.0)
     m_progress = 1e-6;
   // The overlay outlives the close animation by exactly the windowed-exit hold: that is
   // what keeps the backdrop covering the screen until Hyprland's own blur has taken over
   // on the windows that have just landed. Lingering past that would leave a transparent
   // overlay over a sharp desktop, which is the gap all over again.
-  if (!m_opening && t >= 1.0 && m_clocks.tiles.done(dur) && backdropSettled())
-    m_pendingDeactivate = true;
+  if (!opening() && t >= 1.0 && m_clocks.tiles.done(dur) && backdropSettled())
+    m_life.requestDeactivate();
+    debug::trace::life("requestDeactivate", m_life.describe());
 }
 
 bool Overview::animBusy() const {
-  return m_active &&
+  return active() &&
          (secondaryAnimsActive() || !m_clocks.tiles.done(glideDur()) ||
           m_newCardAnim || m_drag.lifted() || !m_fx.swapfx().empty() ||
-          m_pendingJumpClose || m_pendingDeactivate ||
-          (m_opening && m_progress < 1.0) || (!m_opening && m_progress > 0.0));
+          m_life.jumpClosing() || m_life.deactivating() ||
+          (opening() && m_progress < 1.0) || (!opening() && m_progress > 0.0));
 }
 
 double Overview::newCardScale() const {

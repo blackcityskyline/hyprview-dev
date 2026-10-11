@@ -182,7 +182,10 @@ add_test(NAME curves
 # built: `ctest -R load_seam` afterwards, or CI, where the .so always exists.
 # SKIP_RETURN_CODE so a machine without Hyprland reports skip, not a fake failure.
 find_program(HYPRLAND_BIN Hyprland)
-add_test(NAME load_seam
+add_test(NAME lifecycle
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/lifecycle_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/lifecycle_check && ${CMAKE_CURRENT_BINARY_DIR}/lifecycle_check")
+         add_test(NAME load_seam
          COMMAND bash ${CMAKE_SOURCE_DIR}/tests/load_seam_check.sh
                  $<TARGET_FILE:gloview> ${HYPRLAND_BIN}
          SKIP_RETURN_CODE 77)

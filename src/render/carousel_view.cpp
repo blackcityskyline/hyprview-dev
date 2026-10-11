@@ -42,7 +42,7 @@ void Overview::relayoutCarousel() {
     return;
   // Never during a close: a relayout rewrites every natural, which for maximized
   // windows is one shared rectangle — all the cards land in one point.
-  if (!m_opening || m_pendingDeactivate)
+  if (!opening() || m_life.deactivating())
     return;
   if (m_scene.selected() < 0 || m_scene.selected() >= static_cast<int>(m_scene.tiles().size()))
     return; // not a selection change; layoutTiles settles it next
@@ -110,7 +110,7 @@ void Overview::renderCarousel() const {
     // hides whatever its depth, which is what makes a cancel take the whole deck out
     // instead of leaving the centred card pretending to be on its way somewhere. A card
     // that CAN land and is centred keeps currentBox's own lerp — one motion, one place.
-    if (!m_opening && anim::cardHides(card.depth, tileGoesHome(t))) {
+    if (!opening() && anim::cardHides(card.depth, tileGoesHome(t))) {
       const double k =
           anim::hideShrink(exitT(), anim::param(anim::Param::Collapse));
       const double cx = look.box.cx(), cy = look.box.cy();

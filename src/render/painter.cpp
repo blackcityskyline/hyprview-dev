@@ -68,7 +68,7 @@ void Overview::renderStage(eRenderStage stage) {
   // Parked open: the pass is registered anyway so draw() can run primeBackdrop, which
   // composites into a private framebuffer and draws nothing. Without this the pass is never
   // added while m_active is false, so the backdrop is never computed before the first draw.
-  if (m_pendingOpen && stage == RENDER_LAST_MOMENT) {
+  if (m_life.parked() && stage == RENDER_LAST_MOMENT) {
     const auto pm  = m_monitor.lock();
     const auto prm = g_pHyprRenderer->m_renderData.pMonitor.lock();
     if (pm && prm == pm)
@@ -76,7 +76,7 @@ void Overview::renderStage(eRenderStage stage) {
     return;
   }
 
-  if (!m_active)
+  if (!active())
     return;
   const auto rm = g_pHyprRenderer->m_renderData.pMonitor.lock();
   const auto m = m_monitor.lock();
@@ -87,7 +87,7 @@ void Overview::renderStage(eRenderStage stage) {
     return;
 
   updateAnimation();
-  if (!m_active)
+  if (!active())
     return;
 
   // debug::enabled() reads the live config, so this gate follows a runtime toggle;
@@ -95,7 +95,7 @@ void Overview::renderStage(eRenderStage stage) {
   if (debug::enabled()) {
     const double e  = eased();
     const float  k  = static_cast<float>(e);
-    const float  kk = m_opening ? k : std::pow(k, 0.45F);
+    const float  kk = opening() ? k : std::pow(k, 0.45F);
     const auto   sol = rm->m_solitaryClient.lock();
     // `valid` is load-bearing here and not part of backdropBlurTexture(): the FB keeps
     // holding the last blur after the cache goes stale, so "has a texture" and "is the
@@ -110,7 +110,7 @@ void Overview::renderStage(eRenderStage stage) {
                 .count()) +
         "ms tick=" + std::to_string(m_frameTick) +
         " forceFF=" + std::to_string(rm->m_forceFullFrames) +
-        " open=" + std::to_string(m_opening) +
+        " open=" + std::to_string(opening()) +
         " prog=" + std::to_string(m_progress).substr(0, 5) +
         " kk=" + std::to_string(kk).substr(0, 6) +
         " frost=" + std::to_string(1.0 - e).substr(0, 6) +
@@ -136,7 +136,7 @@ void Overview::renderStage(eRenderStage stage) {
   }
 
   updateHover();
-  if (m_altTabbing && m_active && m_opening && !m_commitPending && g_pInputManager &&
+  if (m_altTabbing && m_life.openingNow() && !m_commitPending && g_pInputManager &&
       !(g_pInputManager->getModsFromAllKBs() & altTabModBit()))
     m_commitPending = true;
   relayoutCarousel();
@@ -147,7 +147,7 @@ void Overview::renderStage(eRenderStage stage) {
   forcePreviewVisibility();
   updateSnapshots();
 
-  if (m_opening && m->m_activeWorkspace != m_liveWsAtOpen.lock()) {
+  if (opening() && m->m_activeWorkspace != m_liveWsAtOpen.lock()) {
     m_liveWsAtOpen = m->m_activeWorkspace;
     if (cfg::behavior.exit_on_switch != 0) {
       m_workspace = m->m_activeWorkspace;
@@ -207,7 +207,7 @@ void Overview::renderStage(eRenderStage stage) {
                       !m_clocks.tiles.done(glideDur()) || m_newCardAnim ||
                       m_drag.lifted() || !m_fx.pulses().empty() ||
                       !m_fx.swapfx().empty() ||
-                      (m_opening ? m_progress < 1.0 : m_progress > 0.0);
+                      (opening() ? m_progress < 1.0 : m_progress > 0.0);
     if (busy)
       m->m_forceFullFrames = std::max(m->m_forceFullFrames, 1);
   }
@@ -215,7 +215,7 @@ void Overview::renderStage(eRenderStage stage) {
 
 // Z-slots, top to bottom: on-top-of-content draws after it.
 void Overview::paint() {
-  if (m_pendingOpen) {
+  if (m_life.parked()) {
     primeBackdrop(); // computes into a private FB; deliberately draws nothing
     return;
   }
@@ -249,7 +249,7 @@ void Overview::paint() {
   renderCursorOnTop();
 
   rearmanim(); // tail: damage() here hits already-committed damage
-  if (m_commitPending && m_active && m_opening && !m_pendingDeactivate &&
+  if (m_commitPending && m_life.openingNow() && !m_life.deactivating() &&
       entrySettled()) {
     m_commitPending = false;
     activateSelection();

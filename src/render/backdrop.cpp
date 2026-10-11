@@ -189,9 +189,9 @@ SP<Render::ITexture> Overview::backdropSourceTexture() const {
 void Overview::primeBackdrop() {
   const auto m = m_monitor.lock();
   const auto promote = [this] {
-    m_pendingOpen = false;
-    m_active      = true;
-    m_opening     = true;
+    if (!m_life.promote())
+      return; // not parked: there is no first visible frame to give
+    debug::trace::life("promote", m_life.describe());
     hideLayers(); // deferred from open(): fades only once there is something drawn over it
   };
 
@@ -211,14 +211,13 @@ void Overview::primeBackdrop() {
   g_pHyprRenderer->m_renderData.fbSize = oldFbSz;
   g_pHyprRenderer->setProjectionType(oldProj);
 
-  ++m_pendingTicks;
   const bool ready = comp && comp->ok();
-  if (!ready && m_pendingTicks < 2) {
+  if (!m_life.parkTick(ready)) {
     damage(); // the wallpaper texture is still being created: spend one more frame on it
     return;
   }
 
-  debug::dbg("prime: promote ticks=" + std::to_string(m_pendingTicks) +
+  debug::dbg("prime: promote ticks=" + std::to_string(m_life.parkTicks()) +
              " backdrop=" + std::to_string(ready ? 1 : 0));
   promote();
   damage();
@@ -241,7 +240,7 @@ void Overview::renderBackdrop() const {
   // laid down wrong because of it.
   const double dimK = blurAlpha();
   debug::dbg(std::string("backdrop e=") + std::to_string(e).substr(0, 5) +
-      " opening=" + std::to_string(m_opening) +
+      " opening=" + std::to_string(opening()) +
       " k=" + std::to_string(k).substr(0, 5));
 
   // Entry fade needs an OPAQUE base built from the backdrop SOURCES: at low k
@@ -254,7 +253,7 @@ void Overview::renderBackdrop() const {
   // black frame returned the moment this was made to fade both ways). On the way out the
   // opposite holds -- pinned at 1.0 the base outlived the blur and the frame it stopped
   // being painted was a visible step, measured on an empty workspace.
-  const float baseA = m_opening ? 1.0F : static_cast<float>(blurAlpha());
+  const float baseA = opening() ? 1.0F : static_cast<float>(blurAlpha());
   bool baseIsBlur = false;
   // Also while a windowed exit holds: the opaque base is what the blur sits on, and the
   // hold is exactly the moment the real desktop would otherwise show through under the

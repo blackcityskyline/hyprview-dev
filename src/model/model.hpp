@@ -9,6 +9,7 @@
 #include "../clock/clocks.hpp"
 #include "../layout.hpp"
 #include "drag.hpp"
+#include "lifecycle.hpp"
 
 namespace gloview::model {
 

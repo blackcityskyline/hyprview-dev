@@ -563,13 +563,13 @@ void Overview::replayReflow(
   if (m_scene.selected() >= static_cast<int>(m_scene.size()))
     m_scene.select(m_scene.empty() ? -1 : static_cast<int>(m_scene.size()) - 1);
   m_progress = 1.0;
-  m_opening = true;
+  m_life.replayEntry();
   m_clocks.master.pinEnd(animDuration());
   damage();
 }
 
 void Overview::syncTiles() {
-  if (!m_active || !m_opening || m_pendingDeactivate)
+  if (!m_life.openingNow() || m_life.deactivating())
     return;
   const auto ws = m_workspace.lock();
   if (!ws)

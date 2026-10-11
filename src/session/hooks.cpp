@@ -134,8 +134,7 @@ void hkDamageSurface(void *thisptr, SP<CWLSurfaceResource> pSurface, double x,
 Overview::Overview(HANDLE handle) : m_handle(handle) {}
 
 Overview::~Overview() {
-  m_active = false;
-  m_opening = false;
+  m_life.hardClose();
   restoreLayers();
   restorePreviewVisibility();
   restoreFill();

@@ -40,13 +40,13 @@ void dropFocusFromWindows() {
 
 void Overview::toggle() {
   debug::dbg("TOGGLE tick=" + std::to_string(m_frameTick) +
-             " active=" + std::to_string(m_active) +
-             " opening=" + std::to_string(m_opening));
+             " active=" + std::to_string(active()) +
+             " opening=" + std::to_string(opening()));
   // While the overview is up the toggle means "go to what I am looking at", the same thing
   // Enter means. It used to close unconditionally, so the one bind the user reaches for
   // first either dropped them on the workspace they started from or -- once the deck held
   // windows from elsewhere -- animated a focus it then cancelled.
-  switch (anim::toggleIntent(m_active && m_opening, m_scene.focused() >= 0)) {
+  switch (anim::toggleIntent(m_life.openingNow(), m_scene.focused() >= 0)) {
     case anim::DismissIntent::Open:
       open();
       break;
@@ -62,7 +62,7 @@ void Overview::toggle() {
 // Asymmetric on purpose, NOT a copy of the "a" binding: one -> all with the run
 // on; all -> all, run only flips. No path back — that is "a"'s job.
 void Overview::toggleCarousel() {
-  if (!(m_active && m_opening)) {
+  if (!m_life.openingNow()) {
     m_view.setCarouselOn( true); // BEFORE open(): buildTiles reads it
     m_view.setAllOverride( 1);
     open();
@@ -86,7 +86,7 @@ void Overview::toggleCarousel() {
 }
 
 void Overview::toggleAllWorkspaces() {
-  if (!(m_active && m_opening)) {
+  if (!m_life.openingNow()) {
     m_view.setAllOverride(
         1); // BEFORE open(), so buildTiles sees it
     open();
@@ -103,7 +103,7 @@ void Overview::toggleAllWorkspaces() {
 }
 
 void Overview::altTabInvoke(bool reverse) {
-  if (!(m_active && m_opening)) {
+  if (!m_life.openingNow()) {
     // Armed BEFORE open() and consumed by the layout it triggers, so the entry is
     // aimed from its first frame: ONE motion of ONE duration.
     m_pendingStep = cfg::behavior.alttab_advances != 0 ? (reverse ? -1 : 1) : 0;
@@ -128,7 +128,7 @@ void Overview::altTabInvoke(bool reverse) {
 }
 
 void Overview::toggleDesktop() {
-  if (m_active && m_opening)
+  if (m_life.openingNow())
     setDesktopMode(!m_view.desktop());
 }
 
@@ -144,7 +144,7 @@ void Overview::setDesktopMode(bool on) {
 
 void Overview::open() {
   const auto openEntryStamp = std::chrono::steady_clock::now();
-  if (m_active && m_opening)
+  if (m_life.openingNow())
     return;
   // Before anything else: make every workspace, and every window we may draw, eligible to
   // be rendered. Taken from ScrollOverview (yayuuu/hyprland-scroll-overview), which solves
@@ -211,19 +211,15 @@ void Overview::open() {
   // Parked, NOT active: the pass computes the backdrop privately (primeBackdrop) and flips
   // m_active the moment a non-black composite exists. Going visible now is what put a
   // backdrop-less frame on screen.
-  m_pendingOpen = true;
-  m_pendingTicks = 0;
-  m_active  = false;
-  m_opening = false;
+  m_life.requestOpen();
+  debug::trace::life("park", m_life.describe());
   m_view.setJumpMode( false);
-  m_pendingJumpClose = false;
   m_openStamp = std::chrono::steady_clock::now();
   debug::dbg("OPEN tick=" + std::to_string(m_frameTick) +
              " entryToActiveUs=" +
              std::to_string(std::chrono::duration<double, std::micro>(
                                  m_openStamp - openEntryStamp)
                                  .count()));
-  m_pendingDeactivate = false;
   m_progress = 0.0;
   // Parked already counts as owned (see inputRoutedAway), so the real windows lose
   // focus on the first parked frame, not when the overlay actually appears.
@@ -247,12 +243,11 @@ void Overview::open() {
 }
 
 void Overview::close() {
-  if (m_pendingOpen) { // never became visible, so there is nothing to animate away
-    m_pendingOpen = false;
-    m_pendingTicks = 0;
+  if (m_life.abortPark()) { // never became visible, so there is nothing to animate away
+    debug::trace::life("abort", m_life.describe());
     return;
   }
-  if (!m_active)
+  if (!active())
     return;
   // The landing workspace can have changed while the overview was up (all-workspaces,
   // digit jump), and it is THIS one we land back on — re-read it, do not reuse open()'s.
@@ -263,8 +258,8 @@ void Overview::close() {
   if (const auto m = m_monitor.lock())
     m->m_forceFullFrames = std::max(m->m_forceFullFrames, 8);
   debug::dbg("close: ws=" + std::to_string(m_workspace.lock() ? m_workspace.lock()->m_id : -1) + " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
-  m_opening = false;
-  m_pendingJumpClose = false;
+  m_life.endEntry();
+  m_life.consumeJumpClosing();
 
   cancelPendingClick();
 
@@ -335,11 +330,8 @@ void Overview::hardClose() {
   restoreFill();
   releaseNewWorkspaces();
 
-  m_active = false;
-  m_opening = false;
-  m_pendingOpen = false;
-  m_pendingTicks = 0;
-  m_pendingDeactivate = false;
+  m_life.hardClose();
+  debug::trace::life("close", m_life.describe());
   m_view.setDesktop( false);
   m_newCardAnim = false;
   m_newCardId = 0;
@@ -390,7 +382,7 @@ bool Overview::workspaceHasWindows(const PHLWORKSPACE &ws) {
 bool Overview::shouldHideWindow(const PHLWINDOW &w,
                                 const PHLMONITOR &mon) const {
   const auto m = m_monitor.lock();
-  if (!m_active || !w || mon != m)
+  if (!active() || !w || mon != m)
     return false;
   // fullscreen hidden: a transition force-render leaks it
   if (Fullscreen::controller()->isFullscreen(w))
@@ -418,7 +410,7 @@ bool Overview::isTileWindow(const PHLWINDOW &w) const {
 // pointer happened to be. Called every frame and deliberately cheap — one pointer
 // compare.
 void Overview::syncRecency() {
-  if (m_active)
+  if (active())
     return;
   const auto now = Desktop::focusState()->window();
   if (now == m_lastFocus)
@@ -486,10 +478,8 @@ void Overview::deactivate() {
   }
   releaseNewWorkspaces();
 
-  m_active = false;
-  m_opening = false;
-  m_pendingDeactivate = false;
-  // m_active is down, so the hooks pass focus through again; this is what actually
+  m_life.hardClose();
+  // The screen is released, so the hooks pass focus through again; this is what actually
   // gives the desktop its focus back rather than waiting for the next mouse move.
   dropFocusFromWindows();
   m_view.setDesktop( false);
@@ -520,9 +510,9 @@ void Overview::damage() const {
 
 // EXECUTION tail: m_scene.tiles() must survive the frame
 void Overview::finishPendingDeactivate() {
-  if (!m_pendingDeactivate)
+  if (!m_life.consumeDeactivate())
     return;
-  m_pendingDeactivate = false;
+  debug::trace::life("deactivate", m_life.describe());
   debug::dbg("handoff: final overlay frame painted, deactivating");
   deactivate();
 }
