@@ -237,6 +237,17 @@ bool setTuning(const std::string &rawKey, const std::string &value) {
   const auto suffix = leaf.rfind('_');
   if (suffix == std::string::npos || !find(leaf.substr(0, suffix).c_str()))
     return false;
+  // `_style` joins the list because every row that HAS a style reads one, and until now
+  // only the three names above could be written -- so `set ws_enter_style pop` answered
+  // "unknown key" while style("ws_enter") sat there reading a key nothing could produce.
+  // The grid_swap_style shape again, one level down: a documented key no command reaches.
+  // Guarded on hasStyle, or this would accept `_style` for a row that has none and
+  // style() would still return {} for it.
+  if (leaf.compare(suffix, 6, "_style") == 0) {
+    const Row *r = find(leaf.substr(0, suffix).c_str());
+    if (!r || !r->hasStyle)
+      return false;
+  }
   if (leaf.compare(suffix, 4, "_ms") == 0 || leaf.compare(suffix, 6, "_speed") == 0 ||
       leaf.compare(suffix, 6, "_curve") == 0 ||
       leaf.compare(suffix, 8, "_enabled") == 0) {

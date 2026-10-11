@@ -250,6 +250,70 @@ int main(int argc, char **argv) {
   assert(animSrc.find("std::string stripSwapStyle()") != std::string::npos);
   std::puts("grid_swap_style / strip_swap_style read through their accessors");
 
+  // --- every row that HAS a style can be WRITTEN ---------------------------------------
+  // style() ends in `overridden("<row>_style")`, but setTuning() accepted `_style` only for
+  // three hardcoded names. So `set ws_enter_style pop` answered "unknown key" while
+  // style("ws_enter") read a key no command could produce -- a documented key no path
+  // reaches, which is the grid_swap_style shape one level down.
+  //
+  // The rule, not the two instances: a kRows row with hasStyle is readable through
+  // `<row>_style`, so it must be writable through it too.
+  {
+    const auto rowsWithStyle = [&animSrc](std::vector<std::string> &out) {
+      const auto t0 = animSrc.find("std::array<Row");
+      const auto t1 = animSrc.find("= {{", t0);
+      const auto t2 = animSrc.find("}};", t1);
+      const auto body = animSrc.substr(t1, t2 - t1);
+      size_t pos = 0;
+      while ((pos = body.find("{\"", pos)) != std::string::npos) {
+        const auto q = body.find('"', pos + 2);
+        if (q == std::string::npos)
+          break;
+        const auto name = body.substr(pos + 2, q - pos - 2);
+        // A row is {"name", {}, {}, {}, {}, {}, ms, "curve", hasStyle, "style"} --
+        // hasStyle is the last bool before the quoted default. hasStyle true is always
+        // followed by a non-empty style string, so the two appear together and the
+        // emptiness is the reliable marker: an unstyled row ends with false, "".
+        const auto endRow = body.find("},", q);
+        const auto row = body.substr(q, endRow == std::string::npos ? std::string::npos
+                                                                   : endRow - q);
+        if (row.size() >= 2 && row.compare(row.size() - 2, 2, "\"\"") != 0)
+          out.push_back(name);
+        pos = q + 1;
+      }
+    };
+    std::vector<std::string> styled;
+    rowsWithStyle(styled);
+    assert(!styled.empty() && "no styled kRows row found -- the scan drifted from kRows");
+
+    // Which keys setTuning accepts, read from its own body rather than restated here.
+    // The marker is the comparison, not the bare literal: the suffix also appears in a
+    // branch that has been switched off, and a test that passed on a dead branch is worse
+    // than no test at all. (This comment deliberately spells the marker differently from
+    // the code, for the same reason -- a comment containing it would keep the test green
+    // against exactly the bug it exists to catch.)
+    const auto st0 = animSrc.find("bool setTuning(");
+    const auto st1 = animSrc.find("\n}", st0);
+    const auto setTuningBody =
+        animSrc.substr(st0, st1 == std::string::npos ? std::string::npos : st1 - st0);
+    const bool genericStyle = setTuningBody.find("\"_style\") == 0") != std::string::npos;
+
+    int unreachable = 0;
+    for (const auto &row : styled) {
+      const std::string key = row + "_style";
+      const bool hardcoded =
+          setTuningBody.find("\"" + key + "\"") != std::string::npos;
+      if (!hardcoded && !genericStyle) {
+        std::printf("FAIL %s -- style() reads \"%s\" but setTuning cannot write it\n",
+                    row.c_str(), key.c_str());
+        ++unreachable;
+      }
+    }
+    assert(unreachable == 0);
+    std::printf("%d styled row(s), every one writable through <row>_style\n",
+                (int)styled.size());
+  }
+
   // --- the Id enum and kRows cannot drift ----------------------------------------------
   // cfg(Id) is cfg(kRows[(size_t)id].name), and kRows is std::array<Row, Id::Count>, so
   // a missing row would not compile and the enum path cannot silently name nothing.

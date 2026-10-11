@@ -302,6 +302,12 @@ verify-config, правила анимаций) — все оказались н
   отсутствие `#include <hyprland/`. Это и закреплено.
 
 
+- **`ws_enter_style` / `ws_exit_style` нельзя было записать.** `style()` читает
+  `overridden("<row>_style")` для каждой строки `kRows` с `hasStyle`, а `setTuning`
+  принимал суффикс `_style` только для трёх захардкоженных имён. `set ws_enter_style pop`
+  отвечал `unknown key`, то есть читаемый ключ был недостижим для записи. Тот же класс,
+  что `grid_swap_style`, на уровень ниже. `_style` добавлен в список суффиксов с
+  проверкой `hasStyle`; `anim_styles` проверяет правило, а не два случая.
 - **`grid_swap_style` / `strip_swap_style` ничего не делали.** Ключи
   зарегистрированы и задокументированы, но call sites просили `anim::style("grid_swap")`,
   а такой строки в `kRows` нет → `{}` → `SwapStyle::Horizontal` → дефолт. Общая
