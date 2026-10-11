@@ -192,7 +192,29 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
   // stand still.
   const int ia = m_scene.tileIndexOf(wa.get());
   const int ib = m_scene.tileIndexOf(wb.get());
-  if (m_scene.tileAtRest(ia) && m_scene.tileAtRest(ib)) {
+  // Why the slot exchange did or did not happen. This is the only thing that can express
+  // a swap the compositor could not (switchTargets is a no-op when two windows already
+  // share a geometry), and when it is skipped the grid cards stay where they were and the
+  // user sees the pulse and nothing else. The condition is `natural == target` per tile,
+  // and `natural` is whatever the card was showing at capture time -- a box interpolated
+  // mid-glide -- so a swap during the entry animation reads as "at motion" and the
+  // exchange is skipped. Recording both boxes and the verdict is what makes that
+  // decidable from the log instead of from a screenshot.
+  const bool restA = m_scene.tileAtRest(ia), restB = m_scene.tileAtRest(ib);
+  debug::trace::record(
+      "SWAP", "decide",
+      "ia=" + std::to_string(ia) + "|ib=" + std::to_string(ib) + "|restA=" +
+          std::to_string(restA ? 1 : 0) + "|restB=" + std::to_string(restB ? 1 : 0) +
+          "|natA=" + std::to_string(m_scene.tiles()[ia].natural.x) + "," +
+          std::to_string(m_scene.tiles()[ia].natural.y) + "|tgtA=" +
+          std::to_string(m_scene.tiles()[ia].target.x) + "," +
+          std::to_string(m_scene.tiles()[ia].target.y) + "|natB=" +
+          std::to_string(m_scene.tiles()[ib].natural.x) + "," +
+          std::to_string(m_scene.tiles()[ib].natural.y) + "|tgtB=" +
+          std::to_string(m_scene.tiles()[ib].target.x) + "," +
+          std::to_string(m_scene.tiles()[ib].target.y) +
+          "|slots=" + std::to_string((restA && restB) ? 1 : 0));
+  if (restA && restB) {
     m_scene.swapTiles(ia, ib);
     // Both halves, together. The targets move the geometry; the slots carry the depth
     // that goes with it. Without the second the run keeps each tile's OLD card, and the

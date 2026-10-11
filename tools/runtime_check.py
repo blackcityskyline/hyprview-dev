@@ -223,6 +223,25 @@ def close_is_quiet(c):
 
 # --- scroll -------------------------------------------------------------------------
 
+def allws_restore():
+    """Put the view mode back the way it was found.
+
+    close() does NOT reset allOverride -- only deactivate() does (lifecycle.cpp:486) -- so
+    a check that switches to all-workspaces and closes leaves the NEXT open in that mode.
+
+    That happened. The scroll check asked for allws, closed, and the manual drag that came
+    after ran in all-workspaces mode, where the grid tiles carry a zeroed target:
+    currentBox() holds such a card at its natural box, tileAtRest is false, the slot
+    exchange is skipped, and a grid swap shows the pulse and nothing else. It read as a
+    regression in the swap code and was not one -- it was this function's omission, seen
+    one reload later.
+
+    A harness that leaves the session in a mode nobody asked for is a bug in the harness,
+    however clean its own result looks.
+    """
+    cmd("allws 0", settle=0.2)
+
+
 @check("scroll")
 def strip_scroll_clamps(c):
     """A strip that loses a card mid-scroll must pull its offset back into range. Before
@@ -232,6 +251,7 @@ def strip_scroll_clamps(c):
     out = cmd("open", settle=0.6)
     out += cmd("allws 2", settle=0.5)
     out += cmd("close", settle=0.5)
+    allws_restore()
     bad, seen, meaningful = [], 0, 0
     for line in out.splitlines():
         if not line.startswith("SCROLL|"):
