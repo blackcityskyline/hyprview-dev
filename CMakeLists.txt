@@ -23,7 +23,9 @@ pkg_search_module(LUA REQUIRED lua lua5.4 lua-5.4 lua54 luajit)
 
 add_library(gloview SHARED
   src/main.cpp
-  src/session/session.cpp
+  src/session/hooks.cpp
+  src/session/geometry.cpp
+  src/session/lifecycle.cpp
   src/build/build.cpp
   src/input/mouse.cpp
   src/input/keys.cpp
@@ -173,7 +175,7 @@ add_test(NAME load_seam
 add_test(NAME hook_signatures
          COMMAND bash ${CMAKE_SOURCE_DIR}/tests/hook_signature_check.sh
                  $<TARGET_FILE:gloview> ${HYPRLAND_BIN}
-                 ${CMAKE_SOURCE_DIR}/src/session/session.cpp
+                 ${CMAKE_SOURCE_DIR}/src/session/hooks.cpp
          SKIP_RETURN_CODE 77)
 
 add_custom_target(reload
