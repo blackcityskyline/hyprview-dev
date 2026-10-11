@@ -10,6 +10,7 @@
 #include "../layout.hpp"
 #include "drag.hpp"
 #include "lifecycle.hpp"
+#include "scroll.hpp"
 
 namespace gloview::model {
 

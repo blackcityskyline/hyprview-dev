@@ -182,6 +182,12 @@ add_test(NAME curves
 # built: `ctest -R load_seam` afterwards, or CI, where the .so always exists.
 # SKIP_RETURN_CODE so a machine without Hyprland reports skip, not a fake failure.
 find_program(HYPRLAND_BIN Hyprland)
+# The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
+# doubles did not hold -- the current position had no guard at all when the strip shrank.
+add_test(NAME scroll
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/scroll_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/scroll_check && ${CMAKE_CURRENT_BINARY_DIR}/scroll_check")
+
 add_test(NAME lifecycle
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/lifecycle_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/lifecycle_check && ${CMAKE_CURRENT_BINARY_DIR}/lifecycle_check")

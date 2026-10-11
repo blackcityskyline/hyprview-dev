@@ -281,8 +281,11 @@ void Overview::buildStrip() {
   const double groupMain = n * cellMain + std::max(0, n - 1) * gap;
   const double mainOrigin = (horiz ? band.x : band.y) + margin;
 
-  m_stripScrollMax = std::max(0.0, groupMain - availMain);
-  const double start = (m_stripScrollMax <= 0.0)
+  // Re-clamps the endpoints and the current position into the new range, which the four
+  // free doubles had no way to do: a strip that just lost a card left the group scrolled
+  // past where it could still go.
+  m_scroll.setMax(groupMain - availMain);
+  const double start = (!m_scroll.scrollable())
                            ? mainOrigin + (availMain - groupMain) / 2.0
                            : mainOrigin;
 
@@ -298,17 +301,16 @@ void Overview::buildStrip() {
     main += cellMain + gap;
   }
 
-  const double prevScroll = m_stripScrollTarget;
-  m_stripScroll = 0.0;
+  const double prevScroll = m_scroll.target();
   double want = 0.0;
-  if (m_stripScrollMax > 0.0) {
+  if (m_scroll.scrollable()) {
     for (const auto &it : m_strip) {
       if (!it.active)
         continue;
       const double cardCenter =
           (horiz ? it.card.x + it.card.w / 2.0 : it.card.y + it.card.h / 2.0);
       const double viewCenter = mainOrigin + availMain / 2.0;
-      want = std::clamp(cardCenter - viewCenter, 0.0, m_stripScrollMax);
+      want = std::clamp(cardCenter - viewCenter, 0.0, m_scroll.max());
       break;
     }
   }
@@ -316,8 +318,8 @@ void Overview::buildStrip() {
 }
 
 Vector2D Overview::stripScroll() const {
-  return stripHorizontal() ? Vector2D{-m_stripScroll, 0.0}
-                           : Vector2D{0.0, -m_stripScroll};
+  return stripHorizontal() ? Vector2D{-m_scroll.current(), 0.0}
+                           : Vector2D{0.0, -m_scroll.current()};
 }
 
 LRect Overview::stripCardAt(size_t i) const {

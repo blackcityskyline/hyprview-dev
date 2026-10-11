@@ -207,11 +207,9 @@ void Overview::updateAnimation() {
 
   const auto st = anim::cfg(anim::Id::StripStep);
   if (!m_clocks.strip.done(st.ms))
-    m_stripScroll =
-        lerp(m_stripScrollFrom, m_stripScrollTarget,
-             curves::eval(st.curve, m_clocks.strip.raw(st.ms)));
+    m_scroll.advance(curves::eval(st.curve, m_clocks.strip.raw(st.ms)));
   else
-    m_stripScroll = m_stripScrollTarget;
+    m_scroll.advance(1.0);
 
   if (!m_fx.ghosts().empty() && m_clocks.rebuild.done(m_ghost.ms))
     m_fx.clearGhosts();
@@ -273,9 +271,10 @@ void Overview::updateAnimation() {
   // what keeps the backdrop covering the screen until Hyprland's own blur has taken over
   // on the windows that have just landed. Lingering past that would leave a transparent
   // overlay over a sharp desktop, which is the gap all over again.
-  if (!opening() && t >= 1.0 && m_clocks.tiles.done(dur) && backdropSettled())
+  if (!opening() && t >= 1.0 && m_clocks.tiles.done(dur) && backdropSettled()) {
     m_life.requestDeactivate();
     debug::trace::life("requestDeactivate", m_life.describe());
+  }
 }
 
 bool Overview::animBusy() const {
@@ -293,15 +292,18 @@ double Overview::newCardScale() const {
 }
 
 void Overview::animateStripTo(double from, double to) {
-  from = std::clamp(from, 0.0, std::max(0.0, m_stripScrollMax));
-  to   = std::clamp(to, 0.0, std::max(0.0, m_stripScrollMax));
+  // The range clamp and the sub-pixel threshold live in the type now, so a third caller
+  // cannot arrive here with an endpoint outside [0, max], or with a 0.3px move to animate.
   const auto st = anim::cfg(anim::Id::StripStep);
-  if (!st.on || std::abs(to - from) < 0.5) {
-    m_stripScrollFrom = m_stripScrollTarget = m_stripScroll = to;
+  if (!st.on || !m_scroll.beginGlide(from, to)) {
+    m_scroll.snap(to);
     return;
   }
-  m_stripScrollFrom = !m_clocks.strip.done(st.ms) ? m_stripScroll : from;
-  m_stripScrollTarget = to;
+  // A glide already in flight retargets from where the group actually is, not from the
+  // caller's `from`: that value is the previous TARGET on the rebuild path and the current
+  // position on the wheel path, and neither is what should be left behind.
+  if (!m_clocks.strip.done(st.ms))
+    m_scroll.beginGlide(m_scroll.current(), m_scroll.target());
   m_clocks.strip.begin();
   ensureAnimPump();
 }

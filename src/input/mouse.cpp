@@ -63,12 +63,11 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
   }
 
   // Modal: swallow the wheel even with nothing to scroll.
-  if (m_stripScrollMax <= 0.0)
+  if (!m_scroll.scrollable())
     return true;
   const double step = stripThickness() * 0.9; // ~one card per notch
-  animateStripTo(
-      m_stripScroll,
-      std::clamp(m_stripScrollTarget + notches * step, 0.0, m_stripScrollMax));
+  animateStripTo(m_scroll.current(),
+                 std::clamp(m_scroll.target() + notches * step, 0.0, m_scroll.max()));
   updateHover();
   damage();
   return true;

@@ -204,10 +204,10 @@ private:
 
   int m_newCardId = 0;
   bool m_newCardAnim = false;
-  double m_stripScroll = 0.0;    // animated card-group offset on its main axis
-  double m_stripScrollMax = 0.0;
-  double m_stripScrollTarget = 0.0;
-  double m_stripScrollFrom = 0.0;
+  // The card group's scroll offset, its endpoints and its range. Four doubles that had to
+  // agree on [0, max] and did not have anything making them: the endpoints were clamped by
+  // the animateStripTo() caller and the current position by nothing at all.
+  model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
   anim::Cfg m_glide, m_entry, m_ghost, m_lift;
   anim::WsStyle m_enterStyle = anim::WsStyle::Slide, m_exitStyle = anim::WsStyle::Slide;
