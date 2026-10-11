@@ -6,3 +6,7 @@ build-old/
 __pycache__/
 *.pyc
 graphify-out/
+
+# Session notes, not repo content. Listed by an interior glob so the rule survives a
+# rename and survives spaces and non-ASCII in the name.
+*заметки по архитектуре*
