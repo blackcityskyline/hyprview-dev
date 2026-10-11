@@ -229,10 +229,10 @@ verify-config, правила анимаций) — все оказались н
 | `blur.hpp` / `blur.cpp` | self-contained dual-Kawase + gaussian |
 | `clock/clock.cpp`, `clocks.cpp`, `curves.cpp` | домен времени: tween, прогрессы, resolved anim cfg, реестр кривых |
 | `cursor.*` | HW/SW курсор поверх оверлея (следствие RENDER_LAST_MOMENT) |
-| `layout.hpp` / `.cpp` | чистая геометрия лейаута, без Hyprland (единственный юнит-домен) |
-| `model/` | `scene.hpp` (плитки, выбор, интенты), `strip.hpp`, `effects.hpp` (ghosts/pulses/swapfx), `recency.*`, `model.hpp`. Поля приватные, наружу — намерения |
+| `layout.hpp` / `.cpp` | чистая геометрия лейаута, без Hyprland (единственный юнит-домен; второй — `model/drag.hpp`) |
+| `model/` | `scene.hpp` (плитки, выбор, интенты), `strip.hpp`, `effects.hpp` (ghosts/pulses/swapfx), `drag.hpp` (**ФСМ перетаскивания, поля приватные**; шаблон на тип-ручку — из-за этого юнит-тестируется), `recency.*`, `model.hpp`. Поля приватные, наружу — намерения |
 | `pixel/cache.cpp` | кэш подписей и снапшотов |
-| `tests/` | ctest: 16 проверок, включая `load_seam`, `hook_signatures`, `config_keys`, `anim_styles`, `draw_sites`, `layout`, `hypr_types` |
+| `tests/` | ctest: 17 проверок. `scan_*` — статика (читает исходники), остальные исполняют логику, бинарник или реальную таблицу символов. Включая `load_seam`, `hook_signatures`, `layout`, `drag` |
 
 ## Открытые вопросы
 

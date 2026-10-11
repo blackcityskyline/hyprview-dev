@@ -94,7 +94,17 @@ add_test(NAME carousel_exit
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/carousel_exit_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/exit_check && ${CMAKE_CURRENT_BINARY_DIR}/exit_check")
 
-add_test(NAME config_keys
+# Naming: `scan_*` targets read this repository's own source text and match it against a
+# rule. They are static analysis, and they were named like tests -- so a ctest run read as
+# "everything here executes logic on real data" when three of seventeen never ran any.
+# Written in C++ they still scan text: the regexes do not care what language reads them.
+#
+# A target without the prefix executes something -- the logic under test, a binary, or a
+# real symbol table. hook_signatures matches nm -DC output against the running Hyprland
+# and load_seam dlopens the .so; both check against reality rather than against a copy of
+# the source, so neither takes the prefix.
+#
+add_test(NAME scan_config_keys
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/config_keys_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/cfg_keys_check && ${CMAKE_CURRENT_BINARY_DIR}/cfg_keys_check ${CMAKE_SOURCE_DIR}")
 
 # The animation precedence chain, headless. Reachable only because resolve() was split
@@ -134,7 +144,7 @@ add_test(NAME dismiss
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/dismiss_check.cpp ${CMAKE_SOURCE_DIR}/src/anim_resolve.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/dismiss_check && ${CMAKE_CURRENT_BINARY_DIR}/dismiss_check")
 
-add_test(NAME draw_sites
+add_test(NAME scan_draw_sites
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/draw_sites_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/draw_sites_check && ${CMAKE_CURRENT_BINARY_DIR}/draw_sites_check ${CMAKE_SOURCE_DIR}/src")
 
 # The box guard on immediate-mode draws. A grep over the sources rather than a link:
@@ -149,7 +159,7 @@ add_test(NAME layout
 
 # Two Hyprland-type rules, both of which were paragraphs in AGENTS.md. See the header of
 # the check for why the second one is about the value type and not the key type.
-add_test(NAME hypr_types
+add_test(NAME scan_hypr_types
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/hypr_types_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check && ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check ${CMAKE_SOURCE_DIR}/src")
 
 # The drag FSM. model/drag.hpp is templated on its window handle so it carries no
