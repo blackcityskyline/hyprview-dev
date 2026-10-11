@@ -285,6 +285,7 @@ void Overview::buildStrip() {
   // free doubles had no way to do: a strip that just lost a card left the group scrolled
   // past where it could still go.
   m_scroll.setMax(groupMain - availMain);
+  debug::trace::scroll("setMax", m_scroll.describe());
   const double start = (!m_scroll.scrollable())
                            ? mainOrigin + (availMain - groupMain) / 2.0
                            : mainOrigin;

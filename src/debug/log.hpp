@@ -88,6 +88,17 @@ inline void life(const char *event, const std::string &state) {
 // log at all.
 void dragBranch(const char *name, const std::string &extra = {});
 
+// Strip scroll events. Per EVENT, not per frame: advance() runs every tick while a glide
+// is in flight, and a record per frame is the log spam this format exists to avoid.
+//
+//   SCROLL|setMax|scrollable=1|max=400.0|...   the strip was rebuilt
+//   SCROLL|glide|from=..|target=..|...       endpoints set
+//   SCROLL|snap|...                          a move too small to animate, or the rebuild
+//
+// setMax is the interesting one: it is where the current position is pulled back into a
+// range that just got smaller, which is the invariant four free doubles did not hold.
+void scroll(const char *event, const std::string &state);
+
 } // namespace trace
 
 } // namespace gloview::debug

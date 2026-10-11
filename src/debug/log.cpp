@@ -141,6 +141,10 @@ void dragBranch(const char *name, const std::string &extra) {
   emit(std::move(s));
 }
 
+void scroll(const char *event, const std::string &state) {
+  record("SCROLL", event, state);
+}
+
 } // namespace trace
 
 } // namespace gloview::debug

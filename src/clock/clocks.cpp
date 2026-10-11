@@ -297,8 +297,10 @@ void Overview::animateStripTo(double from, double to) {
   const auto st = anim::cfg(anim::Id::StripStep);
   if (!st.on || !m_scroll.beginGlide(from, to)) {
     m_scroll.snap(to);
+    debug::trace::scroll("snap", m_scroll.describe());
     return;
   }
+  debug::trace::scroll("glide", m_scroll.describe());
   // A glide already in flight retargets from where the group actually is, not from the
   // caller's `from`: that value is the previous TARGET on the rebuild path and the current
   // position on the wheel path, and neither is what should be left behind.
