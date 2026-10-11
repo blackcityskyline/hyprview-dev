@@ -3,6 +3,9 @@
 Прочитай перед изменениями. Структура: правила → архитектура → как работать →
 чеклист. Рассказы о том, как что-то ломалось, живут в git history, не здесь.
 
+Справочные данные — в `docs/REFERENCE.md`: карта исходников, блюр-пайплайн,
+формат трейса, реестр анимаций, приоритет настроек.
+
 ---
 
 ## 0. Правило, важнее остальных
@@ -166,37 +169,7 @@ backdrop → tiles/carousel → ghosts → pulses → strip → strip windows
 
 ---
 
-## 5. Блюр-пайплайн
-
-Самодостаточный GL-конвейер, минующий `decoration:blur:*`. Dual-Kawase пирамида +
-сепарабельный 9-tap gaussian. Шейдеры — GLSL raw-литералы в `src/blur.cpp`.
-
-```
-Источник (W x H)
-  └─ [1] DOWN-CHAIN, реальный 2x
-       уровень 1: W/2 x H/2 … уровень N = m_fbA;  m_levels == 0 → прямой блит
-  └─ [2] GAUSSIAN на дне, m_passes раз
-       H: m_fbA → m_fbB,  V: m_fbB → m_fbA
-  └─ [3] UP-CHAIN, переиспользует буферы down-chain
-```
-
-- Радиус измеряется в тексерах нижнего буфера: `size * strength / 2^levels`.
-- `resolution` — первичный регулятор силы, не только anti-aliasing.
-  Глубина = `clamp(log2(resolution), 0, 5)`.
-- Blend-state захватывается и восстанавливается в `CBlurFilter::render()`.
-- Блюр не анимируется сам: альфа едет на часах `m_progress` через `blurAlpha()`.
-
-| Ключ | Строка | Тип | Дефолт | Смысл |
-|---|---|---|---|---|
-| `blur` | 177 | float | `1.0` | сила блюра (0 = выкл) |
-| `blur_passes` | 131 | int 1..16 | `3` | итераций гауссиана |
-| `blur_size` | 132 | int 1..200 | `8` | радиус в пикселях экрана |
-| `blur_resolution` | 133 | int 1..32 | `4` | глубина пирамиды |
-| `backdrop_color` | 219 | colour | `0x73070a10` | dim, рисуется отдельно |
-
----
-
-## 6. Исходники композитора — читать тело, а не объявление
+## 5. Исходники композитора — читать тело, а не объявление
 
 Заголовки в `/usr/include/hyprland` **объявляют** функции, но не содержат тел.
 `RASSERT` живёт в `.cpp`. Вопрос «что здесь проверяет Hyprland» без исходников не
@@ -217,7 +190,7 @@ HEAD — другое дерево. «В исходниках написано»
 
 ---
 
-## 7. Диагностика падений
+## 6. Диагностика падений
 
 ```bash
 ls -t ~/.cache/hyprland/hyprlandCrashReport*.txt | head -1   # точный стек, ПЕРВЫМ
@@ -236,7 +209,7 @@ tail -100 /run/user/$(id -u)/hypr/$(ls -t /run/user/$(id -u)/hypr | head -1)/hyp
 
 ---
 
-## 8. Сборка и проверка
+## 7. Сборка и проверка
 
 ```bash
 cmake --build build -j$(nproc)          # цель build/gloview.so; зелёная сборка = минимум
@@ -266,7 +239,7 @@ cd build && ctest --output-on-failure   # 20 проверок
 
 ---
 
-## 9. Трейс и автоматизация
+## 8. Трейс и автоматизация
 
 ```bash
 hyprctl eval 'hl.plugin.gloview.cmd("open")'      # под Lua-конфигом это hl.plugin.gloview.cmd
@@ -280,15 +253,17 @@ python3 tools/anim_matrix.py [--quick] [--scenarios]
 
 Трейсы: `LIFE|` `DRAG|` `SCROLL|` `SWAP|` `ANIM|` — грамматика одна,
 `key=value` через `|`, без пробелов. Один парсер читает все семейства.
-`debug_trace` — отдельный ключ от `debug_logs`, иначе матрица забьётся покадровым
-спамом.
+Формат и все поля: `docs/REFERENCE.md` §3.
+
+`debug_trace` — **сбрасывается при каждом reload** (новый инстанс плагина).
+Включай заново после `reload`, иначе кейсы дадут SKIP, а не результат.
 
 Приоритет настроек снизу вверх: строка `kRows` → `set` (команда) →
 rule из `gloview.animation` → config-значение. **Rule бьёт config.**
 
 ---
 
-## 10. Как работать
+## 9. Как работать
 
 - **Один логический шаг = один коммит.** Коммит только после зелёной сборки.
   Сообщение `type(scope): summary` на английском, тело объясняет why.
@@ -314,47 +289,28 @@ rule из `gloview.animation` → config-значение. **Rule бьёт confi
 
 ---
 
-## 11. Карта исходников
-
-| Файл | Ответственность |
-|---|---|
-| `main.cpp` | регистрация: конфиг-таблицы, единый реестр действий `kActions` |
-| `overview.hpp` | единственный владелец состояния; объявления всех подсистем |
-| `anim.hpp` / `anim.cpp` | реестр анимаций: `Id`, `kRows`, дефолты, Lua-правила |
-| `config/config.hpp` / `.cpp` | типизированная схема + `kInts`/`kFloats`/`kStrs`/`kColors` |
-| `session/hooks.cpp` | демонтаж и `initialize()`. Правится на смене ABI. **Рядом с `hook_signatures`** |
-| `session/geometry.cpp` | геометрия стрипа, blur-акцессоры, forced-visibility |
-| `session/lifecycle.cpp` | `open`/`close`/`hardClose`/`toggle`/`deactivate` |
-| `build/build.cpp` | `buildTiles`/`layoutTiles`/`replayReflow`/`startTileGlide` |
-| `input/mouse.cpp`, `keys.cpp` | единственные писатели `Drag` |
-| `actions/actions.cpp` | `swapWindows`, `landAfterSwap`, `switchToWorkspace`, реестр `cmd()` |
-| `render/painter.cpp` | `renderStage` + порядок проходов + `paint()` |
-| `render/backdrop.cpp` | источники бэкдропа, `primeBackdrop()` |
-| `render/fx.cpp` | `renderSwapFX`, `pushOut`, геометрия драга |
-| `layout.hpp` / `.cpp` | чистая геометрия без Hyprland |
-| `model/` | `Scene`, `Effects`, `Strip`, `Recency`, `DragT`, `Lifecycle`, `ScrollState` |
-| `debug/log.{hpp,cpp}` | трейс: `LIFE\|` `DRAG\|` `SCROLL\|` `ANIM\|` |
-| `clock/clock.cpp`, `clocks.cpp` | часы, прогрессы, resolved anim cfg |
-| `blur.hpp` / `blur.cpp` | dual-Kawase + gaussian |
-| `tests/` | 20 проверок, `scan_*` — статика |
-
----
-
-## 12. Ручные тест-кейсы
+## 10. Ручные тест-кейсы
 
 `docs/manual-test-cases.md` — 44 кейса, подмножество по номерам.
 
-Признак `·часто·` — **12 кейсов на любое изменение**, 4–6 минут. Остальные — перед
-релизом. Признак, а не smoke/sanity/regression: один набор без дублирования.
-**Набор без быстрого среза не гоняют вообще.**
-
-Отобраны по тому, что ломалось: два из двенадцати — настоящие баги пути записи
-конфига, один — «регрессия», которой не было, один — единственный, где провал
-стоит сессии.
+`·часто·` — **12 кейсов на любое изменение, 4–6 минут.** Остальные — перед
+релизом или после большой переработки. Признак, а не smoke/sanity/regression:
+один набор без дублирования, и **набор без быстрого среза не гоняют вообще**.
 
 ---
 
-## 13. Открытые вопросы
+## 11. Чеклист перед коммитом
+
+- [ ] сборка зелёная — **error И warning** (вывод врёт, судить по дате `.so`)
+- [ ] `ctest` зелёный; новый тест **краснеет** при откате своей правки
+- [ ] тест, у которого нечего наблюдать, даёт SKIP, а не PASS
+- [ ] нет обращений к удалённым членам/API (grep по имени)
+- [ ] новая анимация: рядом с её `m_clocks.*.begin()` стоит `trace::animStart`
+- [ ] новый конфиг: `kInts`/`kFloats`/`kStrs`/`kColors` в `config.cpp` **и** строка в README
+- [ ] поведение по умолчанию не изменилось (если это не задумано)
+- [ ] этот файл обновлён, если изменилась семантика
+
+## 12. Открытые вопросы
 
 - **Падение 2026-10-10 16:27** (`CScreenshareFrame::renderWindow()`, SEGV). Нужен
   ответ: был ли активен wf-recorder/screenshare в момент падения.
