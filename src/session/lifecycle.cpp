@@ -96,10 +96,23 @@ void Overview::toggleAllWorkspaces() {
   }
   const bool wasAll = showAllWorkspaces();
   m_view.setAllOverride( wasAll ? 0 : 1);
-  m_view.setWsSlideDir( 1); // all<->one slides horizontally (no ws order)
+  // expoFlip stays BEFORE the rebuild: glideLeaf()/entryLeaf()/ghostLeaf() read it to pick
+  // the animation (clocks.cpp:24-38), so arming it afterwards would lay out against the
+  // previous direction.
   m_view.setExpoFlip( wasAll ? -1 : 1);
   auto oldBoxes = captureCurrentBoxes();
   replayReflow(oldBoxes);
+  // Direction is armed AFTER the rebuild, for the reason painter.cpp arms it after
+  // m_clocks.rebuild.begin(): updateAnimation clears it the moment the rebuild and entry
+  // clocks read done, and a flip made from an EMPTY workspace has nothing to animate --
+  // captureCurrentBoxes() comes back empty, no clock runs, and the wipe lands in the very
+  // frame the direction was set. The tiles then fell through the gate at clocks.cpp:145
+  // into the scale-in, which reads as arriving from the centre instead of from the edge.
+  //
+  // painter.cpp carries a comment claiming "same slide, same style key, whichever bind
+  // got here". That held for the slide and not for the order: this is the bind that still
+  // had it backwards.
+  m_view.setWsSlideDir( 1); // all<->one slides horizontally (no ws order)
 }
 
 void Overview::altTabInvoke(bool reverse) {
