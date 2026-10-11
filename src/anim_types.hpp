@@ -141,6 +141,16 @@ inline constexpr const char *const kSwapStyles[] = {"horizontal", "slidevert", "
 // through to when it matches none of the branches, so keeping it an enum member rather
 // than a fallthrough is what makes "which names do exit actually answer to" answerable.
 //
+// One layer of matching quotes, removed. The command tokenizer splits on spaces and
+// nothing else, so an intended empty value reaches setTuning as the two characters ""
+// -- and num() on those is 0, which silently made an animation one frame long. A caller
+// that means CLEAR says "" or '', and this is where that stops being a zero.
+[[nodiscard]] constexpr std::string_view stripQuotes(std::string_view v) {
+  return v.size() >= 2 && (v.front() == '"' || v.front() == '\'') && v.back() == v.front()
+           ? v.substr(1, v.size() - 2)
+           : v;
+}
+
 // Unknown names resolve to Slide, which is the kRows default for both keys
 // (anim.cpp:40-41) and the value the README documents. Before, a typo matched no branch
 // and silently took pop's path; that was an accident of branch order, not a policy.

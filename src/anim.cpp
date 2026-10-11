@@ -220,18 +220,24 @@ bool setTuning(const std::string &rawKey, const std::string &value) {
                                ? full.substr(kPrefix)
                                : rawKey;
 
-  const bool clearing = value.empty();
+  // A bare pair of quotes means CLEAR, not a zero: the tokenizer splits on spaces only,
+  // so `set open_ms ""` arrives as two literal quote characters. Stored as-is they reach
+  // num() as 0 and every animation silently becomes one frame long, while the erasing
+  // branch below sat unreachable from the command -- the command rejects a two-token call
+  // before setTuning is even entered.
+  const std::string_view v = stripQuotes(value);
+  const bool clearing = v.empty();
   if (leaf == "grid_swap_style" || leaf == "strip_swap_style" ||
       leaf == "jump_style") {
     if (clearing)
       return g_override.erase(leaf) > 0;
-    g_override[leaf] = value;
+    g_override[leaf] = std::string(v);
     return true;
   }
   if (cfg::override::isConfigKey(full.c_str())) {
     if (clearing)
       return cfg::override::clear(full.c_str());
-    cfg::override::set(full.c_str(), value);
+    cfg::override::set(full.c_str(), std::string(v));
     return true;
   }
   const auto suffix = leaf.rfind('_');
@@ -253,7 +259,7 @@ bool setTuning(const std::string &rawKey, const std::string &value) {
       leaf.compare(suffix, 8, "_enabled") == 0) {
     if (clearing)
       return g_override.erase(leaf) > 0;
-    g_override[leaf] = value;
+    g_override[leaf] = std::string(v);
     return true;
   }
   return false;

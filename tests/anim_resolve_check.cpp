@@ -132,6 +132,28 @@ int main() {
   }
   std::puts("curve falls back to the table default, empty only when there is none");
 
+  // --- an empty value means CLEAR, not zero ---------------------------------------
+  //
+  // The command tokenizer splits on spaces and nothing else, so `set open_ms ""` reaches
+  // setTuning as the two characters `""`. Stored as a value those reach num() as 0, and
+  // 0ms floors to a single frame -- the overview opened instantly and the override map
+  // still listed the key. Verified against the running plugin: TUNING|n=1|open_ms="".
+  {
+    using gloview::anim::stripQuotes;
+    // Both spellings of an intended empty, and a lone quote is not an empty.
+    assert(stripQuotes("\"\"").empty());
+    assert(stripQuotes("''").empty());
+    assert(stripQuotes("").empty());
+    assert(stripQuotes("\"") == "\"");
+    assert(stripQuotes("320") == "320");
+    // One layer only: a quoted number stays a number.
+    assert(stripQuotes("\"320\"") == "320");
+    // Mismatched or interior quotes are content, not framing.
+    assert(stripQuotes("\"320") == "\"320");
+    assert(stripQuotes("a\"b") == "a\"b");
+  }
+  std::puts("an empty or quoted-empty value normalises to CLEAR, never to zero");
+
   std::puts("OK");
   return 0;
 }

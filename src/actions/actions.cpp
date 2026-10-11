@@ -828,9 +828,10 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
   if (sameSet && !oldBoxes.empty()) {
     m_view.setWsSlideDir(0);
     startTileGlide(oldBoxes);
-  } else
+  } else {
     m_clocks.rebuild.begin();
     debug::trace::animStart("entry", "entry", "", m_entry.ms, m_entry.curve.c_str());
+  }
   ensureAnimPump();
   if (!sameSet || oldBoxes.empty())
     m_clocks.tiles.pinEnd(glideDur());
