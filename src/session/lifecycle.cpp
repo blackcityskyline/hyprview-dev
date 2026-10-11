@@ -125,6 +125,16 @@ void Overview::toggleAllWorkspaces() {
     // neither. Order matters: the clock starts BEFORE the direction, or updateAnimation
     // clears it in the same tick.
     m_clocks.rebuild.begin();
+    // A slide is an ENTRY, not a relocation: the card is already the right shape and
+    // arrives from the edge. Left at natural, every card starts at the window's REAL
+    // geometry and shrinks into its slot -- 1354x756 down to 909x508, measured -- and that
+    // shrink is the handoff an OPEN wants, where the preview takes over from a window
+    // that was on screen. This flip has no such window: the overlay was already up
+    // showing an empty workspace, so there is nothing to hand off from and the motion is
+    // pure leftover. With natural == target the glide has zero distance and the entry
+    // offset is the only thing moving.
+    for (std::size_t i = 0; i < m_scene.tiles().size(); ++i)
+      m_scene.setNatural(i, m_scene.tiles()[i].target);
   }
   // Direction is armed AFTER the rebuild, for the reason painter.cpp arms it after
   // m_clocks.rebuild.begin(): updateAnimation clears it the moment the rebuild and entry
