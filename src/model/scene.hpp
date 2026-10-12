@@ -9,7 +9,7 @@ namespace gloview::model {
 
 // The cards in the main area, which one is focused, what the cursor is over.
 //
-// Writes go through named intents -- armAppear, settleAppear, park, pinNatural --
+// Writes go through named intents -- armEntry, settleEntry, park, pinNatural --
 // plus tileAt() for the one caller that computes per tile. There is no
 // vector-issuing accessor: recency ordering once went wrong by sorting this array
 // inside a layout pass, and handing out the container is what allowed it.
@@ -27,13 +27,13 @@ class Scene {
     // 0 arms the scale-in, 1 means "already on screen". Naming both ends means a
     // caller cannot set 0.5 by accident, and there is exactly one place that knows
     // what each value means.
-    void armAppear() {
+    void armEntry() {
       for (auto &t : m_tiles)
-        t.appear = 0.0;
+        t.landed = 0.0;
     }
-    void settleAppear() {
+    void settleEntry() {
       for (auto &t : m_tiles)
-        t.appear = 1.0;
+        t.landed = 1.0;
     }
     // The desktop's parked cards: the natural box becomes the drop point, so a
     // window released onto the desktop has somewhere to come back to.
@@ -99,7 +99,7 @@ void swapTiles(size_t a, size_t b) {
       for (auto &t : m_tiles)
         if (t.win.lock().get() == win) {
           t.natural = box;
-          t.appear = 1.0;
+          t.landed = 1.0;
           return;
         }
     }

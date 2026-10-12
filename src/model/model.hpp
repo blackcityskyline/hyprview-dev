@@ -20,7 +20,7 @@ struct Tile {
   LRect target;
   bool parked = false;
   std::string labelText;
-  double appear = 1.0;  // 0 = new; ghosts reverse it
+  double landed = 1.0; // 0 = still coming in; ghosts reverse it
   SP<Render::ITexture> label;
 };
 

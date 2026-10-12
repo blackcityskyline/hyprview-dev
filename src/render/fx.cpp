@@ -304,7 +304,15 @@ void Overview::renderSwapFX() const {
     for (const LRect &to : dests) {
     double bx = 0, by = 0, bw = 0, bh = 0;
     float alpha = 1.0F;
-    bool ring = false;
+    // No ring here. This branch used to draw one, ungated and on its own clock
+    // (t < 0.6, alpha 0.9, radius clamped from the ANIMATING box), while renderPulses
+    // drew a second one for the same window on the same frame. Two consequences, both
+    // reported from the running plugin: a ring showed up with pulse switched off, and
+    // its corner radius tightened for the whole flight -- clampRound reads min(w,h) of a
+    // box shrinking from a grid card to a strip thumbnail -- while the content's radius
+    // never moved, so the frame visibly slid off the card it was framing. The pulse
+    // owns rings: it is gated by pulse_enabled, it has PulseScale, and it measures the
+    // tile's real box, which is not what is animating.
 
     if (fx.style == model::SwapStyle::SlideVert) {
       const double LIFT = cfg::look.swap_lift;
@@ -348,7 +356,6 @@ void Overview::renderSwapFX() const {
       by = lerp(fx.from.y, to.y, p);
       bw = lerp(fx.from.w, to.w, p);
       bh = lerp(fx.from.h, to.h, p);
-      ring = true;
     }
 
     // A flight now draws at EVERY surface the window occupies, and those surfaces are
@@ -361,13 +368,9 @@ void Overview::renderSwapFX() const {
     const LRect box{bx, by, bw, bh};
     const CBox px = pxb(box, s);
     const int lr = clampRound(round, bw, bh); // logical: dropShadow scales it
-    const int rpx = pxr(lr, s);
     if (alpha > 0.02F)
       dropShadow(box, s, cfg::colors.shadow.get(), 6.0, 16.0,
                  static_cast<float>(0.18 * alpha), lr, roundPow);
-    if (ring && t < 0.6)
-      strokeRingPx(px, argb(cfg::colors.hover_border.get(), (1.0F - t / 0.6F) * 0.9F),
-                   (1.0F - t / 0.6F) * 0.9F, rpx, roundPow);
     renderWindowLive(w, m, px, px, alpha, when,
                      contentRadiusPx(round, cfg::look.border_size, roundPow, s),
                      roundPow, true);

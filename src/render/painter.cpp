@@ -163,11 +163,11 @@ void Overview::renderStage(eRenderStage stage) {
       layoutTiles();
       startTileGlide(shown);
       // startTileGlide marks every window it could match against the previous scene as
-      // already present (appear = 1), which is right for a reflow and wrong here: on a
+      // already present (landed = 1), which is right for a reflow and wrong here: on a
       // workspace switch the whole tile set is new content, and leaving a window unanimated
       // is what made this path look different from the plugin's own Tab switch, which sets
-      // appear = 0 on everything. Same slide, same style key, whichever bind got here.
-      m_scene.armAppear();
+      // landed = 0 on everything. Same slide, same style key, whichever bind got here.
+      m_scene.armEntry();
       m_clocks.rebuild.begin();
       debug::trace::animStart("entry", "entry", "", m_entry.ms, m_entry.curve.c_str());
       // Arm the slide AFTER the rebuild clock starts. updateAnimation clears wsSlideDir
@@ -181,7 +181,7 @@ void Overview::renderStage(eRenderStage stage) {
       {
         int appearing = 0;
         for (const auto &t : m_scene.tiles())
-          if (t.appear < 1.0)
+          if (t.landed < 1.0)
             ++appearing;
         debug::dbg("WSFOLLOW ->" + std::to_string(m->m_activeWorkspace->m_id) +
                    " dir=" + std::to_string(m_view.wsSlideDir()) +

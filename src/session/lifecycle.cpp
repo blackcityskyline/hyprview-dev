@@ -103,20 +103,20 @@ void Overview::toggleAllWorkspaces() {
   auto oldBoxes = captureCurrentBoxes();
   replayReflow(oldBoxes);
   // An empty workspace means no tile has ever been on screen, so captureCurrentBoxes()
-  // returns empty and startTileGlide takes its `else` branch: settleAppear(), appear=1.
-  // tileAppearNow() then answers 1.0 for every card, and the gate at clocks.cpp:145
+  // returns empty and startTileGlide takes its `else` branch: settleEntry(), landed=1.
+  // entryNow() then answers 1.0 for every card, and the gate at clocks.cpp:145
   // (`if (ap >= 1.0) return r`) returns BEFORE the slide branch. Armed in this order the
-  // fix is a no-op -- replayReflow writes appear=1 straight back over it -- so it has to
+  // fix is a no-op -- replayReflow writes landed=1 straight back over it -- so it has to
   // land AFTER the rebuild, like the direction below.
   //
   // What is on screen otherwise is just the natural->target glide, which is why it reads
   // as a fullscreen window shrinking into its slot rather than as an entry. The flip's
   // content is new either way; see the same argument in painter.cpp.
   if (oldBoxes.empty()) {
-    m_scene.armAppear();
+    m_scene.armEntry();
     // And the clock, which is the half that was missing. replayReflow() begins only the
     // tile glide (m_clocks.tiles) -- nothing begins the rebuild clock, so it reads done,
-    // m_clocks.rebuild.raw() answers 1.0, tileAppearNow() answers 1.0 for every card and
+    // m_clocks.rebuild.raw() answers 1.0, entryNow() answers 1.0 for every card and
     // the gate at clocks.cpp:145 returns before the slide branch. What was on screen was
     // just the natural->target glide, which for a maximized window reads as a fullscreen
     // card shrinking into its slot.

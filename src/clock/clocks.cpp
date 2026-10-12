@@ -101,20 +101,20 @@ double Overview::tileProgress(int i) const {
   return staggered(base, i, static_cast<int>(m_scene.tiles().size()));
 }
 
-double Overview::tileAppear(int i) const {
+double Overview::entryProgress(int i) const {
   return curves::eval(
       m_entry.curve,
       staggered(m_clocks.rebuild.raw(m_entry.ms), i,
                 static_cast<int>(m_scene.tiles().size())));
 }
 
-// How far ALONG its entry a tile is right now. t.appear is the flag (0 = armed,
-// 1 = already on screen) and tileAppear(i) is the clock it is played against; a tile
+// How far ALONG its entry a tile is right now. t.landed is the flag (0 = armed,
+// 1 = already on screen) and entryProgress(i) is the clock it is played against; a tile
 // that is not playing must not read the clock, or a stale rebuild clock would keep
 // shrinking cards that have already landed. Three readers asked this the same way
 // before it had a name.
-double Overview::tileAppearNow(const model::Tile &t, int i) const {
-  return t.appear < 1.0 ? tileAppear(i) : 1.0;
+double Overview::entryNow(const model::Tile &t, int i) const {
+  return t.landed < 1.0 ? entryProgress(i) : 1.0;
 }
 
 LRect Overview::currentBox(const model::Tile &t, int i) const {
@@ -139,7 +139,7 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
     const double cx = r.cx(), cy = r.cy();
     r = LRect{cx - r.w * k * 0.5, cy - r.h * k * 0.5, r.w * k, r.h * k};
   }
-  const double ap = tileAppearNow(t, i);
+  const double ap = entryNow(t, i);
   if (ap >= 1.0)
     return r;
   if (m_view.wsSlideDir() != 0 && anim::wsStyleSlides(m_enterStyle)) {
@@ -217,8 +217,8 @@ void Overview::updateAnimation() {
   // entries must settle explicitly or they keep evaluating curves forever
   if (m_clocks.rebuild.done(m_entry.ms) &&
       std::any_of(m_scene.tiles().begin(), m_scene.tiles().end(),
-                  [](const model::Tile &t) { return t.appear < 1.0; }))
-    m_scene.settleAppear();
+                  [](const model::Tile &t) { return t.landed < 1.0; }))
+    m_scene.settleEntry();
 
   const auto pulse = anim::cfg(anim::Id::Pulse);
   m_fx.eachPulse([&](auto &p) {

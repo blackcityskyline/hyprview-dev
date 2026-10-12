@@ -236,9 +236,9 @@ private:
   // Landing workspace empty? Re-read on every open and close: the landing workspace can
   // change while the overview is up (all-workspaces, digit jump).
   mutable bool m_landingEmpty = true;
-  double tileAppear(int i) const; // staggered 0..1 for tile i
-  // The above, gated on the tile actually playing its entry (Tile::appear < 1).
-  double tileAppearNow(const model::Tile &t, int i) const;
+  double entryProgress(int i) const; // staggered 0..1 for tile i
+  // The above, gated on the tile actually playing its entry (Tile::landed < 1).
+  double entryNow(const model::Tile &t, int i) const;
   anim::Id entryLeaf() const;
   anim::Id ghostLeaf() const;
   anim::Id glideLeaf() const;

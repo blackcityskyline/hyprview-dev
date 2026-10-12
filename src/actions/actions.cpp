@@ -493,11 +493,7 @@ std::string Overview::runCommand(const std::string &args) {
       return "killz: bad tile";
     if (t == m_scene.selected() && m_scene.size() > 1)
       m_scene.select(static_cast<int>(t % (m_scene.size() - 1)));
-    closeTileWindow(t);
-    beginSwapFX(w, m_lastDragBox, model::SwapStyle::Horizontal,
-                anim::cfg(anim::Id::SwapFly).ms, anim::cfg(anim::Id::SwapFly).curve, false);
-    ensureAnimPump();
-    damage();
+    closeTileWindow(t); // carries the flight out with it
     return "";
   }
 
@@ -821,7 +817,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     m_view.setWsSlideDir( 0);
     m_view.setJumpMode( true);
     m_fx.clearGhosts();
-    m_scene.settleAppear();
+    m_scene.settleEntry();
     m_clocks.rebuild.pinEnd(std::max(m_entry.ms, m_ghost.ms));
     m_clocks.tiles.pinEnd(glideDur());
     m_progress = 1.0;
@@ -831,7 +827,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     damage();
     return;
   }
-  m_scene.armAppear();
+  m_scene.armEntry();
   m_fx.clearGhosts();
   // Whether every window of the old workspace is still in the tile set. Declared true
   // and never assigned, so the "identical set" branch below always ran and called
@@ -932,8 +928,19 @@ void Overview::closeTileWindow(int i) {
   if (!w)
     return;
   debug::dbg("close tile window");
-  // sendClose is async; syncTiles() reflows once the window vanishes.
+  // Fly the card out before it goes. sendClose is async, so the tile is still on screen
+  // when this starts and syncTiles() reflows the survivors once it vanishes: without the
+  // flight the neighbours jump sideways into the gap and the window is simply gone.
+  //
+  // This used to live in the drag-to-kill-zone branch, which is why only that trigger
+  // had motion. The ✕ button, the double-click and the close key called straight through
+  // to sendClose, and five entry points to one behaviour was four ways to forget it again.
+  const LRect from = m_drag.lifted() ? m_lastDragBox : tileRect(i);
   w->sendClose();
+  beginSwapFX(w, from, model::SwapStyle::Horizontal,
+              anim::cfg(anim::Id::SwapFly).ms, anim::cfg(anim::Id::SwapFly).curve);
+  ensureAnimPump();
+  damage();
 }
 
 void Overview::closeWorkspaceWindows(const model::StripItem &it) {

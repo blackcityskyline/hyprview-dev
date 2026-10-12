@@ -80,9 +80,9 @@ double Overview::entryFade(size_t i) const {
   // (AGENTS.md), so every tile that does go home stays at full alpha and flies.
   if (!opening() && anim::tileExit(tileGoesHome(t)) == anim::TileExit::InPlace)
     return eased();
-  if (t.appear >= 1.0 || m_view.wsSlideDir() == 0 || m_enterStyle != anim::WsStyle::Fade)
+  if (t.landed >= 1.0 || m_view.wsSlideDir() == 0 || m_enterStyle != anim::WsStyle::Fade)
     return 1.0;
-  return tileAppear(static_cast<int>(i));
+  return entryProgress(static_cast<int>(i));
 }
 
 // A preview always wears the window's own aspect, so the content's arcs meet the
@@ -158,7 +158,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
 
   // Transition frost: the cached blur at CONSTANT alpha (fading it leaks
   // C*e*(1-e) of the sharp desktop) plus the dim rect at the GLOBAL alpha e.
-  const double apNow = tileAppearNow(t, static_cast<int>(i));
+  const double apNow = entryNow(t, static_cast<int>(i));
   if (opening() && (e < 0.999 || apNow < 0.999)) {
     if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
       const double pxW = static_cast<double>(m->m_pixelSize.x);

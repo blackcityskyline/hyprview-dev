@@ -521,7 +521,7 @@ void Overview::startTileGlide(
           matched = true;
           break;
         }
-      t.appear = matched ? 1.0 : 0.0;
+      t.landed = matched ? 1.0 : 0.0;
       newcomers |= !matched;
     }
     // Every removed tile fades out where it was — never vanishes one frame.
@@ -534,7 +534,7 @@ void Overview::startTileGlide(
         m_fx.addGhost(model::Ghost{oldWin, oldBox});
     }
   } else
-    m_scene.settleAppear();
+    m_scene.settleEntry();
   m_clocks.tiles.begin();
   debug::trace::animStart("glide", "glide", "", m_glide.ms, m_glide.curve.c_str());
   m_clocks.tileMs    = m_glide.ms;

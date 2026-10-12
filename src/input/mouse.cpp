@@ -431,11 +431,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           m_scene.select(std::clamp(m_scene.selected(), 0,
                                    static_cast<int>(m_scene.tiles().size()) - 2));
         }
-        closeTileWindow(press);
-        beginSwapFX(w, m_lastDragBox, model::SwapStyle::Horizontal,
-                    anim::cfg(anim::Id::SwapFly).ms, anim::cfg(anim::Id::SwapFly).curve);
-        ensureAnimPump();
-        damage();
+        closeTileWindow(press); // carries the flight out with it
         return true;
       }
       // Nearest tile within gap/2, not containment: a natural drop lands in the gap.
