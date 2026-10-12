@@ -51,6 +51,22 @@ enum class Corner {
     return LRect{cx - b.w * s / 2.0, cy - b.h * s / 2.0 + dy, b.w * s, b.h * s};
 }
 
+// The counter's sprout: a narrower capsule hanging off the caption pill's bottom edge,
+// flush against it. Touching, never overlapping -- two translucent rects over the same
+// pixels blend twice and the join reads as a dark seam, which is the one thing "one
+// shape" must not look like. The width is clamped so the sprout's FLAT top (w - h, both
+// are capsules) lands inside the pill's own flat bottom (pill.w - pill.h): past that the
+// pill's bottom arc lifts away and the two part with a notch of backdrop between them.
+// A zero text size means no sprout -- one card has no "1 / 1" to show.
+[[nodiscard]] inline LRect captionSprout(const LRect& pill, double textW, double textH,
+                                          double padX, double padY) {
+    if (textW <= 0.0 || textH <= 0.0)
+        return LRect{0.0, 0.0, 0.0, 0.0};
+    const double sh = textH + 2.0 * padY;
+    const double sw = std::min(textW + 2.0 * padX, std::max(sh, pill.w - pill.h) + sh);
+    return LRect{pill.cx() - sw * 0.5, pill.y + pill.h, sw, sh};
+}
+
 // The close glyph sits in one corner of a card, at a size that tracks the card but stays
 // clickable on a small one.
 [[nodiscard]] inline LRect closeButtonRect(const LRect& card, double sizeScale, Corner corner) {

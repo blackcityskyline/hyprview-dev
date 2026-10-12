@@ -304,7 +304,7 @@ gloview.animation({ leaf = "glide", curve = "fluent_decel" })
 | `close_glyph_color` | color | `"0xffffffff"` | the `✕` glyph itself, drawn on top of `close_button_color` |
 | `label_color` | color | `"0xf2ffffff"` | window/workspace name text under tiles and strip cards |
 | `title_pill_color` | color | `"0xcc11151c"` | pill behind a tile's title label in desktop/canvas mode |
-| `carousel_count_pill_color` | color | `"0xcc11151c"` | pill behind the carousel counter (`1 / 4`) |
+| `carousel_count_pill_color` | color | `"0xcc11151c"` | sprout pill behind the carousel counter (`1 / 4`) |
 | `appear_stagger` | float | `0.08` | entry ladder: how far the tile entry is spread across the window (as a fraction) |
 | `appear_stagger_per_tile` | float | `0.015` | extra spread per tile, capped by `appear_stagger` |
 | `carousel_step_collapse` | float | `0.5` | fraction of the exit spent shrinking the unfocused carousel cards |
@@ -364,10 +364,12 @@ arrange against, so toggling all↔one switches the arrangement too, not just th
 window set. With `carousel = 0` the layout runs untouched in both views.
 
 ```
-            2 / 7                          counter (n / total)
-┌───┐┌─┐┌───┴───┐┌─┐┌───┐
-│   ││ ││       ││ ││   │                  the selected card is centered;
-└───┘└─┘└───────┘└─┘└───┘                  neighbours overlap its edges
+┌───┐┌─┐┌───┐┌─┐┌───┐
+│   ││ ││   ││ ││   │                  the selected card is centered;
+└───┘└─┘└───┘└─┘└───┘                  neighbours overlap its edges
+    └─┘└─┘└─┘
+   (  2 / 7  )                         counter (n / total) hangs off the
+                                        centred card's title pill as a sprout
 ```
 
 - **One standard box for every card.** Every card is the same rect — a
@@ -429,8 +431,9 @@ window set. With `carousel = 0` the layout runs untouched in both views.
   the standard box (0 = the fullscreen box).
 - **The chrome is the plugin's own**, exactly as in every other layout, because
   it is literally the same code: a soft drop shadow, the frost underlay while the
-  backdrop is still fading, a title pill under the **centred** card (and the
-  hovered one), and a bare `n / total` counter above the run. Nothing is filled
+  backdrop is still fading, and a title pill under the **centred** card (and the
+  hovered one) with the `n / total` counter hanging off the centred card's pill
+  as a sprout — one object, so a preview shoves both together. Nothing is filled
   in behind a window — a card is the window plus its frame, and where they
   differ the backdrop shows.
 - **Depth.** Cards one step out are dimmed slightly, cards two steps out more so

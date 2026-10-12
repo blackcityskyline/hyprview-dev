@@ -86,7 +86,6 @@ public:
   void renderPulses(bool strip) const;
   void renderTiles() const;
   void renderCarousel() const;
-  void renderCarouselCounter() const;
   bool carouselMode() const;
   void relayoutCarousel();
   void renderGhosts() const;

@@ -60,11 +60,8 @@ struct CarouselMetrics {
     double farK          = 0.56;  // depth 2
     double taper         = 0.8;   // every depth past 2
     double scale         = 1.0;   // user zoom on the whole run, over the fit
-    double captionH      = 44.0;
+    double captionH      = 64.0;  // caption pill + the n / total sprout hanging under it
     double captionGap    = 12.0;
-    double countH        = 32.0;
-    double countW        = 88.0;
-    double sectionGap    = 12.0;
     double screenMargin  = 32.0;
     int    visibleCards  = 5;
 };
@@ -79,7 +76,6 @@ struct CarouselLayout {
     int    visibleCards = 0;
     double panelH = 0.0;
     double stripY = 0.0, stripW = 0.0, stripH = 0.0;
-    double countX = 0.0, countY = 0.0, countW = 0.0, countH = 0.0;
     double originX = 0.0, originY = 0.0;
     LRect area;
 };

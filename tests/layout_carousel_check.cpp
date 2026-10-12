@@ -88,8 +88,7 @@ double fittedScale(const CarouselMetrics &mt) {
                                      static_cast<double>(reach) * 2.0;
   const double stripH = mt.boxH + mt.captionGap + mt.captionH;
   const double availW = kUsableW - 2.0 * mt.screenMargin;
-  const double availH = kUsableH - 2.0 * mt.screenMargin - mt.countH -
-                        mt.sectionGap;
+  const double availH = kUsableH - 2.0 * mt.screenMargin;
   return std::min({1.0, availW / stripW, availH / stripH}) * mt.scale;
 }
 
@@ -166,9 +165,10 @@ void sectionB_placementAndCentring() {
   // The run fits the free space.
   yes(L.stripW <= kUsableW - 2.0 * kMargin + 1e-9, "run fits the width");
   yes(L.panelH <= kUsableH - 2.0 * kMargin + 1e-9, "panel fits the height");
-  // The counter rides the same centre.
-  near(L.countX + L.originX + L.countW * 0.5, kUsableW * 0.5,
-       "counter centred in the free space");
+  // Nothing reserves a band above the run any more: the counter left the panel top and is
+  // the centred card's caption sprout, drawn below the card with it.
+  near(L.stripY, 0.0, "the run starts at the panel top");
+  near(L.panelH, L.stripH, "the panel is the run -- no counter band reserved");
 }
 
 // Section C: the user's zoom rides on top of the fit.

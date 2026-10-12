@@ -12,6 +12,7 @@ struct TileLook {
   bool   frame = true;   // stroke the ring; off for unfocused run cards
   bool   contain = false;// fit the window whole inside the box
   bool   lift = false;   // dragging: taller shadow, no ring, no pill
+  bool   counter = false; // carousel centred card: hang the n / total sprout off the pill
   bool   button = false; // the ✕; caller owns the GL_BLEND guard
   double tone = 0.0;     // shadow-colour wash over the content, 0..1
 };

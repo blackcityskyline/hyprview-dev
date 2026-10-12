@@ -2,6 +2,7 @@
 #include "../anim.hpp"
 #include <cmath>
 #include <ctime>
+#include <string>
 
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
@@ -204,19 +205,58 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // texture it draws — not the uncut entry it used to.
     const double lw   = t.label->m_size.x;
     const double lh   = t.label->m_size.y;
+    // The carousel's n / total rides ON this pill as a sprout, so it is built here rather
+    // than as its own element above the run: two elements mean two pushes and they come
+    // apart the moment a preview reaches only one of them.
+    const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
+    const std::string countText =
+        wantCounter ? std::to_string(m_scene.focused() + 1) + " / " +
+                          std::to_string(m_scene.tiles().size())
+                    : std::string();
+    // Constant colour, like every other label caller: PixelCache bakes the FIRST frame's
+    // colour into the texture and reuses it until the text changes, so a fading colour
+    // here would bake the counter in dim and leave it dim. The fade rides the draw alpha.
+    auto countTex = wantCounter
+                        ? m_pixel.fixedLabel(pixel::Slot::CarouselCount, countText,
+                                             cfg::colors.label.get(1.0), 15)
+                        : SP<Render::ITexture>{};
+    const bool hasSprout = countTex && countTex->m_size.x > 0;
+    const double countW = hasSprout ? countTex->m_size.x : 0.0;
+    const double countH = hasSprout ? countTex->m_size.y : 0.0;
     const double pw   = lw + 2 * padX;
     const double ph   = lh + 2 * padY;
+    // The sprout hangs below, so the clamp that keeps the caption on screen has to reserve
+    // its height too -- otherwise a card near the bottom shoves the number off the panel.
+    const double sproutH = hasSprout ? countH + 2 * padY : 0.0;
     const double px   = std::clamp(box.cx() - pw / 2.0, 6.0, m->m_size.x - pw - 6.0);
     const double py   = std::min(box.y + box.h + cfg::look.title_gap,
-                     m->m_size.y - ph - cfg::look.title_margin);
+                     m->m_size.y - ph - sproutH - cfg::look.title_margin);
     // Yields like every other chrome element when a preview reaches it -- but AFTER the
     // clamp above, and deliberately unclamped itself: the clamp exists to keep the caption on
     // screen while the card is laid out, while the push is what shoves the pill clear. With
     // the clamp applied last the pill travelled to the screen edge, stopped there and just
-    // faded (measured on exit).
-    const Vector2D push = pushOut(LRect{px, py, pw, ph});
+    // faded (measured on exit). Pushed as ONE box: pill + sprout are one object and a
+    // preview that reaches either has to move both.
+    const LRect pill{px, py, pw, ph};
+    const LRect sprout = hasSprout
+                             ? render::captionSprout(pill, countW, countH, padX, padY)
+                             : LRect{0.0, 0.0, 0.0, 0.0};
+    const double bx = std::min(pill.x, sprout.x), by = pill.y;
+    const Vector2D push = pushOut(
+        LRect{bx, by, std::max(pill.x + pw, sprout.x + sprout.w) - bx, ph + sprout.h});
     const double ux = px + push.x;
     const double uy = py + push.y;
+    if (hasSprout) {
+      const LRect sAt{sprout.x + push.x, sprout.y + push.y, sprout.w, sprout.h};
+      // Radius == half the height with power 1.0 is a true capsule, not a rounded rect.
+      safeRenderRect("tile", pxb(CBox(sAt.x, sAt.y, sAt.w, sAt.h), s),
+                              cfg::colors.carousel_count_pill.get(e * f),
+                              {.round = pxr(sAt.h / 2.0, s), .roundingPower = 1.0});
+      g_pHyprOpenGL->renderTexture(
+          countTex,
+          pxb(LRect{sAt.x + (sAt.w - countW) / 2.0, sAt.y + padY, countW, countH}, s),
+          {.a = static_cast<float>(e * f)});
+    }
     safeRenderRect("tile", pxb(CBox(ux, uy, pw, ph), s),
                               cfg::colors.title_pill.get(e * f),
                               {.round = pxr(ph / 2.0, s)});

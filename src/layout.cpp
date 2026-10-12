@@ -205,8 +205,6 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     if (count <= 0)
         return L;
     L.cards.resize(static_cast<size_t>(count));
-    L.countW = mt.countW;
-    L.countH = mt.countH;
 
     const int want = std::max(1, mt.visibleCards);
     const int shown = std::min(want, count);
@@ -247,8 +245,7 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
 
     // One uniform scale so the run fits both axes at once.
     const double availW = std::max(1.0, screen.w - mt.screenMargin * 2.0);
-    const double availH = std::max(1.0, screen.h - mt.screenMargin * 2.0 -
-                                             mt.countH - mt.sectionGap);
+    const double availH = std::max(1.0, screen.h - mt.screenMargin * 2.0);
     const double k =
         std::min({1.0, availW / std::max(1.0, stripW),
                   availH / std::max(1.0, stripH)}) * mt.scale;
@@ -261,12 +258,11 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     // kCard, not k: a panel measured at the unclamped scale is taller than what it holds.
     L.stripW = stripW * kCard;
     L.stripH = stripH * kCard;
-    L.panelH = mt.countH + mt.sectionGap + L.stripH;
-    L.stripY = mt.countH + mt.sectionGap;
+    L.panelH = L.stripH;
+    L.stripY = 0.0;
     // Card x is absolute inside the usable rect, so originX stays 0.
     L.originX = 0.0;
     L.originY = std::round((screen.h - L.panelH) * 0.5);
-    L.countX = std::round((screen.w - mt.countW) * 0.5);
 
     for (const int idx : idxOfSlot) {
         const int slot = slotOf[static_cast<size_t>(idx)];
