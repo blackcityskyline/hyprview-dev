@@ -194,9 +194,15 @@ int main() {
 
     // A STEM, not a second capsule. Half the height would make it an oval hanging off an
     // oval, which is what this replaced.
-    const double round = captionSproutRound(s.h, s.w);
-    near(round, s.h * 0.25, "the stem's radius is a quarter of its height");
-    assert(round < s.h * 0.5);
+    // The stem carries the PILL's radius, not one of its own. Two pills hanging off each other
+    // with different corner softness read as two pills that happen to touch, which is the
+    // one thing this shape is not.
+    near(captionSproutRound(pill.h), pill.h * 0.5,
+         "the stem is drawn with the pill's own radius");
+
+    // Never 0: the shoulder is a rect of this height drawn under the pill, and renderRect
+    // asserts on a zero dimension.
+    assert(captionSproutRound(0.0) >= 1.0);
 
     // A wide count against a NARROW pill is the case the clamp exists for: without it the
     // stem would run past the flat span onto the pill's arc and leave a gap at the ends.
@@ -221,11 +227,8 @@ int main() {
     const LRect tp = captionSprout(tallPad, 60.0, 18.0, padX, 40.0);
     assert(tp.w <= std::max(0.0, tallPad.w - tallPad.h));
 
-    // The radius never exceeds half of either side, or Hyprland rounds the shape inside
-    // out -- and never 0, because the shoulder is a rect of this height.
-    const double wideRound = captionSproutRound(s.h, s.w);
-    assert(wideRound <= s.w * 0.5 + kEps && wideRound <= s.h * 0.5 + kEps);
-    assert(captionSproutRound(4.0, 2.0) >= 1.0);
+    // The radius never exceeds half the height, or Hyprland rounds the shape inside out.
+    assert(captionSproutRound(s.h) <= s.h * 0.5 + kEps);
 
     // The yield box. A zero rect is NOT neutral in a min/max union -- it anchors the box at
     // the origin, and a preview nowhere near the caption then reads as contact and shoves

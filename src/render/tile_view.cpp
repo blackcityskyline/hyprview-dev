@@ -250,24 +250,26 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const double uy = py + push.y;
     if (stemSize.w > 0.0) {
       const LRect sAt{sprout.x + push.x, sprout.y + push.y, sprout.w, sprout.h};
-      const double sr = render::captionSproutRound(sAt.h, sAt.w);
-      // The shoulder: a square bridge running UP under the pill, drawn OPAQUE. The pill then
-      // blends over it, and one colour under its own alpha comes back as exactly that
-      // colour -- so the join has neither a seam nor a gap. It cannot show: the pill's flat
-      // bottom covers it, and the stem is narrower than that flat span by construction.
+      // The PILL's own radius, so the two carry one softening between them and not two.
+      const double sr   = render::captionSproutRound(ph);
+      const double joint = sAt.y;  // the pill's bottom edge, where the stem meets it
+      // Hyprland rounds all four corners with ONE radius, so a soft top on the stem cannot be
+      // had directly: it cuts a wedge of backdrop out of both corners of the join, which is
+      // exactly where the eye checks whether the two are one piece.
       //
-      // This is what a rounded top edge cannot do. Hyprland rounds all four corners with one
-      // radius, so a rounded stem top cut a wedge of backdrop out of BOTH corners of the
-      // join -- the stem's own corners, exactly where the eye checks whether the two are
-      // one piece. Half the height would additionally make it a capsule again, and only at
-      // Hyprland's DEFAULT roundingPower of 2 (OpenGL.hpp:153) is that a true capsule: the
-      // cut is distanceWithRounding (src/render/shaders/glsl/rounding.glsl:7), the p-norm
-      // of the offset from the corner centre, and p = 1 is the manhattan metric, which
-      // cuts a diamond rather than an arc.
-      safeRenderRect("tile", pxb(CBox(sAt.x, sAt.y - sr, sAt.w, sr), s), cfg::colors.carousel_count_pill.get(1.0),
-                              {.round = 0});
-      // The stem itself, soft at the bottom -- the only end that shows.
-      safeRenderRect("tile", pxb(CBox(sAt.x, sAt.y, sAt.w, sAt.h), s), cfg::colors.carousel_count_pill.get(e * f),
+      // So the stem is drawn from a full radius ABOVE the joint, putting its own top corners
+      // up under the pill where nothing shows, and the shoulder fills the gap that leaves:
+      //   [joint - sr, joint]         opaque, under the pill   -- the shoulder
+      //   [joint - sr, joint + stem.h] fading, same radius     -- the stem
+      //
+      // The shoulder is opaque ON PURPOSE. Every layer here is one colour, so the pill
+      // blending over it returns exactly that colour: the join has no seam. And with an
+      // opaque colour underneath, the stem's own alpha lands on that colour instead of on
+      // the backdrop, so the visible half still fades the way the pill does.
+      safeRenderRect("tile", pxb(CBox(sAt.x, joint - sr, sAt.w, sr), s),
+                              cfg::colors.carousel_count_pill.get(1.0), {.round = 0});
+      safeRenderRect("tile", pxb(CBox(sAt.x, joint - sr, sAt.w, sr + sAt.h), s),
+                              cfg::colors.carousel_count_pill.get(e * f),
                               {.round = pxr(sr, s)});
       g_pHyprOpenGL->renderTexture(
           countTex,

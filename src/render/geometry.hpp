@@ -80,15 +80,14 @@ enum class Corner {
     return LRect{pill.cx() - sw * 0.5, pill.y + pill.h, sw, sh};
 }
 
-// The stem's corner radius: the bottom only. Half the height would make it a capsule, and
-// a second oval wedged under a first is not an outgrowth. A quarter keeps the bottom soft
-// while the top stays square against the pill -- see the shoulder in the draw path.
+// The radius the stem is drawn with: the PILL's own. Two pills hanging off each other with
+// different corner softness read as two pills that happen to touch, which is the whole
+// thing this shape is not. Half the pill's height is the radius the pill itself uses.
 //
-// Floored at 1: the shoulder above the stem is a rect of this height, and a rounded rect
-// asserts on zero height (OpenGL.cpp renderRect RASSERT), so a stem narrower than its own
-// rounding would take the draw down with it.
-[[nodiscard]] inline double captionSproutRound(double sproutH, double sproutW) {
-    return std::max(1.0, std::min(std::min(sproutH * 0.25, sproutW * 0.5), sproutH * 0.5));
+// Never 0: the shoulder is a rect of this height drawn under the pill, and renderRect
+// asserts on a zero dimension (OpenGL.cpp RASSERT(w > 0 && h > 0)).
+[[nodiscard]] inline double captionSproutRound(double pillH) {
+    return std::max(1.0, pillH * 0.5);
 }
 
 // The box a caption yields as: the pill and its stem are one object, so the yield has to
