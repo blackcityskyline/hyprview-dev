@@ -198,11 +198,18 @@ int main() {
     assert(tight.w < 200.0 + 2 * padX);  // clamped down to what the pill can carry
     near(tight.cx(), narrow.cx(), "a clamped sprout is still centred");
 
-    // A pill exactly as wide as it is tall has no flat bottom at all; the sprout must not
-    // go negative or NaN on the way to a circle.
+    // A pill exactly as wide as it is tall has no flat bottom at all. The clamp must still
+    // hold the invariant there, or the notch reopens -- and it must not go negative or NaN.
     const LRect stubby{800.0, 900.0, 30.0, 30.0};
     const LRect st = captionSprout(stubby, 40.0, 18.0, padX, padY);
-    assert(!std::isnan(st.w) && st.w >= st.h);
+    assert(st.w - st.h <= stubby.w - stubby.h);
+    assert(!std::isnan(st.w) && st.w > 0.0);
+
+    // Wider than tall the other way: a stubby pill on a huge padY, which is what a user
+    // padding gets them. Same invariant, same reason.
+    const LRect tallPad{800.0, 900.0, 40.0, 30.0};
+    const LRect tp = captionSprout(tallPad, 60.0, 18.0, padX, 40.0);
+    assert(tp.w - tp.h <= tallPad.w - tallPad.h);
 
     // One card has no "1 / 1" to show: a zero-size text yields no sprout at all, so the
     // caller draws one rect instead of two.

@@ -62,8 +62,13 @@ enum class Corner {
                                           double padX, double padY) {
     if (textW <= 0.0 || textH <= 0.0)
         return LRect{0.0, 0.0, 0.0, 0.0};
-    const double sh = textH + 2.0 * padY;
-    const double sw = std::min(textW + 2.0 * padX, std::max(sh, pill.w - pill.h) + sh);
+    const double sh    = textH + 2.0 * padY;
+    // Floored at 0, not at sh: a pill narrower than it is tall has no flat bottom at all,
+    // and max(sh, pill.w - pill.h) let the sprout's flat top overshoot zero there -- the
+    // notch this clamp exists to prevent, back again. Floor keeps the invariant
+    // sw - sh <= pill.w - pill.h true for every pill, not only for the wide ones.
+    const double flatBottom = std::max(0.0, pill.w - pill.h);
+    const double sw         = std::min(textW + 2.0 * padX, flatBottom + sh);
     return LRect{pill.cx() - sw * 0.5, pill.y + pill.h, sw, sh};
 }
 

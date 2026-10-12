@@ -238,9 +238,9 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // faded (measured on exit). Pushed as ONE box: pill + sprout are one object and a
     // preview that reaches either has to move both.
     const LRect pill{px, py, pw, ph};
-    const LRect sprout = hasSprout
-                             ? render::captionSprout(pill, countW, countH, padX, padY)
-                             : LRect{0.0, 0.0, 0.0, 0.0};
+    // captionSprout already answers an empty rect for a zero-size text, so a null texture
+    // needs no branch here.
+    const LRect sprout = render::captionSprout(pill, countW, countH, padX, padY);
     const double bx = std::min(pill.x, sprout.x), by = pill.y;
     const Vector2D push = pushOut(
         LRect{bx, by, std::max(pill.x + pw, sprout.x + sprout.w) - bx, ph + sprout.h});
@@ -249,9 +249,10 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     if (hasSprout) {
       const LRect sAt{sprout.x + push.x, sprout.y + push.y, sprout.w, sprout.h};
       // Round == half the height is a true capsule, but only at Hyprland's DEFAULT
-      // roundingPower of 2: distanceWithRounding (rounding.glsl) is the p-norm of the
-      // corner offset, and p = 1 is the manhattan metric, which cuts the corner into a
-      // diamond -- the sprout came out a trapezoid. 2 is the euclidean one, i.e. the arc.
+      // roundingPower of 2 (OpenGL.hpp:153). The corner cut is distanceWithRounding
+      // (src/render/shaders/glsl/rounding.glsl:7) -- the p-norm of the offset from the
+      // corner centre -- and p = 1 is the manhattan metric, which cuts a diamond, not an
+      // arc. That is what the sprout rendered as before this line changed.
       safeRenderRect("tile", pxb(CBox(sAt.x, sAt.y, sAt.w, sAt.h), s),
                               cfg::colors.carousel_count_pill.get(e * f),
                               {.round = pxr(sAt.h / 2.0, s)});

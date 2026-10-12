@@ -77,8 +77,6 @@ void Overview::renderCarousel() const {
     return ca.depth > cb.depth;
   });
 
-  // Counter first: the cards pass OVER it, so a pushed pill reads as shoved aside instead of
-  // sitting on top of the window it is supposed to be yielding to.
   for (const int i : paint) {
     const int k = m_view.slotOf(static_cast<std::size_t>(i));
     const auto &card =
