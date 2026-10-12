@@ -36,22 +36,6 @@ std::string slurp(const char *path) {
   return ss.str();
 }
 
-// Every `== "x"` / `!= "x"` literal in the file, which is how the motion code asks what
-// style it was given.
-std::set<std::string> comparedLiterals(const std::string &src) {
-  std::set<std::string> out;
-  for (size_t p = src.find("\""); p != std::string::npos; p = src.find('"', p + 1)) {
-    const auto e = src.find('"', p + 1);
-    if (e == std::string::npos)
-      break;
-    const auto tok = src.substr(p + 1, e - p - 1);
-    if (!tok.empty())
-      out.insert(tok);
-    p = e;
-  }
-  return out;
-}
-
 } // namespace
 
 int main(int argc, char **argv) {
@@ -66,104 +50,130 @@ int main(int argc, char **argv) {
   // --- the sets are what they claim ------------------------------------------------
   for (const char *s : kEnterStyles)
     assert(isEnterStyle(s));
-  for (const char *s : kSwapStyles)
-    assert(isSwapStyle(s));
   std::puts("declared styles are accepted by their own predicates");
 
   // --- and nothing else is ---------------------------------------------------------
-  // "horizontal" is a swap-only name; typing it into ws_enter_style must not pass.
-  assert(!isEnterStyle("horizontal"));
-  assert(!isSwapStyle("instant"));   // that one is jump_style's, a different key
+  // There used to be two lists and a pair of assertions separating them: "horizontal" was
+  // swap-only and "slide" was enter-only, because SwapStyle and WsStyle were separate enums
+  // whose first member had different names. One vocabulary means one list, and both
+  // spellings now resolve to the same Move.
+  assert(!isEnterStyle("instant"));   // that one is jump_style's, a different key
   assert(!isEnterStyle(""));
   assert(!isEnterStyle("Slide"));    // case is not normalised anywhere
-  assert(!isSwapStyle("slide"));     // swap says "horizontal", not "slide"
-  std::puts("near-misses are rejected");
+  assert(parseMove("horizontal") == parseMove("slide"));
+  std::puts("near-misses are rejected; horizontal and slide are one spelling each");
 
-  // --- the renderer does not compare against anything undeclared --------------------
-  // The whole reason these lists exist. Walk every string literal the two motion files
-  // compare with and require it to be a style name that some list declares.
-  auto literals = comparedLiterals(clocks);
-  for (const std::string *src : {&actions, &overview}) {
-    const auto b = comparedLiterals(*src);
-    literals.insert(b.begin(), b.end());
-  }
-
-  // Literals that appear in those files for other reasons -- log tags, format strings,
-  // unrelated comparisons. Only names in the style vocabulary are checked.
-  const std::set<std::string> styleWords = {"slide",   "slidevert", "fade",  "pop",
-                                            "horizontal", "instant"};
-  int checked = 0;
-  for (const auto &lit : literals) {
-    if (!styleWords.count(lit))
-      continue;
-    ++checked;
-    assert(isEnterStyle(lit) || isSwapStyle(lit));
-  }
-  assert(checked > 0);
-  std::printf("renderer compares against %d style name(s), all declared\n", checked);
-
-  // --- no dead entries ---------------------------------------------------------------
-  // A name in a list that no comparison can reach is a style the user can type and
-  // nothing will read. The membership above cannot see this; counting can.
-  const auto reach = [&literals](const char *const *list, std::size_t n) {
-    int hit = 0;
-    for (std::size_t i = 0; i < n; ++i)
-      if (literals.count(list[i]))
-        ++hit;
-    return hit;
-  };
-  const int enterHit = reach(kEnterStyles, std::size(kEnterStyles));
-  const int swapHit  = reach(kSwapStyles, std::size(kSwapStyles));
-  std::printf("enter styles reached: %d/%zu, swap styles reached: %d/%zu\n", enterHit,
-              std::size(kEnterStyles), swapHit, std::size(kSwapStyles));
-
-  // --- every declared name round-trips through its parser -----------------------------
-  // The generalisation the two-point grep could not give. kEnterStyles and kSwapStyles were
-  // lists of strings and the motion code compared them one by one, so a name in the list
-  // with no branch reading it was invisible: the membership test passes, the style is just
-  // never used. That is exactly the "key the user can set that nothing reads" class.
+  // --- no dead members ----------------------------------------------------------------
+  // This used to count how many style-NAME literals the renderer compared against, and
+  // required at least one. After the unification that count is zero BY DESIGN: no branch
+  // compares a string any more, parse() resolves the name once and everything downstream
+  // reads an enum. A check that observes nothing is not a pass, so it is gone rather than
+  // weakened.
   //
-  // parseWsStyle closes it differently than the swap family does, and the difference is
-  // worth pinning. It RESOLVES rather than compares: name -> enum in one place, so a
-  // declared name with no reader is impossible by construction. The test is therefore the
-  // round trip -- parse(name) must produce an enum whose name() is name again. If a member
-  // is added to WsStyle without a spelling in wsStyleName, or a spelling is added to
-  // parseWsStyle that no member can carry, this goes red.
+  // What replaces it is the same question asked per dispatcher, which is where the old
+  // check was weakest: it asked whether a member was read ANYWHERE, so one file keeping a
+  // reference hid another file dropping one -- deleting the Fade branch from fx.cpp went
+  // green because clocks.cpp still mentioned Fade. Deleting a branch is exactly the bug.
+  //
+  // The rule is per file, and it is not uniform because the dispatchers are not uniform:
+  // fx.cpp renders all three travels, while the entry and the exit distinguish slide from
+  // fade and let pop BE the fall-through. A member the user can name, that the file which
+  // dispatches on it never tests, is a dead key with an enum member instead of a string.
+  struct Dispatcher {
+    const char *file;
+    const char *mustName[3];
+  };
+  const Dispatcher kDispatchers[] = {
+      // all three: a flight is drawn, not just positioned
+      {"src/render/fx.cpp", {"Slide", "Pop", "Fade"}},
+      // the entry and the exit separate slide from fade; pop is the scale-in below
+      {"src/clock/clocks.cpp", {"Slide", "Fade"}},
+      {"src/render/tile_view.cpp", {"Slide", "Fade"}},
+  };
+  int dead = 0;
+  for (const auto &d : kDispatchers) {
+    const auto src = slurp((root + "/" + d.file).c_str());
+    for (const char *m : d.mustName) {
+      if (!m)
+        break;
+      if (src.find(std::string("Travel::") + m) == std::string::npos) {
+        std::printf("FAIL: %s dispatches on travel but never tests %s -- a style the "
+                    "parser accepts and this renderer routes past\n", d.file, m);
+        ++dead;
+      }
+    }
+  }
+  if (dead)
+    std::exit(1);
+  std::puts("every dispatcher tests every travel it can be asked to distinguish");
+
+  // --- every canonical name round-trips through its parser ---------------------------
+  // Two lists of strings and a motion code that compared them one by one is what let a
+  // name with no branch reading it sit there looking configured. parse() resolves a name to
+  // a Move in one place, so what is asserted is the round trip: moveName(parseMove(name))
+  // must be name again. A member with no spelling goes red, and a spelling with no member
+  // goes red -- the two can no longer drift apart, which is the whole point of resolving
+  // once instead of comparing everywhere.
   {
+    // The round trip, over the canonical spellings. It used to be over style NAMES, and the
+    // axis rode along inside the same string -- "slidevert" was one name meaning "slide on
+    // the vertical axis" -- so parse(slidevert) could not produce an enum whose name() was
+    // "slidevert" again, because there was no such member. That gap is where the dead
+    // `fade` lived. The axis is part of the spelling now, and a trace record parses back.
     int roundTripped = 0;
-    for (const char *name : kEnterStyles) {
-      const WsStyle s = parseWsStyle(name);
-      if (std::strcmp(wsStyleName(s), name) != 0) {
-        std::printf("FAIL \"%s\" parses to %s and back, not itself\n", name,
-                    wsStyleName(s));
+    for (const char *name : kMoveNames) {
+      const std::string back = moveName(parseMove(name));
+      if (back != name) {
+        std::printf("FAIL \"%s\" parses to %s and back, not itself\n", name, back.c_str());
         std::exit(1);
       }
       ++roundTripped;
     }
-    // Only the enter family round-trips: its enum lives here, in a header a test can
-    // include. The swap parser is parseSwapStyle in overview.hpp, which drags in hyprland/
-    // and cannot be linked -- so that family stays on the `reach` count above, which
-    // proves the same thing the other way (each name is compared somewhere).
-    assert(roundTripped == static_cast<int>(std::size(kEnterStyles)));
-    std::printf("%d enter style name(s) round-trip through parseWsStyle\n", roundTripped);
+    assert(roundTripped == static_cast<int>(std::size(kMoveNames)));
+    std::printf("%d canonical name(s) round-trip through parseMove/moveName\n",
+                roundTripped);
+
+    // The short spellings resolve INTO the canonical set rather than beside it. Two names
+    // for one thing is how "horizontal" and "slide" came to mean the same motion while
+    // reading as different vocabularies.
+    assert(moveName(parseMove("slidevert")) == "slide-vertical");
+    assert(moveName(parseMove("slide")) == "slide-horizontal");
+    assert(moveName(parseMove("horizontal")) == "slide-horizontal");
+    std::puts("short spellings resolve into the canonical set");
 
     // A name outside the family must land on the kRows default (anim.cpp:40-41), not on
-    // whatever the last branch happened to return. "horizontal" is the swap spelling.
-    assert(parseWsStyle("horizontal") == WsStyle::Slide);
-    assert(parseWsStyle("") == WsStyle::Slide);
-    assert(parseWsStyle("Slide") == WsStyle::Slide);
+    // whatever the last branch happened to return. "horizontal" is the swap spelling and
+    // has always fallen through to the default slide.
+    assert(parseMove("horizontal").travel == Travel::Slide);
+    assert(parseMove("").travel == Travel::Slide);
+    assert(parseMove("Slide").travel == Travel::Slide);
     std::puts("a name outside the family falls back to the kRows default");
   }
 
-  // The slide/pop split is the whole shape of ws_enter's branch (clocks.cpp:145): slides
-  // return early, pop falls through to the scale-in. If WsStyle grows a member that
-  // answers "slides", it has to be a deliberate choice, so the set is asserted here
-  // rather than left to the ternary in anim_types.hpp.
-  assert(wsStyleSlides(WsStyle::Slide));
-  assert(wsStyleSlides(WsStyle::SlideVert));
-  assert(wsStyleSlides(WsStyle::Fade));
-  assert(!wsStyleSlides(WsStyle::Pop));
-  std::puts("pop is the only ws_enter style that scales instead of sliding");
+  // The three branches at clocks.cpp:145, and every one of them is reachable. Fade used to
+  // be in the sliding set, which is exactly how it became a dead key: with a slide
+  // direction it travelled sideways, and without one it fell through to the pop scale-in.
+  // A travel with no branch is not a setting, so each is asserted against the reader.
+  {
+    assert(Move{Travel::Slide, Axis::Horizontal}.slides());
+    assert(Move{Travel::Slide, Axis::Vertical}.slides());
+    assert(!Move{Travel::Fade, Axis::Horizontal}.slides());
+    assert(!Move{Travel::Pop, Axis::Horizontal}.slides());
+
+    // slidevert is slide on the vertical axis, said the long way round -- and it must keep
+    // meaning that, because it is a spelling users have in their configs.
+    const auto sv = parseMove("slidevert");
+    assert(sv.travel == Travel::Slide && sv.axis == Axis::Vertical);
+    assert(parseMove("slide") == Move{Travel::Slide, Axis::Horizontal});
+    assert(parseMove("fade") == Move{Travel::Fade, Axis::Horizontal});
+    assert(parseMove("pop") == Move{Travel::Pop, Axis::Horizontal});
+
+    // Spring is deliberately not a member: it has no duration to sit in the same _ms
+    // scale as the others, so accepting the spelling would promise something the code
+    // does not do. Asserted so that adding it is a deliberate act, not a parser branch.
+    assert(parseMove("spring") == Move{Travel::Slide, Axis::Horizontal});
+    std::puts("slide, pop and fade each have a branch; slidevert is slide-vertical");
+  }
 
   // Reading these numbers: "horizontal" sits at 3/4 on purpose. parseSwapStyle ends in
   // ": SwapStyle::Horizontal" -- it is the branch that catches everything unrecognised,
@@ -193,14 +203,17 @@ int main(int argc, char **argv) {
     const auto body = actionsSrc.substr(
         start, end == std::string::npos ? std::string::npos : end - start);
 
-    // The style must be READ (a style accessor or parseSwapStyle appears), and the
+    // The style must be READ (a style accessor or parseMove appears), and the
     // flight must be started unconditionally within this function.
     assert(body.find("beginSwapFX") != std::string::npos);
-    assert(body.find("parseSwapStyle") != std::string::npos);
+    assert(body.find("parseMove") != std::string::npos);
     // A bare `if (... style ... != Horizontal)` guard is the bug: it makes one style
-    // a spelling for "no flight". Reject the comparison outright.
-    assert(body.find("!= model::SwapStyle::Horizontal") == std::string::npos);
+    // a spelling for "no flight". Reject the comparison outright -- and note that the
+    // guard could not be written the old way any more, because there is no style whose
+    // name is "Horizontal" any more: the axis is not a travel, and a branch can only
+    // skip a travel it names.
     assert(body.find("!= model::SwapStyle") == std::string::npos);
+    assert(body.find("model::SwapStyle") == std::string::npos);
     std::puts("every swap style reaches beginSwapFX; none is a no-flight spelling");
   }
 

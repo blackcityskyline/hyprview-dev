@@ -110,23 +110,14 @@ inline constexpr double kParamDefaults[kParamCount] = {0.08, 0.015, 0.5, 0.10,
 // branch, and forgetting one left a value accepted by the config and silently ignored by
 // the motion that read it. A test cannot check a set it cannot see, so it is declared.
 //
-// Enter styles (ws_enter_style / ws_exit_style) drive the workspace slide.
+// One vocabulary, for ws_enter_style, ws_exit_style, grid_swap_style and strip_swap_style.
+// `horizontal` is the swap key's default spelling and now resolves to slide-horizontal,
+// which is what it always did -- parseMove fell through to it and the fall-through
+// happened to be right. It is kept because it is in every existing config.
 inline constexpr const char *const kEnterStyles[] = {"slide", "slidevert", "fade", "pop"};
-
-// Swap styles (grid_swap_style / strip_swap_style) drive the exchange flight, and mirror
-// model::SwapStyle one-for-one. jump_style is separate: it adds "instant".
-inline constexpr const char *const kSwapStyles[] = {"horizontal", "slidevert", "fade",
-                                                    "pop"};
 
 [[nodiscard]] constexpr bool isEnterStyle(std::string_view s) {
   for (const char *k : kEnterStyles)
-    if (s == k)
-      return true;
-  return false;
-}
-
-[[nodiscard]] constexpr bool isSwapStyle(std::string_view s) {
-  for (const char *k : kSwapStyles)
     if (s == k)
       return true;
   return false;
@@ -154,30 +145,75 @@ inline constexpr const char *const kSwapStyles[] = {"horizontal", "slidevert", "
 // Unknown names resolve to Slide, which is the kRows default for both keys
 // (anim.cpp:40-41) and the value the README documents. Before, a typo matched no branch
 // and silently took pop's path; that was an accident of branch order, not a policy.
-enum class WsStyle : int { Slide, SlideVert, Fade, Pop };
+//
+// What a card does on its way from A to B. One vocabulary, because there was only ever
+// one question.
+//
+// It was two enums with the same four members under different names -- WsStyle{Slide,
+// SlideVert, Fade, Pop} for a workspace enter and SwapStyle{Horizontal, SlideVert, Fade,
+// Pop} for a swap -- and the duplication had already cost a dead key: `fade` was in both
+// vocabularies and NEITHER branch drew it. ws_enter_style = fade slid when a slide
+// direction existed and popped when it did not. A name in a list that no branch honours
+// is worse than an absent one, because it reads as a setting.
+//
+// Spring is deliberately NOT a member. It is not a duration -- it is stiffness and
+// damping, and it has no end -- so it cannot live in the same `_ms` scale as the other
+// three without lying about what it is. docs/ROADMAP.md carries it as future work.
+enum class Travel : int { Slide, Pop, Fade };
 
-[[nodiscard]] constexpr WsStyle parseWsStyle(std::string_view s) {
-  return s == "slidevert" ? WsStyle::SlideVert
-       : s == "fade"     ? WsStyle::Fade
-       : s == "pop"      ? WsStyle::Pop
-                          : WsStyle::Slide;
+// Which way a Slide travels. `slidevert` and `horizontal` are the MANUAL spellings: they
+// name an axis, not a travel, which is why they read as a style and are not one.
+enum class Axis : int { Horizontal, Vertical };
+
+struct Move {
+  Travel travel = Travel::Slide;
+  Axis   axis   = Axis::Horizontal;
+
+  [[nodiscard]] constexpr bool slides() const { return travel == Travel::Slide; }
+
+  [[nodiscard]] constexpr bool equal(const Move &o) const {
+    return travel == o.travel && axis == o.axis;
+  }
+  friend constexpr bool operator==(const Move &, const Move &) = default;
+};
+
+// `slidevert` and `horizontal` are the SHORT spellings of slide-vertical and
+// slide-horizontal, and both keep working: they are in existing configs. `slide-vertical`
+// is the canonical one and is what moveName emits, so a trace record parses back.
+[[nodiscard]] constexpr Move parseMove(std::string_view s) {
+  if (s == "fade")
+    return Move{Travel::Fade, Axis::Horizontal};
+  if (s == "pop")
+    return Move{Travel::Pop, Axis::Horizontal};
+  const bool vert = s == "slidevert" || s == "slide-vertical";
+  return Move{Travel::Slide, vert ? Axis::Vertical : Axis::Horizontal};
 }
 
-// For the trace line in painter.cpp and for the test's round-trip check: the enum has to
-// be able to say its own name, or "every declared name parses" is not checkable.
-[[nodiscard]] constexpr const char *wsStyleName(WsStyle s) {
-  return s == WsStyle::SlideVert ? "slidevert"
-       : s == WsStyle::Fade     ? "fade"
-       : s == WsStyle::Pop      ? "pop"
-                                : "slide";
+// The canonical spellings: what parseMove emits and moveName reads back. The aliases above
+// resolve into these, which is what keeps a user's config working without keeping two
+// names for one thing.
+inline constexpr const char *const kMoveNames[] = {"slide-horizontal", "slide-vertical",
+                                                   "fade", "pop"};
+
+// For the trace line and for the round-trip check: the enum has to be able to say its own
+// name, or "every declared name parses" is not checkable.
+[[nodiscard]] constexpr const char *travelName(Travel t) {
+  return t == Travel::Fade ? "fade" : t == Travel::Pop ? "pop" : "slide";
 }
 
-// Styles that carry the tile in on a slide rather than scaling it in. ws_enter_style's
-// branch at clocks.cpp:145 returns early for these and falls through to the pop scale for
-// everything else, so this set IS that early return -- listing it next to the enum keeps
-// the two from drifting.
-[[nodiscard]] constexpr bool wsStyleSlides(WsStyle s) {
-  return s != WsStyle::Pop;
+[[nodiscard]] constexpr const char *axisName(Axis a) {
+  return a == Axis::Vertical ? "vertical" : "horizontal";
+}
+
+// What a trace record says about a move, in a spelling parseMove reads back.
+//
+// The axis is only spelled out for a Slide, where it is half the decision. A dash, not a
+// space or a slash: the grammar is key=value with no spaces and '|' as the field
+// separator. Round-tripping through parseMove is the point -- a record nobody can feed
+// back in is a record nobody can query.
+[[nodiscard]] inline std::string moveName(const Move &m) {
+  return m.slides() ? std::string(travelName(m.travel)) + "-" + axisName(m.axis)
+                    : std::string(travelName(m.travel));
 }
 
 // The entry stagger, as pure arithmetic.

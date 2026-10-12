@@ -6,6 +6,7 @@
 
 #include <hyprland/src/desktop/DesktopTypes.hpp>
 
+#include "../anim_types.hpp"
 #include "../clock/clocks.hpp"
 #include "../layout.hpp"
 #include "drag.hpp"
@@ -58,7 +59,10 @@ struct WinPulse {
 // FSM itself stays free of hyprland/ and reachable from tests/drag_check.cpp.
 using Drag = DragT<PHLWINDOWREF>;
 
-enum class SwapStyle : int { Horizontal, SlideVert, Fade, Pop };
+// The movement a flight plays. Same type as the workspace enter: they were two enums
+// with the same members under different names, which is how `fade` ended up in both
+// vocabularies and in neither branch.
+using Move = anim::Move;
 
 #include <chrono>
 
@@ -70,7 +74,7 @@ struct SwapFX {
   // live flights, one per surface, because the two are not the same gesture: the one the
   // user dragged leaves the cursor, the other slides from where it already was.
   bool        toStrip = false;
-  SwapStyle style = SwapStyle::Horizontal;
+  Move        style{};
   double ms = 320;
   std::string curve = "easeinout";
   anim::Tween clock;

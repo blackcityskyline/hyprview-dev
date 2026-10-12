@@ -583,7 +583,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             }
           }
           beginSwapFX(w, fromBox,
-                      parseSwapStyle(anim::stripSwapStyle()),
+                      anim::parseMove(anim::stripSwapStyle()),
                       anim::cfg(anim::Id::SwapFly).ms, anim::cfg(anim::Id::SwapFly).curve);
           // beginSwapFX may reuse a slot: force `from` on the entry it just pushed.
           m_fx.retargetLastSwap(fromBox);
@@ -649,7 +649,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         debug::trace::dragBranch("StripWin->flyback");
         if (auto *home = homeStripCardFor(w))
           switchToWorkspace(*home);
-        beginSwapFX(w, fromBox, model::SwapStyle::Horizontal,
+        beginSwapFX(w, fromBox, anim::Move{anim::Travel::Slide, anim::Axis::Horizontal},
                     anim::cfg(anim::Id::SwapFly).ms, anim::cfg(anim::Id::SwapFly).curve);
       }
       damage();

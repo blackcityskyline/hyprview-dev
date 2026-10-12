@@ -142,17 +142,27 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
   const double ap = entryNow(t, i);
   if (ap >= 1.0)
     return r;
-  if (m_view.wsSlideDir() != 0 && anim::wsStyleSlides(m_enterStyle)) {
-    if (const auto m = m_monitor.lock()) {
-      if (m_enterStyle == anim::WsStyle::Slide)
-        r.x += static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * (1.0 - ap);
-      else if (m_enterStyle == anim::WsStyle::SlideVert)
-        r.y -= static_cast<double>(m->m_size.y) * (1.0 - ap);
+  // Three branches, and all three are reachable now. Fade used to sit in wsStyleSlides(),
+  // which is what made it a dead key: a fade WITH a slide direction travelled sideways,
+  // and a fade WITHOUT one fell through to the pop scale-in below. A style that no
+  // branch honours is not a setting.
+  if (m_enterStyle.travel == anim::Travel::Slide) {
+    // A slide needs somewhere to come from. Without a direction there is no edge to enter
+    // from, so the tile is already where it belongs and only its scale-in is missing --
+    // which is the fall-through below, not a silent no-op.
+    if (m_view.wsSlideDir() != 0) {
+      if (const auto m = m_monitor.lock()) {
+        if (m_enterStyle.axis == anim::Axis::Horizontal)
+          r.x += static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * (1.0 - ap);
+        else
+          r.y -= static_cast<double>(m->m_size.y) * (1.0 - ap);
+      }
+      return r;
     }
-    return r;
+  } else if (m_enterStyle.travel == anim::Travel::Fade) {
+    return r; // alpha only -- entryFade() below reads the same clock for it
   }
-  // How small a tile is at the start of its scale-in, from anim::param so a user can
-  // deepen or flatten the pop. The 0.15 was a literal here and meant to be tuned.
+  // Pop, and a slide with no direction: the scale-in.
   const double k = 1.0 - anim::param(anim::Param::PopScale) * (1.0 - ap);
   const double cx = r.x + r.w / 2.0, cy = r.y + r.h / 2.0;
   return LRect{cx - r.w * k / 2.0, cy - r.h * k / 2.0, r.w * k, r.h * k};
@@ -163,8 +173,8 @@ void Overview::updateAnimation() {
   m_entry      = anim::cfg(entryLeaf());
   m_ghost      = anim::cfg(ghostLeaf());
   m_lift       = anim::cfg(anim::Id::Lift);
-  m_enterStyle = anim::parseWsStyle(anim::style("ws_enter"));
-  m_exitStyle  = anim::parseWsStyle(anim::style("ws_exit"));
+  m_enterStyle = anim::parseMove(anim::style("ws_enter"));
+  m_exitStyle  = anim::parseMove(anim::style("ws_exit"));
 
   const double dur = animDuration();
   // stall guard: rewind every clock past a render hole

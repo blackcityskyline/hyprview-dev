@@ -203,7 +203,7 @@ void Overview::primeBackdrop() {
       debug::trace::life(
           "open",
           "dir=" + std::to_string(m_view.wsSlideDir()) + "|style=" +
-              std::to_string(static_cast<int>(m_enterStyle)) + "|landed0=" +
+              moveName(m_enterStyle) + "|landed0=" +
               std::to_string(t0.landed) + "|tiles=" +
               std::to_string(m_scene.tiles().size()) + "|allws=" +
               std::to_string(showAllWorkspaces() ? 1 : 0) + "|run=" +

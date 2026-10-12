@@ -558,18 +558,8 @@ void Overview::swapTiles(int a, int b, const LRect &fromA) {
 
 // RMB on a strip card swaps `w` with that workspace's last-focused window.
 
-static const char *swapStyleName(model::SwapStyle s) {
-  switch (s) {
-  case model::SwapStyle::SlideVert: return "slidevert";
-  case model::SwapStyle::Fade: return "fade";
-  case model::SwapStyle::Pop: return "pop";
-  case model::SwapStyle::Horizontal: break;
-  }
-  return "horizontal";
-}
-
 void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
-                           model::SwapStyle style, double ms,
+                           anim::Move style, double ms,
                            const std::string &curve, bool toStrip) {
   if (!w || !w->m_isMapped || w->isHidden())
     return;
@@ -597,11 +587,12 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
     const auto dests = swapDests(w, toStrip);
     if (dests.empty())
       debug::trace::animReject("swap", toStrip ? "no-strip-slot" : "no-tile");
-    else
-      debug::trace::animBegin(fx.traceSeq, "swap", curve.c_str(),
-                              swapStyleName(style), ms, curve.c_str(),
-                              w->m_class.c_str(), toStrip ? "strip" : "grid", from,
-                              dests.front());
+    else {
+      const std::string mv = anim::moveName(style);
+      debug::trace::animBegin(fx.traceSeq, "swap", curve.c_str(), mv.c_str(), ms,
+                              curve.c_str(), w->m_class.c_str(),
+                              toStrip ? "strip" : "grid", from, dests.front());
+    }
   }
 
   m_fx.addSwap(std::move(fx));
@@ -632,7 +623,7 @@ void Overview::landAfterMove(const PHLWINDOW &w, const LRect &oldBox,
   if (!strip)
     m_scene.pinNatural(w.get(), oldBox);
   beginSwapFX(w, oldBox,
-              parseSwapStyle(strip ? anim::stripSwapStyle()
+              anim::parseMove(strip ? anim::stripSwapStyle()
                                    : anim::gridSwapStyle()),
               ms, curve, strip);
 }
@@ -937,7 +928,7 @@ void Overview::closeTileWindow(int i) {
   // to sendClose, and five entry points to one behaviour was four ways to forget it again.
   const LRect from = m_drag.lifted() ? m_lastDragBox : tileRect(i);
   w->sendClose();
-  beginSwapFX(w, from, model::SwapStyle::Horizontal,
+  beginSwapFX(w, from, anim::Move{anim::Travel::Slide, anim::Axis::Horizontal},
               anim::cfg(anim::Id::SwapFly).ms, anim::cfg(anim::Id::SwapFly).curve);
   ensureAnimPump();
   damage();

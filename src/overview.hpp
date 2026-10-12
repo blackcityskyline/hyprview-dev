@@ -50,13 +50,6 @@ class CEventLoopTimer;
 
 namespace gloview {
 
-inline model::SwapStyle parseSwapStyle(const std::string &s) {
-  return s == "slidevert"  ? model::SwapStyle::SlideVert
-       : s == "fade"      ? model::SwapStyle::Fade
-       : s == "pop"       ? model::SwapStyle::Pop
-                          : model::SwapStyle::Horizontal;
-}
-
 // Mission Control-style overview: a workspace strip over live window previews,
 // drawn compositor-side while the real windows are hidden.
 class Overview {
@@ -218,7 +211,7 @@ private:
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
   anim::Cfg m_glide, m_entry, m_ghost, m_lift;
-  anim::WsStyle m_enterStyle = anim::WsStyle::Slide, m_exitStyle = anim::WsStyle::Slide;
+  anim::Move m_enterStyle{anim::Travel::Slide, anim::Axis::Horizontal}, m_exitStyle{anim::Travel::Slide, anim::Axis::Horizontal};
   bool animBusy() const;
   // Clocks that outlive the master: the pump must name every clock or the next one
   // added never arms it.
@@ -272,7 +265,7 @@ private:
   std::vector<ForcedRegion> m_forcedRegions;
   void kickPulse(const PHLWINDOW &w);
   void beginSwapFX(const PHLWINDOW &w, const LRect &from,
-                   model::SwapStyle style, double ms, const std::string &curve,
+                   anim::Move style, double ms, const std::string &curve,
                    bool toStrip = false);
   void landAfterMove(const PHLWINDOW &w, const LRect &oldBox, double ms,
                      const std::string &curve, bool strip);

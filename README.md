@@ -208,11 +208,21 @@ Style keys:
 
 | Key | values | default |
 |---|---|---|
-| `ws_enter_style` | `pop` \| `slide` \| `slidevert` \| `fade` | `slide` |
-| `ws_exit_style` | `slide` \| `slidevert` \| `fade` | `slide` |
-| `grid_swap_style` | `horizontal` \| `slidevert` \| `fade` \| `pop` | `horizontal` |
-| `strip_swap_style` | same set | `horizontal` |
-| `jump_style` | `instant` \| `horizontal` \| `slidevert` \| `fade` \| `pop` | `instant` |
+| `ws_enter_style` | `slide` \| `pop` \| `fade` | `slide` |
+| `ws_exit_style` | `slide` \| `pop` \| `fade` | `slide` |
+| `grid_swap_style` | `slide` \| `pop` \| `fade` | `slide` |
+| `strip_swap_style` | same set | `slide` |
+| `jump_style` | `instant` \| same set | `instant` |
+
+`slide` travels along the horizontal axis. Two more spellings select the vertical one:
+`slidevert`, which is what these keys have always accepted, and `slide-vertical`, which is
+what an `ANIM|` trace record carries and the only one that round-trips. `horizontal` is
+still accepted — it was the default of the two swap keys — and means `slide` on the
+horizontal axis.
+
+`fade` is alpha only, with no movement. It used to be a dead key: it was counted as a
+*sliding* style, so `ws_enter_style = fade` travelled sideways on a workspace change and
+scaled in on everything else. All three of `slide`, `pop` and `fade` now have a branch.
 
 **Custom curves (Lua).** Register a named curve once (e.g. next to the config
 in `plugins/gloview.lua`) — either as a function or as a cubic bezier:

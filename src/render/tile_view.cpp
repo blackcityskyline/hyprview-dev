@@ -80,7 +80,11 @@ double Overview::entryFade(size_t i) const {
   // (AGENTS.md), so every tile that does go home stays at full alpha and flies.
   if (!opening() && anim::tileExit(tileGoesHome(t)) == anim::TileExit::InPlace)
     return eased();
-  if (t.landed >= 1.0 || m_view.wsSlideDir() == 0 || m_enterStyle != anim::WsStyle::Fade)
+  // A fade is alpha only, and it fades whenever the tile is playing its entry. The
+  // `wsSlideDir() == 0` guard used to be here because fade was counted as a sliding
+  // style, so it only ever faded on a workspace CHANGE and not on a drop or a rebuild --
+  // which is most of the entries there are.
+  if (t.landed >= 1.0 || m_enterStyle.travel != anim::Travel::Fade)
     return 1.0;
   return entryProgress(static_cast<int>(i));
 }
@@ -292,11 +296,15 @@ void Overview::renderGhosts() const {
                     g.box.w * k, g.box.h * k};
     LRect slidBox = box;
     float gAlpha = static_cast<float>((1.0 - eOut) * 0.85);
-    if (m_view.wsSlideDir() != 0 && m_exitStyle == anim::WsStyle::Slide) {
+    // Same three branches as the entry, and the same order: a slide moves the box, a fade
+  // leaves it alone and lets gAlpha below do the work, and a pop scales it. Checking a
+  // style by equality against each member is what let `fade` reach none of them.
+  if (m_exitStyle.travel == anim::Travel::Slide && m_view.wsSlideDir() != 0) {
+    if (m_exitStyle.axis == anim::Axis::Horizontal)
       slidBox.x -= static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * eOut;
-    } else if (m_view.wsSlideDir() != 0 && m_exitStyle == anim::WsStyle::SlideVert) {
+    else
       slidBox.y -= static_cast<double>(m_view.wsSlideDir()) * m->m_size.y * eOut;
-    }
+  }
     const CBox px = pxb(slidBox, scale);
     renderWindowLive(w, m, px, px, gAlpha, when,
                      contentRadiusPx(cfg::look.preview_round,

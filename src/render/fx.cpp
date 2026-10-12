@@ -314,7 +314,13 @@ void Overview::renderSwapFX() const {
     // owns rings: it is gated by pulse_enabled, it has PulseScale, and it measures the
     // tile's real box, which is not what is animating.
 
-    if (fx.style == model::SwapStyle::SlideVert) {
+    // One travel, two shapes. `Slide` on the horizontal axis lerps every edge; `Slide` on the
+    // vertical axis arcs the card up and down instead, which is what "slidevert" has
+    // always meant in a swap and is NOT a slide on Y -- the name said it was, the code
+    // never did. The arc carries the landing the drop asks for, so it stays hardcoded
+    // with speed as its only knob rather than becoming a fourth style.
+    if (fx.style.travel == anim::Travel::Slide &&
+        fx.style.axis == anim::Axis::Vertical) {
       const double LIFT = cfg::look.swap_lift;
       if (t < 0.5) {
         const double q = curves::eval(fx.curve, t / 0.5);
@@ -330,7 +336,7 @@ void Overview::renderSwapFX() const {
         bh = to.h;
         alpha = static_cast<float>(std::min(1.0, q * 2.0));
       }
-    } else if (fx.style == model::SwapStyle::Fade) {
+    } else if (fx.style.travel == anim::Travel::Fade) {
       if (t < 0.5) {
         bx = fx.from.x; by = fx.from.y; bw = fx.from.w; bh = fx.from.h;
         alpha = static_cast<float>(1.0 - t / 0.5);
@@ -338,7 +344,7 @@ void Overview::renderSwapFX() const {
         bx = to.x; by = to.y; bw = to.w; bh = to.h;
         alpha = static_cast<float>((t - 0.5) / 0.5);
       }
-    } else if (fx.style == model::SwapStyle::Pop) {
+    } else if (fx.style.travel == anim::Travel::Pop) {
       if (t < 0.3) {
         bx = fx.from.x; by = fx.from.y; bw = fx.from.w; bh = fx.from.h;
         alpha = static_cast<float>(1.0 - t / 0.3);

@@ -279,7 +279,7 @@ void Overview::open() {
   m_clocks.master.begin();
   debug::trace::animStart("master", "master", "", m_glide.ms, m_glide.curve.c_str());
   m_clocks.tiles.begin();
-  debug::trace::animStart("open", "glide", m_enterStyle == anim::WsStyle::Pop ? "pop" : "slide", m_glide.ms, m_glide.curve.c_str());
+  debug::trace::animStart("open", "glide", m_enterStyle.travel == anim::Travel::Pop ? "pop" : "slide", m_glide.ms, m_glide.curve.c_str());
   m_lastAnimTick = {};
   // hideLayers() is deliberately NOT called here: it runs at promotion instead. Fading the
   // layers now would leave the desktop bare on frames where the overview draws nothing.
