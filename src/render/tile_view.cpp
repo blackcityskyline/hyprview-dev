@@ -220,14 +220,20 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                         ? m_pixel.fixedLabel(pixel::Slot::CarouselCount, countText,
                                              cfg::colors.label.get(1.0), 15)
                         : SP<Render::ITexture>{};
-    const bool hasSprout = countTex && countTex->m_size.x > 0;
-    const double countW = hasSprout ? countTex->m_size.x : 0.0;
-    const double countH = hasSprout ? countTex->m_size.y : 0.0;
+    const bool hasCounter = countTex && countTex->m_size.x > 0;
+    const double countW = hasCounter ? countTex->m_size.x : 0.0;
+    const double countH = hasCounter ? countTex->m_size.y : 0.0;
     const double pw   = lw + 2 * padX;
     const double ph   = lh + 2 * padY;
-    // The sprout hangs below, so the clamp that keeps the caption on screen has to reserve
-    // its height too -- otherwise a card near the bottom shoves the number off the panel.
-    const double sproutH = hasSprout ? countH + 2 * padY : 0.0;
+    // The stem's SIZE does not depend on where the pill sits, so it is solved against a
+    // placeholder here: the vertical clamp below has to reserve its height, and it runs
+    // before px/py are known. Solving it once, in geometry, is what keeps the "is there
+    // room for a stem at all" answer in one place instead of twice.
+    const LRect stemSize =
+        render::captionSprout(LRect{0.0, 0.0, pw, ph}, countW, countH, padX, padY);
+    // The stem hangs below, so the clamp that keeps the caption on screen has to reserve its
+    // height too -- otherwise a card near the bottom shoves the number off the panel.
+    const double sproutH = stemSize.h;
     const double px   = std::clamp(box.cx() - pw / 2.0, 6.0, m->m_size.x - pw - 6.0);
     const double py   = std::min(box.y + box.h + cfg::look.title_gap,
                      m->m_size.y - ph - sproutH - cfg::look.title_margin);
@@ -235,25 +241,34 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // clamp above, and deliberately unclamped itself: the clamp exists to keep the caption on
     // screen while the card is laid out, while the push is what shoves the pill clear. With
     // the clamp applied last the pill travelled to the screen edge, stopped there and just
-    // faded (measured on exit). Pushed as ONE box: pill + sprout are one object and a
-    // preview that reaches either has to move both.
+    // faded (measured on exit). Pushed as ONE box: pill + stem are one object and a preview
+    // that reaches either has to move both.
     const LRect pill{px, py, pw, ph};
-    // captionSprout already answers an empty rect for a zero-size text, so a null texture
-    // needs no branch here.
-    const LRect sprout = render::captionSprout(pill, countW, countH, padX, padY);
+    const LRect sprout{stemSize.x + px, py + ph, stemSize.w, stemSize.h};
     const Vector2D push = pushOut(render::captionBody(pill, sprout));
     const double ux = px + push.x;
     const double uy = py + push.y;
-    if (hasSprout) {
+    if (stemSize.w > 0.0) {
       const LRect sAt{sprout.x + push.x, sprout.y + push.y, sprout.w, sprout.h};
-      // Round == half the height is a true capsule, but only at Hyprland's DEFAULT
-      // roundingPower of 2 (OpenGL.hpp:153). The corner cut is distanceWithRounding
-      // (src/render/shaders/glsl/rounding.glsl:7) -- the p-norm of the offset from the
-      // corner centre -- and p = 1 is the manhattan metric, which cuts a diamond, not an
-      // arc. That is what the sprout rendered as before this line changed.
-      safeRenderRect("tile", pxb(CBox(sAt.x, sAt.y, sAt.w, sAt.h), s),
-                              cfg::colors.carousel_count_pill.get(e * f),
-                              {.round = pxr(render::captionSproutRound(sAt.h, sAt.w), s)});
+      const double sr = render::captionSproutRound(sAt.h, sAt.w);
+      // The shoulder: a square bridge running UP under the pill, drawn OPAQUE. The pill then
+      // blends over it, and one colour under its own alpha comes back as exactly that
+      // colour -- so the join has neither a seam nor a gap. It cannot show: the pill's flat
+      // bottom covers it, and the stem is narrower than that flat span by construction.
+      //
+      // This is what a rounded top edge cannot do. Hyprland rounds all four corners with one
+      // radius, so a rounded stem top cut a wedge of backdrop out of BOTH corners of the
+      // join -- the stem's own corners, exactly where the eye checks whether the two are
+      // one piece. Half the height would additionally make it a capsule again, and only at
+      // Hyprland's DEFAULT roundingPower of 2 (OpenGL.hpp:153) is that a true capsule: the
+      // cut is distanceWithRounding (src/render/shaders/glsl/rounding.glsl:7), the p-norm
+      // of the offset from the corner centre, and p = 1 is the manhattan metric, which
+      // cuts a diamond rather than an arc.
+      safeRenderRect("tile", pxb(CBox(sAt.x, sAt.y - sr, sAt.w, sr), s), cfg::colors.carousel_count_pill.get(1.0),
+                              {.round = 0});
+      // The stem itself, soft at the bottom -- the only end that shows.
+      safeRenderRect("tile", pxb(CBox(sAt.x, sAt.y, sAt.w, sAt.h), s), cfg::colors.carousel_count_pill.get(e * f),
+                              {.round = pxr(sr, s)});
       g_pHyprOpenGL->renderTexture(
           countTex,
           pxb(LRect{sAt.x + (sAt.w - countW) / 2.0, sAt.y + padY, countW, countH}, s),

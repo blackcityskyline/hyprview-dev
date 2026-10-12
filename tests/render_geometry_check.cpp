@@ -206,12 +206,14 @@ int main() {
     assert(tight.w < 200.0 + 2 * padX);  // clamped down to what the pill can carry
     near(tight.cx(), narrow.cx(), "a clamped stem is still centred");
 
-    // A pill exactly as wide as it is tall has no flat bottom at all. The clamp must still
-    // hold there, and must not go negative or NaN.
+    // A pill exactly as wide as it is tall has no flat bottom at all. There is no stem to
+    // land on, so it must be NO stem -- and never a zero-width rect, which renderRect
+    // asserts on (OpenGL.cpp RASSERT(w > 0 && h > 0)).
     const LRect stubby{800.0, 900.0, 30.0, 30.0};
-    const LRect st = captionSprout(stubby, 40.0, 18.0, padX, padY);
-    assert(st.w <= std::max(0.0, stubby.w - stubby.h));
-    assert(!std::isnan(st.w));
+    sameRect(captionSprout(stubby, 40.0, 18.0, padX, padY), LRect{0.0, 0.0, 0.0, 0.0},
+             "no flat bottom, no stem");
+    sameRect(captionBody(stubby, captionSprout(stubby, 40.0, 18.0, padX, padY)), stubby,
+             "and the yield box is the pill alone");
 
     // Wider than tall the other way: a stubby pill on a huge padY, which is what a user
     // padding gets them. Same clamp, same reason.
@@ -219,9 +221,11 @@ int main() {
     const LRect tp = captionSprout(tallPad, 60.0, 18.0, padX, 40.0);
     assert(tp.w <= std::max(0.0, tallPad.w - tallPad.h));
 
-    // The radius never exceeds half of either side, or Hyprland rounds the shape inside out.
-    const double stRound = captionSproutRound(st.h, st.w);
-    assert(stRound <= st.w * 0.5 + kEps && stRound <= st.h * 0.5 + kEps);
+    // The radius never exceeds half of either side, or Hyprland rounds the shape inside
+    // out -- and never 0, because the shoulder is a rect of this height.
+    const double wideRound = captionSproutRound(s.h, s.w);
+    assert(wideRound <= s.w * 0.5 + kEps && wideRound <= s.h * 0.5 + kEps);
+    assert(captionSproutRound(4.0, 2.0) >= 1.0);
 
     // The yield box. A zero rect is NOT neutral in a min/max union -- it anchors the box at
     // the origin, and a preview nowhere near the caption then reads as contact and shoves

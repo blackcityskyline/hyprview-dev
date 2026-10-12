@@ -73,15 +73,22 @@ enum class Corner {
     // and max(sh, pill.w - pill.h) let the sprout overshoot zero there -- the gap this
     // clamp exists to prevent, back again.
     const double flatBottom = std::max(0.0, pill.w - pill.h);
+    if (flatBottom <= 0.0)
+        return LRect{0.0, 0.0, 0.0, 0.0};  // no flat bottom to land on: no stem, and never
+                                             // a zero-width rect, which renderRect asserts on
     const double sw         = std::min(textW + 2.0 * padX, flatBottom);
     return LRect{pill.cx() - sw * 0.5, pill.y + pill.h, sw, sh};
 }
 
-// The sprout's corner radius: a stem, not a capsule. Half the height is what made it read
-// as a second pill; a quarter keeps the bottom soft and still lands the join on the pill's
-// flat edge, since the radius only ever cuts inward from there.
+// The stem's corner radius: the bottom only. Half the height would make it a capsule, and
+// a second oval wedged under a first is not an outgrowth. A quarter keeps the bottom soft
+// while the top stays square against the pill -- see the shoulder in the draw path.
+//
+// Floored at 1: the shoulder above the stem is a rect of this height, and a rounded rect
+// asserts on zero height (OpenGL.cpp renderRect RASSERT), so a stem narrower than its own
+// rounding would take the draw down with it.
 [[nodiscard]] inline double captionSproutRound(double sproutH, double sproutW) {
-    return std::min(std::min(sproutH * 0.25, sproutW * 0.5), sproutH * 0.5);
+    return std::max(1.0, std::min(std::min(sproutH * 0.25, sproutW * 0.5), sproutH * 0.5));
 }
 
 // The box a caption yields as: the pill and its stem are one object, so the yield has to
