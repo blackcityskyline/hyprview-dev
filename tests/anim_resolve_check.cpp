@@ -154,6 +154,24 @@ int main() {
   }
   std::puts("an empty or quoted-empty value normalises to CLEAR, never to zero");
 
+  // --- a switch reads its value, and asks registration separately ------------------
+  //
+  // cfg()'s two switches were both written `handle ? (handle != 0) : true`, but
+  // cfg::Int has operator int() -> its VALUE. So `pulse_enabled = 0` made the leaf
+  // report ENABLED and the pulse drew its ring from a config that had switched it off;
+  // the same shape on the master switch meant `animations_enabled = 0` also reported
+  // on. resolve() cannot see either -- it takes an already-resolved bool -- which is
+  // why the regression lived here and not below.
+  {
+    using gloview::anim::switchOn;
+    assert(switchOn(true, 0) == false);   // registered and explicitly off
+    assert(switchOn(true, 1) == true);
+    assert(switchOn(true, 2) == true);
+    assert(switchOn(false, 0) == true);   // never installed -> table default
+    assert(switchOn(false, 1) == true);
+  }
+  std::puts("a registered switch reads its value; registration is a separate question");
+
   std::puts("OK");
   return 0;
 }

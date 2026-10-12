@@ -99,11 +99,16 @@ Cfg cfg(const char *n) {
 
   Inputs in;
   const std::string k = r->name;
-  in.globalEnabled = g_globallyEnabled ? (g_globallyEnabled != 0) : true;
-  in.enabled       = !(r->enabled && r->enabled.get() == 0);
+  // `.v` is the HANDLE, so it answers "was this registered"; the handle itself converts
+  // to its VALUE, which is why both of these once read the number -- animations_enabled=0
+  // made the master switch report ENABLED, and pulse_enabled=0 made a disabled leaf
+  // report enabled, so the pulse drew its ring from a config that had switched it off.
+  // switchOn() keeps the two questions apart and is pinned by anim_resolve_check.
+  in.globalEnabled = switchOn(static_cast<bool>(g_globallyEnabled.v), g_globallyEnabled);
+  in.enabled       = switchOn(static_cast<bool>(r->enabled.v), r->enabled.get());
   in.hasMs         = static_cast<bool>(r->ms.v);
   in.ms            = in.hasMs ? r->ms.get() : 0;
-  in.speed         = r->speed ? static_cast<double>(r->speed.get()) : 1.0;
+  in.speed         = r->speed.v ? static_cast<double>(r->speed.get()) : 1.0;
   in.curve         = static_cast<bool>(r->curve.v) ? r->curve.get() : std::string();
   in.rule          = ruleFor(r->name);
 

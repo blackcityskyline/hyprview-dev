@@ -56,6 +56,17 @@ struct Inputs {
 // still has to tick, it just must not move anything.
 [[nodiscard]] Cfg resolve(const Inputs &in, int baseMs, const char *curveDefault);
 
+// Is a switch on, given that it was registered and what it reads.
+//
+// Two questions, and the handles cannot answer both: `registered` is whether the
+// handle exists at all, `value` is what it currently reads. Both callers used to ask
+// the value, so `pulse_enabled = 0` produced 0 -> falsey -> "not registered" -> on.
+// A disabled animation ran, and the trace showed its ring. Unregistered defaults to on,
+// which is what a table row that was never installed has always meant.
+[[nodiscard]] constexpr bool switchOn(bool registered, int value) {
+  return !registered || value != 0;
+}
+
 // SHAPE parameter resolution, same split as resolve() and for the same reason.
 //
 // A Param reads one float out of a config handle and falls back to the table default.
