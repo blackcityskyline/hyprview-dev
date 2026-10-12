@@ -195,6 +195,12 @@ add_test(NAME lifecycle
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/lifecycle_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/lifecycle_check && ${CMAKE_CURRENT_BINARY_DIR}/lifecycle_check")
 
+# The debug_trace family mask. A mask that selects nothing is indistinguishable from a
+# trace that was never switched on, so every bit is pinned individually.
+add_test(NAME trace_mask
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/trace_mask_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check && ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check")
+
 # The render geometry that computes boxes and draws nothing. Header-only and Hyprland-free,
 # so the same file the plugin compiles is the file the test compiles.
 add_test(NAME render_geometry

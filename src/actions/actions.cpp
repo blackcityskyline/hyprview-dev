@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <numeric>
+#include <sys/stat.h>
 #include <utility>
 
 #include <hyprland/src/desktop/history/WindowHistoryTracker.hpp>
@@ -348,6 +350,27 @@ std::string Overview::runCommand(const std::string &args) {
     std::string out = "TUNING|n=" + std::to_string(anim::tuningKeys().size());
     for (const auto &kv : anim::tuningKeys())
       out += "|" + kv;
+    debug::trace::emitState(out);
+    return "";
+  }
+
+  if (tok[0] == "trace") {
+    // Self-describing on purpose. "Where does the trace go" was a real question with a
+    // wrong answer that looked right: nothing is written to the Hyprland log, so a grep
+    // there returns empty and reads as "the plugin is silent" rather than "wrong path".
+    struct stat st;
+    std::string out = "TRACE|gate=" + std::to_string(cfg::debug.trace) +
+                      "|logs=" + std::to_string(cfg::debug.logs) + "|path=/tmp/gloview.log";
+    if (::stat("/tmp/gloview.log", &st) == 0)
+      out += "|bytes=" + std::to_string(static_cast<long long>(st.st_size));
+    for (const char *f : {"anim", "drag", "life", "scroll", "swap"}) {
+      const int bit = strcmp(f, "anim") == 0     ? debug::trace::fam::kAnim
+                      : strcmp(f, "drag") == 0   ? debug::trace::fam::kDrag
+                      : strcmp(f, "life") == 0   ? debug::trace::fam::kLife
+                      : strcmp(f, "scroll") == 0 ? debug::trace::fam::kScroll
+                                                 : debug::trace::fam::kSwap;
+      out += std::string("|") + f + "=" + (debug::trace::on(bit) ? "1" : "0");
+    }
     debug::trace::emitState(out);
     return "";
   }

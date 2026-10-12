@@ -1,6 +1,7 @@
 #include "log.hpp"
 
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 #include <hyprland/src/debug/log/Logger.hpp>
@@ -11,12 +12,59 @@ namespace gloview::debug {
 
 namespace {
 
+// Rotated on SIZE, not at session start. Truncating when the plugin loads throws away
+// exactly the log you want when something went wrong: the thing that failed is the
+// session you were reading. So the live file is trimmed only once it is too big, and the
+// previous generations are kept -- `gloview.log.1` is the session before the current one,
+// as long as the current one has not itself exceeded the cap.
+constexpr long kMaxBytes = 8L * 1024 * 1024;
+constexpr int  kKeep     = 3; // .1 .2 .3
+
+// Size is checked on a counter, not per line: ftell is a syscall and the frame log writes
+// one line per frame.
+constexpr int kCheckEvery = 2048;
+
+FILE *openRotated() {
+  // Shift the generations up, dropping the oldest.
+  for (int i = kKeep; i >= 1; --i) {
+    const std::string from = i == 1 ? "/tmp/gloview.log" : "/tmp/gloview.log." + std::to_string(i - 1);
+    if (::rename(from.c_str(), ("/tmp/gloview.log." + std::to_string(i)).c_str()) != 0 && i == 1)
+      return nullptr; // nothing to rotate yet
+  }
+  return fopen("/tmp/gloview.log", "w");
+}
+
+FILE *openSink() {
+  FILE *f = fopen("/tmp/gloview.log", "a");
+  if (!f)
+    return nullptr;
+  if (fseek(f, 0, SEEK_END) == 0 && ftell(f) > kMaxBytes) {
+    fclose(f);
+    f = openRotated();
+  }
+  return f;
+}
+
 // The trace and the frame log share the file handle: one place to tail, one
 // place to look after a crash. A trace run therefore needs no second path.
 FILE *sink() {
   static FILE *f = nullptr;
-  if (!f)
-    f = fopen("/tmp/gloview.log", "a");
+  static int since = 0;
+  if (!f) {
+    f = openSink();
+    since = 0;
+    if (!f)
+      return nullptr;
+  }
+  if (++since >= kCheckEvery) {
+    since = 0;
+    if (fseek(f, 0, SEEK_END) == 0 && ftell(f) > kMaxBytes) {
+      fclose(f);
+      f = openSink();
+      if (!f)
+        return nullptr;
+    }
+  }
   return f;
 }
 
@@ -63,18 +111,19 @@ void dbg(const std::string &msg) {
     return;
   if (Log::logger)
     Log::logger->log(Log::INFO, "[gloview] {}", msg);
-  static FILE *f = nullptr;
-  if (!f) {
-    f = fopen("/tmp/gloview.log", "a");
-    if (f) {
+  // The same handle emit() uses: two append handles on one path interleave, and rotation
+  // through one of them would leave the other writing into a file nobody is reading.
+  static bool banner = false;
+  FILE *f = sink();
+  if (f) {
+    if (!banner) {
+      banner = true;
       fprintf(f, "\n=== SESSION %s ===\n",
               getenv("HYPRLAND_INSTANCE_SIGNATURE")
                   ? getenv("HYPRLAND_INSTANCE_SIGNATURE")
                   : "?");
       fflush(f);
     }
-  }
-  if (f) {
     fprintf(f, "[gate=%d] %s\n", gate, msg.c_str());
     fflush(f);
   }
@@ -84,12 +133,27 @@ namespace trace {
 
 bool enabled() { return cfg::debug.trace != 0; }
 
+bool on(int bit) { return selects(cfg::debug.trace, bit); }
+
+namespace {
+// The record family IS the tag: record("DRAG", ...) and record("LIFE", ...) carry the
+// same string that selects the family, so the mapping is a lookup, not a second name.
+int famBit(const char *tag) {
+  if (std::strcmp(tag, "DRAG") == 0) return fam::kDrag;
+  if (std::strcmp(tag, "LIFE") == 0) return fam::kLife;
+  if (std::strcmp(tag, "SCROLL") == 0) return fam::kScroll;
+  if (std::strcmp(tag, "SWAP") == 0) return fam::kSwap;
+  return fam::kAll; // an unrecognised tag is never suppressed: a record nobody reads is
+                    // exactly the one worth seeing
+}
+} // namespace
+
 int nextSeq() { return enabled() ? ++g_seq : 0; }
 
 void animBegin(int seq, const char *op, const char *leaf, const char *style,
                double ms, const char *curve, const char *win, const char *surface,
                const LRect &from, const LRect &to) {
-  if (!enabled() || seq == 0)
+  if (!on(fam::kAnim) || seq == 0)
     return;
   emit("ANIM|begin|seq=" + std::to_string(seq) + "|op=" + tok(op) + "|leaf=" +
        tok(leaf) + "|style=" + tok(style) + "|ms=" +
@@ -99,7 +163,7 @@ void animBegin(int seq, const char *op, const char *leaf, const char *style,
 }
 
 void animEnd(int seq, double measuredMs) {
-  if (!enabled() || seq == 0)
+  if (!on(fam::kAnim) || seq == 0)
     return;
   emit("ANIM|end|seq=" + std::to_string(seq) + "|ms=" +
        std::to_string(static_cast<int>(measuredMs)));
@@ -121,20 +185,20 @@ void emitState(const std::string &dump) {
 }
 
 void animReject(const char *op, const char *why) {
-  if (!enabled())
+  if (!on(fam::kAnim))
     return;
   emit("ANIM|reject|op=" + tok(op) + "|why=" + tok(why));
 }
 
 void record(const char *tag, const char *event, const std::string &state) {
-  if (!enabled())
+  if (!on(famBit(tag)))
     return;
   emit(tok(tag) + "|" + tok(event) + "|" + state);
 }
 
 void animStart(const char *op, const char *leaf, const char *style, double ms,
                const char *curve) {
-  if (!enabled())
+  if (!on(fam::kAnim))
     return;
   emit("ANIM|begin|seq=" + std::to_string(nextSeq()) + "|op=" + tok(op) + "|leaf=" +
        tok(leaf) + "|style=" + tok(style) + "|ms=" + std::to_string(ms) + "|curve=" +
@@ -142,7 +206,7 @@ void animStart(const char *op, const char *leaf, const char *style, double ms,
 }
 
 void dragBranch(const char *name, const std::string &extra) {
-  if (!enabled())
+  if (!on(fam::kDrag))
     return;
   std::string s = "DRAG|branch|name=" + tok(name);
   if (!extra.empty())

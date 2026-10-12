@@ -26,6 +26,36 @@ void dbg(const std::string &msg);
 // which is the reason this format exists and the reason it must stay parseable.
 namespace trace {
 
+// `debug_trace` is a mask, not a flag: 0 is off, 1 is every family (so the old spelling
+// still means what it meant), anything else selects. Debugging a drag release did not
+// used to require also reading four hundred SCROLL records a second.
+//
+// The control channel -- CMD|, TUNING|, STATE| -- is deliberately NOT in the mask. It is
+// how you find out whether a command did anything at all, so suppressing it would remove
+// the only signal that tracing is on and the family you asked for.
+namespace fam {
+enum : int {
+    kAnim   = 1,
+    kDrag   = 2,
+    kLife   = 4,
+    kScroll = 8,
+    kSwap   = 16,
+};
+inline constexpr int kAll = 0x7FFFFFFF;
+} // namespace fam
+
+// Which family a gate value selects. `1` predates the mask and means everything, so the
+// old spelling keeps meaning what it meant; anything else is a bit test. Pulled out of
+// log.cpp so a test can reach it -- a mask that selects nothing looks exactly like a trace
+// that was never switched on.
+[[nodiscard]] constexpr bool selects(int gate, int bit) {
+  return gate != 0 && (gate == 1 || (gate & bit) != 0);
+}
+
+// True when the family is selected. `debug_trace == 1` selects everything, so this is
+// also just "trace is on" for callers that want no filtering.
+bool on(int bit);
+
 bool enabled();
 
 // A monotonically increasing id, 0 when tracing is off. Callers store it on the
