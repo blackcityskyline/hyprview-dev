@@ -88,7 +88,9 @@ inline void strokeRing(const LRect &lb, double s, const CHyprColor &col,
 }
 
 // renderWindowLive over-covers by this much so sub-pixel snapping cannot open a
-// seam; the content radius follows it out.
+// seam; the content radius follows it out. PIXELS, not logical: window_content.cpp adds it
+// straight to a pixel width, so scaling it here gave the radius 3px of cover against a box
+// over-covering 1.5, and the content arc sat half that inside the ring's outer edge.
 inline constexpr float kSeamPadPx = 1.5F;
 
 // The corner radius a tile's CONTENT must carry so its arc lands on the ring's
@@ -97,7 +99,7 @@ inline constexpr float kSeamPadPx = 1.5F;
 inline int contentRadiusPx(int round, int width, float roundPow, double scale,
                            bool overCovers = true) {
   return pxr(round, scale) + static_cast<int>(std::lround(width * scale)) +
-         (overCovers ? pxr(kSeamPadPx, scale) : 0) + 1;
+         (overCovers ? static_cast<int>(kSeamPadPx) : 0) + 1;
 }
 
 inline void strokeRingPx(const CBox &b, const CHyprColor &col, float alpha,

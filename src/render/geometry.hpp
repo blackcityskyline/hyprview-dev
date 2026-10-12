@@ -103,6 +103,14 @@ enum class Corner {
                  std::max(pill.y + pill.h, sprout.y + sprout.h) - y};
 }
 
+// Keep a box inside a screen, with an inset. std::clamp requires lo <= hi and does not
+// check it, so a box wider than the screen minus both insets silently inverted the range.
+// The caption is sized off a window title, and a long one on a small monitor gets there.
+[[nodiscard]] inline double insetWithin(double x, double size, double screenW,
+                                        double inset) {
+    const double hi = screenW - size - inset;
+    return hi < inset ? screenW * 0.5 : std::clamp(x, inset, hi);
+}
 // The close glyph sits in one corner of a card, at a size that tracks the card but stays
 // clickable on a small one.
 [[nodiscard]] inline LRect closeButtonRect(const LRect& card, double sizeScale, Corner corner) {

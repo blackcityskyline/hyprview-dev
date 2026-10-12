@@ -30,6 +30,7 @@ using gloview::render::captionSproutRound;
 using gloview::render::closeButtonRect;
 using gloview::render::Corner;
 using gloview::render::dragVisualBox;
+using gloview::render::insetWithin;
 using gloview::render::killZoneGlow;
 
 namespace {
@@ -254,6 +255,24 @@ int main() {
     sameRect(captionSprout(pill, 0.0, 0.0, padX, padY), LRect{0.0, 0.0, 0.0, 0.0},
              "no text, no stem");
     std::puts("captionSprout: a stem on the pill's flat edge, rounded below, centred");
+  }
+
+  // --- a box wider than its screen gets centred, not an inverted range ---------------------
+  //
+  // std::clamp requires lo <= hi and does not check it. A caption is sized off a window
+  // title, so a long one on a small monitor puts hi BELOW lo, and the range inverts --
+  // the same failure strip_offset_max had (geometry.cpp documents it, with the same guard).
+  {
+    // Normal case: clamped into the inset.
+    near(insetWithin(5.0, 200.0, 1000.0, 6.0), 6.0, "pulled left to the inset");
+    near(insetWithin(990.0, 200.0, 1000.0, 6.0), 794.0, "pulled right to the inset");
+    near(insetWithin(400.0, 200.0, 1000.0, 6.0), 400.0, "an inside box is untouched");
+
+    // Wider than the screen minus both insets: hi < lo. Must not invert.
+    const double wide = insetWithin(0.0, 1200.0, 1000.0, 6.0);
+    assert(wide >= 6.0 && wide <= 1000.0);
+    near(wide, 500.0, "an oversized box centres instead of inverting");
+    std::puts("insetWithin: clamped, and centred rather than inverted on an oversized box");
   }
 
   std::puts("render geometry ok");

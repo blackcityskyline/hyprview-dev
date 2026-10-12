@@ -245,7 +245,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // The stem hangs below, so the clamp that keeps the caption on screen has to reserve its
     // height too -- otherwise a card near the bottom shoves the number off the panel.
     const double sproutH = stemSize.h;
-    const double px   = std::clamp(box.cx() - pw / 2.0, 6.0, m->m_size.x - pw - 6.0);
+    const double px   = render::insetWithin(box.cx() - pw / 2.0, pw, m->m_size.x, 6.0);
     const double py   = std::min(box.y + box.h + cfg::look.title_gap,
                      m->m_size.y - ph - sproutH - cfg::look.title_margin);
     // Yields like every other chrome element when a preview reaches it -- but AFTER the

@@ -218,8 +218,8 @@ void Overview::renderPulses(bool strip) const {
           const LRect sl = stripWinSlotRect(it, card, j);
           strokeRingPx(pxb(sl, s), col,
                        static_cast<float>((1.0 - pr) * 0.9),
-                       clampRound(cfg::look.preview_round,
-                                  sl.w, sl.h),
+                       pxr(clampRound(cfg::look.preview_round,
+                                      sl.w, sl.h), s),
                        roundPow);
           debug::trace::ring("pulse_strip", sl,
                              clampRound(cfg::look.preview_round, sl.w, sl.h), 1.0 - pr);
