@@ -248,10 +248,13 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const double uy = py + push.y;
     if (hasSprout) {
       const LRect sAt{sprout.x + push.x, sprout.y + push.y, sprout.w, sprout.h};
-      // Radius == half the height with power 1.0 is a true capsule, not a rounded rect.
+      // Round == half the height is a true capsule, but only at Hyprland's DEFAULT
+      // roundingPower of 2: distanceWithRounding (rounding.glsl) is the p-norm of the
+      // corner offset, and p = 1 is the manhattan metric, which cuts the corner into a
+      // diamond -- the sprout came out a trapezoid. 2 is the euclidean one, i.e. the arc.
       safeRenderRect("tile", pxb(CBox(sAt.x, sAt.y, sAt.w, sAt.h), s),
                               cfg::colors.carousel_count_pill.get(e * f),
-                              {.round = pxr(sAt.h / 2.0, s), .roundingPower = 1.0});
+                              {.round = pxr(sAt.h / 2.0, s)});
       g_pHyprOpenGL->renderTexture(
           countTex,
           pxb(LRect{sAt.x + (sAt.w - countW) / 2.0, sAt.y + padY, countW, countH}, s),
