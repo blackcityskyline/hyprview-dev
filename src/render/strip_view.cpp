@@ -113,6 +113,7 @@ void Overview::renderStrip() const {
     if (ring || hover) {
       const auto &lc = ring ? activeLine : hoverLine;
       strokeRing(card, s, lc, actLike ? 3 : 2, cardRound, roundPow);
+      debug::trace::ring("strip_card", card, cardRound, 1.0);
     }
 
     // The All card skips the active fill: its glyph merges into it otherwise.
@@ -204,8 +205,8 @@ void Overview::renderStrip() const {
           }
           const int wRound = clampRound(previewRound, wbL.w, wbL.h);
           if (stripSlotGrabbed(i, j))
-            strokeRing(wbL, s, cfg::colors.hover_border.get(e),
-                       2, wRound, roundPow);
+            strokeRing(wbL, s, cfg::colors.hover_border.get(e), 2, wRound, roundPow);
+            debug::trace::ring("strip_hover", wbL, wRound, e);
         }
       }
     }
@@ -353,8 +354,8 @@ void Overview::renderStripButtons() const {
                          pxb(CBox{sl.x, sl.y, sl.w, sl.h}, s),
                          hintCol,
                          {.round = pxr(sr, s), .roundingPower = roundPow});
-          strokeRingPx(pxb(sl, s), hoverCol,
-                       0.9F * static_cast<float>(e), sr, roundPow);
+          strokeRingPx(pxb(sl, s), hoverCol, 0.9F * static_cast<float>(e), sr, roundPow);
+          debug::trace::ring("strip_slot_a", sl, sr, e);
           break;
         }
       } else if (static_cast<int>(i) == m_scene.hoveredStrip()) {
@@ -385,8 +386,8 @@ void Overview::renderStripButtons() const {
                            pxb(CBox{half.x, half.y, half.w, half.h}, s),
                            hintCol,
                            {.round = pxr(hr, s), .roundingPower = roundPow});
-            strokeRingPx(pxb(sl, s), hoverCol,
-                         0.45F * static_cast<float>(e), sr, roundPow);
+            strokeRingPx(pxb(sl, s), hoverCol, 0.45F * static_cast<float>(e), sr, roundPow);
+            debug::trace::ring("strip_slot_b", sl, sr, e);
           } else {
             strokeRingPx(pxb(sl, s), hoverCol,
                          0.9F * static_cast<float>(e), sr, roundPow);

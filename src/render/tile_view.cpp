@@ -150,9 +150,11 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
              static_cast<float>(e * cfg::look.shadow_alpha * f), round, roundPow);
 
   if (look.frame) {
-    if (cfg::look.show_border != 0)
+    if (cfg::look.show_border != 0) {
       strokeRing(box, s, cfg::colors.border.get(e * f), cfg::look.border_size,
                  round, roundPow);
+      debug::trace::ring("tile_border", box, round, static_cast<double>(e * f));
+    }
     if (focused)
       strokeRing(box, s,
                  framed ? cfg::colors.hover_border.get(e * f)

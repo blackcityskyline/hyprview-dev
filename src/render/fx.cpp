@@ -107,6 +107,7 @@ void Overview::drawDragStripChrome() const {
   // transparency as a solid wash.
   const int th = cfg::look.hover_border_size; // 0 = no ring
   strokeRing(lb, s, hoverCol, th, round, roundPow);
+  debug::trace::ring("drag_tile", lb, round, hoverCol.a);
 }
 
 void Overview::renderDragWindow() const {
@@ -220,6 +221,8 @@ void Overview::renderPulses(bool strip) const {
                        clampRound(cfg::look.preview_round,
                                   sl.w, sl.h),
                        roundPow);
+          debug::trace::ring("pulse_strip", sl,
+                             clampRound(cfg::look.preview_round, sl.w, sl.h), 1.0 - pr);
         }
       }
     } else {
@@ -231,6 +234,8 @@ void Overview::renderPulses(bool strip) const {
         drawPulseRing(pxb(lb, s),
                       pxr(clampRound(cfg::look.preview_round, lb.w, lb.h), s),
                       roundPow, col, pr);
+        debug::trace::ring("pulse_grid", lb,
+                           clampRound(cfg::look.preview_round, lb.w, lb.h), pr);
         break;
       }
     }

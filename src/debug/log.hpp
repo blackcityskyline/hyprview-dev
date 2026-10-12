@@ -132,6 +132,21 @@ inline void life(const char *event, const std::string &state) {
 void animStart(const char *op, const char *leaf, const char *style, double ms,
                const char *curve);
 
+// Which ring was drawn, where, how round and how opaque.
+//
+// "A frame is doing something odd" was answerable three different ways in one session and
+// wrong twice: the render has thirteen ring sites, they are not the same colour, two of
+// them are drawn on the same tile on the same frame, and two of them change radius as
+// the box animates while the content's radius does not. Without a record the only way to
+// tell them apart is to read the source and guess, and a ring that is not the one you
+// guessed produces a confident wrong fix.
+//
+//   RING|kind=tile_focus|x=..|y=..|w=..|h=..|r=..|a=..
+//
+// `kind` is the site's own word, so the record names the code that drew it rather than a
+// description of what it looked like.
+void ring(const char *kind, const LRect &box, int radiusPx, double alpha);
+
 void dragBranch(const char *name, const std::string &extra = {});
 
 // Strip scroll events. Per EVENT, not per frame: advance() runs every tick while a glide

@@ -196,6 +196,14 @@ void record(const char *tag, const char *event, const std::string &state) {
   emit(tok(tag) + "|" + tok(event) + "|" + state);
 }
 
+void ring(const char *kind, const LRect &b, int radiusPx, double alpha) {
+  if (!on(fam::kAnim))
+    return;
+  std::string s = "RING|kind=" + tok(kind) + "|x=" + box(b) + "|r=" +
+                  std::to_string(radiusPx) + "|a=" + std::to_string(alpha);
+  emit(s);
+}
+
 void animStart(const char *op, const char *leaf, const char *style, double ms,
                const char *curve) {
   if (!on(fam::kAnim))
