@@ -199,15 +199,17 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
                               {.round = pxr(round, s), .roundingPower = roundPow});
 
-  if ((framed || selected) && !look.lift && t.label && t.label->m_size.x > 0) {
-    const double padX = cfg::look.title_pad_x, padY = cfg::look.title_pad_y;
+  if ((framed || selected) && !look.lift) {
     // The caption was captured to the card's own width, so the pill measures the
     // texture it draws — not the uncut entry it used to.
-    const double lw   = t.label->m_size.x;
-    const double lh   = t.label->m_size.y;
-    // The carousel's n / total rides ON this pill as a sprout, so it is built here rather
-    // than as its own element above the run: two elements mean two pushes and they come
-    // apart the moment a preview reaches only one of them.
+    //
+    // The pill shows WHATEVER there is: the title, or the carousel's n / total, or both.
+    // Gating it on a title used to hide the counter outright on a window with no caption,
+    // which is the one card where the position is least obvious and most wanted.
+    const bool hasLabel = t.label && t.label->m_size.x > 0;
+    // The counter rides ON this pill as a stem, so it is built here rather than as its own
+    // element above the run: two elements mean two pushes and they come apart the moment a
+    // preview reaches only one of them.
     const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
     const std::string countText =
         wantCounter ? std::to_string(m_scene.focused() + 1) + " / " +
@@ -221,16 +223,25 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                                              cfg::colors.label.get(1.0), 15)
                         : SP<Render::ITexture>{};
     const bool hasCounter = countTex && countTex->m_size.x > 0;
+    if (hasLabel || hasCounter) {
+    const double padX = cfg::look.title_pad_x, padY = cfg::look.title_pad_y;
+    const double lw   = hasLabel ? t.label->m_size.x : 0.0;
+    const double lh   = hasLabel ? t.label->m_size.y : 0.0;
     const double countW = hasCounter ? countTex->m_size.x : 0.0;
     const double countH = hasCounter ? countTex->m_size.y : 0.0;
-    const double pw   = lw + 2 * padX;
-    const double ph   = lh + 2 * padY;
+    // With no title the counter IS the pill -- a stem hanging off an empty bar would read as
+    // two bars, not one thing. So the pill sizes itself to the text it actually shows.
+    const double textW = hasLabel ? lw : countW;
+    const double textH = hasLabel ? lh : countH;
+    const double pw   = textW + 2 * padX;
+    const double ph   = textH + 2 * padY;
     // The stem's SIZE does not depend on where the pill sits, so it is solved against a
     // placeholder here: the vertical clamp below has to reserve its height, and it runs
     // before px/py are known. Solving it once, in geometry, is what keeps the "is there
     // room for a stem at all" answer in one place instead of twice.
     const LRect stemSize =
-        render::captionSprout(LRect{0.0, 0.0, pw, ph}, countW, countH, padX, padY);
+        hasLabel ? render::captionSprout(LRect{0.0, 0.0, pw, ph}, countW, countH, padX, padY)
+                 : LRect{0.0, 0.0, 0.0, 0.0};
     // The stem hangs below, so the clamp that keeps the caption on screen has to reserve its
     // height too -- otherwise a card near the bottom shoves the number off the panel.
     const double sproutH = stemSize.h;
@@ -283,8 +294,15 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     safeRenderRect("tile", pxb(CBox(ux, uy, pw, ph), s),
                               cfg::colors.title_pill.get(e * f),
                               {.round = pxr(ph / 2.0, s)});
-    g_pHyprOpenGL->renderTexture(t.label, pxb(CBox(ux + padX, uy + padY, lw, lh), s),
+    if (hasLabel)
+      g_pHyprOpenGL->renderTexture(t.label, pxb(CBox(ux + padX, uy + padY, lw, lh), s),
                                  {.a = static_cast<float>(e * f)});
+    else
+      g_pHyprOpenGL->renderTexture(
+          countTex,
+          pxb(LRect{ux + (pw - countW) / 2.0, uy + padY, countW, countH}, s),
+          {.a = static_cast<float>(e * f)});
+    }
   }
 
   const auto closeGlyph = m_pixel.closeGlyph();
