@@ -198,8 +198,7 @@ struct colors {
   Color select_border;
   Color shadow;
   Color label;
-  Color title_pill;
-  Color carousel_count_pill;
+  Color title_pill;      // pill AND the carousel's n / total stem under it: one shape, one colour
   Color drop_hint;
   Color close_button;
   Color close_glyph;

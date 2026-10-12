@@ -303,8 +303,7 @@ gloview.animation({ leaf = "glide", curve = "fluent_decel" })
 | `close_button_color` | color/role | `"0xe6e23b3b"` | `✕` close-button fill — per-window, and per-workspace (closes every window on it) |
 | `close_glyph_color` | color | `"0xffffffff"` | the `✕` glyph itself, drawn on top of `close_button_color` |
 | `label_color` | color | `"0xf2ffffff"` | window/workspace name text under tiles and strip cards |
-| `title_pill_color` | color | `"0xcc11151c"` | pill behind a tile's title label in desktop/canvas mode |
-| `carousel_count_pill_color` | color | `"0xcc11151c"` | sprout pill behind the carousel counter (`1 / 4`) |
+| `title_pill_color` | color | `"0xcc11151c"` | the caption pill behind a tile's title label, and the `n / total` stem hanging off it in carousel view — one shape, one colour |
 | `appear_stagger` | float | `0.08` | entry ladder: how far the tile entry is spread across the window (as a fraction) |
 | `appear_stagger_per_tile` | float | `0.015` | extra spread per tile, capped by `appear_stagger` |
 | `carousel_step_collapse` | float | `0.5` | fraction of the exit spent shrinking the unfocused carousel cards |

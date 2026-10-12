@@ -266,10 +266,14 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
       // blending over it returns exactly that colour: the join has no seam. And with an
       // opaque colour underneath, the stem's own alpha lands on that colour instead of on
       // the backdrop, so the visible half still fades the way the pill does.
+      //
+      // One colour for both, deliberately: two config keys would let a user split them and
+      // the seam would come straight back. The carousel shows something EXTRA under this
+      // pill, it does not draw a second pill.
       safeRenderRect("tile", pxb(CBox(sAt.x, joint - sr, sAt.w, sr), s),
-                              cfg::colors.carousel_count_pill.get(1.0), {.round = 0});
+                              cfg::colors.title_pill.get(1.0), {.round = 0});
       safeRenderRect("tile", pxb(CBox(sAt.x, joint - sr, sAt.w, sr + sAt.h), s),
-                              cfg::colors.carousel_count_pill.get(e * f),
+                              cfg::colors.title_pill.get(e * f),
                               {.round = pxr(sr, s)});
       g_pHyprOpenGL->renderTexture(
           countTex,

@@ -241,7 +241,6 @@ constexpr ColorSpec kColors[] = {
     {&colors.strip_hover, "plugin:gloview:strip_hover_border", "0x80ffffff"},
     {&colors.strip_plus, "plugin:gloview:strip_plus_color", "0xd0eef4ff"},
     {&colors.title_pill, "plugin:gloview:title_pill_color", "0xcc11151c"},
-    {&colors.carousel_count_pill, "plugin:gloview:carousel_count_pill_color", "0xcc11151c"},
 };
 
 } // namespace
