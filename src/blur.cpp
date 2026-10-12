@@ -287,7 +287,10 @@ void CBlurFilter::ensureScratch(int w, int h) {
 }
 
 void CBlurFilter::blitTex(const SP<Render::ITexture>& srcTex, GLuint prog, int locTex) {
-    glDisable(GL_BLEND);
+    // g_pHyprOpenGL->blend, not glDisable: the raw call moves GL without touching
+    // m_capStatus, and the next blend(true) then early-returns on a stale cache
+    // (OpenGL.cpp:2620) and skips the glEnable, drawing unblended.
+    g_pHyprOpenGL->blend(false);
     glUseProgram(prog);
     glActiveTexture(GL_TEXTURE0);
     srcTex->bind();
@@ -302,7 +305,7 @@ void CBlurFilter::blitTex(const SP<Render::ITexture>& srcTex, GLuint prog, int l
 void CBlurFilter::gaussPass(const SP<Render::ITexture>& srcTex, const SP<Render::IFramebuffer>& dstFB, const Vector2D& texSize, const Vector2D& dir, float radius) {
     dstFB->bind();
     g_pHyprOpenGL->setViewport(0, 0, (int)dstFB->m_size.x, (int)dstFB->m_size.y);
-    glDisable(GL_BLEND);
+    g_pHyprOpenGL->blend(false);
     glUseProgram(m_program);
     glActiveTexture(GL_TEXTURE0);
     srcTex->bind();
@@ -320,7 +323,7 @@ void CBlurFilter::gaussPass(const SP<Render::ITexture>& srcTex, const SP<Render:
 void CBlurFilter::downPass(const SP<Render::ITexture>& srcTex, const SP<Render::IFramebuffer>& dstFB, const Vector2D& dstSize) {
     dstFB->bind();
     g_pHyprOpenGL->setViewport(0, 0, (int)dstFB->m_size.x, (int)dstFB->m_size.y);
-    glDisable(GL_BLEND);
+    g_pHyprOpenGL->blend(false);
     glUseProgram(m_downProg);
     glActiveTexture(GL_TEXTURE0);
     srcTex->bind();
@@ -337,7 +340,7 @@ void CBlurFilter::downPass(const SP<Render::ITexture>& srcTex, const SP<Render::
 void CBlurFilter::upPass(const SP<Render::ITexture>& srcTex, const Vector2D& srcSize, const SP<Render::IFramebuffer>& dstFB) {
     dstFB->bind();
     g_pHyprOpenGL->setViewport(0, 0, (int)dstFB->m_size.x, (int)dstFB->m_size.y);
-    glDisable(GL_BLEND);
+    g_pHyprOpenGL->blend(false);
     glUseProgram(m_upProg);
     glActiveTexture(GL_TEXTURE0);
     srcTex->bind();
@@ -365,8 +368,12 @@ bool CBlurFilter::render(const SP<Render::ITexture>& src, const SP<Render::IFram
     glGetIntegerv(GL_BLEND_SRC_ALPHA, &blendSrcAlpha);
     glGetIntegerv(GL_BLEND_DST_ALPHA, &blendDstAlpha);
     // Scissor and caller FBO/viewport too: a stray scissor clips the quads.
+    // The damage box, not just the enable bit: the raw glDisable moved GL without touching
+    // m_capStatus, and the next scissor(nullptr) then early-returned on a stale cache
+    // (OpenGL.cpp:2620) without disabling. Restoring through the API keeps the box too.
     const bool scissorBefore = glIsEnabled(GL_SCISSOR_TEST) == GL_TRUE;
-    glDisable(GL_SCISSOR_TEST);
+    const CBox  dmgExtents   = g_pHyprRenderer->m_renderData.damage.getExtents();
+    g_pHyprOpenGL->scissor(nullptr);
     const auto callerFB = g_pHyprRenderer->m_renderData.currentFB;
     GLint      callerVp[4];
     glGetIntegerv(GL_VIEWPORT, callerVp);
@@ -419,9 +426,9 @@ bool CBlurFilter::render(const SP<Render::ITexture>& src, const SP<Render::IFram
     // No dim here: the cache stays free of backdrop_color and fade; renderBackdrop() draws it.
     glBlendFuncSeparate(blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha);
     if (!blendBefore)
-        glDisable(GL_BLEND);
+        g_pHyprOpenGL->blend(false);  // through the API: see blitTex
     if (scissorBefore)
-        glEnable(GL_SCISSOR_TEST);
+        g_pHyprOpenGL->scissor(dmgExtents);
     if (callerFB) {
         callerFB->bind();
         g_pHyprOpenGL->setViewport(callerVp[0], callerVp[1], callerVp[2], callerVp[3]);

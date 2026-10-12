@@ -477,6 +477,16 @@ void Overview::layoutTiles() {
                                       cfg::colors.label.get(1.0), 15,
                                       static_cast<int>(std::max(
                                           1.0, tileBox(i, t.target).w - 28.0)));
+      // The counter rides under the centred card's caption. Same reason, same place: it is
+      // text, and text has to be rasterised before the pass, not inside it.
+      if (c.visible && c.depth == 0 && m_scene.size() > 1)
+        t.countLabel = m_pixel.fixedLabel(
+            pixel::Slot::CarouselCount,
+            std::to_string(m_scene.focused() + 1) + " / " +
+                std::to_string(m_scene.size()),
+            cfg::colors.label.get(1.0), 15);
+      else
+        t.countLabel = nullptr;
     }
     return;
   }

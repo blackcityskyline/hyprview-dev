@@ -211,17 +211,11 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // element above the run: two elements mean two pushes and they come apart the moment a
     // preview reaches only one of them.
     const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
-    const std::string countText =
-        wantCounter ? std::to_string(m_scene.focused() + 1) + " / " +
-                          std::to_string(m_scene.tiles().size())
-                    : std::string();
-    // Constant colour, like every other label caller: PixelCache bakes the FIRST frame's
-    // colour into the texture and reuses it until the text changes, so a fading colour
-    // here would bake the counter in dim and leave it dim. The fade rides the draw alpha.
-    auto countTex = wantCounter
-                        ? m_pixel.fixedLabel(pixel::Slot::CarouselCount, countText,
-                                             cfg::colors.label.get(1.0), 15)
-                        : SP<Render::ITexture>{};
+    // Built in the scene pass, not here: paint only reads, and the first frame for a new
+    // string used to allocate a texture mid-pass. The constant colour is not optional --
+    // PixelCache keys on (text, maxW) and bakes the FIRST frame's colour, so a fading one
+    // here would bake the counter dim and leave it dim. The fade rides the draw alpha.
+    auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
     const bool hasCounter = countTex && countTex->m_size.x > 0;
     if (hasLabel || hasCounter) {
     const double padX = cfg::look.title_pad_x, padY = cfg::look.title_pad_y;

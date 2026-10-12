@@ -240,9 +240,13 @@ void Overview::paint() {
       draggedTile() >= 0 ||
       (m_drag.press() == model::Drag::Press::StripWin && m_drag.lifted());
   if (dragging) {
+    // Kill zone FIRST, then the preview over it -- the reverse of what fx.cpp says it wants
+    // ("the drop zones stay visible under the preview"). Drawing it after put up to 160
+    // stacked 1px glow lines across the card being dragged, over the very thing they were
+    // meant to sit behind.
+    renderKillZone();
     renderDragTile();
     renderDragWindow();
-    renderKillZone();
   }
 
   renderAboveLayers();
