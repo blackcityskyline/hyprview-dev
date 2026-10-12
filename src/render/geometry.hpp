@@ -51,25 +51,50 @@ enum class Corner {
     return LRect{cx - b.w * s / 2.0, cy - b.h * s / 2.0 + dy, b.w * s, b.h * s};
 }
 
-// The counter's sprout: a narrower capsule hanging off the caption pill's bottom edge,
-// flush against it. Touching, never overlapping -- two translucent rects over the same
-// pixels blend twice and the join reads as a dark seam, which is the one thing "one
-// shape" must not look like. The width is clamped so the sprout's FLAT top (w - h, both
-// are capsules) lands inside the pill's own flat bottom (pill.w - pill.h): past that the
-// pill's bottom arc lifts away and the two part with a notch of backdrop between them.
-// A zero text size means no sprout -- one card has no "1 / 1" to show.
+// The counter's sprout: the stem hanging off the caption pill's bottom edge.
+//
+// Touching, never overlapping: two translucent rects over the same pixels blend twice and
+// the join reads as a dark seam, which is the one thing "one shape" must not look like. The
+// pill is a capsule, so its bottom is FLAT across pill.w - pill.h and only the last
+// pill.h / 2 at each end is an arc. A sprout whose width fits that flat span therefore
+// lands on the pill with no gap at all, and it can carry whatever corner radius it likes
+// -- the rounding cuts inward, and the pill is already covering that line.
+//
+// That is what makes it a STEM and not a second oval: the width is clamped to the flat
+// span so the two share a straight edge, and the caller rounds only lightly, so the join
+// reads as one body with a tab rather than a mushroom. A zero text size means no sprout --
+// one card has no "1 / 1" to show.
 [[nodiscard]] inline LRect captionSprout(const LRect& pill, double textW, double textH,
                                           double padX, double padY) {
     if (textW <= 0.0 || textH <= 0.0)
         return LRect{0.0, 0.0, 0.0, 0.0};
-    const double sh    = textH + 2.0 * padY;
+    const double sh = textH + 2.0 * padY;
     // Floored at 0, not at sh: a pill narrower than it is tall has no flat bottom at all,
-    // and max(sh, pill.w - pill.h) let the sprout's flat top overshoot zero there -- the
-    // notch this clamp exists to prevent, back again. Floor keeps the invariant
-    // sw - sh <= pill.w - pill.h true for every pill, not only for the wide ones.
+    // and max(sh, pill.w - pill.h) let the sprout overshoot zero there -- the gap this
+    // clamp exists to prevent, back again.
     const double flatBottom = std::max(0.0, pill.w - pill.h);
-    const double sw         = std::min(textW + 2.0 * padX, flatBottom + sh);
+    const double sw         = std::min(textW + 2.0 * padX, flatBottom);
     return LRect{pill.cx() - sw * 0.5, pill.y + pill.h, sw, sh};
+}
+
+// The sprout's corner radius: a stem, not a capsule. Half the height is what made it read
+// as a second pill; a quarter keeps the bottom soft and still lands the join on the pill's
+// flat edge, since the radius only ever cuts inward from there.
+[[nodiscard]] inline double captionSproutRound(double sproutH, double sproutW) {
+    return std::min(std::min(sproutH * 0.25, sproutW * 0.5), sproutH * 0.5);
+}
+
+// The box a caption yields as: the pill and its stem are one object, so the yield has to
+// be measured against both or they come apart. An EMPTY stem (no counter -- one card, or
+// no label) collapses to the pill: taking min/max against a zero rect would anchor the box
+// at the screen origin and let a preview nowhere near the caption shove it sideways.
+[[nodiscard]] inline LRect captionBody(const LRect& pill, const LRect& sprout) {
+    if (sprout.w <= 0.0 || sprout.h <= 0.0)
+        return pill;
+    const double x = std::min(pill.x, sprout.x);
+    const double y = std::min(pill.y, sprout.y);
+    return LRect{x, y, std::max(pill.x + pill.w, sprout.x + sprout.w) - x,
+                 std::max(pill.y + pill.h, sprout.y + sprout.h) - y};
 }
 
 // The close glyph sits in one corner of a card, at a size that tracks the card but stays

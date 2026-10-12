@@ -241,9 +241,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // captionSprout already answers an empty rect for a zero-size text, so a null texture
     // needs no branch here.
     const LRect sprout = render::captionSprout(pill, countW, countH, padX, padY);
-    const double bx = std::min(pill.x, sprout.x), by = pill.y;
-    const Vector2D push = pushOut(
-        LRect{bx, by, std::max(pill.x + pw, sprout.x + sprout.w) - bx, ph + sprout.h});
+    const Vector2D push = pushOut(render::captionBody(pill, sprout));
     const double ux = px + push.x;
     const double uy = py + push.y;
     if (hasSprout) {
@@ -255,7 +253,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
       // arc. That is what the sprout rendered as before this line changed.
       safeRenderRect("tile", pxb(CBox(sAt.x, sAt.y, sAt.w, sAt.h), s),
                               cfg::colors.carousel_count_pill.get(e * f),
-                              {.round = pxr(sAt.h / 2.0, s)});
+                              {.round = pxr(render::captionSproutRound(sAt.h, sAt.w), s)});
       g_pHyprOpenGL->renderTexture(
           countTex,
           pxb(LRect{sAt.x + (sAt.w - countW) / 2.0, sAt.y + padY, countW, countH}, s),

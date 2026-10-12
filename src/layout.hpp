@@ -60,7 +60,7 @@ struct CarouselMetrics {
     double farK          = 0.56;  // depth 2
     double taper         = 0.8;   // every depth past 2
     double scale         = 1.0;   // user zoom on the whole run, over the fit
-    double captionH      = 64.0;  // caption pill + the n / total sprout hanging under it
+    double captionH      = 76.0;  // title pill + the n / total stem under it, plus slack
     double captionGap    = 12.0;
     double screenMargin  = 32.0;
     int    visibleCards  = 5;

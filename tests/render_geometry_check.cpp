@@ -24,7 +24,9 @@
 #include "../src/render/geometry.hpp"
 
 using gloview::LRect;
+using gloview::render::captionBody;
 using gloview::render::captionSprout;
+using gloview::render::captionSproutRound;
 using gloview::render::closeButtonRect;
 using gloview::render::Corner;
 using gloview::render::dragVisualBox;
@@ -169,53 +171,82 @@ int main() {
     std::puts("closeButtonRect: square, inside the card, all four corners distinct");
   }
 
-  // --- the counter hangs off the caption pill as one shape ---------------------------------
+  // --- the counter hangs off the caption pill as a stem ---------------------------------
   //
-  // Both are capsules (round == h/2), so each has a FLAT edge of w - h and an ARC on the
-  // rest. The sprout touches the pill's flat bottom instead of overlapping it: two
-  // translucent rects over the same pixels blend twice and the join reads as a dark seam,
-  // which is the one thing "one shape" must not look like. Touching only works while the
-  // sprout's own flat top fits inside the pill's flat bottom, because past that the pill's
-  // arc lifts away and a notch of backdrop opens between them.
+  // The pill is a capsule, so its bottom is FLAT across pill.w - pill.h and only the last
+  // pill.h / 2 at each end is an arc. A sprout narrower than that flat span lands on the
+  // pill along a straight edge with no gap, whatever radius it carries -- the rounding
+  // cuts inward and the pill already covers that line. Touching rather than overlapping is
+  // what keeps it a single shape: two translucent rects over the same pixels blend twice
+  // and the join reads as a dark seam.
   {
-    const LRect pill{800.0, 900.0, 200.0, 30.0};  // wide pill, flat bottom = 200 - 30 = 170
+    const LRect pill{800.0, 900.0, 200.0, 30.0};  // flat bottom = 200 - 30 = 170
     const double padX = 14.0, padY = 6.0;
-    const LRect s = captionSprout(pill, 34.0, 18.0, padX, padY);  // h = 30, flat top = 62 - 30
+    const LRect s = captionSprout(pill, 34.0, 18.0, padX, padY);  // h = 30, w = 62
 
-    near(s.y, pill.y + pill.h, "the sprout starts exactly where the pill ends");
-    near(s.cx(), pill.cx(), "the sprout is centred under the pill");
-    near(s.h, 18.0 + 2 * padY, "the sprout measures its own text plus padding");
+    near(s.y, pill.y + pill.h, "the stem starts exactly where the pill ends");
+    near(s.cx(), pill.cx(), "the stem is centred under the pill");
+    near(s.h, 18.0 + 2 * padY, "the stem measures its own text plus padding");
     near(s.w, 34.0 + 2 * padX, "a short count gets its natural width");
 
-    // The invariant the whole shape rests on: flat top inside flat bottom.
-    assert(s.w - s.h <= pill.w - pill.h);
+    // The invariant the whole shape rests on: the whole width lands on the flat span.
+    assert(s.w <= pill.w - pill.h);
+
+    // A STEM, not a second capsule. Half the height would make it an oval hanging off an
+    // oval, which is what this replaced.
+    const double round = captionSproutRound(s.h, s.w);
+    near(round, s.h * 0.25, "the stem's radius is a quarter of its height");
+    assert(round < s.h * 0.5);
 
     // A wide count against a NARROW pill is the case the clamp exists for: without it the
-    // sprout's flat top would run past the pill's flat bottom and the arc would notch.
+    // stem would run past the flat span onto the pill's arc and leave a gap at the ends.
     const LRect narrow{800.0, 900.0, 60.0, 30.0};
     const LRect tight = captionSprout(narrow, 200.0, 18.0, padX, padY);
-    assert(tight.w - tight.h <= narrow.w - narrow.h);
+    assert(tight.w <= narrow.w - narrow.h);
     assert(tight.w < 200.0 + 2 * padX);  // clamped down to what the pill can carry
-    near(tight.cx(), narrow.cx(), "a clamped sprout is still centred");
+    near(tight.cx(), narrow.cx(), "a clamped stem is still centred");
 
     // A pill exactly as wide as it is tall has no flat bottom at all. The clamp must still
-    // hold the invariant there, or the notch reopens -- and it must not go negative or NaN.
+    // hold there, and must not go negative or NaN.
     const LRect stubby{800.0, 900.0, 30.0, 30.0};
     const LRect st = captionSprout(stubby, 40.0, 18.0, padX, padY);
-    assert(st.w - st.h <= stubby.w - stubby.h);
-    assert(!std::isnan(st.w) && st.w > 0.0);
+    assert(st.w <= std::max(0.0, stubby.w - stubby.h));
+    assert(!std::isnan(st.w));
 
     // Wider than tall the other way: a stubby pill on a huge padY, which is what a user
-    // padding gets them. Same invariant, same reason.
+    // padding gets them. Same clamp, same reason.
     const LRect tallPad{800.0, 900.0, 40.0, 30.0};
     const LRect tp = captionSprout(tallPad, 60.0, 18.0, padX, 40.0);
-    assert(tp.w - tp.h <= tallPad.w - tallPad.h);
+    assert(tp.w <= std::max(0.0, tallPad.w - tallPad.h));
 
-    // One card has no "1 / 1" to show: a zero-size text yields no sprout at all, so the
+    // The radius never exceeds half of either side, or Hyprland rounds the shape inside out.
+    const double stRound = captionSproutRound(st.h, st.w);
+    assert(stRound <= st.w * 0.5 + kEps && stRound <= st.h * 0.5 + kEps);
+
+    // The yield box. A zero rect is NOT neutral in a min/max union -- it anchors the box at
+    // the origin, and a preview nowhere near the caption then reads as contact and shoves
+    // it sideways. That bug shipped once; this is the assertion that killed it.
+    {
+      const LRect p{600.0, 900.0, 200.0, 30.0};
+      const LRect stem = captionSprout(p, 34.0, 18.0, padX, padY);
+      const LRect both = captionBody(p, stem);
+      // The stem is centred and narrower, so the union is the pill's width and the pill's
+      // top -- it only ever grows DOWNWARD, which is the whole point of hanging a stem.
+      near(both.x, p.x, "the union keeps the pill's left edge");
+      near(both.w, p.w, "and its width");
+      near(both.y, p.y, "and its top");
+      near(both.h, p.h + stem.h, "growing down by exactly the stem's height");
+
+      sameRect(captionBody(p, LRect{0.0, 0.0, 0.0, 0.0}), p,
+               "no stem, no union: the box stays the pill, not the screen origin");
+      std::puts("captionBody: pill + stem as one, and the pill alone when there is no stem");
+    }
+
+    // One card has no "1 / 1" to show: a zero-size text yields no stem at all, so the
     // caller draws one rect instead of two.
     sameRect(captionSprout(pill, 0.0, 0.0, padX, padY), LRect{0.0, 0.0, 0.0, 0.0},
-             "no text, no sprout");
-    std::puts("captionSprout: flush under the pill, flat top inside flat bottom, centred");
+             "no text, no stem");
+    std::puts("captionSprout: a stem on the pill's flat edge, rounded below, centred");
   }
 
   std::puts("render geometry ok");
