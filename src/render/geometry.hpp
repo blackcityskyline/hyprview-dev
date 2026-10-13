@@ -69,6 +69,10 @@ enum class Corner {
 // run, and only one of the two edges can have the counter further out than the title by
 // accident -- this is the invariant that stops it.
 //
+// `cardGap` is the card-to-caption distance and `stackGap` the title-to-counter one. They are
+// different knobs and passing one value for both is how the caption ended up glued to the
+// card with no gap at all whenever there was no counter to measure against.
+//
 // Clamped as one block. Clamping the pills separately lets the outer one walk off the
 // screen while the inner one sits on the margin.
 struct CaptionPills {
@@ -77,12 +81,13 @@ struct CaptionPills {
 };
 
 [[nodiscard]] inline CaptionPills captionPills(double cardY, double cardH, double titleH,
-                                               double counterH, double gap, bool below,
-                                               double screenH, double margin) {
-    const double top =
-        captionPillY(cardY, cardH, titleH + gap + counterH, gap, below, screenH, margin);
-    return below ? CaptionPills{top, top + titleH + gap}         // card, title, counter
-                 : CaptionPills{top + counterH + gap, top};      // counter, title, card
+                                               double counterH, double cardGap,
+                                               double stackGap, bool below, double screenH,
+                                               double margin) {
+    const double top = captionPillY(cardY, cardH, titleH + stackGap + counterH, cardGap,
+                                    below, screenH, margin);
+    return below ? CaptionPills{top, top + titleH + stackGap}      // card, title, counter
+                 : CaptionPills{top + counterH + stackGap, top};   // counter, title, card
 }
 
 // The corner radius to hand Hyprland, from a configured one. Negative = a capsule, which is
@@ -92,20 +97,6 @@ struct CaptionPills {
     const double cap = std::min(w, h) * 0.5;
     const double want = configured < 0.0 ? cap : std::min(configured, cap);
     return static_cast<int>(std::max(0.0, want));
-}
-
-// The box a caption yields as: the pill and the counter pill below it are one caption, so
-// the yield has to be measured against both or they drift apart. An EMPTY counter (one card,
-// or no counter on screen) collapses to the pill: taking min/max against a zero rect would
-// anchor the box at the screen origin and let a preview nowhere near the caption shove it
-// sideways -- which is exactly the bug this guard was written for.
-[[nodiscard]] inline LRect captionBody(const LRect& pill, const LRect& counter) {
-    if (counter.w <= 0.0 || counter.h <= 0.0)
-        return pill;
-    const double x = std::min(pill.x, counter.x);
-    const double y = std::min(pill.y, counter.y);
-    return LRect{x, y, std::max(pill.x + pill.w, counter.x + counter.w) - x,
-                 std::max(pill.y + pill.h, counter.y + counter.h) - y};
 }
 
 // Keep a box inside a screen, with an inset. std::clamp requires lo <= hi and does not

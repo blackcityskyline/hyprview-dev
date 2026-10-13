@@ -252,8 +252,8 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const bool counterBelow = cpos.empty() ? titleBelow : cpos != "top";
     const bool sameEdge = counterH <= 0.0 || counterBelow == titleBelow;
     const render::CaptionPills pos =
-        render::captionPills(box.y, box.h, ph, counterH, stackGap, titleBelow,
-                             m->m_size.y, margin);
+        render::captionPills(box.y, box.h, ph, counterH, cfg::look.title_gap, stackGap,
+                             titleBelow, m->m_size.y, margin);
     const double counterY =
         sameEdge ? pos.counterY
                  : render::captionPillY(box.y, box.h, counterH, cfg::look.title_gap,
@@ -262,8 +262,12 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // clamp above, and deliberately unclamped itself: the clamp exists to keep the caption on
     // screen while the card is laid out, while the push is what shoves the pill clear. With
     // the clamp applied last the pill travelled to the screen edge, stopped there and just
-    // faded (measured on exit). Pushed as ONE box: the two pills are one caption, and a
-    // preview that reaches either has to move both, or they drift apart.
+    // faded (measured on exit).
+    //
+    // EACH pill pushes on its OWN box. The union was measured displacing the pair by 60px
+    // sideways with no preview over either of them: on opposite edges the union spans the
+    // whole card column, so every preview on the card touched it and a centred counter sat
+    // visibly off centre for as long as the cursor was anywhere near.
     const LRect pill{px, pos.titleY, pw, ph};
     // Centred on the MONITOR, not on the pill. It counts the whole run, and the run's centre
     // is the only centre it has; riding the pill's left edge instead meant a long title
@@ -272,11 +276,20 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const double cW = countW + 2 * cPadX;
     const LRect counter{render::insetWithin(m->m_size.x / 2.0 - cW / 2.0, cW, m->m_size.x, 6.0),
                         counterY, cW, counterH};
-    const Vector2D push = pushOut(render::captionBody(pill, counter));
+    const Vector2D push = pushOut(pill);
+    const Vector2D cPush = pushOut(counter);
+    // Traced before the push AND after it: the two differ, and reading only the drawn box
+    // cannot tell a misplacement apart from a preview shoving a correctly placed pill off
+    // the screen -- which is the whole difference between the two bugs this found.
+    debug::trace::ring("title_pill", pill,
+                       pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), e * f);
+    debug::trace::ring("counter_pill", counter, 0, e * f);
+    debug::trace::ring("title_card", box, pxr(round, s), e * f);
+    debug::trace::ring("caption_push", LRect{push.x, push.y, cPush.x, cPush.y}, 0, e * f);
     const double ux = pill.x + push.x;
     const double uy = pill.y + push.y;
     if (counterH > 0.0) {
-      const LRect cAt{counter.x + push.x, counter.y + push.y, counter.w, counter.h};
+      const LRect cAt{counter.x + cPush.x, counter.y + cPush.y, counter.w, counter.h};
       // The configured radius at the run's own roundingPower. NOT 1.0: the cut is
       // distanceWithRounding (src/render/shaders/glsl/rounding.glsl:7), a p-norm of the offset
       // from the corner centre, and p = 1 is the manhattan metric -- a diamond, not an arc.
@@ -289,6 +302,8 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
           pxb(LRect{cAt.x + (cAt.w - countW) / 2.0, cAt.y + cPadY, countW, countH}, s),
           {.a = static_cast<float>(e * f)});
     }
+    debug::trace::ring("title_pill_drawn", LRect{ux, uy, pw, ph},
+                       pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), e * f);
     safeRenderRect("tile", pxb(CBox(ux, uy, pw, ph), s),
                               cfg::colors.title_pill.get(e * f),
                               {.round = pxr(render::pillRadius(cfg::look.title_round, pw, ph), s),

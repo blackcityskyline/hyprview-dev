@@ -24,7 +24,6 @@
 #include "../src/render/geometry.hpp"
 
 using gloview::LRect;
-using gloview::render::captionBody;
 using gloview::render::closeButtonRect;
 using gloview::render::Corner;
 using gloview::render::dragVisualBox;
@@ -173,40 +172,6 @@ int main() {
     std::puts("closeButtonRect: square, inside the card, all four corners distinct");
   }
 
-  // --- the counter pill and the caption pill yield as one box ---------------------------
-  //
-  // They are two separate pills now, sized and coloured on their own knobs, but they are
-  // one caption: a preview that shoves one and not the other leaves them drifted apart, and
-  // the gap reads as a mistake rather than as motion.
-  {
-    const LRect p{600.0, 900.0, 200.0, 30.0};
-    // The counter pill: its own text plus its OWN padding, which is the whole point of the
-    // split -- nothing about it is derived from the title pill above it.
-    const LRect c{640.0, 930.0, 62.0, 30.0};
-    const LRect both = captionBody(p, c);
-
-    // The counter is narrower and centred, so the union is the pill's width and the pill's
-    // top: it only ever grows DOWNWARD, which is what keeps the caption anchored to its card.
-    near(both.x, p.x, "the union keeps the caption pill's left edge");
-    near(both.w, p.w, "and its width");
-    near(both.y, p.y, "and its top");
-    near(both.h, c.y + c.h - p.y, "growing down through the gap and the counter pill");
-
-    // A counter WIDER than the pill must widen the box, or a preview sitting beside the
-    // counter would not register as contact at all.
-    const LRect wide = captionBody(p, LRect{580.0, 930.0, 260.0, 30.0});
-    near(wide.x, 580.0, "a wider counter widens the box");
-    // 580..840: the counter reaches 40 past the pill's right edge on both counts.
-    near(wide.w, 260.0, "reaching as far as the counter does");
-
-    // An empty counter -- one card, or no counter on screen -- collapses to the pill. A
-    // zero rect is NOT neutral in a min/max union: it anchors the box at the screen origin,
-    // and a preview nowhere near the caption then reads as contact and shoves it sideways.
-    // That bug shipped once; this is the assertion that killed it.
-    sameRect(captionBody(p, LRect{0.0, 0.0, 0.0, 0.0}), p,
-             "no counter, no union: the box stays the pill, not the screen origin");
-    std::puts("captionBody: caption + counter as one box, and the pill alone with no counter");
-  }
 
   // --- where the caption's two pills land ----------------------------------------------
   //
@@ -215,15 +180,21 @@ int main() {
   // whichever way round the card is. That is the invariant; a counter between the card and
   // the title reads as part of the card's own furniture.
   {
-    const double tH = 30.0, cH = 24.0, gap = 8.0, edge = 10.0;
+    // The card gap and the title-to-counter gap are DIFFERENT knobs, and they are
+    // deliberately different numbers here. Passing one value for both is what put the
+    // caption flush against the card -- no gap at all whenever there was no counter to
+    // measure against -- and no assertion written over a single gap would have seen it.
+    const double tH = 30.0, cH = 24.0, gap = 8.0, cardGap = 10.0;
     const double cardY = 200.0, cardH = 300.0, screenH = 756.0, margin = 6.0;
 
-    const auto low = captionPills(cardY, cardH, tH, cH, gap, true, screenH, margin);
-    near(low.titleY, cardY + cardH + gap, "below the card: the title hangs off the lower edge");
-    near(low.counterY - low.titleY, tH + gap, "and the counter trails it by one gap");
+    const auto low = captionPills(cardY, cardH, tH, cH, cardGap, gap, true, screenH, margin);
+    near(low.titleY, cardY + cardH + cardGap,
+         "below the card: the title sits the CARD gap off the edge");
+    near(low.counterY - low.titleY, tH + gap, "and the counter trails it by the STACK gap");
 
-    const auto high = captionPills(cardY, cardH, tH, cH, gap, false, screenH, margin);
-    near(high.titleY + tH, cardY - gap, "above the card: the title hangs off the upper edge");
+    const auto high = captionPills(cardY, cardH, tH, cH, cardGap, gap, false, screenH, margin);
+    near(high.titleY + tH, cardY - cardGap,
+         "above the card: the title sits the CARD gap off the edge");
     near(high.titleY - high.counterY, cH + gap, "and the counter leads it, one gap further out");
 
     // The invariant, stated against the CARD rather than against the title: the counter is
@@ -235,10 +206,10 @@ int main() {
     // Clamped as ONE block: the counter on the bottom edge is what would walk off, and
     // clamping the title alone let it go past the screen edge while the title sat on the
     // margin.
-    const auto tight = captionPills(700.0, 100.0, tH, cH, gap, true, screenH, margin);
+    const auto tight = captionPills(700.0, 100.0, tH, cH, cardGap, gap, true, screenH, margin);
     near(tight.counterY + cH, screenH - margin, "a caption too tall for the screen is capped");
 
-    const auto tightTop = captionPills(40.0, 100.0, tH, cH, gap, false, screenH, margin);
+    const auto tightTop = captionPills(40.0, 100.0, tH, cH, cardGap, gap, false, screenH, margin);
     near(tightTop.counterY, margin, "and floored, outer pill first");
 
     std::puts("captionPills: the counter is the outer pill on either edge, clamped as a block");
