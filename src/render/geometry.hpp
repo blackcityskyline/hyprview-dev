@@ -51,56 +51,51 @@ enum class Corner {
     return LRect{cx - b.w * s / 2.0, cy - b.h * s / 2.0 + dy, b.w * s, b.h * s};
 }
 
-// The counter's sprout: the stem hanging off the caption pill's bottom edge.
+// Where the caption block starts, and where each of its two pills lands inside it.
 //
-// Touching, never overlapping: two translucent rects over the same pixels blend twice and
-// the join reads as a dark seam, which is the one thing "one shape" must not look like. The
-// pill is a capsule, so its bottom is FLAT across pill.w - pill.h and only the last
-// pill.h / 2 at each end is an arc. A sprout whose width fits that flat span therefore
-// lands on the pill with no gap at all, and it can carry whatever corner radius it likes
-// -- the rounding cuts inward, and the pill is already covering that line.
+// `below` hangs the block off the card's LOWER edge, so the block's top is card.bottom +
+// gap and the caller clamps DOWN from there. Otherwise it sits above the card's upper edge,
+// measured UP from it -- so the caller has to clamp from the other side, and getting that
+// wrong is what drops the caption off the top of the screen.
 //
-// That is what makes it a STEM and not a second oval: the width is clamped to the flat
-// span so the two share a straight edge, and the caller rounds only lightly, so the join
-// reads as one body with a tab rather than a mushroom. A zero text size means no sprout --
-// one card has no "1 / 1" to show.
-[[nodiscard]] inline LRect captionSprout(const LRect& pill, double textW, double textH,
-                                          double padX, double padY) {
-    if (textW <= 0.0 || textH <= 0.0)
-        return LRect{0.0, 0.0, 0.0, 0.0};
-    const double sh = textH + 2.0 * padY;
-    // Floored at 0, not at sh: a pill narrower than it is tall has no flat bottom at all,
-    // and max(sh, pill.w - pill.h) let the sprout overshoot zero there -- the gap this
-    // clamp exists to prevent, back again.
-    const double flatBottom = std::max(0.0, pill.w - pill.h);
-    if (flatBottom <= 0.0)
-        return LRect{0.0, 0.0, 0.0, 0.0};  // no flat bottom to land on: no stem, and never
-                                             // a zero-width rect, which renderRect asserts on
-    const double sw         = std::min(textW + 2.0 * padX, flatBottom);
-    return LRect{pill.cx() - sw * 0.5, pill.y + pill.h, sw, sh};
+// Inside the block the two knobs are independent, which is the whole reason this is a
+// function rather than two lines: `title_position` moves both pills together, and
+// `counter_position` swaps them without touching the block. Four combinations, no layout
+// engine.
+struct CaptionStack {
+    double titleY;
+    double counterY;
+};
+
+[[nodiscard]] inline CaptionStack stackCaption(double top, double titleH, double counterH,
+                                              double gap, bool counterBelow) {
+    if (counterH <= 0.0)  // one pill standing alone: the order knob has nothing to order
+        return {top, top};
+    return counterBelow ? CaptionStack{top, top + titleH + gap}
+                        : CaptionStack{top + counterH + gap, top};
 }
 
-// The radius the stem is drawn with: the PILL's own. Two pills hanging off each other with
-// different corner softness read as two pills that happen to touch, which is the whole
-// thing this shape is not. Half the pill's height is the radius the pill itself uses.
-//
-// Never 0: the shoulder is a rect of this height drawn under the pill, and renderRect
-// asserts on a zero dimension (OpenGL.cpp RASSERT(w > 0 && h > 0)).
-[[nodiscard]] inline double captionSproutRound(double pillH) {
-    return std::max(1.0, pillH * 0.5);
+// The corner radius to hand Hyprland, from a configured one. Negative = a capsule, which is
+// what every pill here has been by default. Capped at half the shorter side: past that the
+// shape turns inside out rather than rounding more.
+[[nodiscard]] inline int pillRadius(double configured, double w, double h) {
+    const double cap = std::min(w, h) * 0.5;
+    const double want = configured < 0.0 ? cap : std::min(configured, cap);
+    return static_cast<int>(std::max(0.0, want));
 }
 
-// The box a caption yields as: the pill and its stem are one object, so the yield has to
-// be measured against both or they come apart. An EMPTY stem (no counter -- one card, or
-// no label) collapses to the pill: taking min/max against a zero rect would anchor the box
-// at the screen origin and let a preview nowhere near the caption shove it sideways.
-[[nodiscard]] inline LRect captionBody(const LRect& pill, const LRect& sprout) {
-    if (sprout.w <= 0.0 || sprout.h <= 0.0)
+// The box a caption yields as: the pill and the counter pill below it are one caption, so
+// the yield has to be measured against both or they drift apart. An EMPTY counter (one card,
+// or no counter on screen) collapses to the pill: taking min/max against a zero rect would
+// anchor the box at the screen origin and let a preview nowhere near the caption shove it
+// sideways -- which is exactly the bug this guard was written for.
+[[nodiscard]] inline LRect captionBody(const LRect& pill, const LRect& counter) {
+    if (counter.w <= 0.0 || counter.h <= 0.0)
         return pill;
-    const double x = std::min(pill.x, sprout.x);
-    const double y = std::min(pill.y, sprout.y);
-    return LRect{x, y, std::max(pill.x + pill.w, sprout.x + sprout.w) - x,
-                 std::max(pill.y + pill.h, sprout.y + sprout.h) - y};
+    const double x = std::min(pill.x, counter.x);
+    const double y = std::min(pill.y, counter.y);
+    return LRect{x, y, std::max(pill.x + pill.w, counter.x + counter.w) - x,
+                 std::max(pill.y + pill.h, counter.y + counter.h) - y};
 }
 
 // Keep a box inside a screen, with an inset. std::clamp requires lo <= hi and does not

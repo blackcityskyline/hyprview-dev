@@ -25,13 +25,13 @@
 
 using gloview::LRect;
 using gloview::render::captionBody;
-using gloview::render::captionSprout;
-using gloview::render::captionSproutRound;
 using gloview::render::closeButtonRect;
 using gloview::render::Corner;
 using gloview::render::dragVisualBox;
 using gloview::render::insetWithin;
 using gloview::render::killZoneGlow;
+using gloview::render::pillRadius;
+using gloview::render::stackCaption;
 
 namespace {
 
@@ -172,107 +172,86 @@ int main() {
     std::puts("closeButtonRect: square, inside the card, all four corners distinct");
   }
 
-  // --- the counter hangs off the caption pill as a stem ---------------------------------
+  // --- the counter pill and the caption pill yield as one box ---------------------------
   //
-  // The pill is a capsule, so its bottom is FLAT across pill.w - pill.h and only the last
-  // pill.h / 2 at each end is an arc. A sprout narrower than that flat span lands on the
-  // pill along a straight edge with no gap, whatever radius it carries -- the rounding
-  // cuts inward and the pill already covers that line. Touching rather than overlapping is
-  // what keeps it a single shape: two translucent rects over the same pixels blend twice
-  // and the join reads as a dark seam.
+  // They are two separate pills now, sized and coloured on their own knobs, but they are
+  // one caption: a preview that shoves one and not the other leaves them drifted apart, and
+  // the gap reads as a mistake rather than as motion.
   {
-    const LRect pill{800.0, 900.0, 200.0, 30.0};  // flat bottom = 200 - 30 = 170
-    const double padX = 14.0, padY = 6.0;
-    const LRect s = captionSprout(pill, 34.0, 18.0, padX, padY);  // h = 30, w = 62
+    const LRect p{600.0, 900.0, 200.0, 30.0};
+    // The counter pill: its own text plus its OWN padding, which is the whole point of the
+    // split -- nothing about it is derived from the title pill above it.
+    const LRect c{640.0, 930.0, 62.0, 30.0};
+    const LRect both = captionBody(p, c);
 
-    near(s.y, pill.y + pill.h, "the stem starts exactly where the pill ends");
-    near(s.cx(), pill.cx(), "the stem is centred under the pill");
-    near(s.h, 18.0 + 2 * padY, "the stem measures its own text plus padding");
-    near(s.w, 34.0 + 2 * padX, "a short count gets its natural width");
+    // The counter is narrower and centred, so the union is the pill's width and the pill's
+    // top: it only ever grows DOWNWARD, which is what keeps the caption anchored to its card.
+    near(both.x, p.x, "the union keeps the caption pill's left edge");
+    near(both.w, p.w, "and its width");
+    near(both.y, p.y, "and its top");
+    near(both.h, c.y + c.h - p.y, "growing down through the gap and the counter pill");
 
-    // The invariant the whole shape rests on: the whole width lands on the flat span.
-    assert(s.w <= pill.w - pill.h);
+    // A counter WIDER than the pill must widen the box, or a preview sitting beside the
+    // counter would not register as contact at all.
+    const LRect wide = captionBody(p, LRect{580.0, 930.0, 260.0, 30.0});
+    near(wide.x, 580.0, "a wider counter widens the box");
+    // 580..840: the counter reaches 40 past the pill's right edge on both counts.
+    near(wide.w, 260.0, "reaching as far as the counter does");
 
-    // A STEM, not a second capsule. Half the height would make it an oval hanging off an
-    // oval, which is what this replaced.
-    // The stem carries the PILL's radius, not one of its own. Two pills hanging off each other
-    // with different corner softness read as two pills that happen to touch, which is the
-    // one thing this shape is not.
-    near(captionSproutRound(pill.h), pill.h * 0.5,
-         "the stem is drawn with the pill's own radius");
-
-    // Never 0: the shoulder is a rect of this height drawn under the pill, and renderRect
-    // asserts on a zero dimension.
-    assert(captionSproutRound(0.0) >= 1.0);
-
-    // A wide count against a NARROW pill is the case the clamp exists for: without it the
-    // stem would run past the flat span onto the pill's arc and leave a gap at the ends.
-    const LRect narrow{800.0, 900.0, 60.0, 30.0};
-    const LRect tight = captionSprout(narrow, 200.0, 18.0, padX, padY);
-    assert(tight.w <= narrow.w - narrow.h);
-    assert(tight.w < 200.0 + 2 * padX);  // clamped down to what the pill can carry
-    near(tight.cx(), narrow.cx(), "a clamped stem is still centred");
-
-    // A pill exactly as wide as it is tall has no flat bottom at all. There is no stem to
-    // land on, so it must be NO stem -- and never a zero-width rect, which renderRect
-    // asserts on (OpenGL.cpp RASSERT(w > 0 && h > 0)).
-    const LRect stubby{800.0, 900.0, 30.0, 30.0};
-    sameRect(captionSprout(stubby, 40.0, 18.0, padX, padY), LRect{0.0, 0.0, 0.0, 0.0},
-             "no flat bottom, no stem");
-    sameRect(captionBody(stubby, captionSprout(stubby, 40.0, 18.0, padX, padY)), stubby,
-             "and the yield box is the pill alone");
-
-    // Wider than tall the other way: a stubby pill on a huge padY, which is what a user
-    // padding gets them. Same clamp, same reason.
-    const LRect tallPad{800.0, 900.0, 40.0, 30.0};
-    const LRect tp = captionSprout(tallPad, 60.0, 18.0, padX, 40.0);
-    assert(tp.w <= std::max(0.0, tallPad.w - tallPad.h));
-
-    // The radius never exceeds half the height, or Hyprland rounds the shape inside out.
-    assert(captionSproutRound(s.h) <= s.h * 0.5 + kEps);
-
-    // The yield box. A zero rect is NOT neutral in a min/max union -- it anchors the box at
-    // the origin, and a preview nowhere near the caption then reads as contact and shoves
-    // it sideways. That bug shipped once; this is the assertion that killed it.
-    {
-      const LRect p{600.0, 900.0, 200.0, 30.0};
-      const LRect stem = captionSprout(p, 34.0, 18.0, padX, padY);
-      const LRect both = captionBody(p, stem);
-      // The stem is centred and narrower, so the union is the pill's width and the pill's
-      // top -- it only ever grows DOWNWARD, which is the whole point of hanging a stem.
-      near(both.x, p.x, "the union keeps the pill's left edge");
-      near(both.w, p.w, "and its width");
-      near(both.y, p.y, "and its top");
-      near(both.h, p.h + stem.h, "growing down by exactly the stem's height");
-
-      sameRect(captionBody(p, LRect{0.0, 0.0, 0.0, 0.0}), p,
-               "no stem, no union: the box stays the pill, not the screen origin");
-      std::puts("captionBody: pill + stem as one, and the pill alone when there is no stem");
-    }
-
-    // One card has no "1 / 1" to show: a zero-size text yields no stem at all, so the
-    // caller draws one rect instead of two.
-    sameRect(captionSprout(pill, 0.0, 0.0, padX, padY), LRect{0.0, 0.0, 0.0, 0.0},
-             "no text, no stem");
-    std::puts("captionSprout: a stem on the pill's flat edge, rounded below, centred");
+    // An empty counter -- one card, or no counter on screen -- collapses to the pill. A
+    // zero rect is NOT neutral in a min/max union: it anchors the box at the screen origin,
+    // and a preview nowhere near the caption then reads as contact and shoves it sideways.
+    // That bug shipped once; this is the assertion that killed it.
+    sameRect(captionBody(p, LRect{0.0, 0.0, 0.0, 0.0}), p,
+             "no counter, no union: the box stays the pill, not the screen origin");
+    std::puts("captionBody: caption + counter as one box, and the pill alone with no counter");
   }
 
-  // --- a box wider than its screen gets centred, not an inverted range ---------------------
+  // --- where the caption's two pills land ----------------------------------------------
   //
-  // std::clamp requires lo <= hi and does not check it. A caption is sized off a window
-  // title, so a long one on a small monitor puts hi BELOW lo, and the range inverts --
-  // the same failure strip_offset_max had (geometry.cpp documents it, with the same guard).
+  // Two independent knobs, and they are independent on purpose: title_position moves the
+  // WHOLE block off the card's edge, counter_position only swaps the two inside it. The
+  // caller owns the block's top (it is what clamps to the screen), so this only decides the
+  // order inside.
   {
-    // Normal case: clamped into the inset.
-    near(insetWithin(5.0, 200.0, 1000.0, 6.0), 6.0, "pulled left to the inset");
-    near(insetWithin(990.0, 200.0, 1000.0, 6.0), 794.0, "pulled right to the inset");
-    near(insetWithin(400.0, 200.0, 1000.0, 6.0), 400.0, "an inside box is untouched");
+    const double tH = 30.0, cH = 24.0, gap = 8.0, top = 100.0;
 
-    // Wider than the screen minus both insets: hi < lo. Must not invert.
-    const double wide = insetWithin(0.0, 1200.0, 1000.0, 6.0);
-    assert(wide >= 6.0 && wide <= 1000.0);
-    near(wide, 500.0, "an oversized box centres instead of inverting");
-    std::puts("insetWithin: clamped, and centred rather than inverted on an oversized box");
+    const auto low = stackCaption(top, tH, cH, gap, true);
+    near(low.titleY, top, "counter below: the title leads");
+    near(low.counterY, top + tH + gap, "and the counter trails one gap down");
+
+    const auto high = stackCaption(top, tH, cH, gap, false);
+    near(high.counterY, top, "counter on top: the counter leads");
+    near(high.titleY, top + cH + gap, "and the title trails one gap down");
+
+    // The block's HEIGHT must not depend on the order, or the caller's screen clamp reserves
+    // room for a caption that is not that tall -- which shows up as a number hanging off the
+    // bottom of the panel exactly when the counter is moved up top.
+    near((low.counterY + cH) - top, tH + gap + cH, "counter below: the block runs both pills plus the gap");
+    near((high.titleY + tH) - top, tH + gap + cH, "counter on top: the same height, so the clamp still fits");
+
+    // One pill standing alone -- no counter, or one card -- collapses onto the top edge. If
+    // it did not, a lone title pill would sit a gap lower than it ever has.
+    for (const bool below : {true, false})
+      near(stackCaption(top, tH, 0.0, gap, below).titleY, top,
+           "no counter, no gap: the title sits where the block starts");
+    std::puts("stackCaption: title and counter, either order, and a lone title");
+  }
+
+  // --- a configured corner radius ------------------------------------------------------
+  //
+  // Negative means "a capsule", which is what these pills have always been, and the default
+  // says so rather than hard-coding h / 2 at every draw site. The cap is the load-bearing
+  // half: Hyprland's rounding is an inward cut, and a radius past the half-short-side does
+  // not round more, it inverts the shape.
+  {
+    near(pillRadius(-1.0, 200.0, 30.0), 15.0, "negative is a capsule on the short side");
+    near(pillRadius(-1.0, 30.0, 200.0), 15.0, "and it follows the shape, not just the height");
+    near(pillRadius(0.0, 200.0, 30.0), 0.0, "zero is square");
+    near(pillRadius(8.0, 200.0, 30.0), 8.0, "a radius in range passes through");
+    near(pillRadius(99.0, 200.0, 30.0), 15.0, "past the cap it clamps, it does not invert");
+    near(pillRadius(-1.0, 0.0, 0.0), 0.0, "a degenerate box gets nothing, not a negative");
+    std::puts("pillRadius: capsule, square, in-range, and clamped at half the short side");
   }
 
   std::puts("render geometry ok");

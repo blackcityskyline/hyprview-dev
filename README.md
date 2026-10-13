@@ -303,7 +303,20 @@ gloview.animation({ leaf = "glide", curve = "fluent_decel" })
 | `close_button_color` | color/role | `"0xe6e23b3b"` | `✕` close-button fill — per-window, and per-workspace (closes every window on it) |
 | `close_glyph_color` | color | `"0xffffffff"` | the `✕` glyph itself, drawn on top of `close_button_color` |
 | `label_color` | color | `"0xf2ffffff"` | window/workspace name text under tiles and strip cards |
-| `title_pill_color` | color | `"0xcc11151c"` | the caption pill behind a tile's title label, and the `n / total` stem hanging off it in carousel view — one shape, one colour |
+| `title_pill_color` | color | `"0xcc11151c"` | the caption pill behind a tile's title label in desktop/canvas mode |
+| `title_font_size` | int | `15` | font size of a tile's title label |
+| `title_label_color` | color | `"0xf2ffffff"` | the title's text colour (both layouts) |
+| `title_position` | string | `"bottom"` | `"top"` or `"bottom"`: which edge of the card the whole caption hangs off |
+| `title_round` | float | `-1.0` | caption pill corner radius in px; negative = capsule (half the height), `0` = square |
+| `counter_pill_color` | color | `"0xcc11151c"` | the `n / total` pill under the caption in carousel view |
+| `counter_font_size` | int | `15` | font size of the `n / total` counter |
+| `counter_label_color` | color | `"0xf2ffffff"` | the counter's text colour |
+| `counter_round` | float | `-1.0` | counter pill corner radius in px, same convention as `title_round` |
+| `counter_position` | string | `"bottom"` | `"top"` or `"bottom"`: the counter above or below the title pill |
+| `counter_pad_x` | float | `14.0` | horizontal padding inside the counter pill |
+| `counter_pad_y` | float | `6.0` | vertical padding inside the counter pill |
+| `counter_gap` | float | `8.0` | vertical gap between the caption pill and the counter pill |
+| `counter_margin` | float | `6.0` | screen-edge margin kept for the counter pill |
 | `appear_stagger` | float | `0.08` | entry ladder: how far the tile entry is spread across the window (as a fraction) |
 | `appear_stagger_per_tile` | float | `0.015` | extra spread per tile, capped by `appear_stagger` |
 | `carousel_step_collapse` | float | `0.5` | fraction of the exit spent shrinking the unfocused carousel cards |

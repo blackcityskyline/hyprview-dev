@@ -181,8 +181,28 @@ struct look {
   Float shadow_alpha;
   Float title_pad_x;
   Float title_pad_y;
+  Int title_font_size;
+  // "bottom" hangs the whole caption off the card's lower edge, "top" off its upper one.
+  Str title_position;
+  // Corner radius in px. Negative = a capsule (half the height), which is what the caption
+  // has always been; 0 = square; anything between rounds that far. Capped at half the
+  // shorter side, past which the shape turns inside out.
+  Float title_round;
   Float title_gap;
   Float title_margin;
+  // The carousel's "n / total" is its own pill under the caption, not a stem on it: two
+  // translucent shapes cannot share a silhouette without either a gap or a density step
+  // along the join, and neither reads as one piece. Separate knobs, so it can be sized,
+  // spaced and coloured on its own terms.
+  Float counter_pad_x;
+  Float counter_pad_y;
+  Int counter_font_size;
+  Float counter_round; // negative = capsule, as the caption's
+  // "bottom" puts the counter under the title pill, "top" over it. Only the order inside
+  // the caption; where the caption itself hangs off the card is title_position's business.
+  Str counter_position;
+  Float counter_gap;
+  Float counter_margin;
   Float close_glyph_fill;
   Str close_button_position;
   Str close_button_visibility;
@@ -198,7 +218,10 @@ struct colors {
   Color select_border;
   Color shadow;
   Color label;
-  Color title_pill;      // pill AND the carousel's n / total stem under it: one shape, one colour
+  Color title_pill;
+  Color title_label;    // the text inside it
+  Color counter_pill;    // the n / total pill: separate, so it can differ on purpose
+  Color counter_label;
   Color drop_hint;
   Color close_button;
   Color close_glyph;

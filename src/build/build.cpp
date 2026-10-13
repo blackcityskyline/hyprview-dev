@@ -64,7 +64,8 @@ void Overview::buildTiles() {
   // The compositor makes our context current for every pass it drives, so the label
   // pre-render is safe from renderStage and needs no context juggling here.
   if (g_pHyprOpenGL && g_pHyprRenderer) {
-    const auto lblCol = cfg::colors.label.get();
+    // A tile's title, in either layout -- the strip's own labels keep label_color.
+    const auto lblCol = cfg::colors.title_label.get();
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
       const auto w = t.win.lock();
@@ -76,7 +77,7 @@ void Overview::buildTiles() {
       if (text.size() > 80)
         text = text.substr(0, 79) + "…";
       t.labelText = text;
-      t.label = m_pixel.windowLabel(w, text, lblCol, 15);
+      t.label = m_pixel.windowLabel(w, text, lblCol, cfg::look.title_font_size.get());
     }
     // glyph pre-rendered: text rendering mid-pass is unsafe
     const std::string closeIcon =
@@ -474,17 +475,20 @@ void Overview::layoutTiles() {
         // The fitted box, not the card: a portrait window is drawn narrower than
         // the standard card, and the pill is sized off what it actually covers.
         t.label = m_pixel.windowLabel(t.win.lock(), t.labelText,
-                                      cfg::colors.label.get(1.0), 15,
+                                      cfg::colors.title_label.get(1.0),
+                                      cfg::look.title_font_size.get(),
                                       static_cast<int>(std::max(
                                           1.0, tileBox(i, t.target).w - 28.0)));
-      // The counter rides under the centred card's caption. Same reason, same place: it is
-      // text, and text has to be rasterised before the pass, not inside it.
+      // The counter is its own pill under the caption. Same reason, same place: it is
+      // text, and text has to be rasterised before the pass, not inside it. Its own
+      // font size, so the two labels can be set apart.
       if (c.visible && c.depth == 0 && m_scene.size() > 1)
         t.countLabel = m_pixel.fixedLabel(
             pixel::Slot::CarouselCount,
             std::to_string(m_scene.focused() + 1) + " / " +
                 std::to_string(m_scene.size()),
-            cfg::colors.label.get(1.0), 15);
+            cfg::colors.counter_label.get(1.0),
+            cfg::look.counter_font_size.get());
       else
         t.countLabel = nullptr;
     }

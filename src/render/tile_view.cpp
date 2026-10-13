@@ -207,9 +207,12 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // Gating it on a title used to hide the counter outright on a window with no caption,
     // which is the one card where the position is least obvious and most wanted.
     const bool hasLabel = t.label && t.label->m_size.x > 0;
-    // The counter rides ON this pill as a stem, so it is built here rather than as its own
-    // element above the run: two elements mean two pushes and they come apart the moment a
-    // preview reaches only one of them.
+    // The counter is its own pill UNDER the caption, not a stem on it. The stem shape was
+    // tried and abandoned: two translucent shapes cannot share a silhouette without either a
+    // gap at the join (Hyprland rounds all four corners with one radius) or a density step
+    // where they overlap -- an opaque shoulder under the pill measured 0.086 brighter over
+    // the stem than beside it, and any two @0.8 layers are 0.069 apart. Neither reads as one
+    // piece, so it is two pills with their own knobs instead.
     const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
     // Built in the scene pass, not here: paint only reads, and the first frame for a new
     // string used to allocate a texture mid-pass. The constant colour is not optional --
@@ -218,83 +221,82 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
     const bool hasCounter = countTex && countTex->m_size.x > 0;
     if (hasLabel || hasCounter) {
-    const double padX = cfg::look.title_pad_x, padY = cfg::look.title_pad_y;
+    // Each pill is sized off the texture it draws plus ITS OWN padding, so the two can be
+    // set independently; the counter's size comes from the run it counts, not from the title.
     const double lw   = hasLabel ? t.label->m_size.x : 0.0;
     const double lh   = hasLabel ? t.label->m_size.y : 0.0;
     const double countW = hasCounter ? countTex->m_size.x : 0.0;
     const double countH = hasCounter ? countTex->m_size.y : 0.0;
-    // With no title the counter IS the pill -- a stem hanging off an empty bar would read as
-    // two bars, not one thing. So the pill sizes itself to the text it actually shows.
+    const double padX = cfg::look.title_pad_x, padY = cfg::look.title_pad_y;
+    const double cPadX = cfg::look.counter_pad_x, cPadY = cfg::look.counter_pad_y;
+    // With no title there is no pill to hang anything off, so the counter stands alone --
+    // and stands alone it sizes itself, not to a width it has no reason to match.
     const double textW = hasLabel ? lw : countW;
     const double textH = hasLabel ? lh : countH;
-    const double pw   = textW + 2 * padX;
-    const double ph   = textH + 2 * padY;
-    // The stem's SIZE does not depend on where the pill sits, so it is solved against a
-    // placeholder here: the vertical clamp below has to reserve its height, and it runs
-    // before px/py are known. Solving it once, in geometry, is what keeps the "is there
-    // room for a stem at all" answer in one place instead of twice.
-    const LRect stemSize =
-        hasLabel ? render::captionSprout(LRect{0.0, 0.0, pw, ph}, countW, countH, padX, padY)
-                 : LRect{0.0, 0.0, 0.0, 0.0};
-    // The stem hangs below, so the clamp that keeps the caption on screen has to reserve its
-    // height too -- otherwise a card near the bottom shoves the number off the panel.
-    const double sproutH = stemSize.h;
-    const double px   = render::insetWithin(box.cx() - pw / 2.0, pw, m->m_size.x, 6.0);
-    const double py   = std::min(box.y + box.h + cfg::look.title_gap,
-                     m->m_size.y - ph - sproutH - cfg::look.title_margin);
+    const double pw   = textW + 2 * (hasLabel ? padX : cPadX);
+    const double ph   = textH + 2 * (hasLabel ? padY : cPadY);
+    const double cGap = hasLabel ? cfg::look.counter_gap : 0.0;
+    // The counter rides with the caption, so the clamp that keeps the pair on screen has to
+    // reserve its height too -- otherwise a card near the bottom shoves the number off the
+    // panel. Solved from sizes, which do not depend on where the block lands.
+    const double counterH = hasLabel && hasCounter ? countH + 2 * cPadY : 0.0;
+    const double stackGap = counterH > 0.0 ? cGap : 0.0;
+    const double totalH = ph + stackGap + counterH;
+    const double margin = hasLabel ? cfg::look.title_margin : cfg::look.counter_margin;
+    const double px = render::insetWithin(box.cx() - pw / 2.0, pw, m->m_size.x, 6.0);
+    // "top" puts the WHOLE caption above the card, measured up from the card's upper edge and
+    // clamped down from the screen's -- the mirror image of the below case, and easy to get
+    // wrong in exactly one direction: clamping "top" downwards is what used to be written,
+    // which pinned an above-card caption to the card's own top edge.
+    const bool below = cfg::look.title_position.get() != "top";
+    const double blockTop =
+        below ? std::min(box.y + box.h + cfg::look.title_gap, m->m_size.y - totalH - margin)
+              : std::max(margin, box.y - cfg::look.title_gap - totalH);
+    const render::CaptionStack stack =
+        render::stackCaption(blockTop, ph, counterH, stackGap,
+                             cfg::look.counter_position.get() != "top");
     // Yields like every other chrome element when a preview reaches it -- but AFTER the
     // clamp above, and deliberately unclamped itself: the clamp exists to keep the caption on
     // screen while the card is laid out, while the push is what shoves the pill clear. With
     // the clamp applied last the pill travelled to the screen edge, stopped there and just
-    // faded (measured on exit). Pushed as ONE box: pill + stem are one object and a preview
-    // that reaches either has to move both.
-    const LRect pill{px, py, pw, ph};
-    const LRect sprout{stemSize.x + px, py + ph, stemSize.w, stemSize.h};
-    const Vector2D push = pushOut(render::captionBody(pill, sprout));
-    const double ux = px + push.x;
-    const double uy = py + push.y;
-    if (stemSize.w > 0.0) {
-      const LRect sAt{sprout.x + push.x, sprout.y + push.y, sprout.w, sprout.h};
-      // The PILL's own radius, so the two carry one softening between them and not two.
-      const double sr   = render::captionSproutRound(ph);
-      const double joint = sAt.y;  // the pill's bottom edge, where the stem meets it
-      // Hyprland rounds all four corners with ONE radius, so a soft top on the stem cannot be
-      // had directly: it cuts a wedge of backdrop out of both corners of the join, which is
-      // exactly where the eye checks whether the two are one piece.
-      //
-      // So the stem is drawn from a full radius ABOVE the joint, putting its own top corners
-      // up under the pill where nothing shows, and the shoulder fills the gap that leaves:
-      //   [joint - sr, joint]         opaque, under the pill   -- the shoulder
-      //   [joint - sr, joint + stem.h] fading, same radius     -- the stem
-      //
-      // The shoulder is opaque ON PURPOSE. Every layer here is one colour, so the pill
-      // blending over it returns exactly that colour: the join has no seam. And with an
-      // opaque colour underneath, the stem's own alpha lands on that colour instead of on
-      // the backdrop, so the visible half still fades the way the pill does.
-      //
-      // One colour for both, deliberately: two config keys would let a user split them and
-      // the seam would come straight back. The carousel shows something EXTRA under this
-      // pill, it does not draw a second pill.
-      safeRenderRect("tile", pxb(CBox(sAt.x, joint - sr, sAt.w, sr), s),
-                              cfg::colors.title_pill.get(1.0), {.round = 0});
-      safeRenderRect("tile", pxb(CBox(sAt.x, joint - sr, sAt.w, sr + sAt.h), s),
-                              cfg::colors.title_pill.get(e * f),
-                              {.round = pxr(sr, s)});
+    // faded (measured on exit). Pushed as ONE box: the two pills are one caption, and a
+    // preview that reaches either has to move both, or they drift apart.
+    const LRect pill{px, stack.titleY, pw, ph};
+    // Centred on the MONITOR, not on the pill. It counts the whole run, and the run's centre
+    // is the only centre it has; riding the pill's left edge instead meant a long title
+    // clamped at the screen edge dragged the number off with it. Clamped the same way, so a
+    // wide counter on a narrow monitor still lands inside.
+    const double cW = countW + 2 * cPadX;
+    const LRect counter{render::insetWithin(m->m_size.x / 2.0 - cW / 2.0, cW, m->m_size.x, 6.0),
+                        stack.counterY, cW, counterH};
+    const Vector2D push = pushOut(render::captionBody(pill, counter));
+    const double ux = pill.x + push.x;
+    const double uy = pill.y + push.y;
+    if (counterH > 0.0) {
+      const LRect cAt{counter.x + push.x, counter.y + push.y, counter.w, counter.h};
+      // The configured radius at the run's own roundingPower. NOT 1.0: the cut is
+      // distanceWithRounding (src/render/shaders/glsl/rounding.glsl:7), a p-norm of the offset
+      // from the corner centre, and p = 1 is the manhattan metric -- a diamond, not an arc.
+      safeRenderRect("tile", pxb(CBox(cAt.x, cAt.y, cAt.w, cAt.h), s),
+                              cfg::colors.counter_pill.get(e * f),
+                              {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
+                               .roundingPower = roundPow});
       g_pHyprOpenGL->renderTexture(
           countTex,
-          pxb(LRect{sAt.x + (sAt.w - countW) / 2.0, sAt.y + padY, countW, countH}, s),
+          pxb(LRect{cAt.x + (cAt.w - countW) / 2.0, cAt.y + cPadY, countW, countH}, s),
           {.a = static_cast<float>(e * f)});
     }
     safeRenderRect("tile", pxb(CBox(ux, uy, pw, ph), s),
                               cfg::colors.title_pill.get(e * f),
-                              {.round = pxr(ph / 2.0, s)});
+                              {.round = pxr(render::pillRadius(cfg::look.title_round, pw, ph), s),
+                               .roundingPower = roundPow});
     if (hasLabel)
       g_pHyprOpenGL->renderTexture(t.label, pxb(CBox(ux + padX, uy + padY, lw, lh), s),
                                  {.a = static_cast<float>(e * f)});
     else
       g_pHyprOpenGL->renderTexture(
           countTex,
-          pxb(LRect{ux + (pw - countW) / 2.0, uy + padY, countW, countH}, s),
+          pxb(LRect{ux + (pw - countW) / 2.0, uy + cPadY, countW, countH}, s),
           {.a = static_cast<float>(e * f)});
     }
   }
