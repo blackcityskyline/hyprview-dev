@@ -64,7 +64,8 @@ void Overview::buildTiles() {
   // The compositor makes our context current for every pass it drives, so the label
   // pre-render is safe from renderStage and needs no context juggling here.
   if (g_pHyprOpenGL && g_pHyprRenderer) {
-    const auto lblCol = cfg::colors.label.get();
+    // A tile's title, in either layout -- the strip's own labels keep label_color.
+    const auto lblCol = cfg::colors.title_label.get();
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
       const auto w = t.win.lock();
@@ -76,7 +77,7 @@ void Overview::buildTiles() {
       if (text.size() > 80)
         text = text.substr(0, 79) + "…";
       t.labelText = text;
-      t.label = m_pixel.windowLabel(w, text, lblCol, 15);
+      t.label = m_pixel.windowLabel(w, text, lblCol, cfg::look.title_font_size.get());
     }
     // glyph pre-rendered: text rendering mid-pass is unsafe
     const std::string closeIcon =
@@ -386,6 +387,55 @@ void Overview::layoutTiles() {
   }
   cfg.maxScale = cfg::grid.max_scale;
 
+  // Room for the caption, per pill, on the edge that pill is configured for.
+  //
+  // A caption that does not fit is not clamped away: it is drawn over whatever is there,
+  // and on the band's edge that is the strip band, which paints AFTER the tiles and so
+  // covers them. The two edges are not symmetric either -- the band's side reserves
+  // padding plus the whole band, the other side only padding -- so the reservation has to
+  // go where the pill actually hangs, and a caption split across both edges takes room on
+  // both.
+  //
+  // Measured off real labels, not estimated. The title comes from the pass that already
+  // rasterises every tile uncut, and the height is a font-size function: the carousel's
+  // later truncation only narrows the line. The counter's own texture is built here for the
+  // same reason -- its height has to be known before the layout that reserves it -- and it
+  // is the very texture the card loop hands out below, so one rasterisation, not two.
+  double titleCapH = 0.0;
+  for (const auto &t : m_scene.tiles()) {
+    if (t.label && t.label->m_size.y > 0) {
+      titleCapH = t.label->m_size.y + 2 * cfg::look.title_pad_y;
+      break;
+    }
+  }
+  double countCapH = 0.0;
+  if (m_view.run() && m_scene.size() > 1) {
+    const auto tex = m_pixel.fixedLabel(
+        pixel::Slot::CarouselCount,
+        std::to_string(m_scene.focused() + 1) + " / " + std::to_string(m_scene.size()),
+        cfg::colors.counter_label.get(1.0), cfg::look.counter_font_size.get());
+    if (tex && tex->m_size.y > 0)
+      countCapH = tex->m_size.y + 2 * cfg::look.counter_pad_y;
+  }
+  {
+    const std::string cpos = cfg::look.counter_position.get();
+    const bool titleBelow = cfg::look.title_position.get() != "top";
+    const bool counterBelow = cpos.empty() ? titleBelow : cpos != "top";
+    const bool sameEdge = countCapH <= 0.0 || counterBelow == titleBelow;
+    const double gap = cfg::look.title_gap;
+    if (titleCapH > 0.0) {
+      if (titleBelow) cfg.padBottom += gap + titleCapH;
+      else cfg.padTop += gap + titleCapH;
+    }
+    if (countCapH > 0.0) {
+      // On the title's edge the counter stacks behind it, so it adds its own gap on top of
+      // the card gap; on the far edge it hangs off the card alone.
+      const double room = gap + countCapH + (sameEdge ? cfg::look.counter_gap : 0.0);
+      if (counterBelow) cfg.padBottom += room;
+      else cfg.padTop += room;
+    }
+  }
+
   // whole monitor scaled into the usable box
   if (m_view.desktop()) {
     const double usableX = cfg.padLeft;
@@ -474,9 +524,22 @@ void Overview::layoutTiles() {
         // The fitted box, not the card: a portrait window is drawn narrower than
         // the standard card, and the pill is sized off what it actually covers.
         t.label = m_pixel.windowLabel(t.win.lock(), t.labelText,
-                                      cfg::colors.label.get(1.0), 15,
+                                      cfg::colors.title_label.get(1.0),
+                                      cfg::look.title_font_size.get(),
                                       static_cast<int>(std::max(
                                           1.0, tileBox(i, t.target).w - 28.0)));
+      // The counter is its own pill under the caption. Same reason, same place: it is
+      // text, and text has to be rasterised before the pass, not inside it. Its own
+      // font size, so the two labels can be set apart.
+      if (c.visible && c.depth == 0 && m_scene.size() > 1)
+        t.countLabel = m_pixel.fixedLabel(
+            pixel::Slot::CarouselCount,
+            std::to_string(m_scene.focused() + 1) + " / " +
+                std::to_string(m_scene.size()),
+            cfg::colors.counter_label.get(1.0),
+            cfg::look.counter_font_size.get());
+      else
+        t.countLabel = nullptr;
     }
     return;
   }

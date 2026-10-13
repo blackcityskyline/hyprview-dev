@@ -204,9 +204,10 @@ void Overview::renderStrip() const {
             continue;
           }
           const int wRound = clampRound(previewRound, wbL.w, wbL.h);
-          if (stripSlotGrabbed(i, j))
+          if (stripSlotGrabbed(i, j)) {
             strokeRing(wbL, s, cfg::colors.hover_border.get(e), 2, wRound, roundPow);
             debug::trace::ring("strip_hover", wbL, wRound, e);
+          }
         }
       }
     }
@@ -318,13 +319,13 @@ void Overview::renderStripButtons() const {
   if (rmbSwap && m_drag.idx() >= 0 &&
       m_drag.idx() < static_cast<int>(m_strip.size()) &&
       m_drag.winIdx() < static_cast<int>(m_strip[m_drag.idx()].wins.size())) {
-    strokeRingPx(pxb(stripWinSlotRect(m_strip[m_drag.idx()],
-                                      stripCardAt(m_drag.idx()),
-                                      m_drag.winIdx()),
-                     s),
+    const LRect rmbSlot = stripWinSlotRect(m_strip[m_drag.idx()],
+                                            stripCardAt(m_drag.idx()),
+                                            m_drag.winIdx());
+    strokeRingPx(pxb(rmbSlot, s),
                  cfg::colors.select_border.get(e),
                  0.7F * static_cast<float>(e),
-                 clampRound(cfg::look.preview_round, 40, 40),
+                 pxr(clampRound(cfg::look.preview_round, rmbSlot.w, rmbSlot.h), s),
                  roundPow);
   }
 
@@ -354,7 +355,7 @@ void Overview::renderStripButtons() const {
                          pxb(CBox{sl.x, sl.y, sl.w, sl.h}, s),
                          hintCol,
                          {.round = pxr(sr, s), .roundingPower = roundPow});
-          strokeRingPx(pxb(sl, s), hoverCol, 0.9F * static_cast<float>(e), sr, roundPow);
+          strokeRingPx(pxb(sl, s), hoverCol, 0.9F * static_cast<float>(e), pxr(sr, s), roundPow);
           debug::trace::ring("strip_slot_a", sl, sr, e);
           break;
         }
@@ -386,11 +387,11 @@ void Overview::renderStripButtons() const {
                            pxb(CBox{half.x, half.y, half.w, half.h}, s),
                            hintCol,
                            {.round = pxr(hr, s), .roundingPower = roundPow});
-            strokeRingPx(pxb(sl, s), hoverCol, 0.45F * static_cast<float>(e), sr, roundPow);
+            strokeRingPx(pxb(sl, s), hoverCol, 0.45F * static_cast<float>(e), pxr(sr, s), roundPow);
             debug::trace::ring("strip_slot_b", sl, sr, e);
           } else {
             strokeRingPx(pxb(sl, s), hoverCol,
-                         0.9F * static_cast<float>(e), sr, roundPow);
+                         0.9F * static_cast<float>(e), pxr(sr, s), roundPow);
           }
           break;
         }

@@ -312,8 +312,13 @@ void Overview::renderBackdrop() const {
       // glReadPixels obeys the scissor: outside the box it leaves the destination alone, so
       // an unread pixel keeps the previous q and reads as black. With scissor on this probe
       // can report a perfectly good cache black.
+      // renderTexture ends in scissor(nullptr) (OpenGL.cpp:1144), which clears the cap
+      // cache; a raw glEnable here would put GL back on with the cache still saying off,
+      // and the next scissor(nullptr) would early-return (OpenGL.cpp:2620) and leave the
+      // rest of the frame clipped to the last box. Restore through the API.
       const bool scissorOn = glIsEnabled(GL_SCISSOR_TEST) == GL_TRUE;
-      glDisable(GL_SCISSOR_TEST);
+      const CBox  dmgExtents = g_pHyprRenderer->m_renderData.damage.getExtents();
+      g_pHyprOpenGL->scissor(nullptr);
       for (const auto &spot : spots) {
         g_pHyprOpenGL->renderTexture(cachedTex, spot, {.a = 1.0F});
         glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, q);
@@ -321,7 +326,7 @@ void Overview::renderBackdrop() const {
           lit++;
       }
       if (scissorOn)
-        glEnable(GL_SCISSOR_TEST);
+        g_pHyprOpenGL->scissor(dmgExtents);
       glBindFramebuffer(GL_FRAMEBUFFER, bnd);
       glViewport(vp[0], vp[1], vp[2], vp[3]);
       cachedUsable = lit > 0;
@@ -449,9 +454,23 @@ void Overview::renderBackdrop() const {
     // ignores kk and the texture goes down opaque. The blur texture is black on exactly
     // those frames (its source composite was rejected as black), so the frame went black
     // instead of fading in at 3% alpha.
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // Save/restore, and through g_pHyprOpenGL->blend so m_capStatus follows: the plugin pass
+    // runs immediately before Hyprland's end() (GLRenderer.cpp:88/94), and a raw glEnable
+    // leaves GL on with this straight-alpha func while Hyprland believes blending is off,
+    // so its blend(false) early-returns on the stale cache (OpenGL.cpp:2620) and never
+    // disables. Premultiplied GL_ONE is what the compositor expects everywhere else.
+    const bool blendBefore = glIsEnabled(GL_BLEND) == GL_TRUE;
+    GLint      srcRGB = GL_ONE, dstRGB = GL_ZERO, srcA = GL_ONE, dstA = GL_ZERO;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &srcRGB);
+    glGetIntegerv(GL_BLEND_DST_RGB, &dstRGB);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcA);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &dstA);
+    g_pHyprOpenGL->blend(true);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     g_pHyprOpenGL->renderTexture(tex, fullPx, {.a = kk});
+    glBlendFuncSeparate(srcRGB, dstRGB, srcA, dstA);
+    if (!blendBefore)
+      g_pHyprOpenGL->blend(false);
   } else if (!baseIsBlur) {
     // Keep the entry base, same reason as the fallback above.
     m_blur.valid = false;

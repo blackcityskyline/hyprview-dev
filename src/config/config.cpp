@@ -114,6 +114,9 @@ constexpr IntSpec kInts[] = {
     {&grid.padding_top, "plugin:gloview:padding_top", 40},
     {&grid.padding_bottom, "plugin:gloview:padding_bottom", 70},
     {&behavior.kill_zone_reach, "plugin:gloview:kill_zone_reach", 160},
+    // caption text, then the carousel counter below it: two pills, two sizes
+    {&look.title_font_size, "plugin:gloview:title_font_size", 12},
+    {&look.counter_font_size, "plugin:gloview:counter_font_size", 12},
     // carousel: the run, laid over `layout` in the all-workspaces view only
     {&carousel.enabled, "plugin:gloview:carousel", 0},
     {&carousel.on_open, "plugin:gloview:carousel_on_open", 1},
@@ -168,10 +171,16 @@ constexpr FloatSpec kFloats[] = {
     {&look.shadow_radius, "plugin:gloview:shadow_radius", 6.0},
     {&look.shadow_radius_lift, "plugin:gloview:shadow_radius_lift", 14.0},
     {&look.shadow_alpha, "plugin:gloview:shadow_alpha", 0.18},
-    {&look.title_pad_x, "plugin:gloview:title_pad_x", 14.0},
-    {&look.title_pad_y, "plugin:gloview:title_pad_y", 6.0},
+    {&look.title_pad_x, "plugin:gloview:title_pad_x", 11.0},
+    {&look.title_pad_y, "plugin:gloview:title_pad_y", 5.0},
     {&look.title_gap, "plugin:gloview:title_gap", 10.0},
     {&look.title_margin, "plugin:gloview:title_margin", 6.0},
+    {&look.title_round, "plugin:gloview:title_round", -1.0},
+    {&look.counter_pad_x, "plugin:gloview:counter_pad_x", 11.0},
+    {&look.counter_pad_y, "plugin:gloview:counter_pad_y", 5.0},
+    {&look.counter_gap, "plugin:gloview:counter_gap", 8.0},
+    {&look.counter_margin, "plugin:gloview:counter_margin", 6.0},
+    {&look.counter_round, "plugin:gloview:counter_round", -1.0},
     {&look.close_glyph_fill, "plugin:gloview:close_glyph_fill", 0.62},
     {&strip.label_band, "plugin:gloview:strip_label_band", 26.0},
     {&strip.label_extra, "plugin:gloview:strip_label_extra", 24.0},
@@ -198,6 +207,10 @@ constexpr StrSpec kStrs[] = {
     {&strip.bar_position, "plugin:gloview:bar_position", "top"}, // deprecated alias
     {&strip.empty_mode, "plugin:gloview:strip_empty_mode", "show"},
     {&look.close_button_position, "plugin:gloview:close_button_position", "top-right"},
+    // "top" / "bottom". The title's puts the WHOLE caption above or below the card; the
+    // counter's only decides whether it leads or trails the title inside it.
+    {&look.title_position, "plugin:gloview:title_position", "bottom"},
+    {&look.counter_position, "plugin:gloview:counter_position", ""},
     {&look.close_button_visibility, "plugin:gloview:close_button_visibility", "shift"},
     {&look.close_trigger, "plugin:gloview:close_trigger", "button"},
     {&look.close_button_icon, "plugin:gloview:close_button_icon", "\xe2\x9c\x95"},
@@ -231,6 +244,10 @@ constexpr ColorSpec kColors[] = {
     {&colors.drop_hint, "plugin:gloview:drop_hint_color", "0x38ffffff"},
     {&colors.hover_border, "plugin:gloview:hover_border", "0xf0ffffff"},
     {&colors.label, "plugin:gloview:label_color", "0xf2ffffff"},
+    // The text in the two caption pills. Separate from label_color so one can be dimmed
+    // against the other, and separate from each other for the same reason.
+    {&colors.title_label, "plugin:gloview:title_label_color", "0xf2ffffff"},
+    {&colors.counter_label, "plugin:gloview:counter_label_color", "0xf2ffffff"},
     {&colors.select_border, "plugin:gloview:select_border", "0xf066ccff"},
     {&colors.shadow, "plugin:gloview:shadow_color", "0x70000000"},
     {&colors.strip_active, "plugin:gloview:strip_active_color", "0x4d1c2c44"},
@@ -241,6 +258,7 @@ constexpr ColorSpec kColors[] = {
     {&colors.strip_hover, "plugin:gloview:strip_hover_border", "0x80ffffff"},
     {&colors.strip_plus, "plugin:gloview:strip_plus_color", "0xd0eef4ff"},
     {&colors.title_pill, "plugin:gloview:title_pill_color", "0xcc11151c"},
+    {&colors.counter_pill, "plugin:gloview:counter_pill_color", "0xcc11151c"},
 };
 
 } // namespace

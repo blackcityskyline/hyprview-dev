@@ -113,7 +113,10 @@ void Overview::renderCarousel() const {
       look.box = LRect{cx - look.box.w * k * 0.5, cy - look.box.h * k * 0.5,
                        look.box.w * k, look.box.h * k};
     }
-    look.round = cfg::look.preview_round; // one ring size for every card
+    // Clamped to the box it is about to round: the box shrinks toward zero on close, and a
+    // radius past half the shorter side does not round at all -- the card would go square
+    // and its ring would vanish instead of closing with it.
+    look.round = clampRound(cfg::look.preview_round, look.box.w, look.box.h);
     look.frame = card.depth == 0;         // only the centred card is framed
     look.contain = true;                  // the window goes inside the box whole
     look.tone =

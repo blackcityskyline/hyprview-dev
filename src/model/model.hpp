@@ -23,6 +23,10 @@ struct Tile {
   std::string labelText;
   double landed = 1.0; // 0 = still coming in; ghosts reverse it
   SP<Render::ITexture> label;
+  // The carousel's "n / total", captured at build time for the same reason `label` is:
+  // paint only reads. Rendering it there allocated a texture mid-pass, and the text only
+  // changes when the selection does, so it was a texture built mid-frame at best.
+  SP<Render::ITexture> countLabel;
 };
 
 struct StripWin {

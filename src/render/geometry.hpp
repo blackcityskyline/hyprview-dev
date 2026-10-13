@@ -51,58 +51,62 @@ enum class Corner {
     return LRect{cx - b.w * s / 2.0, cy - b.h * s / 2.0 + dy, b.w * s, b.h * s};
 }
 
-// The counter's sprout: the stem hanging off the caption pill's bottom edge.
-//
-// Touching, never overlapping: two translucent rects over the same pixels blend twice and
-// the join reads as a dark seam, which is the one thing "one shape" must not look like. The
-// pill is a capsule, so its bottom is FLAT across pill.w - pill.h and only the last
-// pill.h / 2 at each end is an arc. A sprout whose width fits that flat span therefore
-// lands on the pill with no gap at all, and it can carry whatever corner radius it likes
-// -- the rounding cuts inward, and the pill is already covering that line.
-//
-// That is what makes it a STEM and not a second oval: the width is clamped to the flat
-// span so the two share a straight edge, and the caller rounds only lightly, so the join
-// reads as one body with a tab rather than a mushroom. A zero text size means no sprout --
-// one card has no "1 / 1" to show.
-[[nodiscard]] inline LRect captionSprout(const LRect& pill, double textW, double textH,
-                                          double padX, double padY) {
-    if (textW <= 0.0 || textH <= 0.0)
-        return LRect{0.0, 0.0, 0.0, 0.0};
-    const double sh = textH + 2.0 * padY;
-    // Floored at 0, not at sh: a pill narrower than it is tall has no flat bottom at all,
-    // and max(sh, pill.w - pill.h) let the sprout overshoot zero there -- the gap this
-    // clamp exists to prevent, back again.
-    const double flatBottom = std::max(0.0, pill.w - pill.h);
-    if (flatBottom <= 0.0)
-        return LRect{0.0, 0.0, 0.0, 0.0};  // no flat bottom to land on: no stem, and never
-                                             // a zero-width rect, which renderRect asserts on
-    const double sw         = std::min(textW + 2.0 * padX, flatBottom);
-    return LRect{pill.cx() - sw * 0.5, pill.y + pill.h, sw, sh};
+// Where a caption pill hangs off a card edge, clamped onto the screen. `below` picks which
+// edge. The clamp is the mirror image on each side: below it is measured down from the
+// card's lower edge and capped against the screen's bottom, above it is measured up from the
+// card's upper edge and floored against the screen's top. Getting one side's clamp wrong
+// pins the pill to the card edge instead of the screen edge.
+[[nodiscard]] inline double captionPillY(double cardY, double cardH, double pillH,
+                                         double gap, bool below, double screenH,
+                                         double margin) {
+    return below ? std::min(cardY + cardH + gap, screenH - pillH - margin)
+                 : std::max(margin, cardY - gap - pillH);
 }
 
-// The radius the stem is drawn with: the PILL's own. Two pills hanging off each other with
-// different corner softness read as two pills that happen to touch, which is the whole
-// thing this shape is not. Half the pill's height is the radius the pill itself uses.
+// Both pills on ONE card edge, title and counter. The counter is the OUTER pill either way:
+// above the card it leads, below the card it trails. A counter sitting between the card and
+// the title reads as part of the card's own furniture rather than as a number about the
+// run, and only one of the two edges can have the counter further out than the title by
+// accident -- this is the invariant that stops it.
 //
-// Never 0: the shoulder is a rect of this height drawn under the pill, and renderRect
-// asserts on a zero dimension (OpenGL.cpp RASSERT(w > 0 && h > 0)).
-[[nodiscard]] inline double captionSproutRound(double pillH) {
-    return std::max(1.0, pillH * 0.5);
+// `cardGap` is the card-to-caption distance and `stackGap` the title-to-counter one. They are
+// different knobs and passing one value for both is how the caption ended up glued to the
+// card with no gap at all whenever there was no counter to measure against.
+//
+// Clamped as one block. Clamping the pills separately lets the outer one walk off the
+// screen while the inner one sits on the margin.
+struct CaptionPills {
+    double titleY;
+    double counterY;
+};
+
+[[nodiscard]] inline CaptionPills captionPills(double cardY, double cardH, double titleH,
+                                               double counterH, double cardGap,
+                                               double stackGap, bool below, double screenH,
+                                               double margin) {
+    const double top = captionPillY(cardY, cardH, titleH + stackGap + counterH, cardGap,
+                                    below, screenH, margin);
+    return below ? CaptionPills{top, top + titleH + stackGap}      // card, title, counter
+                 : CaptionPills{top + counterH + stackGap, top};   // counter, title, card
 }
 
-// The box a caption yields as: the pill and its stem are one object, so the yield has to
-// be measured against both or they come apart. An EMPTY stem (no counter -- one card, or
-// no label) collapses to the pill: taking min/max against a zero rect would anchor the box
-// at the screen origin and let a preview nowhere near the caption shove it sideways.
-[[nodiscard]] inline LRect captionBody(const LRect& pill, const LRect& sprout) {
-    if (sprout.w <= 0.0 || sprout.h <= 0.0)
-        return pill;
-    const double x = std::min(pill.x, sprout.x);
-    const double y = std::min(pill.y, sprout.y);
-    return LRect{x, y, std::max(pill.x + pill.w, sprout.x + sprout.w) - x,
-                 std::max(pill.y + pill.h, sprout.y + sprout.h) - y};
+// The corner radius to hand Hyprland, from a configured one. Negative = a capsule, which is
+// what every pill here has been by default. Capped at half the shorter side: past that the
+// shape turns inside out rather than rounding more.
+[[nodiscard]] inline int pillRadius(double configured, double w, double h) {
+    const double cap = std::min(w, h) * 0.5;
+    const double want = configured < 0.0 ? cap : std::min(configured, cap);
+    return static_cast<int>(std::max(0.0, want));
 }
 
+// Keep a box inside a screen, with an inset. std::clamp requires lo <= hi and does not
+// check it, so a box wider than the screen minus both insets silently inverted the range.
+// The caption is sized off a window title, and a long one on a small monitor gets there.
+[[nodiscard]] inline double insetWithin(double x, double size, double screenW,
+                                        double inset) {
+    const double hi = screenW - size - inset;
+    return hi < inset ? screenW * 0.5 : std::clamp(x, inset, hi);
+}
 // The close glyph sits in one corner of a card, at a size that tracks the card but stays
 // clickable on a small one.
 [[nodiscard]] inline LRect closeButtonRect(const LRect& card, double sizeScale, Corner corner) {
