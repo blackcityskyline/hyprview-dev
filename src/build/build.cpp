@@ -387,40 +387,53 @@ void Overview::layoutTiles() {
   }
   cfg.maxScale = cfg::grid.max_scale;
 
-  // Room for the caption, on the side it hangs off the card.
+  // Room for the caption, per pill, on the edge that pill is configured for.
   //
   // A caption that does not fit is not clamped away: it is drawn over whatever is there,
   // and on the band's edge that is the strip band, which paints AFTER the tiles and so
-  // covers them. The two edges are not equal either -- the band's side reserves
-  // padding + the band, the other side only padding -- so a caption moved over the band
-  // has to take the card down with it, not just be allowed to overflow.
+  // covers them. The two edges are not symmetric either -- the band's side reserves
+  // padding plus the whole band, the other side only padding -- so the reservation has to
+  // go where the pill actually hangs, and a caption split across both edges takes room on
+  // both.
   //
-  // Measured off real labels, not estimated. The title comes from buildTiles, which runs
-  // first and rasterises every tile uncut; the height is a font-size function and the
-  // carousel's later truncation only narrows the line. The counter's own texture is built
-  // here for the same reason -- its height has to be known before the layout that reserves
-  // it -- and it is the very texture the card loop hands out below, so it costs one
-  // rasterisation, not two.
-  double capH = 0.0;
+  // Measured off real labels, not estimated. The title comes from the pass that already
+  // rasterises every tile uncut, and the height is a font-size function: the carousel's
+  // later truncation only narrows the line. The counter's own texture is built here for the
+  // same reason -- its height has to be known before the layout that reserves it -- and it
+  // is the very texture the card loop hands out below, so one rasterisation, not two.
+  double titleCapH = 0.0;
   for (const auto &t : m_scene.tiles()) {
     if (t.label && t.label->m_size.y > 0) {
-      capH = t.label->m_size.y + 2 * cfg::look.title_pad_y;
+      titleCapH = t.label->m_size.y + 2 * cfg::look.title_pad_y;
       break;
     }
   }
+  double countCapH = 0.0;
   if (m_view.run() && m_scene.size() > 1) {
     const auto tex = m_pixel.fixedLabel(
         pixel::Slot::CarouselCount,
         std::to_string(m_scene.focused() + 1) + " / " + std::to_string(m_scene.size()),
         cfg::colors.counter_label.get(1.0), cfg::look.counter_font_size.get());
     if (tex && tex->m_size.y > 0)
-      capH += cfg::look.counter_gap + tex->m_size.y + 2 * cfg::look.counter_pad_y;
+      countCapH = tex->m_size.y + 2 * cfg::look.counter_pad_y;
   }
-  if (capH > 0.0) {
-    if (cfg::look.title_position.get() == "top")
-      cfg.padTop += cfg::look.title_gap + capH;
-    else
-      cfg.padBottom += cfg::look.title_gap + capH;
+  {
+    const std::string cpos = cfg::look.counter_position.get();
+    const bool titleBelow = cfg::look.title_position.get() != "top";
+    const bool counterBelow = cpos.empty() ? titleBelow : cpos != "top";
+    const bool sameEdge = countCapH <= 0.0 || counterBelow == titleBelow;
+    const double gap = cfg::look.title_gap;
+    if (titleCapH > 0.0) {
+      if (titleBelow) cfg.padBottom += gap + titleCapH;
+      else cfg.padTop += gap + titleCapH;
+    }
+    if (countCapH > 0.0) {
+      // On the title's edge the counter stacks behind it, so it adds its own gap on top of
+      // the card gap; on the far edge it hangs off the card alone.
+      const double room = gap + countCapH + (sameEdge ? cfg::look.counter_gap : 0.0);
+      if (counterBelow) cfg.padBottom += room;
+      else cfg.padTop += room;
+    }
   }
 
   // whole monitor scaled into the usable box

@@ -241,40 +241,37 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // panel. Solved from sizes, which do not depend on where the block lands.
     const double counterH = hasLabel && hasCounter ? countH + 2 * cPadY : 0.0;
     const double stackGap = counterH > 0.0 ? cGap : 0.0;
-    const double totalH = ph + stackGap + counterH;
     const double margin = hasLabel ? cfg::look.title_margin : cfg::look.counter_margin;
     const double px = render::insetWithin(box.cx() - pw / 2.0, pw, m->m_size.x, 6.0);
-    // "top" puts the WHOLE caption above the card, measured up from the card's upper edge and
-    // clamped down from the screen's -- the mirror image of the below case, and easy to get
-    // wrong in exactly one direction: clamping "top" downwards is what used to be written,
-    // which pinned an above-card caption to the card's own top edge.
-    const bool below = cfg::look.title_position.get() != "top";
-    // An unset counter_position FOLLOWS the title's side, rather than defaulting to one
-    // order forever. "The caption hangs above the card" then reads the same way as "the
-    // counter sits above the title", which is what the eye expects of both -- and what
-    // flipping the caption to the other edge would otherwise contradict. Set it explicitly
-    // to get the crossed arrangement on purpose.
+    // Each knob names a card EDGE, nothing else. On one edge the counter is always the outer
+    // pill -- above the card it leads, below the card it trails -- so the pair reads the same
+    // way whichever way round the card is; split across two edges there is no order to speak
+    // of, and each pill simply hangs off its own.
+    const bool titleBelow = cfg::look.title_position.get() != "top";
     const std::string cpos = cfg::look.counter_position.get();
-    const bool counterBelow = cpos.empty() ? below : cpos != "top";
-    const double blockTop =
-        below ? std::min(box.y + box.h + cfg::look.title_gap, m->m_size.y - totalH - margin)
-              : std::max(margin, box.y - cfg::look.title_gap - totalH);
-    const render::CaptionStack stack =
-        render::stackCaption(blockTop, ph, counterH, stackGap, counterBelow);
+    const bool counterBelow = cpos.empty() ? titleBelow : cpos != "top";
+    const bool sameEdge = counterH <= 0.0 || counterBelow == titleBelow;
+    const render::CaptionPills pos =
+        render::captionPills(box.y, box.h, ph, counterH, stackGap, titleBelow,
+                             m->m_size.y, margin);
+    const double counterY =
+        sameEdge ? pos.counterY
+                 : render::captionPillY(box.y, box.h, counterH, cfg::look.title_gap,
+                                        counterBelow, m->m_size.y, cfg::look.counter_margin);
     // Yields like every other chrome element when a preview reaches it -- but AFTER the
     // clamp above, and deliberately unclamped itself: the clamp exists to keep the caption on
     // screen while the card is laid out, while the push is what shoves the pill clear. With
     // the clamp applied last the pill travelled to the screen edge, stopped there and just
     // faded (measured on exit). Pushed as ONE box: the two pills are one caption, and a
     // preview that reaches either has to move both, or they drift apart.
-    const LRect pill{px, stack.titleY, pw, ph};
+    const LRect pill{px, pos.titleY, pw, ph};
     // Centred on the MONITOR, not on the pill. It counts the whole run, and the run's centre
     // is the only centre it has; riding the pill's left edge instead meant a long title
     // clamped at the screen edge dragged the number off with it. Clamped the same way, so a
     // wide counter on a narrow monitor still lands inside.
     const double cW = countW + 2 * cPadX;
     const LRect counter{render::insetWithin(m->m_size.x / 2.0 - cW / 2.0, cW, m->m_size.x, 6.0),
-                        stack.counterY, cW, counterH};
+                        counterY, cW, counterH};
     const Vector2D push = pushOut(render::captionBody(pill, counter));
     const double ux = pill.x + push.x;
     const double uy = pill.y + push.y;

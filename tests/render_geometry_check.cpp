@@ -31,7 +31,8 @@ using gloview::render::dragVisualBox;
 using gloview::render::insetWithin;
 using gloview::render::killZoneGlow;
 using gloview::render::pillRadius;
-using gloview::render::stackCaption;
+using gloview::render::captionPills;
+using gloview::render::captionPillY;
 
 namespace {
 
@@ -209,33 +210,53 @@ int main() {
 
   // --- where the caption's two pills land ----------------------------------------------
   //
-  // Two independent knobs, and they are independent on purpose: title_position moves the
-  // WHOLE block off the card's edge, counter_position only swaps the two inside it. The
-  // caller owns the block's top (it is what clamps to the screen), so this only decides the
-  // order inside.
+  // Both knobs name a card EDGE. On one edge the counter is the outer pill either way --
+  // above the card it leads, below the card it trails -- so the pair reads the same way
+  // whichever way round the card is. That is the invariant; a counter between the card and
+  // the title reads as part of the card's own furniture.
   {
-    const double tH = 30.0, cH = 24.0, gap = 8.0, top = 100.0;
+    const double tH = 30.0, cH = 24.0, gap = 8.0, edge = 10.0;
+    const double cardY = 200.0, cardH = 300.0, screenH = 756.0, margin = 6.0;
 
-    const auto low = stackCaption(top, tH, cH, gap, true);
-    near(low.titleY, top, "counter below: the title leads");
-    near(low.counterY, top + tH + gap, "and the counter trails one gap down");
+    const auto low = captionPills(cardY, cardH, tH, cH, gap, true, screenH, margin);
+    near(low.titleY, cardY + cardH + gap, "below the card: the title hangs off the lower edge");
+    near(low.counterY - low.titleY, tH + gap, "and the counter trails it by one gap");
 
-    const auto high = stackCaption(top, tH, cH, gap, false);
-    near(high.counterY, top, "counter on top: the counter leads");
-    near(high.titleY, top + cH + gap, "and the title trails one gap down");
+    const auto high = captionPills(cardY, cardH, tH, cH, gap, false, screenH, margin);
+    near(high.titleY + tH, cardY - gap, "above the card: the title hangs off the upper edge");
+    near(high.titleY - high.counterY, cH + gap, "and the counter leads it, one gap further out");
 
-    // The block's HEIGHT must not depend on the order, or the caller's screen clamp reserves
-    // room for a caption that is not that tall -- which shows up as a number hanging off the
-    // bottom of the panel exactly when the counter is moved up top.
-    near((low.counterY + cH) - top, tH + gap + cH, "counter below: the block runs both pills plus the gap");
-    near((high.titleY + tH) - top, tH + gap + cH, "counter on top: the same height, so the clamp still fits");
+    // The invariant, stated against the CARD rather than against the title: the counter is
+    // further from the card on both edges. A counter between the card and the title reads as
+    // part of the card's furniture rather than as a number about the run.
+    assert(low.counterY - (cardY + cardH) > low.titleY - (cardY + cardH));
+    assert(cardY - high.counterY > cardY - high.titleY);
 
-    // One pill standing alone -- no counter, or one card -- collapses onto the top edge. If
-    // it did not, a lone title pill would sit a gap lower than it ever has.
-    for (const bool below : {true, false})
-      near(stackCaption(top, tH, 0.0, gap, below).titleY, top,
-           "no counter, no gap: the title sits where the block starts");
-    std::puts("stackCaption: title and counter, either order, and a lone title");
+    // Clamped as ONE block: the counter on the bottom edge is what would walk off, and
+    // clamping the title alone let it go past the screen edge while the title sat on the
+    // margin.
+    const auto tight = captionPills(700.0, 100.0, tH, cH, gap, true, screenH, margin);
+    near(tight.counterY + cH, screenH - margin, "a caption too tall for the screen is capped");
+
+    const auto tightTop = captionPills(40.0, 100.0, tH, cH, gap, false, screenH, margin);
+    near(tightTop.counterY, margin, "and floored, outer pill first");
+
+    std::puts("captionPills: the counter is the outer pill on either edge, clamped as a block");
+  }
+
+  // --- one pill's own edge --------------------------------------------------------------
+  //
+  // The split case: title and counter on opposite edges, so there is no order between them
+  // and each hangs off the card alone.
+  {
+    const double screenH = 756.0, margin = 6.0;
+    near(captionPillY(300.0, 400.0, 30.0, 10.0, true, screenH, margin), 710.0,
+         "below: the card's lower edge plus the gap");
+    near(captionPillY(300.0, 400.0, 30.0, 10.0, false, screenH, margin), 260.0,
+         "above: the card's upper edge minus the gap, less the pill");
+    assert(captionPillY(740.0, 100.0, 30.0, 10.0, true, screenH, margin) + 30.0 <= screenH);
+    assert(captionPillY(20.0, 100.0, 30.0, 10.0, false, screenH, margin) >= 0.0);
+    std::puts("captionPillY: either edge, either clamp direction");
   }
 
   // --- a configured corner radius ------------------------------------------------------

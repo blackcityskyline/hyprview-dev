@@ -51,28 +51,38 @@ enum class Corner {
     return LRect{cx - b.w * s / 2.0, cy - b.h * s / 2.0 + dy, b.w * s, b.h * s};
 }
 
-// Where the caption block starts, and where each of its two pills lands inside it.
+// Where a caption pill hangs off a card edge, clamped onto the screen. `below` picks which
+// edge. The clamp is the mirror image on each side: below it is measured down from the
+// card's lower edge and capped against the screen's bottom, above it is measured up from the
+// card's upper edge and floored against the screen's top. Getting one side's clamp wrong
+// pins the pill to the card edge instead of the screen edge.
+[[nodiscard]] inline double captionPillY(double cardY, double cardH, double pillH,
+                                         double gap, bool below, double screenH,
+                                         double margin) {
+    return below ? std::min(cardY + cardH + gap, screenH - pillH - margin)
+                 : std::max(margin, cardY - gap - pillH);
+}
+
+// Both pills on ONE card edge, title and counter. The counter is the OUTER pill either way:
+// above the card it leads, below the card it trails. A counter sitting between the card and
+// the title reads as part of the card's own furniture rather than as a number about the
+// run, and only one of the two edges can have the counter further out than the title by
+// accident -- this is the invariant that stops it.
 //
-// `below` hangs the block off the card's LOWER edge, so the block's top is card.bottom +
-// gap and the caller clamps DOWN from there. Otherwise it sits above the card's upper edge,
-// measured UP from it -- so the caller has to clamp from the other side, and getting that
-// wrong is what drops the caption off the top of the screen.
-//
-// Inside the block the two knobs are independent, which is the whole reason this is a
-// function rather than two lines: `title_position` moves both pills together, and
-// `counter_position` swaps them without touching the block. Four combinations, no layout
-// engine.
-struct CaptionStack {
+// Clamped as one block. Clamping the pills separately lets the outer one walk off the
+// screen while the inner one sits on the margin.
+struct CaptionPills {
     double titleY;
     double counterY;
 };
 
-[[nodiscard]] inline CaptionStack stackCaption(double top, double titleH, double counterH,
-                                              double gap, bool counterBelow) {
-    if (counterH <= 0.0)  // one pill standing alone: the order knob has nothing to order
-        return {top, top};
-    return counterBelow ? CaptionStack{top, top + titleH + gap}
-                        : CaptionStack{top + counterH + gap, top};
+[[nodiscard]] inline CaptionPills captionPills(double cardY, double cardH, double titleH,
+                                               double counterH, double gap, bool below,
+                                               double screenH, double margin) {
+    const double top =
+        captionPillY(cardY, cardH, titleH + gap + counterH, gap, below, screenH, margin);
+    return below ? CaptionPills{top, top + titleH + gap}         // card, title, counter
+                 : CaptionPills{top + counterH + gap, top};      // counter, title, card
 }
 
 // The corner radius to hand Hyprland, from a configured one. Negative = a capsule, which is
