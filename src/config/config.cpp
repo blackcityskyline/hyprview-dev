@@ -210,7 +210,7 @@ constexpr StrSpec kStrs[] = {
     // "top" / "bottom". The title's puts the WHOLE caption above or below the card; the
     // counter's only decides whether it leads or trails the title inside it.
     {&look.title_position, "plugin:gloview:title_position", "bottom"},
-    {&look.counter_position, "plugin:gloview:counter_position", "bottom"},
+    {&look.counter_position, "plugin:gloview:counter_position", ""},
     {&look.close_button_visibility, "plugin:gloview:close_button_visibility", "shift"},
     {&look.close_trigger, "plugin:gloview:close_trigger", "button"},
     {&look.close_button_icon, "plugin:gloview:close_button_icon", "\xe2\x9c\x95"},

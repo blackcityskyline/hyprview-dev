@@ -312,7 +312,7 @@ gloview.animation({ leaf = "glide", curve = "fluent_decel" })
 | `counter_font_size` | int | `15` | font size of the `n / total` counter |
 | `counter_label_color` | color | `"0xf2ffffff"` | the counter's text colour |
 | `counter_round` | float | `-1.0` | counter pill corner radius in px, same convention as `title_round` |
-| `counter_position` | string | `"bottom"` | `"top"` or `"bottom"`: the counter above or below the title pill |
+| `counter_position` | string | `""` | `"top"` or `"bottom"`: the counter above or below the title pill; empty follows `title_position` |
 | `counter_pad_x` | float | `14.0` | horizontal padding inside the counter pill |
 | `counter_pad_y` | float | `6.0` | vertical padding inside the counter pill |
 | `counter_gap` | float | `8.0` | vertical gap between the caption pill and the counter pill |

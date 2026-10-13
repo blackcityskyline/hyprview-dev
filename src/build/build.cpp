@@ -387,6 +387,42 @@ void Overview::layoutTiles() {
   }
   cfg.maxScale = cfg::grid.max_scale;
 
+  // Room for the caption, on the side it hangs off the card.
+  //
+  // A caption that does not fit is not clamped away: it is drawn over whatever is there,
+  // and on the band's edge that is the strip band, which paints AFTER the tiles and so
+  // covers them. The two edges are not equal either -- the band's side reserves
+  // padding + the band, the other side only padding -- so a caption moved over the band
+  // has to take the card down with it, not just be allowed to overflow.
+  //
+  // Measured off real labels, not estimated. The title comes from buildTiles, which runs
+  // first and rasterises every tile uncut; the height is a font-size function and the
+  // carousel's later truncation only narrows the line. The counter's own texture is built
+  // here for the same reason -- its height has to be known before the layout that reserves
+  // it -- and it is the very texture the card loop hands out below, so it costs one
+  // rasterisation, not two.
+  double capH = 0.0;
+  for (const auto &t : m_scene.tiles()) {
+    if (t.label && t.label->m_size.y > 0) {
+      capH = t.label->m_size.y + 2 * cfg::look.title_pad_y;
+      break;
+    }
+  }
+  if (m_view.run() && m_scene.size() > 1) {
+    const auto tex = m_pixel.fixedLabel(
+        pixel::Slot::CarouselCount,
+        std::to_string(m_scene.focused() + 1) + " / " + std::to_string(m_scene.size()),
+        cfg::colors.counter_label.get(1.0), cfg::look.counter_font_size.get());
+    if (tex && tex->m_size.y > 0)
+      capH += cfg::look.counter_gap + tex->m_size.y + 2 * cfg::look.counter_pad_y;
+  }
+  if (capH > 0.0) {
+    if (cfg::look.title_position.get() == "top")
+      cfg.padTop += cfg::look.title_gap + capH;
+    else
+      cfg.padBottom += cfg::look.title_gap + capH;
+  }
+
   // whole monitor scaled into the usable box
   if (m_view.desktop()) {
     const double usableX = cfg.padLeft;

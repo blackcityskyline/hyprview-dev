@@ -249,12 +249,18 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // wrong in exactly one direction: clamping "top" downwards is what used to be written,
     // which pinned an above-card caption to the card's own top edge.
     const bool below = cfg::look.title_position.get() != "top";
+    // An unset counter_position FOLLOWS the title's side, rather than defaulting to one
+    // order forever. "The caption hangs above the card" then reads the same way as "the
+    // counter sits above the title", which is what the eye expects of both -- and what
+    // flipping the caption to the other edge would otherwise contradict. Set it explicitly
+    // to get the crossed arrangement on purpose.
+    const std::string cpos = cfg::look.counter_position.get();
+    const bool counterBelow = cpos.empty() ? below : cpos != "top";
     const double blockTop =
         below ? std::min(box.y + box.h + cfg::look.title_gap, m->m_size.y - totalH - margin)
               : std::max(margin, box.y - cfg::look.title_gap - totalH);
     const render::CaptionStack stack =
-        render::stackCaption(blockTop, ph, counterH, stackGap,
-                             cfg::look.counter_position.get() != "top");
+        render::stackCaption(blockTop, ph, counterH, stackGap, counterBelow);
     // Yields like every other chrome element when a preview reaches it -- but AFTER the
     // clamp above, and deliberately unclamped itself: the clamp exists to keep the caption on
     // screen while the card is laid out, while the push is what shoves the pill clear. With

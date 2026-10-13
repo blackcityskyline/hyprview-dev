@@ -198,8 +198,10 @@ struct look {
   Float counter_pad_y;
   Int counter_font_size;
   Float counter_round; // negative = capsule, as the caption's
-  // "bottom" puts the counter under the title pill, "top" over it. Only the order inside
-  // the caption; where the caption itself hangs off the card is title_position's business.
+  // "bottom" puts the counter under the title pill, "top" over it. Empty = follow
+  // title_position, so a caption above the card also puts the counter above the title. Only
+  // the order inside the caption; where the caption hangs off the card is title_position's
+  // business.
   Str counter_position;
   Float counter_gap;
   Float counter_margin;
