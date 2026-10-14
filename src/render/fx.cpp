@@ -390,30 +390,7 @@ void Overview::renderSwapFX() const {
 }
 
 bool Overview::isAboveLayer(const std::string &ns) const {
-  if (ns.find("aboveoverview") != std::string::npos)
-    return true;
-  const std::string list = cfg::layer.above_namespaces.get();
-  size_t i = 0;
-  while (i < list.size()) {
-    while (i < list.size() &&
-           (list[i] == ',' || std::isspace(static_cast<unsigned char>(list[i]))))
-      ++i;
-    size_t start = i;
-    while (i < list.size() && list[i] != ',' &&
-           !std::isspace(static_cast<unsigned char>(list[i])))
-      ++i;
-    if (i == start)
-      continue;
-    std::string entry = list.substr(start, i - start);
-    if (entry.back() == '*') {
-      const std::string prefix = entry.substr(0, entry.size() - 1);
-      if (ns.compare(0, prefix.size(), prefix) == 0)
-        return true;
-    } else if (ns == entry) {
-      return true;
-    }
-  }
-  return false;
+  return session::isAboveLayer(ns, cfg::layer.above_namespaces.get());
 }
 
 // renderLayer is renderer-protected, so opted-in TOP/OVERLAY surfaces go through

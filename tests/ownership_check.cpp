@@ -106,6 +106,10 @@ int main(int argc, char **argv) {
         "m_mouseAxisL", "m_mouseMoveL", "m_keyL"}},
       // close_trigger == "doubleclick": the armed timer IS the record of a pending click.
       {"PendingClick", "session/pending_click.hpp", {"m_win", "m_timer"}},
+      // The bars and popups faded out for the overlay, and the alphas that put them back.
+      // hide() without restore() leaves the user's taskbar invisible with nothing else in
+      // the plugin noticing, which is why the saved values live next to the fading.
+      {"LayerVisibility", "session/layer_visibility.hpp", {"m_hidden"}},
   };
 
   std::set<std::string> delegated;

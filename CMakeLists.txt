@@ -29,6 +29,7 @@ add_library(gloview SHARED
   src/session/preview_visibility.cpp
   src/session/overview_lifetime.cpp
   src/session/pending_click.cpp
+  src/session/layer_visibility.cpp
   src/build/build.cpp
   src/input/mouse.cpp
   src/input/keys.cpp
@@ -210,6 +211,13 @@ add_test(NAME lifecycle
 add_test(NAME trace_mask
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/trace_mask_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check && ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check")
+
+# The above-overview namespace parse. layer_names.hpp is Hyprland-free and reads no config,
+# so this is the same file the plugin compiles.
+
+add_test(NAME layer_names
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/layer_names_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/layer_names_check && ${CMAKE_CURRENT_BINARY_DIR}/layer_names_check")
 
 # The render geometry that computes boxes and draws nothing. Header-only and Hyprland-free,
 # so the same file the plugin compiles is the file the test compiles.

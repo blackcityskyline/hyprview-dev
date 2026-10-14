@@ -683,54 +683,16 @@ void Overview::restoreFill() {
       w->wlSurface()->m_fillIgnoreSmall = false;
 }
 
-// Fade bars/popups to 0 so they don't bleed through the translucent backdrop.
 void Overview::hideLayers() {
   const auto m = m_monitor.lock();
-  if (!m)
+  m_layers.hide(m, cfg::layer.hide_top != 0, cfg::layer.hide_overlay != 0,
+                cfg::layer.above_namespaces.get());
+  if (!m_layers.anyHidden())
     return;
-  const bool top = cfg::layer.hide_top != 0;
-  const bool ovl = cfg::layer.hide_overlay != 0;
-  if (!top && !ovl)
-    return;
-  const auto fade = [this, &m](const std::vector<PHLLSREF> &layer) {
-    for (const auto &ref : layer) {
-      const auto ls = ref.lock();
-      if (!ls)
-        continue;
-      // The wallpaper is NOT chrome. It is the one thing that keeps the desktop from being
-      // an empty black buffer on the first frame, and fading it here is what produces the
-      // entry blackout: Hyprland renders the wallpaper at alpha 0 into the monitor FB, then
-      // our opaque entry base goes down on top of nothing. m_background IS its texture.
-      if (ls->wlSurface() && ls->wlSurface()->resource() &&
-          ls->wlSurface()->resource()->m_current.texture.get() == m->m_background.get())
-        continue;
-      auto &a = ls->alpha()[Desktop::View::LS_ALPHA_FADE];
-      if (!a)
-        continue;
-      if (isAboveLayer(ls->m_namespace))
-        continue; // keep above-overview surfaces fully visible
-      m_hiddenLayers.emplace_back(ref, a->goal());
-      *a = 0.F;
-    }
-  };
-  if (top)
-    fade(m->m_layerSurfaceLayers[2]); // ZWLR_LAYER_SHELL_V1_LAYER_TOP
-  if (ovl)
-    fade(m->m_layerSurfaceLayers[3]); // ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY
-  if (!m_hiddenLayers.empty()) {
-    debug::dbg("hid " + std::to_string(m_hiddenLayers.size()) + " layer surface(s)");
-    damage();
-  }
+  debug::dbg("hid " + std::to_string(m_layers.hiddenCount()) + " layer surface(s)");
+  damage();
 }
 
-void Overview::restoreLayers() {
-  for (auto &[ref, alpha] : m_hiddenLayers)
-    if (const auto ls = ref.lock(); ls) {
-      auto &a = ls->alpha()[Desktop::View::LS_ALPHA_FADE];
-      if (a)
-        *a = alpha;
-    }
-  m_hiddenLayers.clear();
-}
+void Overview::restoreLayers() { m_layers.restore(); }
 
 } // namespace gloview

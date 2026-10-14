@@ -42,6 +42,7 @@ class CGradientValueData; // general:col.active_border's real type
 #include "render/backdrop.hpp"
 #include "render/geometry.hpp"
 #include "session/hooks.hpp"
+#include "session/layer_visibility.hpp"
 #include "session/pending_click.hpp"
 #include "session/preview_visibility.hpp"
 #include "render/tile_look.hpp"
@@ -204,7 +205,7 @@ private:
   model::Strip m_strip;
   mutable pixel::PixelCache m_pixel;
   double m_scrollAccum = 0.0; // sub-card wheel leftover, so slow paging still moves
-  std::vector<std::pair<PHLLSREF, float>> m_hiddenLayers; // + pre-hide alpha
+  session::LayerVisibility m_layers;
   PHLWINDOWREF m_pendingFocus;
 
 
