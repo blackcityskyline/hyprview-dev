@@ -518,23 +518,17 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       return true;
     }
     if (closeOnDoubleClick() && w && g_pEventLoopManager) {
-      if (m_clickTimer && m_pendingClickWin.lock() == w) {
-        cancelPendingClick();
+      if (m_click.armedFor(w)) {
+        m_click.cancel();
         closeTileWindow(press);
         return true;
       }
-      cancelPendingClick(); // drop any OTHER tile's still-pending timer first
-      m_pendingClickWin = w;
-      m_clickTimer = makeShared<CEventLoopTimer>(
-          dblclickWindow(),
-          [this](SP<CEventLoopTimer>, void *) {
-            const auto pw = m_pendingClickWin.lock();
-            m_pendingClickWin.reset();
-            if (pw && active())
-              focusAndClose(pw, Desktop::FOCUS_REASON_CLICK);
-          },
-          nullptr);
-      g_pEventLoopManager->addTimer(m_clickTimer);
+      // The first click waits. Whether it is still pending IS whether the timer is armed:
+      // there is no separate flag that could disagree with it.
+      m_click.arm(dblclickWindow(), w, [this](const PHLWINDOW pw) {
+        if (active())
+          focusAndClose(pw, Desktop::FOCUS_REASON_CLICK);
+      });
       return true;
     }
     focusAndClose(w, Desktop::FOCUS_REASON_CLICK);
@@ -726,14 +720,6 @@ void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
     Desktop::focusState()->fullWindowFocus(w, reason);
 }
 
-void Overview::cancelPendingClick() {
-  m_pendingClickWin.reset();
-  if (m_clickTimer) {
-    m_clickTimer->cancel();
-    if (g_pEventLoopManager)
-      g_pEventLoopManager->removeTimer(m_clickTimer);
-    m_clickTimer.reset();
-  }
-}
+void Overview::cancelPendingClick() { m_click.cancel(); }
 
 } // namespace gloview

@@ -40,6 +40,9 @@ class CGradientValueData; // general:col.active_border's real type
 #include "model/model.hpp"
 #include "pixel/cache.hpp"
 #include "render/backdrop.hpp"
+#include "session/hooks.hpp"
+#include "session/pending_click.hpp"
+#include "session/preview_visibility.hpp"
 #include "render/tile_look.hpp"
 #include "blur.hpp"
 #include "cursor.hpp"
@@ -77,7 +80,6 @@ public:
 
   void renderBackdrop() const;
   void primeBackdrop();
-  SP<Render::ITexture> renderBackdropSource(int W, int H) const;
 
   bool stripSlotGrabbed(size_t i, size_t j) const;
   void renderStrip() const;
@@ -129,18 +131,21 @@ public:
   [[nodiscard]] PHLMONITOR monitor() const { return m_monitor.lock(); }
   [[nodiscard]] bool blurEnabled() const;
   [[nodiscard]] SP<Render::ITexture> backdropBlurTexture() const {
-    return (m_blur.fb && m_blur.fb->isAllocated()) ? m_blur.fb->getTexture()
-                                                   : nullptr;
+    return m_backdrop.blurTexture();
   }
   // The composited (unblurred) backdrop, for anything that draws under the windows --
   // strip cards fill the gaps their windows leave with it. Reads the composite's own
   // state rather than reaching into its framebuffer: whether there IS a composite is
   // backdrop.cpp's decision, not the caller's.
-  [[nodiscard]] SP<Render::ITexture> backdropSourceTexture() const;
+  [[nodiscard]] SP<Render::ITexture> backdropSourceTexture() const {
+    return m_backdrop.composite();
+  }
   // True when the blur cache must be recomputed. Separate from having a texture:
   // a stale cache still holds the last blur, which is what the entry path falls back to.
-  [[nodiscard]] bool backdropBlurStale() const { return !m_blur.valid; }
-  [[nodiscard]] bool backdropDrawn() const { return m_backdropDrawn; }
+  [[nodiscard]] bool backdropBlurStale() const {
+    return m_backdrop.blurStale();
+  }
+  [[nodiscard]] bool backdropDrawn() const { return m_backdrop.drawn(); }
   [[nodiscard]] SP<Render::ITexture> snapshot(const PHLWINDOW &w) const {
     return m_pixel.snapshot(w);
   }
@@ -247,21 +252,7 @@ private:
   // another workspace previews as an empty frame. Restored on the way out.
   void forcePreviewVisibility();
   void restorePreviewVisibility();
-  struct ForcedWsAlpha {
-    PHLWORKSPACEREF ws;
-    float val;
-  };
-  struct ForcedWinVis {
-    PHLWINDOWREF w;
-    float alphaVal;
-  };
-  struct ForcedRegion {
-    SP<Desktop::View::CWLSurface> hl;
-    CRegion region;
-  };
-  std::vector<ForcedWsAlpha> m_forcedAlphaWs;
-  std::vector<ForcedWinVis> m_forcedWindows;
-  std::vector<ForcedRegion> m_forcedRegions;
+  session::PreviewVisibility m_previewVis;
   void kickPulse(const PHLWINDOW &w);
   void beginSwapFX(const PHLWINDOW &w, const LRect &from,
                    anim::Move style, double ms, const std::string &curve,
@@ -285,48 +276,19 @@ private:
   // trace so a reported target cannot differ from a drawn one.
   [[nodiscard]] std::vector<LRect> swapDests(const PHLWINDOW &w, bool strip) const;
 
-  // close_trigger == "doubleclick": the first click waits behind a timer, and that
-  // armed timer IS the record. A second click before it fires closes it.
-  PHLWINDOWREF m_pendingClickWin;
-  SP<CEventLoopTimer> m_clickTimer;
+  session::PendingClick m_click;
 
   model::Drag m_drag; // pointer PRESS..RELEASE, both drag kinds
   LRect m_lastDragBox; // drag box at RELEASE, the `from` for landings
   bool m_altTabbing = false;
   bool m_commitPending = false;
 
-  CHyprSignalListener m_renderStageL;
-  CHyprSignalListener m_mouseButtonL;
-  CHyprSignalListener m_mouseAxisL;
-  CHyprSignalListener m_mouseMoveL;
-  CHyprSignalListener m_keyL;
-  CFunctionHook *m_shouldRenderHook = nullptr;
-  CFunctionHook *m_damageSurfaceHook = nullptr;
-  CFunctionHook *m_setPointerFocusHook = nullptr;
-  CFunctionHook *m_setKeyboardFocusHook = nullptr;
+  session::Hooks m_hooks;
 
   SP<CEventLoopTimer> m_animPump; // null when no animation is running
   CCursorModule m_cursor; // KMS plane preferred, software erases-and-redraws
 
-  mutable render::BlurCache m_blur;
-  mutable SP<Render::IFramebuffer> m_backdropSrcFB;
-  // New composites are built here and only adopted once they read as a real picture, so a
-  // black attempt can never overwrite the good one.
-  mutable SP<Render::IFramebuffer> m_backdropScratchFB;
-  mutable bool m_backdropDrawn = false;
-  // The layer texture the saved composite was made from. Compared on every open, so the
-  // composite can be kept indefinitely instead of expiring on a timer: a TTL cannot tell
-  // "the desktop changed" from "the wallpaper texture is mid-recreation right now".
-  mutable const void *m_backdropSrcTex = nullptr;
-  // A video wallpaper replaces its source texture every frame. Detected from consecutive
-  // changes, so a one-off compositor re-creation of a static wallpaper is not mistaken for it.
-  // Such a source is composited once and then held: one frozen frame of the video, shown for
-  // the whole open. Its black-frame check is skipped -- a dark video frame is real content,
-  // not "not ready yet".
-  mutable const void *m_lastObservedTex = nullptr;
-  mutable int m_srcAnimStreak = 0;
-  mutable bool m_srcAnimated = false;
-  mutable CBlurFilter m_blurFilter; // independent of decoration:blur:*
+  mutable render::Backdrop m_backdrop;
   void updateSnapshots();
 
 

@@ -26,6 +26,9 @@ add_library(gloview SHARED
   src/session/hooks.cpp
   src/session/geometry.cpp
   src/session/lifecycle.cpp
+  src/session/preview_visibility.cpp
+  src/session/overview_lifetime.cpp
+  src/session/pending_click.cpp
   src/build/build.cpp
   src/input/mouse.cpp
   src/input/keys.cpp
@@ -161,6 +164,13 @@ add_test(NAME layout
 # the check for why the second one is about the value type and not the key type.
 add_test(NAME scan_hypr_types
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/hypr_types_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check && ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check ${CMAKE_SOURCE_DIR}/src")
+
+# Overview must not hold state that has exactly one writer. The god object accumulated one
+# correct-looking field per commit; the property that separates them from the genuinely shared
+# state is which file writes them, and that is greppable. Registry half guards the extractions
+# already made, the counting half names the next one.
+add_test(NAME scan_ownership
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/ownership_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/ownership_check && ${CMAKE_CURRENT_BINARY_DIR}/ownership_check ${CMAKE_SOURCE_DIR}/src")
 
 # The drag FSM. model/drag.hpp is templated on its window handle so it carries no
 # hyprland/ include, which is what makes the state machine reachable from here at all --
