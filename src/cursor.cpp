@@ -1,6 +1,7 @@
 #include "cursor.hpp"
 
 #include <algorithm>
+#include "config/config.hpp"
 #include "render/gl_util.hpp"
 #include <hyprutils/math/Region.hpp>
 
@@ -8,9 +9,10 @@ using Render::GL::g_pHyprOpenGL;
 
 namespace gloview {
 
-void CCursorModule::onOpen(PHLMONITOR monitor, const std::string& mode) {
+// `mode` is gone, and so is m_softwareOnly: the config is read where it is used. Keeping the
+// parameter would have kept the stale copy alive one call away from being used again.
+void CCursorModule::onOpen(PHLMONITOR monitor) {
     resetCursorBox();
-    m_softwareOnly = (mode == "software");
     (void)monitor;
 }
 
@@ -21,7 +23,12 @@ void CCursorModule::onClose() {
 bool CCursorModule::hasHardwareCursor(PHLMONITOR monitor) const {
     if (!monitor || !Pointer::mgr())
         return false;
-    if (m_softwareOnly)
+    // Read the config where it is used, every time. It was cached into m_softwareOnly by
+    // onOpen, so `set cursor_mode software` did nothing until the overview was reopened --
+    // the one setting in the plugin that needed a restart, in a project where every other
+    // one answers live (the tween durations set the precedent: config is read on the spot
+    // so changing it mid-session takes effect on the next frame).
+    if (cfg::behavior.cursor_mode.get() == "software")
         return false;
     return Pointer::mgr()->hasVisibleHWCursor(monitor);
 }

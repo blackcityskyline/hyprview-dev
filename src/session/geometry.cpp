@@ -32,10 +32,6 @@ using Render::GL::g_pHyprOpenGL;
 
 namespace gloview {
 
-std::string Overview::cursorMode() const {
-    return cfg::behavior.cursor_mode.get();
-}
-
 Overview::Anchor Overview::stripAnchor() const {
   std::string a = cfg::strip.anchor.get();
   if (a.empty()) // back-compat knob

@@ -283,7 +283,7 @@ void Overview::open() {
   m_lastAnimTick = {};
   // hideLayers() is deliberately NOT called here: it runs at promotion instead. Fading the
   // layers now would leave the desktop bare on frames where the overview draws nothing.
-  m_cursor.onOpen(m, cursorMode());
+  m_cursor.onOpen(m);
   // The backdrop composite is kept and never expires here. renderBackdropSource compares the
   // source texture against the one the composite was made from and redraws when it really
   // changed; it must not be reset by a timer, because right after an idle the wallpaper

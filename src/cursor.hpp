@@ -18,7 +18,7 @@ public:
     CCursorModule()  = default;
     ~CCursorModule() = default;
 
-    void onOpen(PHLMONITOR monitor, const std::string& mode = "auto");
+    void onOpen(PHLMONITOR monitor);
     void onClose();
 
     // opaque erase, renderBackdrop()'s color
@@ -28,13 +28,9 @@ public:
 
     bool hasHardwareCursor(PHLMONITOR monitor) const;
 
-    bool softwareOnly() const { return m_softwareOnly; }
-    void setSoftwareOnly(bool v) { m_softwareOnly = v; }
-
     void resetCursorBox() { m_haveLastBox = false; }
 
 private:
-    bool     m_softwareOnly  = false;
     mutable CBox m_lastBox{};
     mutable bool m_haveLastBox = false;
 };

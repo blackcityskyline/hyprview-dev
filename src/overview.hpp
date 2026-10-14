@@ -328,7 +328,6 @@ private:
   mutable bool m_srcAnimated = false;
   mutable CBlurFilter m_blurFilter; // independent of decoration:blur:*
   void updateSnapshots();
-  std::string cursorMode() const;
 
 
   enum class Anchor { Top, Bottom, Left, Right };
