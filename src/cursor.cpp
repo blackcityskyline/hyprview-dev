@@ -48,20 +48,41 @@ CBox CCursorModule::moveDamage(PHLMONITOR monitor) const {
 }
 
 void CCursorModule::renderOnTop(PHLMONITOR monitor, const CHyprColor& backdropColor) const {
+    // Every exit below NAMED, per frame. "The cursor is not visible in the overview but it
+    // still moves focus" is five different early returns with the same symptom, and until
+    // this existed the module wrote nothing at all -- so the only way to answer was to read
+    // the source and pick one, which is how the wrong one gets fixed twice.
+    //
+    //   CURSOR|mode=hw|no_monitor|no_tex|empty_box|draw|x=..,y=..,w=..,h=..|erase=<0|1>
+    //
+    // `mode=hw` is the one worth reading twice: it means we deliberately drew nothing
+    // because the compositor claims a hardware cursor sits above us, and that claim is
+    // exactly what an invisible-but-working cursor disputes.
+    const auto bail = [&](const char* why) {
+        debug::trace::emitState(std::string("CURSOR|mode=") + why);
+    };
     if (!monitor || !Pointer::mgr() || !g_pHyprOpenGL)
-        return;
+        return bail("no_monitor");
 
     // HW cursor is composited above us: a software copy would trail
-    if (hasHardwareCursor(monitor))
-        return;
+    if (hasHardwareCursor(monitor)) {
+        // But "we draw nothing" is not "the cursor is handled". The plane has to be
+        // repositioned for this frame, and the only caller that does it for us was the mouse
+        // path, which returned early on this same branch -- so on frames where the overview
+        // did the damage instead of the pointer, nothing moved the plane. Issuing it here
+        // too is the redundancy that makes the two paths independent.
+        if (Pointer::mgr())
+            Pointer::mgr()->damageCursor(monitor);
+        return bail("hw");
+    }
 
     const auto tex = Pointer::mgr()->getCurrentCursorTexture();
     if (!tex)
-        return;
+        return bail("no_tex");
 
     const CBox g = Pointer::mgr()->getCursorBoxGlobal();
     if (g.w <= 0 || g.h <= 0)
-        return;
+        return bail("empty_box");
 
     // pixels, not logical: projection is set per monitor
     const CBox gpl{
@@ -74,7 +95,8 @@ void CCursorModule::renderOnTop(PHLMONITOR monitor, const CHyprColor& backdropCo
                             std::round(gpl.w), std::round(gpl.h)};
 
     // erase with an OPAQUE backdrop copy: the backdrop only blends
-    if (m_haveLastBox && m_lastBox != g) {
+    const bool erasing = m_haveLastBox && m_lastBox != g;
+    if (erasing) {
         const CBox lastPl{
             (m_lastBox.x - monitor->m_position.x) * monitor->m_scale,
             (m_lastBox.y - monitor->m_position.y) * monitor->m_scale,
@@ -90,6 +112,16 @@ void CCursorModule::renderOnTop(PHLMONITOR monitor, const CHyprColor& backdropCo
     }
 
     g_pHyprOpenGL->renderTexture(tex, curPx, {.a = 1.0F});
+
+    // The box is logged as DRAWN, in the same pixels the texture went to. A record that
+    // only said "draw" would be true on a frame where the draw was clipped away by the
+    // damage -- which is the other candidate for an invisible cursor, and the one a viewer
+    // cannot rule out by eye.
+    debug::trace::emitState("CURSOR|mode=draw|x=" + std::to_string(curPx.x) +
+                            ",y=" + std::to_string(curPx.y) +
+                            ",w=" + std::to_string(curPx.w) +
+                            ",h=" + std::to_string(curPx.h) +
+                            "|erase=" + (erasing ? "1" : "0"));
 
     m_lastBox     = g;
     m_haveLastBox = true;

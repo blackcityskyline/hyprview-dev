@@ -97,11 +97,34 @@ void Overview::onMouseMove() {
   }
   if (m_cursor.hasHardwareCursor(m)) {
     updateHover();
+    // The hardware cursor is on its own plane, but the plane still has to be told where the
+    // cursor is for THIS frame. Nothing else will: Hyprland's cursor render runs inside its
+    // own pass, and this branch returned before any damage was issued at all -- so on our
+    // frames the plane kept whatever position it last had. Move the mouse and the overview
+    // covers it: focus follows, the cursor does not show. Periodically, because it depends
+    // on whether the stale plane position happened to survive.
+    //
+    // damageCursor() and not our own union box: the union is what a SOFTWARE copy needs
+    // erased and redrawn, and the hardware plane carries no such history.
+    if (active() && Pointer::mgr())
+      Pointer::mgr()->damageCursor(m);
     return;
   }
   const CBox unionBox = m_cursor.moveDamage(m);
   updateHover();
-  if (!active() || unionBox.w <= 0 || unionBox.h <= 0)
+  // Named, because this is the other half of the cursor's visibility and it fails SILENTLY:
+  // renderOnTop draws the texture regardless of damage, so a frame where the damage never
+  // got issued clips the cursor away while the mouse keeps moving and focus keeps following.
+  // The pair of records -- CURSOR|mode=draw with no matching CURSORMV|damage -- is that bug,
+  // and neither half identifies it alone.
+  const bool dmg = active() && unionBox.w > 0 && unionBox.h > 0;
+  debug::trace::emitState(
+      std::string("CURSORMV|at=") + (active() ? "open" : "closed") +
+      "|damage=" + (dmg ? "1" : "0") +
+      (dmg ? "|box=" + std::to_string(unionBox.x) + "," + std::to_string(unionBox.y) +
+                  "," + std::to_string(unionBox.w) + "," + std::to_string(unionBox.h)
+            : ""));
+  if (!dmg)
     return;
   if (g_pHyprRenderer)
     g_pHyprRenderer->damageBox(unionBox);
