@@ -6,6 +6,14 @@
 // pure geometry, monitor-local LOGICAL px, no Hyprland and no GL
 namespace gloview {
 
+// Hyprland's Vector2D is not reachable from here: ctest compiles layout.hpp and
+// render/geometry.hpp on their own, with no hyprutils on the include path, and a header
+// that cannot be compiled alone is a header that cannot be tested alone.
+struct LVec2 {
+    double x = 0.0, y = 0.0;
+    auto operator+(const LVec2& o) const { return LVec2{x + o.x, y + o.y}; }
+};
+
 struct LRect {
     double x = 0.0, y = 0.0, w = 0.0, h = 0.0;
 

@@ -20,6 +20,8 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <string>
+#include <utility>
 
 #include "../src/render/geometry.hpp"
 
@@ -244,6 +246,79 @@ int main() {
     near(pillRadius(99.0, 200.0, 30.0), 15.0, "past the cap it clamps, it does not invert");
     near(pillRadius(-1.0, 0.0, 0.0), 0.0, "a degenerate box gets nothing, not a negative");
     std::puts("pillRadius: capsule, square, in-range, and clamped at half the short side");
+  }
+
+  // The strip band's placement. Every one of these was a private Overview method reading
+  // cfg:: at the point of use; they are here because a band that lands on the wrong edge is
+  // a wrong ANSWER, not a wrong drawing.
+  {
+    using gloview::render::Anchor;
+    using gloview::render::isHorizontal;
+    using gloview::render::parseAnchor;
+    using gloview::render::stripBand;
+    using gloview::render::stripOffset;
+    using gloview::render::stripSlide;
+    using gloview::render::stripThickness;
+
+    assert(parseAnchor("bottom", "") == Anchor::Bottom);
+    assert(parseAnchor("left", "") == Anchor::Left);
+    assert(parseAnchor("right", "") == Anchor::Right);
+    assert(parseAnchor("top", "") == Anchor::Top);
+    // Anything unrecognised is Top, and an empty anchor falls back to the older knob
+    // rather than to Top -- otherwise upgrading silently moves a bottom strip.
+    assert(parseAnchor("nonsense", "bottom") == Anchor::Top);
+    assert(parseAnchor("", "bottom") == Anchor::Bottom);
+    assert(parseAnchor("", "") == Anchor::Top);
+    assert(isHorizontal(Anchor::Top) && isHorizontal(Anchor::Bottom));
+    assert(!isHorizontal(Anchor::Left) && !isHorizontal(Anchor::Right));
+    std::puts("strip anchor: four edges, fallback on empty, Top on unknown");
+
+    // The 100px floor, and the inverted range a small offset_max would have produced.
+    near(stripThickness(1080.0, 120.0, 0.3), 120.0, "in range passes through");
+    near(stripThickness(1080.0, 40.0, 0.3), 100.0, "below the floor it clamps up");
+    // offset_max 0.05 on a 1080 cross axis puts hi at 54, under the floor: clamp(40, 54, 54)
+    // is the valid range and 54 is the answer. Passing a floor above hi used to invert it.
+    near(stripThickness(1080.0, 40.0, 0.05), 54.0, "a tiny offset_max does not invert");
+    near(stripThickness(1080.0, 9999.0, 0.3), 324.0, "above hi it clamps down");
+    std::puts("strip thickness: floor, ceiling, and no inverted range");
+
+    near(stripOffset(1080.0, -50.0), 0.0, "negative offsets clamp to 0");
+    near(stripOffset(1080.0, 20.0), 20.0, "in range passes through");
+    // The ceiling is cross * 0.4, not cross * offset_max: this one bounds how far the band
+    // can be pushed in from its edge and has always been its own number.
+    near(stripOffset(1080.0, 1e9), 432.0, "the offset has its own ceiling");
+    std::puts("strip offset: floored at 0, ceiled at 40% of the cross axis");
+
+    // One band, four edges. A mis-placed band reads as a correct band in the wrong place,
+    // which is why each edge is checked against all four of its numbers.
+    const auto top = stripBand(Anchor::Top, 1366.0, 768.0, 60.0, 10.0);
+    sameRect(top, LRect{0, 10, 1366, 60}, "top band");
+    const auto bottom = stripBand(Anchor::Bottom, 1366.0, 768.0, 60.0, 10.0);
+    sameRect(bottom, LRect{0, 698, 1366, 60}, "bottom band");
+    const auto left = stripBand(Anchor::Left, 1366.0, 768.0, 60.0, 10.0);
+    sameRect(left, LRect{10, 0, 60, 768}, "left band");
+    const auto right = stripBand(Anchor::Right, 1366.0, 768.0, 60.0, 10.0);
+    sameRect(right, LRect{1296, 0, 60, 768}, "right band");
+    std::puts("strip band: all four edges land on that edge");
+
+    // The reveal slide: at e == 1 the band is in place, at e == 0 it is off-screen, and
+    // the direction is always OFF the anchored edge.
+    for (const auto &[a, want] : {std::pair{Anchor::Top, gloview::LVec2{0.0, -30.0}},
+                                 std::pair{Anchor::Bottom, gloview::LVec2{0.0, 30.0}},
+                                 std::pair{Anchor::Left, gloview::LVec2{-30.0, 0.0}},
+                                 std::pair{Anchor::Right, gloview::LVec2{30.0, 0.0}}}) {
+      const auto half = stripSlide(a, 0.0, 60.0, 0.5);
+      near(half.x, want.x, "slide x at e=0");
+      near(half.y, want.y, "slide y at e=0");
+      const auto done = stripSlide(a, 1.0, 60.0, 0.5);
+      near(done.x, 0.0, "slide x at e=1");
+      near(done.y, 0.0, "slide y at e=1");
+    }
+    near(stripSlide(Anchor::Top, 0.5, 60.0, 0.5).y, -15.0, "halfway is half the distance");
+    // slide_frac is a fraction OF THE THICKNESS, so a band twice as thick slides twice as far.
+    near(stripSlide(Anchor::Top, 0.0, 120.0, 0.5).y, -60.0, "slide scales with thickness");
+    near(stripSlide(Anchor::Top, 0.0, 60.0, 0.0).y, 0.0, "a zero slide_frac never moves");
+    std::puts("strip slide: off the anchored edge, scaled by thickness and slide_frac");
   }
 
   std::puts("render geometry ok");

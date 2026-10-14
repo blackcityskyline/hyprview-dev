@@ -40,6 +40,7 @@ class CGradientValueData; // general:col.active_border's real type
 #include "model/model.hpp"
 #include "pixel/cache.hpp"
 #include "render/backdrop.hpp"
+#include "render/geometry.hpp"
 #include "session/hooks.hpp"
 #include "session/pending_click.hpp"
 #include "session/preview_visibility.hpp"
@@ -292,7 +293,7 @@ private:
   void updateSnapshots();
 
 
-  enum class Anchor { Top, Bottom, Left, Right };
+  using Anchor = render::Anchor;
   Anchor stripAnchor() const; // falls back to bar_position
   bool stripHorizontal() const;
   double stripThickness() const; // perpendicular to the anchored edge

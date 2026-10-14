@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 
 #include "../layout.hpp"
 
@@ -22,6 +23,73 @@ enum class Corner {
     BottomRight,
     BottomLeft,
 };
+
+// Which screen edge the strip band is pinned to. A new placement -- a floating strip, a
+// second band -- is a new Anchor value rather than a new code path, and only while nothing
+// here reads cfg::.
+enum class Anchor {
+    Top,
+    Bottom,
+    Left,
+    Right,
+};
+
+[[nodiscard]] inline bool isHorizontal(Anchor a) {
+    return a == Anchor::Top || a == Anchor::Bottom;
+}
+
+// `anchor` is the configured string, `fallback` the older knob read when it is empty.
+[[nodiscard]] inline Anchor parseAnchor(const std::string& anchor,
+                                        const std::string& fallback) {
+    const auto& a = anchor.empty() ? fallback : anchor;
+    if (a == "bottom")
+        return Anchor::Bottom;
+    if (a == "left")
+        return Anchor::Left;
+    if (a == "right")
+        return Anchor::Right;
+    return Anchor::Top;
+}
+
+// The band's thickness, perpendicular to the anchored edge.
+//
+// std::clamp requires !comp(hi, lo) and does not check it, so a small offset_max silently
+// inverted the range instead of aborting. Below 100/cross -- about 0.09 on a 1080p monitor
+// -- the 100px floor vanished and the band came out as thin as the number asked for, with
+// no diagnostic. offset_max has no bound in the config, so that value is reachable.
+[[nodiscard]] inline double stripThickness(double cross, double height, double offsetMax) {
+    const double hi    = cross * offsetMax;
+    const double floor = std::min(100.0, hi);
+    return std::clamp(height, floor, hi);
+}
+
+[[nodiscard]] inline double stripOffset(double cross, double offset) {
+    return std::clamp(offset, 0.0, cross * 0.4);
+}
+
+[[nodiscard]] inline LRect stripBand(Anchor a, double W, double H, double thickness,
+                                     double offset) {
+    switch (a) {
+        case Anchor::Bottom: return LRect{0, H - thickness - offset, W, thickness};
+        case Anchor::Left:   return LRect{offset, 0, thickness, H};
+        case Anchor::Right:  return LRect{W - thickness - offset, 0, thickness, H};
+        case Anchor::Top:
+        default:             return LRect{0, offset, W, thickness};
+    }
+}
+
+// The reveal slide: the band comes in along its own edge, off-screen at e == 0.
+[[nodiscard]] inline LVec2 stripSlide(Anchor a, double e, double thickness,
+                                         double slideFrac) {
+    const double d = (1.0 - e) * thickness * slideFrac;
+    switch (a) {
+        case Anchor::Bottom: return LVec2{0.0, d};
+        case Anchor::Left:   return LVec2{-d, 0.0};
+        case Anchor::Right:  return LVec2{d, 0.0};
+        case Anchor::Top:
+        default:             return LVec2{0.0, -d};
+    }
+}
 
 // Full brightness inside the zone, nothing by `falloff` px away, smoothstepped between.
 // A distance, not a bool: a zone blank until the cursor crosses it says nothing while

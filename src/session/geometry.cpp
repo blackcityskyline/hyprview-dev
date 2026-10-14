@@ -33,21 +33,11 @@ using Render::GL::g_pHyprOpenGL;
 namespace gloview {
 
 Overview::Anchor Overview::stripAnchor() const {
-  std::string a = cfg::strip.anchor.get();
-  if (a.empty()) // back-compat knob
-    a = cfg::strip.bar_position.get();
-  if (a == "bottom")
-    return Anchor::Bottom;
-  if (a == "left")
-    return Anchor::Left;
-  if (a == "right")
-    return Anchor::Right;
-  return Anchor::Top;
+  return render::parseAnchor(cfg::strip.anchor.get(), cfg::strip.bar_position.get());
 }
 
 bool Overview::stripHorizontal() const {
-  const Anchor a = stripAnchor();
-  return a == Anchor::Top || a == Anchor::Bottom;
+  return render::isHorizontal(stripAnchor());
 }
 
 double Overview::stripThickness() const {
@@ -55,14 +45,9 @@ double Overview::stripThickness() const {
   if (!m)
     return 150.0;
   const double cross = stripHorizontal() ? m->m_size.y : m->m_size.x;
-  // std::clamp requires !comp(hi, lo); it is not checked here (no _GLIBCXX_ASSERTIONS),
-  // so a small strip_offset_max silently inverted the range instead of aborting. Below
-  // 100/cross -- about 0.09 on a 1080p monitor -- the 100px floor vanished and the band
-  // came out as thin as the number asked for, with no diagnostic. offset_max is a
-  // kFloats entry with no bound, so the value is reachable from a config.
-  const double hi   = cross * cfg::strip.offset_max;
-  const double floor = std::min(100.0, hi);
-  return std::clamp(static_cast<double>(cfg::strip.height), floor, hi);
+  return render::stripThickness(cross,
+                                static_cast<double>(cfg::strip.height),
+                                cfg::strip.offset_max);
 }
 
 double Overview::stripOffset() const {
@@ -70,57 +55,60 @@ double Overview::stripOffset() const {
   if (!m)
     return 0.0;
   const double cross = stripHorizontal() ? m->m_size.y : m->m_size.x;
-  return std::clamp(
-      static_cast<double>(cfg::strip.offset), 0.0,
-      cross * 0.4);
+  return render::stripOffset(cross,
+                             static_cast<double>(cfg::strip.offset));
 }
 
 LRect Overview::stripBand() const {
   const auto m = m_monitor.lock();
   if (!m)
     return LRect{0, 0, 0, 0};
-  const double T = stripThickness();
-  const double off = stripOffset();
-  const double W = m->m_size.x;
-  const double H = m->m_size.y;
-  switch (stripAnchor()) {
-  case Anchor::Bottom:
-    return LRect{0, H - T - off, W, T};
-  case Anchor::Left:
-    return LRect{off, 0, T, H};
-  case Anchor::Right:
-    return LRect{W - T - off, 0, T, H};
-  case Anchor::Top:
-  default:
-    return LRect{0, off, W, T};
-  }
+  return render::stripBand(stripAnchor(), m->m_size.x, m->m_size.y, stripThickness(),
+                           stripOffset());
 }
 
 Vector2D Overview::stripSlide(double e) const {
-  const double d = (1.0 - e) * stripThickness() * cfg::strip.slide_frac;
-  switch (stripAnchor()) {
-  case Anchor::Bottom:
-    return Vector2D{0.0, d};
-  case Anchor::Left:
-    return Vector2D{-d, 0.0};
-  case Anchor::Right:
-    return Vector2D{d, 0.0};
-  case Anchor::Top:
-  default:
-    return Vector2D{0.0, -d};
-  }
+  const auto s = render::stripSlide(stripAnchor(), e, stripThickness(),
+                                    cfg::strip.slide_frac);
+  return Vector2D{s.x, s.y};
 }
 
-// The band yields to a preview whose edge has reached it: the penetration depth becomes an
-// outward displacement, so contact reads as the window PUSHING the band instead of sliding
-// under it (measured before: the preview simply overrode the band and the two read as one
-// overlapping blob). The deepest preview wins -- the band is a single object. Capped at the
-// band's own thickness so a fullscreen window shoves it out of reach instead of dragging it
-// across the screen.
-// Generic yield, for chrome that is not the strip: displaced along the SHORTEST way out by
-// the overlap depth, so contact reads as the preview pushing it rather than drawing over it.
-// Deepest preview wins. The distance is bounded by the element's own size on the escape axis,
-// so nothing is ever dragged across the screen and no cap is needed.
+Vector2D Overview::stripOffset(double e) const {
+  return stripSlide(e) + stripPush(stripBand());
+}
+
+Vector2D Overview::stripPush(const LRect &band) const {
+  double deepest = 0.0;
+  const auto &tiles = m_scene.tiles();
+  for (size_t i = 0; i < tiles.size(); ++i) {
+    const LRect b = currentBox(tiles[i], static_cast<int>(i));
+    if (b.w < 1.0 || b.h < 1.0)
+      continue;
+    double pen = 0.0;
+    switch (stripAnchor()) {
+    case Anchor::Bottom: pen = (b.y + b.h) - band.y; break;
+    case Anchor::Top:    pen = (band.y + band.h) - b.y; break;
+    case Anchor::Left:   pen = (band.x + band.w) - b.x; break;
+    case Anchor::Right:  pen = (b.x + b.w) - band.x; break;
+    }
+    deepest = std::max(deepest, pen);
+  }
+  if (deepest <= 0.0)
+    return {};
+  // Uncapped: the depth is bounded by the tile, and a strip shoved past the screen edge is
+  // exactly "задвигает". The cap this replaces held it to one band thickness, which cleared
+  // the band for a shallow overlap and left the workspace cards — riding the same slide —
+  // painted over the tile edge once the window grew to cover the strip (measured on exit).
+  const double d = deepest;
+  switch (stripAnchor()) {
+  case Anchor::Bottom: return Vector2D{0.0, d};
+  case Anchor::Top:    return Vector2D{0.0, -d};
+  case Anchor::Left:   return Vector2D{-d, 0.0};
+  case Anchor::Right:  return Vector2D{d, 0.0};
+  }
+  return {};
+}
+
 Vector2D Overview::pushOut(const LRect &r) const {
   double best = 0.0;
   Vector2D dir{0.0, 0.0};
@@ -171,42 +159,6 @@ Vector2D Overview::pushOut(const LRect &r) const {
   if (best <= 0.0)
     return {};
   return Vector2D{dir.x * best, dir.y * best};
-}
-
-Vector2D Overview::stripOffset(double e) const {
-  return stripSlide(e) + stripPush(stripBand());
-}
-
-Vector2D Overview::stripPush(const LRect &band) const {
-  double deepest = 0.0;
-  const auto &tiles = m_scene.tiles();
-  for (size_t i = 0; i < tiles.size(); ++i) {
-    const LRect b = currentBox(tiles[i], static_cast<int>(i));
-    if (b.w < 1.0 || b.h < 1.0)
-      continue;
-    double pen = 0.0;
-    switch (stripAnchor()) {
-    case Anchor::Bottom: pen = (b.y + b.h) - band.y; break;
-    case Anchor::Top:    pen = (band.y + band.h) - b.y; break;
-    case Anchor::Left:   pen = (band.x + band.w) - b.x; break;
-    case Anchor::Right:  pen = (b.x + b.w) - band.x; break;
-    }
-    deepest = std::max(deepest, pen);
-  }
-  if (deepest <= 0.0)
-    return {};
-  // Uncapped: the depth is bounded by the tile, and a strip shoved past the screen edge is
-  // exactly "задвигает". The cap this replaces held it to one band thickness, which cleared
-  // the band for a shallow overlap and left the workspace cards — riding the same slide —
-  // painted over the tile edge once the window grew to cover the strip (measured on exit).
-  const double d = deepest;
-  switch (stripAnchor()) {
-  case Anchor::Bottom: return Vector2D{0.0, d};
-  case Anchor::Top:    return Vector2D{0.0, -d};
-  case Anchor::Left:   return Vector2D{-d, 0.0};
-  case Anchor::Right:  return Vector2D{d, 0.0};
-  }
-  return {};
 }
 
 bool Overview::blurEnabled() const { return blurStrength() > 0.0F; }
