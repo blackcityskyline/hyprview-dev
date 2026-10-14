@@ -206,6 +206,18 @@ add_test(NAME trace_mask
 add_test(NAME render_geometry
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/render_geometry_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/render_geometry_check && ${CMAKE_CURRENT_BINARY_DIR}/render_geometry_check")
+
+# The GL state fence's comparison. Reading live GL needs a context, so that half lives in
+# gl_util.hpp and runs inside the pass; the comparison is POD arithmetic, split into
+# state_fence.hpp precisely so it compiles here with no GL header at all.
+#
+# This covers the half of GL discipline that had no check: scan_draw_sites catches a raw draw
+# outside the helpers, and nothing caught "left the state changed". Two such defects shipped
+# -- backdrop leaving blend enabled, blur calling raw glDisable -- and both were found by
+# reading code, under a comment claiming they were verified.
+add_test(NAME gl_state
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/gl_state_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/gl_state_check && ${CMAKE_CURRENT_BINARY_DIR}/gl_state_check")
          add_test(NAME load_seam
          COMMAND bash ${CMAKE_SOURCE_DIR}/tests/load_seam_check.sh
                  $<TARGET_FILE:gloview> ${HYPRLAND_BIN}

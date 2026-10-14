@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <GLES3/gl32.h>
 #include <hyprlang.hpp>
 #include <hyprland/src/config/shared/complex/ComplexDataTypes.hpp>
 #include <hyprland/src/helpers/math/Math.hpp>
@@ -12,6 +13,7 @@
 
 #include "../debug/log.hpp"
 #include "../layout.hpp"
+#include "state_fence.hpp"
 
 namespace gloview {
 
@@ -35,6 +37,87 @@ inline int outerRoundPx(double round, double borderSize, double roundingPower,
 inline int clampRound(int round, double w, double h) {
   return static_cast<int>(
       std::clamp(static_cast<double>(round), 0.0, std::min(w, h) * 0.5));
+}
+
+// --- GL state fence ---------------------------------------------------------------------
+//
+// The half of GL discipline no test and no trace covered: that the state we change is put
+// back. `scan_draw_sites` catches a raw draw call outside the helpers, and the static side
+// of the rule; nothing caught the other half, and two real defects were found by READING
+// CODE (backdrop leaving blend enabled, blur calling raw glDisable) rather than by any
+// check. The comment in the render audit that said "verified" was, for these two, a claim
+// with nothing behind it.
+//
+// A mock cannot help here: it proves which functions were called, not what the driver ended
+// up in. So read it back instead -- glGet is observation, not substitution. The cost is a
+// pipeline sync, which is why every call is behind debug_trace and why paint takes this
+// twice rather than at every site.
+//
+// GLState and glStateDelta are split into state_fence.hpp so the comparison -- the part
+// that carries the invariant -- can be unit-tested without pulling in a GL header.
+
+// Read the live state. Needs a current context; a reader outside a pass sees whatever the
+// last pass left, which is exactly the point -- the delta is read against a fence taken
+// inside the same frame.
+[[nodiscard]] inline render::GLState readGLState() {
+  render::GLState s;
+  GLboolean on = GL_FALSE;
+  glGetBooleanv(GL_BLEND, &on);
+  s.blend = on == GL_TRUE;
+  glGetIntegerv(GL_BLEND_SRC_RGB, &s.srcRgb);
+  glGetIntegerv(GL_BLEND_DST_RGB, &s.dstRgb);
+  glGetBooleanv(GL_SCISSOR_TEST, &on);
+  s.scissorTest = on == GL_TRUE;
+  glGetIntegerv(GL_SCISSOR_BOX, s.scissor);
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &s.fbo);
+  return s;
+}
+
+// A named reading, once per frame like every RING| site. The volume is the norm here under
+// an explicit debug flag, and it is what makes the check mean anything: a once-per-process
+// heartbeat cannot tell a reader that the fence is running, and "silence" then has to mean
+// either "clean" or "not looking" with nothing to tell them apart.
+inline void glStateFence(const char *where) {
+  if (!debug::trace::enabled())
+    return;
+  const auto s = readGLState();
+  const auto box = [](const render::GLState &st) {
+    return std::to_string(st.scissor[0]) + "," + std::to_string(st.scissor[1]) + "," +
+           std::to_string(st.scissor[2]) + "," + std::to_string(st.scissor[3]);
+  };
+  debug::trace::emitState(
+      std::string("GL|at=") + where + "|blend=" + (s.blend ? "1" : "0") +
+      "|src=" + std::to_string(s.srcRgb) + "|dst=" + std::to_string(s.dstRgb) +
+      "|scissorTest=" + (s.scissorTest ? "1" : "0") + "|scissor=" + box(s) +
+      "|fbo=" + std::to_string(s.fbo));
+}
+
+// The other end of the pair paint() brackets itself with: what came back different is the
+// leak. Reported ONLY when something differs -- the entry line above already says a frame
+// happened, so silence here means the frame was clean.
+inline void glStateReport(const render::GLState &before, const char *where) {
+  if (!debug::trace::enabled())
+    return;
+  const render::GLState after = readGLState();
+  const auto delta = render::glStateDelta(before, after);
+  if (!delta.empty()) {
+    // The VALUES, not just the names. "scissor" alone says a field changed and leaves the
+    // reader to re-add instrumentation to find which call site did it; the before/after pair
+    // usually identifies the offender on sight -- a scissor left at one card's box is that
+    // card's draw, and the leak is somewhere in it.
+    const auto box = [](const render::GLState &s) {
+      return std::to_string(s.scissor[0]) + "," + std::to_string(s.scissor[1]) + "," +
+             std::to_string(s.scissor[2]) + "," + std::to_string(s.scissor[3]);
+    };
+    debug::trace::emitState(std::string("GL|leak|at=") + where + "|what=" + delta +
+                            "|blend=" + (before.blend ? "1" : "0") + "->" +
+                            (after.blend ? "1" : "0") + "|scissorTest=" +
+                            (before.scissorTest ? "1" : "0") + "->" +
+                            (after.scissorTest ? "1" : "0") + "|scissor=" + box(before) +
+                            "->" + box(after) + "|fbo=" + std::to_string(before.fbo) +
+                            "->" + std::to_string(after.fbo));
+    return;
+  }
 }
 
 inline CHyprColor argb(Hyprlang::INT raw, double alphaMul = 1.0) {
@@ -74,6 +157,21 @@ inline void safeRenderRect(const char *tag, const CBox &b, const CHyprColor &col
 }
 
 // STROKE, never a filled rect grown by borderSize
+//
+// renderBorder scissors to each region it draws and NEVER clears it afterwards
+// (OpenGL.cpp:2233-2239) -- renderRect ends in scissor(nullptr) (OpenGL.cpp:1144
+// region block) and renderBorder does not. So the last ring drawn in a pass leaves the
+// scissor at its own box, and everything the compositor draws next is clipped to it. The
+// fence found this with the value in hand: scissor=0,0,1366,768 -> 785,41,167,94, which
+// is a strip card's box.
+//
+// Restored through the API, never raw GL, for the reason backdrop.cpp already writes down:
+// a raw glEnable puts GL back on while Hyprland's cap cache still says off, and the next
+// scissor(nullptr) then early-returns (OpenGL.cpp:2620) and clips the rest of the frame.
+inline void restoreScissorAfterBorder() {
+  Render::GL::g_pHyprOpenGL->scissor(nullptr);
+}
+
 inline void strokeRing(const LRect &lb, double s, const CHyprColor &col,
                        int size, int round, float roundPow) {
   if (size < 1 || !drawable(lb, s))
@@ -85,6 +183,7 @@ inline void strokeRing(const LRect &lb, double s, const CHyprColor &col,
        .borderSize = size,
        .a = 1.0F,
        .outerRound = outerRoundPx(round, size, roundPow, s)});
+  restoreScissorAfterBorder();
 }
 
 // renderWindowLive over-covers by this much so sub-pixel snapping cannot open a
@@ -113,6 +212,7 @@ inline void strokeRingPx(const CBox &b, const CHyprColor &col, float alpha,
        .borderSize = 2,
        .a = alpha,
        .outerRound = outerRoundPx(round, 2, roundPow, 1.0)});
+  restoreScissorAfterBorder();  // renderBorder leaves the scissor on its own last rect
 }
 
 inline CHyprColor argb(const CHyprColor &c, double alphaMul = 1.0) {

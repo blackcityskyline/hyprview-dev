@@ -352,6 +352,41 @@ def drag_branch_is_a_decision(c):
     return c.ok("%d branch record(s), every one names its path" % len(recs))
 
 
+@check("gl")
+def gl_state_restored(c):
+    """No GL|leak while the overview paints. paint() reads blend/scissor/FBO on entry and
+    compares on exit, so a pass that leaves the state changed names itself -- and names
+    WHICH field, which is the difference between "something in the backdrop is off" and a
+    two-minute bisect.
+
+    SKIP rather than PASS with nothing observed: silence is the expected state, so "no leak
+    seen" and "the fence never ran" are indistinguishable without saying so. The way to
+    tell them apart is that a fence that never fires means debug_trace was off for the
+    frames in question, which this cannot see -- so it says so instead of claiming a pass.
+    """
+    # COVERAGE LIMIT, stated rather than papered over: this brackets paint(), so it sees
+    # every frame -- but the backdrop composite is cached until its source really changes
+    # (REFERENCE: "не протухает") and survives close/open, so the BLUR sub-path, which is
+    # where a save/restore goes wrong, runs on the first composite and not again. Nothing
+    # scriptable forces that: not a reopen, not a workspace flip, not allws. Both defects it
+    # found were found on the frame after a plugin reload. Re-read this after reloading; do
+    # not read a PASS here as "the blur restored correctly".
+    cmd("close", settle=0.5)
+    cmd("open", settle=0.9)
+    out = tail_from(max(0, log_size() - 20000))
+    recs = [r for r in records(out, "GL") if len(r) > 1 and r[1] == "leak"]
+    if recs:
+        c.saw(len(recs))
+        what = sorted({f for segs in recs for f in fields(segs, 2).values()})
+        return c.fail("GL state left changed: %s" % ", ".join(map(str, what)))
+    frames = [r for r in records(out, "GL") if len(r) > 1 and r[1] == "at=paint"]
+    if frames:
+        c.saw(len(frames))
+        return c.ok("fence read state on %d frame(s), nothing left changed" % len(frames))
+    return c.skip("no GL|at=paint and no GL|leak -- debug_trace was off, "
+                  "so the fence never read")
+
+
 def run(groups):
     setup = "--setup" in sys.argv
     if setup:

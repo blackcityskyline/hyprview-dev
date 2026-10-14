@@ -424,9 +424,20 @@ bool CBlurFilter::render(const SP<Render::ITexture>& src, const SP<Render::IFram
     }
 
     // No dim here: the cache stays free of backdrop_color and fade; renderBackdrop() draws it.
+    //
+    // The enable bit first, then the FUNC: blend(true) issues glBlendFunc(GL_ONE,
+    // GL_ONE_MINUS_SRC_ALPHA) (OpenGL.cpp:984, everything premultiplied), so restoring the
+    // factors before the bit would have the bit's own call overwrite them.
+    //
+    // This read `if (!blendBefore) blend(false)`, which restores the OFF case and leaves the
+    // ON case broken: the passes above disable blending, and with blending on at entry
+    // nothing turned it back on. Every frame through blur with blending enabled came out of
+    // it disabled, and the damage landed on the compositor's own draw afterwards. The fence
+    // found it -- GL|leak|what=blend|blend=1->0 -- and only on the FIRST painted frame,
+    // because the next one enters with blending already off and looks self-consistent.
+    if (blendBefore)
+      g_pHyprOpenGL->blend(true);  // through the API: see blitTex
     glBlendFuncSeparate(blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha);
-    if (!blendBefore)
-        g_pHyprOpenGL->blend(false);  // through the API: see blitTex
     if (scissorBefore)
         g_pHyprOpenGL->scissor(dmgExtents);
     if (callerFB) {

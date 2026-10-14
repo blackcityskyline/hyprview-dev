@@ -220,6 +220,12 @@ void Overview::paint() {
     primeBackdrop(); // computes into a private FB; deliberately draws nothing
     return;
   }
+  // Bracketed, not sampled per site. Whatever this pass leaves enabled is not ours to fix
+  // -- Hyprland sets it up for the next one -- but a pass that leaves it DIFFERENT from how
+  // it found it is a defect that shows up one render later, in someone else's draw call,
+  // which is why both of the ones found so far went uncredited for so long.
+  const render::GLState glEnter = readGLState();
+  glStateFence("paint");
   renderBackdrop();
 
   if (carouselMode())
@@ -254,6 +260,7 @@ void Overview::paint() {
   renderCursorOnTop();
 
   rearmanim(); // tail: damage() here hits already-committed damage
+  glStateReport(glEnter, "paint");
   if (m_commitPending && m_life.openingNow() && !m_life.deactivating() &&
       entrySettled()) {
     m_commitPending = false;
