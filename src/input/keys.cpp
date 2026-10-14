@@ -1,5 +1,6 @@
 #include "../config/config.hpp"
 #include "../overview.hpp"
+#include "key_combo.hpp"
 #include "../debug/log.hpp"
 
 #include <algorithm>
@@ -161,178 +162,23 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   cancel = handled || !passthrough;
 }
 
-namespace {
-std::vector<std::string> keyTokens(const std::string &s) {
-  std::vector<std::string> out;
-  std::string cur;
-  for (const char c : s) {
-    if (c == ',' || std::isspace(static_cast<unsigned char>(c))) {
-      if (!cur.empty()) {
-        out.push_back(cur);
-        cur.clear();
-      }
-    } else
-      cur.push_back(c);
-  }
-  if (!cur.empty())
-    out.push_back(cur);
-  return out;
-}
+// The bits key_combo.hpp declares for itself must be the bits Hyprland puts in the event.
+// A move here would make every combo using that modifier stop matching, and it would look
+// like a config error.
+static_assert(gloview::input::kModShift == HL_MODIFIER_SHIFT);
+static_assert(gloview::input::kModCtrl == HL_MODIFIER_CTRL);
+static_assert(gloview::input::kModAlt == HL_MODIFIER_ALT);
+static_assert(gloview::input::kModMeta == HL_MODIFIER_META);
 
-const std::vector<int> &keyNameToCodes(std::string t) {
-  static const std::vector<int> NONE;
-  for (auto &c : t)
-    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  static const std::unordered_map<std::string, std::vector<int>> M = {
-      {"0", {11}},
-      {"1", {2}},
-      {"2", {3}},
-      {"3", {4}},
-      {"4", {5}},
-      {"5", {6}},
-      {"6", {7}},
-      {"7", {8}},
-      {"8", {9}},
-      {"9", {10}},
-      {"grave", {41}},
-      {"tilde", {41}},
-      {"`", {41}},
-      {"esc", {1}},
-      {"escape", {1}},
-      {"tab", {15}},
-      {"space", {57}},
-      {"enter", {28, 96}},
-      {"return", {28, 96}},
-      {"kpenter", {96}},
-      {"backspace", {14}},
-      {"delete", {111}},
-      {"del", {111}},
-      {"insert", {110}},
-      {"left", {105}},
-      {"right", {106}},
-      {"up", {103}},
-      {"down", {108}},
-      {"home", {102}},
-      {"end", {107}},
-      {"pageup", {104}},
-      {"pagedown", {109}},
-      {"shift", {42, 54}},
-      {"lshift", {42}},
-      {"rshift", {54}},
-      {"ctrl", {29, 97}},
-      {"control", {29, 97}},
-      {"lctrl", {29}},
-      {"rctrl", {97}},
-      {"alt", {56, 100}},
-      {"lalt", {56}},
-      {"ralt", {100}},
-      {"super", {125, 126}},
-      {"meta", {125, 126}},
-      {"win", {125, 126}},
-      {"f1", {59}},
-      {"f2", {60}},
-      {"f3", {61}},
-      {"f4", {62}},
-      {"f5", {63}},
-      {"f6", {64}},
-      {"f7", {65}},
-      {"f8", {66}},
-      {"f9", {67}},
-      {"f10", {68}},
-      {"f11", {87}},
-      {"f12", {88}},
-      {"a", {30}},
-      {"b", {48}},
-      {"c", {46}},
-      {"d", {32}},
-      {"e", {18}},
-      {"f", {33}},
-      {"g", {34}},
-      {"h", {35}},
-      {"i", {23}},
-      {"j", {36}},
-      {"k", {37}},
-      {"l", {38}},
-      {"m", {50}},
-      {"n", {49}},
-      {"o", {24}},
-      {"p", {25}},
-      {"q", {16}},
-      {"r", {19}},
-      {"s", {31}},
-      {"t", {20}},
-      {"u", {22}},
-      {"v", {47}},
-      {"w", {17}},
-      {"x", {45}},
-      {"y", {21}},
-      {"z", {44}},
-  };
-  const auto it = M.find(t);
-  return it != M.end() ? it->second : NONE;
-}
-
-uint32_t modNameToBit(std::string t) {
-  for (auto &c : t)
-    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  if (t == "shift")
-    return HL_MODIFIER_SHIFT;
-  if (t == "ctrl" || t == "control")
-    return HL_MODIFIER_CTRL;
-  if (t == "alt")
-    return HL_MODIFIER_ALT;
-  if (t == "super" || t == "meta" || t == "win")
-    return HL_MODIFIER_META;
-  return 0;
-}
-
-// Extra held modifiers fail the match: a bare "tab" must not swallow
-// shift+tab or the user's own toggle bind.
-bool comboMatches(int keycode, uint32_t heldMods, std::string token) {
-  constexpr uint32_t STRICTMODS =
-      HL_MODIFIER_SHIFT | HL_MODIFIER_CTRL | HL_MODIFIER_ALT | HL_MODIFIER_META;
-
-  uint32_t need = 0;
-  size_t pos;
-  while ((pos = token.find('+')) != std::string::npos) {
-    const uint32_t bit = modNameToBit(token.substr(0, pos));
-    if (bit == 0)
-      return false;
-    need |= bit;
-    token.erase(0, pos + 1);
-  }
-
-  bool codeHit = false;
-  for (const int c : keyNameToCodes(token))
-    if (c == keycode) {
-      codeHit = true;
-      break;
-    }
-  if (!codeHit)
-    return false;
-  if ((heldMods & need) != need)
-    return false;
-  return (heldMods & STRICTMODS & ~need) == 0;
-}
-} // namespace
 
 bool Overview::keyMatches(int keycode, uint32_t mods,
                           const std::string &combo) const {
-  for (const auto &tok : keyTokens(combo))
-    if (comboMatches(keycode, mods, tok))
-      return true;
-  return false;
+  return input::keyMatches(keycode, mods, combo);
 }
 
 int Overview::keyIndex(int keycode, uint32_t mods,
                        const std::string &combo) const {
-  int idx = 0;
-  for (const auto &tok : keyTokens(combo)) {
-    if (comboMatches(keycode, mods, tok))
-      return idx;
-    ++idx;
-  }
-  return -1;
+  return input::keyIndex(keycode, mods, combo);
 }
 
 void Overview::moveSelection(int dx, int dy) {

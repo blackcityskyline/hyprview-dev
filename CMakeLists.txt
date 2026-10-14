@@ -212,6 +212,14 @@ add_test(NAME trace_mask
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/trace_mask_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check && ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check")
 
+# Key-combo parsing. key_combo.hpp is Hyprland-free so the whole rule -- extra modifiers
+# fail the match -- is checkable without a compositor. keys.cpp static_asserts the
+# modifier bits against Hyprland's enum, so those cannot drift.
+
+add_test(NAME key_combo
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/key_combo_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/key_combo_check && ${CMAKE_CURRENT_BINARY_DIR}/key_combo_check")
+
 # The above-overview namespace parse. layer_names.hpp is Hyprland-free and reads no config,
 # so this is the same file the plugin compiles.
 
