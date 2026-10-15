@@ -177,14 +177,14 @@ tail -100 /run/user/$(id -u)/hypr/$(ls -t /run/user/$(id -u)/hypr | head -1)/hyp
 ```bash
 cmake --build build -j$(nproc)          # цель build/gloview.so
 cmake --build build --target reload     # пересобрать + горячая перезагрузка
-cd build && ctest --output-on-failure   # 35 проверок
+cd build && ctest --output-on-failure   # 36 проверок
 ```
 
 **Судить по дате `build/gloview.so`, не по выводу сборки.** `cmake --build` печатает
 `[100%] Built target` при падении make — код 0, ошибки в stderr. Инкрементальная
 сборка прячет warning'и в неизменённых TU.
 
-### 7.1 Тесты: 35, две группы
+### 7.1 Тесты: 36, две группы
 
 | Префикс | Что это |
 |---|---|

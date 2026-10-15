@@ -213,6 +213,13 @@ add_test(NAME scan_subject_ownership
 add_test(NAME scan_model_window_types
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/model_window_types_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/model_win_check && ${CMAKE_CURRENT_BINARY_DIR}/model_win_check ${CMAKE_SOURCE_DIR}")
 
+# What the browser side said, and what the plugin may conclude from it. The rules are all
+# refusals: a parse that guesses reads as a browser with fewer tabs, and nothing would say so.
+# Pure C++ -- no compositor, no socket, no extension -- which is the point of parsing here and
+# nowhere else.
+add_test(NAME tab_feed
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_feed_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_feed_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_feed_check")
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll
