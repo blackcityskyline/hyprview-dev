@@ -51,13 +51,13 @@ anim::Id Overview::masterId() const {
   return anim::Id::Close;
 }
 
-// How far the close has run, 0 -> 1. m_progress runs DOWN on a close (1 open -> 0 closed);
+// How far the close has run, 0 -> 1. m_progress.raw() runs DOWN on a close (1 open -> 0 closed);
 // read forwards it looks exactly like no animation. Every exit fraction reads it here so
 // the shrink, the fade and the clock cannot disagree about where the close is.
-double Overview::exitT() const { return opening() ? 0.0 : 1.0 - m_progress; }
+double Overview::exitT() const { return m_progress.exit(opening()); }
 
 double Overview::eased() const {
-  return curves::eval(anim::cfg(masterId()).curve, m_progress);
+  return curves::eval(anim::cfg(masterId()).curve, m_progress.raw());
 }
 
 // WINDOWED exit: hold the backdrop until our own tiles are done AND Hyprland has spent the
@@ -87,13 +87,13 @@ double Overview::blurAlpha() const {
 
 double Overview::animDuration() const { return anim::cfg(masterId()).ms; }
 
-// CLOSE rides m_progress DOWN: tiles then match the collapsing chrome.
+// CLOSE rides m_progress.raw() DOWN: tiles then match the collapsing chrome.
 // Read m_clocks.tileMs, not m_glide.ms: a glideLeaf() flip jumps progress.
 double Overview::tileProgress(int i) const {
   const double glideMs = (m_clocks.tileMs > 0) ? m_clocks.tileMs : m_glide.ms;
-  // currentBox lerps natural -> target as e RISES, so close feeds it m_progress
+  // currentBox lerps natural -> target as e RISES, so close feeds it m_progress.raw()
   // as-is. Flipping it put every card on its natural box on the first close frame.
-  const double base = opening() ? m_clocks.tiles.raw(glideMs) : m_progress;
+  const double base = opening() ? m_clocks.tiles.raw(glideMs) : m_progress.raw();
   // The FOCUSED tile is never staggered: stagger() assumes a rising 0..1, so on
   // close it would delay the landing — the same flight, timed differently.
   if (carouselMode() || i == m_scene.focused())
@@ -266,18 +266,18 @@ void Overview::updateAnimation() {
   });
 
   const double t = m_clocks.master.raw(dur);
-  m_progress = opening() ? t : 1.0 - t;
+  m_progress.fromMaster(t, opening());
   if (m_newCardAnim && m_clocks.newCard.done(newCardDur())) {
     m_newCardAnim = false;
     m_newCardId = 0;
   }
-  // NEVER zero m_progress: a transparent frame before deactivate() flashes.
+  // NEVER zero m_progress.raw(): a transparent frame before deactivate() flashes.
   // Clamp as soon as the flight ends, NOT together with the deactivate: the exit ramp
   // outlives the close animation, and at exactly 0 the overlay paints nothing, Hyprland
   // has no damage to serve, and the ramp runs on with no frames to show it (measured:
   // 769ms of ticks with no render).
-  if (!opening() && t >= 1.0 && m_progress <= 0.0)
-    m_progress = 1e-6;
+  if (!opening() && t >= 1.0 && m_progress.raw() <= 0.0)
+    m_progress.firstFrame();
   // The overlay outlives the close animation by exactly the windowed-exit hold: that is
   // what keeps the backdrop covering the screen until Hyprland's own blur has taken over
   // on the windows that have just landed. Lingering past that would leave a transparent
@@ -293,7 +293,7 @@ bool Overview::animBusy() const {
          (secondaryAnimsActive() || !m_clocks.tiles.done(glideDur()) ||
           m_newCardAnim || m_drag.lifted() || !m_fx.swapfx().empty() ||
           m_life.jumpClosing() || m_life.deactivating() ||
-          (opening() && m_progress < 1.0) || (!opening() && m_progress > 0.0));
+          (opening() && m_progress.raw() < 1.0) || (!opening() && m_progress.raw() > 0.0));
 }
 
 double Overview::newCardScale() const {

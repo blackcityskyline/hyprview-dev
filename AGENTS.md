@@ -301,7 +301,7 @@ python3 tools/anim_matrix.py [--quick] [--scenarios]
 | Вопрос | Статус |
 |---|---|
 | Падение 2026-10-10 16:27 (`CScreenshareFrame::renderWindow()`, SEGV) | не проверено, был ли активен wf-recorder/screenshare |
-| Падение 2026-10-13 20:09 (SEGV, PID 92712) | crash-отчёт Hyprland без стека; стек — `coredumpctl info 92712`. В загруженных библиотеках `gloview.so` отсутствует. Гипотеза: таймер пережил выгрузку плагина. Проверка: прогон `unload`/`load` под ASAN в nested |
+| Падение 2026-10-13 20:09 (SEGV, PID 92712) | crash-отчёт Hyprland без стека; стек — `coredumpctl info 92712`. Механизм найден в коде: `deactivate()` и `hardClose()` роняли `SP<CEventLoopTimer>` (`reset()`) из того объекта, чей колбэк выполнялся, — `CSharedPointer<CEventLoopTimer>::_delete` → `nudgeTimers`. Оба зовут `FramePump::stop()`: `cancel()` + `removeTimer()`, последний указатель не роняется. Не воспроизведено. Проверка: прогон `unload`/`load` под ASAN в nested |
 | `m_focusOutside` | поле не присваивается никогда. Не удалено: «на чём должен действовать passthrough-бинд» — продуктовое решение |
 | Ховер-заливка плиток/карточек | не подтверждена кодом |
 | Истинный халф-сплит при вставке | упирается в API Hyprland: `assignToSpace` делает `splitBeside`, layout-insert API нет. Пока не появится — не трогать |

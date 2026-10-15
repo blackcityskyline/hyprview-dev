@@ -268,7 +268,7 @@ void Overview::open() {
              std::to_string(std::chrono::duration<double, std::micro>(
                                  m_openStamp - openEntryStamp)
                                  .count()));
-  m_progress = 0.0;
+  m_progress.closed();
   // Parked already counts as owned (see inputRoutedAway), so the real windows lose
   // focus on the first parked frame, not when the overlay actually appears.
   dropFocusFromWindows();
@@ -361,9 +361,9 @@ void Overview::close() {
   restoreLayers();
   m_cursor.onClose();
   // resume from CURRENT progress (1 - raw())
-  m_clocks.master.seek(1.0 - m_progress, animDuration());
+  m_clocks.master.seek(1.0 - m_progress.raw(), animDuration());
   m_lastAnimTick = {}; // else a phantom gap rewinds the clocks
-  debug::dbg("=== CLOSE from progress " + std::to_string(m_progress).substr(0, 5) + " ===");
+  debug::dbg("=== CLOSE from progress " + std::to_string(m_progress.raw()).substr(0, 5) + " ===");
   damage();
 }
 
@@ -382,7 +382,7 @@ void Overview::hardClose() {
   m_view.setDesktop( false);
   m_newCardAnim = false;
   m_newCardId = 0;
-  m_progress = 0.0;
+  m_progress.closed();
   m_altTabbing = false;
   m_scene.clear();
   m_strip.clear();
@@ -531,7 +531,7 @@ void Overview::deactivate() {
   m_altTabbing = false;
   m_newCardAnim = false;
   m_newCardId = 0;
-  m_progress = 0.0;
+  m_progress.closed();
   m_scene.clear();
   m_strip.clear();
   m_pixel.clearSnapshots();

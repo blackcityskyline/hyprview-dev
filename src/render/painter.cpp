@@ -111,7 +111,7 @@ void Overview::renderStage(eRenderStage stage) {
         "ms tick=" + std::to_string(m_pump.tick()) +
         " forceFF=" + std::to_string(rm->m_forceFullFrames) +
         " open=" + std::to_string(opening()) +
-        " prog=" + std::to_string(m_progress).substr(0, 5) +
+        " prog=" + std::to_string(m_progress.raw()).substr(0, 5) +
         " kk=" + std::to_string(kk).substr(0, 6) +
         " frost=" + std::to_string(1.0 - e).substr(0, 6) +
         " blurOK=" + std::to_string(blurOK) +
@@ -208,7 +208,7 @@ void Overview::renderStage(eRenderStage stage) {
                       !m_clocks.tiles.done(glideDur()) || m_newCardAnim ||
                       m_drag.lifted() || !m_fx.pulses().empty() ||
                       !m_fx.swapfx().empty() ||
-                      (opening() ? m_progress < 1.0 : m_progress > 0.0);
+                      (opening() ? m_progress.raw() < 1.0 : m_progress.raw() > 0.0);
     if (busy)
       m->m_forceFullFrames = std::max(m->m_forceFullFrames, 1);
   }

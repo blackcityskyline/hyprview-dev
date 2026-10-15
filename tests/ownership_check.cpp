@@ -174,7 +174,7 @@ int main(int argc, char **argv) {
       // what the overlay is looking at
       "m_monitor", "m_workspace", "m_liveWsAtOpen", "m_landingEmpty",
       // the run itself
-      "m_openStamp", "m_progress",
+      "m_openStamp",
       "m_newCardId", "m_newCardAnim", "m_altTabbing", "m_commitPending",
       "m_pendingStep", "m_pendingFocus", "m_focusOutside",
       // the animation engine, written through member calls this scan does not see

@@ -157,7 +157,7 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
     return;
   }
 
-  // replayReflow keeps the chrome settled (m_progress pinned at 1).
+  // replayReflow keeps the chrome settled (m_progress.raw() pinned at 1).
   replayReflow(oldBoxes);
   damage();
 }
@@ -811,7 +811,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     m_scene.settleEntry();
     m_clocks.rebuild.pinEnd(std::max(m_entry.ms, m_ghost.ms));
     m_clocks.tiles.pinEnd(glideDur());
-    m_progress = 1.0;
+    m_progress.settled();
     m_life.replayEntry();
     m_clocks.master.pinEnd(animDuration());
     ensureAnimPump();
@@ -845,7 +845,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
   ensureAnimPump();
   if (!sameSet || oldBoxes.empty())
     m_clocks.tiles.pinEnd(glideDur());
-  m_progress = 1.0;
+  m_progress.settled();
   m_life.replayEntry();
   m_clocks.master.pinEnd(animDuration());
   damage();

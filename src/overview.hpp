@@ -31,6 +31,7 @@ class CGradientValueData; // general:col.active_border's real type
 
 #include "anim.hpp"
 #include "clock/clocks.hpp"
+#include "clock/progress.hpp"
 #include "clock/clock.hpp"
 #include "view/state.hpp"
 #include "model/effects.hpp"
@@ -199,7 +200,7 @@ private:
   model::Effects m_fx;
   view::State m_view;
   clock::Clocks m_clocks;
-  double m_progress = 0.0;
+  clock::Progress m_progress;
   mutable std::chrono::steady_clock::time_point m_lastAnimTick{};
   void startTileGlide(
       const std::vector<std::pair<PHLWINDOW, LRect>> &oldBoxes);
