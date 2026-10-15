@@ -61,7 +61,7 @@ private:
 // BUILD time (RENDER_LAST_MOMENT): mutate here, draw in draw().
 void Overview::renderStage(eRenderStage stage) {
   if (stage == RENDER_LAST_MOMENT) {
-    ++m_frameTick;
+    m_pump.tickFrame();
     syncRecency();
   }
 
@@ -108,7 +108,7 @@ void Overview::renderStage(eRenderStage stage) {
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - m_openStamp)
                 .count()) +
-        "ms tick=" + std::to_string(m_frameTick) +
+        "ms tick=" + std::to_string(m_pump.tick()) +
         " forceFF=" + std::to_string(rm->m_forceFullFrames) +
         " open=" + std::to_string(opening()) +
         " prog=" + std::to_string(m_progress).substr(0, 5) +

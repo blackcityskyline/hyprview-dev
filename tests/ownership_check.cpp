@@ -110,6 +110,11 @@ int main(int argc, char **argv) {
       // hide() without restore() leaves the user's taskbar invisible with nothing else in
       // the plugin noticing, which is why the saved values live next to the fading.
       {"LayerVisibility", "session/layer_visibility.hpp", {"m_hidden"}},
+      // The pump that makes the compositor draw another frame. damage() is asked for by
+      // twenty-four files and ensureAnimPump by nine, and neither is the run's lifecycle --
+      // an action and a hover both need a repaint, and both were reaching into lifecycle to
+      // ask for one.
+      {"FramePump", "render/frame_pump.hpp", {"m_timer", "m_tick"}},
   };
 
   std::set<std::string> delegated;
@@ -169,11 +174,11 @@ int main(int argc, char **argv) {
       // what the overlay is looking at
       "m_monitor", "m_workspace", "m_liveWsAtOpen", "m_landingEmpty",
       // the run itself
-      "m_openStamp", "m_progress", "m_lastAnimTick", "m_frameTick",
+      "m_openStamp", "m_progress",
       "m_newCardId", "m_newCardAnim", "m_altTabbing", "m_commitPending",
       "m_pendingStep", "m_pendingFocus", "m_focusOutside",
       // the animation engine, written through member calls this scan does not see
-      "m_clocks", "m_animPump", "m_enterStyle",
+      "m_clocks", "m_enterStyle", "m_lastAnimTick",
       // one value each, owned by the coordinator because nothing else does the owning
       "m_scrollAccum", "m_killGlow", "m_lastDragBox", "m_lastFocus", "m_handle",
   };

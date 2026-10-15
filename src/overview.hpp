@@ -40,6 +40,7 @@ class CGradientValueData; // general:col.active_border's real type
 #include "model/model.hpp"
 #include "pixel/cache.hpp"
 #include "render/backdrop.hpp"
+#include "render/frame_pump.hpp"
 #include "render/geometry.hpp"
 #include "session/hooks.hpp"
 #include "session/layer_visibility.hpp"
@@ -132,7 +133,7 @@ public:
   [[nodiscard]] bool active() const { return m_life.active(); }
   [[nodiscard]] bool openedOrParked() const { return m_life.ownsScreen(); }
   [[nodiscard]] bool opening() const { return m_life.opening(); }
-  [[nodiscard]] std::uint64_t frameTick() const { return m_frameTick; }
+  [[nodiscard]] std::uint64_t frameTick() const { return m_pump.tick(); }
   [[nodiscard]] PHLMONITOR monitor() const { return m_monitor.lock(); }
   [[nodiscard]] bool blurEnabled() const;
   [[nodiscard]] SP<Render::ITexture> backdropBlurTexture() const {
@@ -159,7 +160,7 @@ public:
 private:
   HANDLE m_handle = nullptr;
   std::chrono::steady_clock::time_point m_openStamp{}; // frame-trace t=0
-  std::uint64_t m_frameTick = 0;
+  mutable render::FramePump m_pump;
 
   // Who owns the screen, and whether the entry animation is playing.
   //
@@ -290,7 +291,6 @@ private:
 
   session::Hooks m_hooks;
 
-  SP<CEventLoopTimer> m_animPump; // null when no animation is running
   CCursorModule m_cursor; // KMS plane preferred, software erases-and-redraws
 
   mutable render::Backdrop m_backdrop;

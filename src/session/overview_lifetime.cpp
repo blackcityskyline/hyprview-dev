@@ -12,10 +12,6 @@ Overview::~Overview() {
   restorePreviewVisibility();
   restoreFill();
   releaseNewWorkspaces();
-  if (m_animPump) {
-    m_animPump->cancel();
-    m_animPump.reset();
-  }
   m_scene.clear();
   m_strip.clear();
   cancelPendingClick(); // no timer callback against a half-destroyed Overview

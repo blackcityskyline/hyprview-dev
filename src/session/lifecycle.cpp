@@ -39,7 +39,7 @@ void dropFocusFromWindows() {
 }} // namespace
 
 void Overview::toggle() {
-  debug::dbg("TOGGLE tick=" + std::to_string(m_frameTick) +
+  debug::dbg("TOGGLE tick=" + std::to_string(m_pump.tick()) +
              " active=" + std::to_string(active()) +
              " opening=" + std::to_string(opening()));
   // While the overview is up the toggle means "go to what I am looking at", the same thing
@@ -263,7 +263,7 @@ void Overview::open() {
   debug::trace::life("park", m_life.describe());
   m_view.setJumpMode( false);
   m_openStamp = std::chrono::steady_clock::now();
-  debug::dbg("OPEN tick=" + std::to_string(m_frameTick) +
+  debug::dbg("OPEN tick=" + std::to_string(m_pump.tick()) +
              " entryToActiveUs=" +
              std::to_string(std::chrono::duration<double, std::micro>(
                                  m_openStamp - openEntryStamp)
@@ -371,10 +371,7 @@ void Overview::close() {
 void Overview::hardClose() {
   restorePreviewVisibility();
   cancelPendingClick();
-  if (m_animPump) {
-    m_animPump->cancel();
-    m_animPump.reset();
-  }
+  m_pump.stop(); // the pump's timer must not fire against a torn-down Overview
 
   restoreLayers();
   restoreFill();
@@ -522,10 +519,7 @@ void Overview::deactivate() {
 
   // release EVERY created workspace
   debug::dbg("deactivate (natural close end)");
-  if (m_animPump) {
-    m_animPump->cancel();
-    m_animPump.reset();
-  }
+  m_pump.stop();
   releaseNewWorkspaces();
 
   m_life.hardClose();
@@ -553,10 +547,6 @@ void Overview::releaseNewWorkspaces() {
   m_fx.clearNewWorkspaces();
 }
 
-void Overview::damage() const {
-  if (const auto m = m_monitor.lock(); m && g_pHyprRenderer)
-    g_pHyprRenderer->damageMonitor(m);
-}
 
 // EXECUTION tail: m_scene.tiles() must survive the frame
 void Overview::finishPendingDeactivate() {
@@ -568,44 +558,13 @@ void Overview::finishPendingDeactivate() {
 }
 
 void Overview::rearmanim() const {
-  if (!animBusy())
-    return;
-  if (g_pEventLoopManager)
-    const_cast<Overview *>(this)->ensureAnimPump();
+  m_pump.ensure(animBusy(), m_monitor.lock());
 }
 
-void Overview::ensureAnimPump() {
-  if (!animBusy()) {
-    // Disarm, never reset. This runs from inside the timer OWN callback, while the event loop
-    // iterates its timer list: dropping the last shared pointer here destroys the timer from
-    // inside CEventLoopManager::nudgeTimers(), which then walks freed memory. Backtrace of the
-    // Hyprland SIGSEGV that killed the compositor on reload:
-    //   CSharedPointer<CEventLoopTimer>::_delete -> nudgeTimers -> wl_event_loop_dispatch_idle
-    // The object lives as long as the Overview; it is re-armed below when work resumes.
-    if (m_animPump)
-      m_animPump->cancel();
-    return;
-  }
-  if (m_animPump && m_animPump->armed())
-    return;
+void Overview::damage() const { m_pump.damage(m_monitor.lock()); }
 
-  // tick BETWEEN frames, not during a commit
-  m_animPump = makeShared<CEventLoopTimer>(
-      std::chrono::milliseconds(8),
-      [this](SP<CEventLoopTimer> self, void *) {
-        if (!animBusy()) {
-          self->cancel();
-          return;
-        }
-        damage();
-        if (const auto m = m_monitor.lock())
-          m->scheduleFrame();
-        self->updateTimeout(std::chrono::milliseconds(8));
-      },
-      nullptr);
-  if (g_pEventLoopManager)
-    g_pEventLoopManager->addTimer(m_animPump);
-}
+void Overview::ensureAnimPump() { m_pump.ensure(animBusy(), m_monitor.lock()); }
+
 
 // snapshot mode: per-window last committed texture, frozen
 bool Overview::snapshotMode() const {
