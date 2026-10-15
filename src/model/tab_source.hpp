@@ -112,6 +112,32 @@ class TabsContentSource final : public IContentSource {
         return s.epoch != 0 && s.epoch == m_snap.generation;
     }
 
+    // Whether anything has been reported for this browser window, and its tab ids.
+    //
+    // Split from ReportedTabs on purpose: that type's titles are string_views into the parsed
+    // text, which dies with the call that produced it, so handing it back to a caller would be
+    // a dangling view dressed as a return value. The two facts a caller actually needs --
+    // heard from or not, and which ids -- survive that, and nothing else is asked for here.
+    //
+    // "Heard from" is not "has tabs". A browser that has not reported yet and one that
+    // reported none both show up here, distinguishable, and the difference is the whole
+    // fallback rule (see entriesFor).
+    [[nodiscard]] bool knownFor(std::uint64_t browserWindow) const {
+        const auto it = m_snap.windows.find(browserWindow);
+        return it != m_snap.windows.end() && it->second.known;
+    }
+
+    [[nodiscard]] std::vector<std::int64_t> tabIdsFor(std::uint64_t browserWindow) const {
+        const auto it = m_snap.windows.find(browserWindow);
+        if (it == m_snap.windows.end())
+            return {};
+        std::vector<std::int64_t> ids;
+        ids.reserve(it->second.tabs.size());
+        for (const auto &[tabId, info] : it->second.tabs)
+            ids.push_back(tabId);
+        return ids;
+    }
+
     // --- no transport yet ------------------------------------------------------------------------
     // Each of these is a message to the browser, and there is no channel to the browser yet.
     // False is the interface's own word for "it did not happen", so the caller already knows

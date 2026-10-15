@@ -1,9 +1,10 @@
 #pragma once
 
 #include "subject.hpp"
-#include "tab_feed.hpp"
 
 #include <cstddef>
+#include <cstdint>
+#include <span>
 #include <vector>
 
 namespace gloview::model {
@@ -20,13 +21,14 @@ namespace gloview::model {
 // and keeping Hyprland out of this header is what lets the rule below be checked without a
 // compositor.
 //
-// `tabId == -1` means the window itself. It was once its own struct, TabSet, and it was a
-// duplicate: same `known`, same list of ids, one place carrying the titles and the other
-// throwing them away. Two spellings of one shape is how "which tabs does this window have"
-// gets answered twice and the answers drift.
+// `tabId == -1` means the window itself. The list of a window's tabs was once its own struct,
+// TabSet, and it was a duplicate of ReportedTabs: same `known`, same list of ids, one place
+// carrying the titles and the other throwing them away. That struct is gone, and so is the
+// temptation to rebuild it here -- ReportedTabs cannot be handed back out of a source, because
+// its titles are string_views into the parsed text and that text is not the caller's to keep.
 struct Entry {
     const void *win;
-    int tabId = -1;
+    std::int64_t tabId = -1;
 };
 
 // The entries one window contributes.
@@ -38,16 +40,22 @@ struct Entry {
 //
 // A window we HAVE heard from, and which reported none, contributes nothing. That is the
 // mode working.
+// Two plain facts rather than a type: this needs to know WHETHER the window was heard from
+// and WHICH tabs, and a container assembled to carry that would be a third spelling of
+// something ReportedTabs already describes. ReportedTabs cannot be handed back out of a
+// source either -- its titles are string_views into the parsed text, which dies with the call
+// that produced it -- so a caller asking this question cannot be given one.
 [[nodiscard]] inline std::vector<Entry> entriesFor(const void *win, Domain mode,
-                                                   const ReportedTabs &tabs) {
+                                                   bool tabsKnown,
+                                                   std::span<const std::int64_t> tabIds) {
     std::vector<Entry> out;
-    const bool window = showsWindows(mode) || !tabs.known;
+    const bool window = showsWindows(mode) || !tabsKnown;
     if (window)
       out.push_back(Entry{win, -1});
     if (showsTabs(mode)) {
-        out.reserve(out.size() + tabs.tabs.size());
-        for (const auto &[id, info] : tabs.tabs)
-            out.push_back(Entry{win, static_cast<int>(id)});
+        out.reserve(out.size() + tabIds.size());
+        for (const auto id : tabIds)
+          out.push_back(Entry{win, id});
     }
     return out;
 }

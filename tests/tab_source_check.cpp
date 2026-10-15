@@ -139,6 +139,28 @@ int main() {
     std::puts("verbs: no transport, so no, and no pretending");
   }
 
+  // --- answering by browser window, which is what a tile builder asks ---------------------------
+  {
+    TabsContentSource s;
+    s.adopt(snap("g 7\nt 12 41 0 mail\nt 12 42 0 docs\nt 13 5 0 chat\n"));
+    want(s.knownFor(12), true, "a reported window is known");
+    want(s.knownFor(13), true, "and so is the other one");
+    want(s.knownFor(14), false, "a window nobody mentioned is not");
+    const auto ids = s.tabIdsFor(12);
+    want(ids.size() == 2, true, "two tabs in window 12");
+    want(ids[0] == 41 && ids[1] == 42, true, "in the order reported");
+    want(s.tabIdsFor(13).size() == 1, true, "one in window 13");
+    want(s.tabIdsFor(14).empty(), true, "and none for an unheard-of window");
+    // The distinction the fallback rule is made of: never heard from is not the same as heard
+    // from and empty. A check that only counted ids would not tell them apart, and the wrong
+    // one drops every window until the extension connects.
+    TabsContentSource empty;
+    empty.adopt(snap("g 3\n"));
+    want(empty.knownFor(12), false, "a connection that has not reported a window yet");
+    want(empty.tabIdsFor(12).empty(), true, "no tabs for it either");
+    std::puts("by window: known and ids, and unheard-from stays distinct from empty");
+  }
+
   if (failures) {
     std::printf("tab_source: %d failure(s)\n", failures);
     return 1;
