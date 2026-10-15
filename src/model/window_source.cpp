@@ -18,22 +18,30 @@ constexpr std::size_t kMaxLabel = 80;
 
 } // namespace
 
-PHLWINDOW WindowsContentSource::windowOf(SubjectRef s) {
+PHLWINDOW WindowsContentSource::windowOf(SubjectRef s) const {
     // Epoch must be 0. A non-zero epoch means this id was issued by a source that owns
-    // epochs -- the browser -- and casting that to a pointer would be reading whatever the
+    // epochs -- the browser -- and treating that as an address would be reading whatever the
     // number happens to point at.
     if (s.epoch != 0)
-        return nullptr;
-    return PHLWINDOW{reinterpret_cast<Desktop::View::CWindow *>(s.id)};
+        return {};
+    for (const auto &w : m_alive)
+        if (w.get() == reinterpret_cast<Desktop::View::CWindow *>(s.id))
+            return w; // a copy: the refcount goes up, so the caller owns it as well
+    // Not in the last enumeration. Stale, never enumerated, or gone -- null either way.
+    return {};
 }
 
-std::vector<SubjectRef> WindowsContentSource::enumerate() const {
+std::vector<SubjectRef> WindowsContentSource::enumerate() {
+    // Rebuilt, never appended: an identity from a previous enumeration must stop resolving
+    // the moment the list moves on, or "gone" and "still there" become indistinguishable.
+    m_alive.clear();
     std::vector<SubjectRef> out;
     if (!m_host.monitor())
         return out;
     for (const auto &w : Desktop::windowState()->windows()) {
         if (!m_host.belongs(w))
             continue;
+        m_alive.push_back(w);
         out.push_back(SubjectRef{reinterpret_cast<std::uintptr_t>(w.get()), 0});
     }
     return out;

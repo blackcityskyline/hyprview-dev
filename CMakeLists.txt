@@ -199,6 +199,13 @@ find_program(HYPRLAND_BIN Hyprland)
 add_test(NAME scan_anim_coverage
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/anim_coverage_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/anim_cov_check && ${CMAKE_CURRENT_BINARY_DIR}/anim_cov_check ${CMAKE_SOURCE_DIR}")
 
+# A SubjectRef is a number, and somebody has to hold the window it stands for. This pins who:
+# the source, via the alive list it refreshes on enumerate. The crashing revision built a
+# shared pointer straight from the id and took the compositor down with it, and neither file
+# can be compiled without Hyprland, so a grep is the only place the rule can live.
+add_test(NAME scan_subject_ownership
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/subject_ownership_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/subject_own_check && ${CMAKE_CURRENT_BINARY_DIR}/subject_own_check ${CMAKE_SOURCE_DIR}")
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll

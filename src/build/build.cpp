@@ -27,24 +27,31 @@ namespace gloview {
 
 void Overview::buildTiles() {
   // parked boxes survive the rebuild
-  std::unordered_map<PHLWINDOWREF, std::pair<LRect, bool>> priorTargets;
+  std::unordered_map<model::SubjectRef, std::pair<LRect, bool>> priorTargets;
   for (const auto &t : m_scene.tiles())
     if (t.parked)
-      if (const auto w = t.win.lock())
-        priorTargets.emplace(w, std::pair{t.target, true});
+      priorTargets.emplace(t.subj, std::pair{t.target, true});
   m_scene.clear();
   const auto m = m_monitor.lock();
   const auto ws = m_workspace.lock();
   if (!m || !ws)
     return;
 
-  for (const auto &w : Desktop::windowState()->windows()) {
-    if (!tileBelongs(w, m, ws))
-      continue;
+  // Enumerate, rather than walking the window list here. That call is what puts the windows
+  // on the source's alive list, and every identity below is resolved back through it. An
+  // identity minted HERE would belong to nobody that could hand back a window -- which is
+  // the same crash as building a shared pointer over a released address, from the other side.
+  //
+  // The membership filter is not repeated: enumerate() asks the host, which is tileBelongs()
+  // with the monitor and workspace already locked. One rule, one place.
+  for (const auto subj : m_windows.enumerate()) {
+    const auto w = m_windows.windowOf(subj);
+    if (!w)
+      continue; // cannot happen straight after enumerating; not worth assuming
 
     model::Tile t;
-    t.win = w;
-    if (const auto it = priorTargets.find(w); it != priorTargets.end()) {
+    t.subj = subj;
+    if (const auto it = priorTargets.find(t.subj); it != priorTargets.end()) {
       t.target = it->second.first;
       t.parked = true;
     }
@@ -68,7 +75,7 @@ void Overview::buildTiles() {
     const auto lblCol = cfg::colors.title_label.get();
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
-      const auto w = t.win.lock();
+      const auto w = tileWindow(t);
       if (!w)
         continue;
       std::string text = w->m_title;
@@ -484,7 +491,7 @@ void Overview::layoutTiles() {
       std::vector<const void *> keys;
       keys.reserve(m_scene.size());
       for (const auto &t : m_scene.tiles())
-        keys.push_back(t.win.lock().get());
+        keys.push_back(tileWindow(t).get());
       m_recency.order(keys, slot);
     }
     auto lead = std::find(slot.begin(), slot.end(), static_cast<std::size_t>(sel));
@@ -516,10 +523,10 @@ void Overview::layoutTiles() {
       // Capture the caption HERE, where the card width is known, cut to it. Paint
       // only reads: mid-pass text rendering is unsafe, and asking at paint time
       // measured the pill off the uncut entry.
-      if (c.visible && t.win.lock())
+      if (c.visible && tileWindow(t))
         // The fitted box, not the card: a portrait window is drawn narrower than
         // the standard card, and the pill is sized off what it actually covers.
-        t.label = m_pixel.windowLabel(t.win.lock(), t.labelText,
+        t.label = m_pixel.windowLabel(tileWindow(t), t.labelText,
                                       cfg::colors.title_label.get(1.0),
                                       cfg::look.title_font_size.get(),
                                       static_cast<int>(std::max(
@@ -554,7 +561,17 @@ void Overview::layoutTiles() {
 // Survivors glide from their captured boxes; no chrome re-reveal.
 std::vector<std::pair<PHLWINDOW, LRect>>
 Overview::captureCurrentBoxes(PHLWINDOW exclude) const {
-  return m_place.capture(frame(), exclude);
+  // Placement filters by SUBJECT; converting here keeps the window comparison on this side
+  // of the boundary, where the window still exists.
+  const auto keep = m_place.capture(
+      frame(), exclude ? model::SubjectRef{reinterpret_cast<std::uintptr_t>(exclude.get()), 0}
+                       : model::SubjectRef{});
+  std::vector<std::pair<PHLWINDOW, LRect>> out;
+  out.reserve(keep.size());
+  for (const auto &[subj, box] : keep)
+    if (const auto w = m_windows.windowOf(subj))
+      out.emplace_back(w, box);
+  return out;
 }
 
 // Freeze tiles at their shown boxes (`oldBoxes`, pre-rebuild); empty = keep
@@ -568,7 +585,7 @@ void Overview::startTileGlide(
       t.natural = t.target;
       bool matched = false;
       for (const auto &[oldWin, oldBox] : oldBoxes)
-        if (oldWin == t.win.lock()) {
+        if (oldWin == tileWindow(t)) {
           t.natural = oldBox;
           matched = true;
           break;
@@ -581,7 +598,7 @@ void Overview::startTileGlide(
     for (const auto &[oldWin, oldBox] : oldBoxes) {
       bool kept = false;
       for (const auto &t : m_scene.tiles())
-        if (t.win.lock() == oldWin) { kept = true; break; }
+        if (tileWindow(t) == oldWin) { kept = true; break; }
       if (!kept)
         m_fx.addGhost(model::Ghost{oldWin, oldBox});
     }
@@ -645,7 +662,7 @@ void Overview::syncTiles() {
   bool diff = expected != m_scene.size();
   if (!diff)
     for (const auto &t : m_scene.tiles()) {
-      const auto w = t.win.lock();
+      const auto w = tileWindow(t);
       if (!belongs(w)) {
         diff = true;
         break;

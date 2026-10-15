@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../anim_recipes.hpp"
+#include "../model/content_source.hpp"
 #include "../model/scene.hpp"
 #include "../view/state.hpp"
 #include "clock.hpp"
@@ -63,22 +64,25 @@ class Placement {
     struct Frame {
       const view::State &view;
       const model::Scene &scene;
-      // The workspace the run returns to. A tile on it flies home; one on any other
-      // workspace cannot, and leaves by fading instead. Null means "nothing to compare
+      // Where the run returns to, and the source that knows where things are. A tile in
+      // that group flies home; one in any other cannot, and leaves by fading instead.
+      //
+      // Both are asked through the CONTRACT rather than through a window handle, because a
+      // clock has no business holding one. A default landing means "nothing to compare
       // against", which reads as home -- the flight the run has always done.
-      PHLWORKSPACEREF landing;
+      const model::IContentSource &src;
+      model::GroupRef landing;
       bool opening;
       double monW, monH;
 
-      Frame(const view::State &v, const model::Scene &sc, PHLWORKSPACEREF land, bool open,
+      Frame(const view::State &v, const model::Scene &sc,
+            const model::IContentSource &source, model::GroupRef land, bool open,
             double w, double h)
-          : view(v), scene(sc), landing(land), opening(open), monW(w), monH(h) {}
+          : view(v), scene(sc), src(source), landing(land), opening(open), monW(w),
+            monH(h) {}
 
       [[nodiscard]] bool goesHome(const model::Tile &t) const {
-        const auto w = t.win.lock();
-        if (!w || !landing)
-          return true;
-        return w->m_workspace == landing;
+        return landing == model::GroupRef{} || src.groupOf(t.subj) == landing;
       }
     };
 
@@ -95,14 +99,14 @@ class Placement {
     // The fade paired with the entry clock, for a card that has nowhere to go.
     [[nodiscard]] double entryFade(const model::Tile &t, int i, const Frame &f) const;
 
-    // Every tile's box as it is this frame, paired with its window, skipping `exclude`.
+    // Every tile's box as it is this frame, paired with its SUBJECT, skipping `exclude`.
     //
-    // The layout pass captures this BEFORE it rebuilds, and a swap or a drop hands the
-    // captured boxes to startTileGlide as each tile's `from`. Twelve call sites, all of them
-    // asking the same question at slightly different moments, and none of them able to
-    // disagree with where the tile is being drawn.
-    [[nodiscard]] std::vector<std::pair<PHLWINDOW, LRect>>
-    capture(const Frame &f, const PHLWINDOW exclude) const;
+    // Subjects, not windows. A clock has no business holding a window handle, and asking it
+    // to compare one was the reason `exclude` was a PHLWINDOW in the first place -- which
+    // then required windowOf() inside Placement, which does not exist on the contract and
+    // must not, because the contract is what keeps this file compilable by ctest.
+    [[nodiscard]] std::vector<std::pair<model::SubjectRef, LRect>>
+    capture(const Frame &f, model::SubjectRef exclude) const;
 
     // Re-resolve the six recipes for the leaves the view currently selects.
     void resolve(const view::State &view, bool opening, bool carousel);

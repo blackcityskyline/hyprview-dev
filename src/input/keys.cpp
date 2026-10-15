@@ -250,7 +250,7 @@ void Overview::stepAltTab(int dir) {
 }
 
 void Overview::activateSelection() {
-  focusAndClose(m_scene.focusedWindow(), Desktop::FOCUS_REASON_KEYBIND);
+  focusAndClose(tileWindow({m_scene.focusedSubject()}), Desktop::FOCUS_REASON_KEYBIND);
 }
 
 

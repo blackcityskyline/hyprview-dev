@@ -135,16 +135,15 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   return LRect{cx - r.w * k / 2.0, cy - r.h * k / 2.0, r.w * k, r.h * k};
 }
 
-std::vector<std::pair<PHLWINDOW, LRect>>
-Placement::capture(const Frame &f, const PHLWINDOW exclude) const {
-  std::vector<std::pair<PHLWINDOW, LRect>> boxes;
+std::vector<std::pair<model::SubjectRef, LRect>>
+Placement::capture(const Frame &f, model::SubjectRef exclude) const {
+  std::vector<std::pair<model::SubjectRef, LRect>> out;
   const auto &tiles = f.scene.tiles();
-  boxes.reserve(tiles.size());
-  for (std::size_t i = 0; i < tiles.size(); ++i) {
-    if (const auto win = tiles[i].win.lock(); win && win != exclude)
-      boxes.emplace_back(win, box(tiles[i], static_cast<int>(i), f));
-  }
-  return boxes;
+  out.reserve(tiles.size());
+  for (std::size_t i = 0; i < tiles.size(); ++i)
+    if (tiles[i].subj != exclude)
+      out.emplace_back(tiles[i].subj, box(tiles[i], static_cast<int>(i), f));
+  return out;
 }
 
 void Placement::resolve(const view::State &view, bool opening, bool carousel) {

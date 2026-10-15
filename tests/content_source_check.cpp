@@ -45,7 +45,7 @@ void want(bool got, bool expected, const char *what) {
 // browser tab id.
 class FakeWindows final : public IContentSource {
   public:
-    std::vector<SubjectRef> enumerate() const override { return m_order; }
+    std::vector<SubjectRef> enumerate() override { return m_order; }
 
     GroupRef groupOf(SubjectRef s) const override {
       const auto it = m_group.find(s.id);
@@ -94,7 +94,7 @@ class FakeWindows final : public IContentSource {
 // an epoch it owns and the compositor never issues one at all.
 class FakeTabs final : public IContentSource {
   public:
-    std::vector<SubjectRef> enumerate() const override { return m_order; }
+    std::vector<SubjectRef> enumerate() override { return m_order; }
 
     GroupRef groupOf(SubjectRef s) const override {
       for (const auto &[g, ids] : m_groups)
@@ -237,7 +237,7 @@ int main() {
     // An empty source is not an error. It is what the plugin sees before the extension has
     // ever connected, and enumerate() must answer empty rather than throw or invent one.
     {
-        const FakeTabs none;
+        FakeTabs none;
         want(none.enumerate().empty(), true, "an empty source enumerates empty");
         want(none.label(SubjectRef{1, 1}).empty(), true, "and labels nothing");
         want(none.groupOf(SubjectRef{1, 1}) == GroupRef{0, 0}, true,

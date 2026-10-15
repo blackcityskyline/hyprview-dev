@@ -386,7 +386,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
   case model::Drag::Press::Tile: {
     const int press = m_drag.idx();
     m_killGlow = 0.0; // a stale glow would stay painted after the drop
-    const auto w = m_scene.tiles()[press].win.lock();
+    const auto w = tileWindow(m_scene.tiles()[press]);
     const double grabDX = m_drag.grabX(), grabDY = m_drag.grabY();
     debug::trace::drag("release", m_drag.describe() + "|rmb=" +
                        std::to_string(m_drag.button() == BTN_RIGHT) + "|win=" +
@@ -625,7 +625,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             int best = -1;
             double bestDist2 = 1e18;
             for (size_t i = 0; i < m_scene.tiles().size(); ++i) {
-              const auto tv = m_scene.tiles()[i].win.lock();
+              const auto tv = tileWindow(m_scene.tiles()[i]);
               if (!tv || tv == w) continue;
               const LRect b = currentBox(m_scene.tiles()[i], static_cast<int>(i));
               const double cx = std::clamp(lx, b.x, b.x + b.w);
@@ -635,7 +635,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             }
             const double tol = std::max(0.0, cfg::grid.gap / 2.0 + 8.0);
             if (best >= 0 && bestDist2 <= tol * tol) {
-              const auto vj = m_scene.tiles()[best].win.lock();
+              const auto vj = tileWindow(m_scene.tiles()[best]);
               if (vj && swapWindows(w, vj, fromBox, true)) {
                 debug::trace::dragBranch("StripWin->gridTileSwap");
                 kickPulse(w); kickPulse(vj);
@@ -714,7 +714,7 @@ void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
       m_scene.clearHover();
       m_scene.select(-1);
       for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-        if (m_scene.tiles()[i].win.lock() == w) {
+        if (tileWindow(m_scene.tiles()[i]) == w) {
           m_scene.select(static_cast<int>(i));
           break;
         }

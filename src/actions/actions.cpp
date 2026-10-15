@@ -194,8 +194,8 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
   // one -- and trading the slots again would land each window back on its own box and
   // cancel the flight. That is what made the FIRST swap animate and every one after it
   // stand still.
-  const int ia = m_scene.tileIndexOf(wa.get());
-  const int ib = m_scene.tileIndexOf(wb.get());
+  const int ia = m_scene.tileIndexOf(subjectOf(wa));
+  const int ib = m_scene.tileIndexOf(subjectOf(wb));
   // Why the slot exchange did or did not happen. This is the only thing that can express
   // a swap the compositor could not (switchTargets is a no-op when two windows already
   // share a geometry), and when it is skipped the grid cards stay where they were and the
@@ -286,7 +286,7 @@ std::string Overview::runCommand(const std::string &args) {
                                                      m_view.carousel().originX +
                                                      m_view.carousel().area.w / 2.0));
     for (std::size_t i = 0; i < m_scene.size(); ++i) {
-      const auto w = m_scene.tiles()[i].win.lock();
+      const auto w = tileWindow(m_scene.tiles()[i]);
       const auto &t = m_scene.tiles()[i];
       // depth travels with the card, not the tile: the run reads it as
       // cards[slotOf(tile)].depth. Dumping it beside the box is what lets a harness
@@ -403,11 +403,11 @@ std::string Overview::runCommand(const std::string &args) {
     const int n = static_cast<int>(m_scene.size());
     if (a < 0 || b < 0 || a >= n || b >= n || a == b)
       return "swap: bad indices";
-    if (!swapWindows(m_scene.tiles()[a].win.lock(), m_scene.tiles()[b].win.lock(),
+    if (!swapWindows(tileWindow(m_scene.tiles()[a]), tileWindow(m_scene.tiles()[b]),
                      {}, false))
       return "swap: refused by Hyprland";
-    kickPulse(m_scene.tiles()[a].win.lock());
-    kickPulse(m_scene.tiles()[b].win.lock());
+    kickPulse(tileWindow(m_scene.tiles()[a]));
+    kickPulse(tileWindow(m_scene.tiles()[b]));
     damage();
     return "";
   }
@@ -421,7 +421,7 @@ std::string Overview::runCommand(const std::string &args) {
   // coverage at all without moving a real pointer.
   const auto tile = [&](int i) -> PHLWINDOW {
     return i >= 0 && i < static_cast<int>(m_scene.size())
-               ? m_scene.tiles()[static_cast<std::size_t>(i)].win.lock()
+               ? tileWindow(m_scene.tiles()[static_cast<std::size_t>(i)])
                : nullptr;
   };
   const auto cardCentre = [&](int i, double &x, double &y) {
@@ -512,7 +512,7 @@ std::string Overview::runCommand(const std::string &args) {
       return "not open";
     const auto intent = anim::toggleIntent(true, m_scene.hasSelection() && commit);
     if (intent == anim::DismissIntent::Commit) {
-      if (const auto w = m_scene.tiles()[static_cast<std::size_t>(std::max(0, m_scene.focused()))].win.lock())
+      if (const auto w = tileWindow(m_scene.tiles()[static_cast<std::size_t>(std::max(0, m_scene.focused()))]))
         closeTileWindow(m_scene.focused());
     }
     close();
@@ -524,7 +524,7 @@ std::string Overview::runCommand(const std::string &args) {
     const int t = num(1), ws = num(2);
     if (t < 0 || t >= static_cast<int>(m_scene.size()))
       return "movews: index out of range";
-    const auto w = m_scene.tiles()[t].win.lock();
+    const auto w = tileWindow(m_scene.tiles()[t]);
     const auto m = m_monitor.lock();
     if (!w || !m)
       return "movews: no window";
@@ -551,7 +551,7 @@ void Overview::swapTiles(int a, int b, const LRect &fromA) {
     damage();
     return;
   }
-  if (!swapWindows(m_scene.tiles()[a].win.lock(), m_scene.tiles()[b].win.lock(),
+  if (!swapWindows(tileWindow(m_scene.tiles()[a]), tileWindow(m_scene.tiles()[b]),
                    fromA, false)) // dragged on the grid
     damage();
 }
@@ -618,7 +618,7 @@ void Overview::landAfterMove(const PHLWINDOW &w, const LRect &oldBox,
   // pinNatural() runs for the tile only -- it points the glide source back at where the
   // window was, so the landing is continuous. A thumbnail has no glide to point.
   if (!strip)
-    m_scene.pinNatural(w.get(), oldBox);
+    m_scene.pinNatural(subjectOf(w), oldBox);
   beginSwapFX(w, oldBox,
               anim::parseMove(strip ? anim::stripSwapStyle()
                                    : anim::gridSwapStyle()),
@@ -784,7 +784,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     std::vector<const void *> keys;
     std::vector<int> idx;
     for (size_t i = 0; i < m_scene.size(); ++i) {
-      const auto w = m_scene.tiles()[i].win.lock();
+      const auto w = tileWindow(m_scene.tiles()[i]);
       if (w && w->m_workspace == ws) {
         keys.push_back(w.get());
         idx.push_back(static_cast<int>(i));
@@ -825,7 +825,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
   for (const auto &[oldWin, oldBox] : oldBoxes) {
     bool kept = false;
     for (const auto &t : m_scene.tiles())
-      if (t.win.lock() == oldWin) { kept = true; break; }
+      if (tileWindow(t) == oldWin) { kept = true; break; }
     if (!kept) {
       m_fx.addGhost(model::Ghost{oldWin, oldBox});
       sameSet = false;
@@ -912,7 +912,7 @@ void Overview::addWorkspace() {
 void Overview::closeTileWindow(int i) {
   if (i < 0 || i >= static_cast<int>(m_scene.tiles().size()))
     return;
-  const auto w = m_scene.tiles()[i].win.lock();
+  const auto w = tileWindow(m_scene.tiles()[i]);
   if (!w)
     return;
   debug::dbg("close tile window");

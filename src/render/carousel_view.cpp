@@ -91,7 +91,7 @@ void Overview::renderCarousel() const {
     // is, so the two sat on top of each other. slidevert lifts on the first frame
     // (from.y - (h + LIFT) * q) and the card underneath became visible -- which is why
     // this only ever showed up as "vertical animations duplicate".
-    if (swapfxActive(t.win.lock(), false))
+    if (swapfxActive(tileWindow(t), false))
       continue;
 
     TileLook look;

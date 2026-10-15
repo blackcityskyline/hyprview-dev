@@ -85,19 +85,22 @@ void swapTiles(size_t a, size_t b) {
   const LRect &a = m_tiles[i].natural, &b = m_tiles[i].target;
   return a.x == b.x && a.y == b.y && a.w == b.w && a.h == b.h;
 }
-    // Which card slot carries this window, or -1. A caller swapping two windows needs
-    // the index to say WHICH cards to exchange, not just that the windows swapped.
-    [[nodiscard]] int tileIndexOf(const void *win) const {
+    // Which card slot carries this subject, or -1. A caller swapping two needs the index to
+    // say WHICH cards to exchange, not just that the two exchanged.
+    //
+    // A SUBJECT, not a window: a model cannot resolve a window -- it owns none -- and asking
+    // it to would put the source inside the value being described.
+    [[nodiscard]] int tileIndexOf(SubjectRef subj) const {
   for (std::size_t i = 0; i < m_tiles.size(); ++i)
-    if (m_tiles[i].win.lock().get() == win)
+    if (m_tiles[i].subj == subj)
       return static_cast<int>(i);
   return -1;
 }
     // A window swapped back to where it was: the old box becomes its destination
     // and the entry animation is cancelled with it.
-    void pinNatural(const void *win, const LRect &box) {
+    void pinNatural(SubjectRef subj, const LRect &box) {
       for (auto &t : m_tiles)
-        if (t.win.lock().get() == win) {
+        if (t.subj == subj) {
           t.natural = box;
           t.landed = 1.0;
           return;
@@ -138,9 +141,9 @@ void swapTiles(size_t a, size_t b) {
     // empty workspace switched to all-workspaces rebuilds into tiles without re-selecting.
     // Asking the raw index got -1 there, so Enter activated nothing and the exit became a
     // bare close. Three readers asked this the same way before it had a name.
-    [[nodiscard]] PHLWINDOW focusedWindow() const {
+    [[nodiscard]] SubjectRef focusedSubject() const {
       const int f = focused();
-      return f >= 0 ? m_tiles[static_cast<std::size_t>(f)].win.lock() : nullptr;
+      return f >= 0 ? m_tiles[static_cast<std::size_t>(f)].subj : SubjectRef{};
     }
 
     [[nodiscard]] int focused() const {

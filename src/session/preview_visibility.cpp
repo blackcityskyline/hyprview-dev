@@ -35,8 +35,10 @@ namespace session {
 
 // The saved values are what make force/restore a PAIR: calling either alone leaves the
 // desktop wrong for the rest of the session, and nothing else in the plugin notices.
+template <class WinFor>
 void PreviewVisibility::force(const std::vector<model::Tile> &tiles,
-                              const std::vector<model::StripItem> &strip) {
+                              const std::vector<model::StripItem> &strip,
+                              WinFor &&winFor) {
   for (const auto &wsref : State::workspaceState()->workspaces()) {
     const auto ws = wsref.lock();
     if (!ws || !ws->m_alpha)
@@ -93,7 +95,7 @@ void PreviewVisibility::force(const std::vector<model::Tile> &tiles,
   };
 
   for (const auto &t : tiles)
-    forceWindow(t.win.lock());
+    forceWindow(winFor(t));
   for (const auto &it : strip)
     for (const auto &sw : it.wins)
       forceWindow(sw.win.lock());
@@ -123,7 +125,8 @@ void PreviewVisibility::restore() {
 } // namespace session
 
 void Overview::forcePreviewVisibility() {
-  m_previewVis.force(m_scene.tiles(), m_strip.items());
+  m_previewVis.force(m_scene.tiles(), m_strip.items(),
+                   [this](const model::Tile &t) { return tileWindow(t); });
 }
 
 void Overview::restorePreviewVisibility() { m_previewVis.restore(); }

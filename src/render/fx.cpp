@@ -226,7 +226,7 @@ void Overview::renderPulses(bool strip) const {
       }
     } else {
       for (size_t i = 0; i < m_scene.tiles().size(); ++i) {
-        if (m_scene.tiles()[i].win.lock() != w)
+        if (tileWindow(m_scene.tiles()[i]) != w)
           continue;
         const LRect lb = tileRect(i);
         // The pulse tracks the tile's own radius, so it lands on the same arc.
@@ -269,7 +269,7 @@ std::vector<LRect> Overview::swapDests(const PHLWINDOW &w, bool strip) const {
   std::vector<LRect> out;
   if (!strip) {
     for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-      if (m_scene.tiles()[i].win.lock() == w)
+      if (tileWindow(m_scene.tiles()[i]) == w)
         out.push_back(tileRect(i));
     return out;
   }

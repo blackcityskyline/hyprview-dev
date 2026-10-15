@@ -33,7 +33,17 @@ class IContentSource {
     virtual ~IContentSource() = default;
 
     // Everything on the run right now, in the order it should be laid out.
-    [[nodiscard]] virtual std::vector<SubjectRef> enumerate() const = 0;
+    //
+    // NOT const, and that is load-bearing. Enumerating is what refreshes what the source
+    // holds alive, and holding it alive is the only reason a SubjectRef can be turned back
+    // into something usable: the identity is a NUMBER, so the ownership has to live
+    // somewhere, and it lives here. A const enumerate() would push that into a mutable
+    // member and hide the mutation rather than admit it -- same hazard, smaller hat.
+    //
+    // Consequently an identity from an OLD enumeration stops resolving the moment a newer
+    // one is taken. That is the point: "it went away" and "resurrected a freed pointer" must
+    // not look the same from the caller's side, and one of them is a segfault.
+    [[nodiscard]] virtual std::vector<SubjectRef> enumerate() = 0;
 
     // Where a subject lives: a workspace for a window, a browser window for a tab. The
     // hit-test and the strip both ask this instead of reaching for a workspace handle.

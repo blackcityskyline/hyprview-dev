@@ -247,7 +247,7 @@ void Overview::open() {
   m_scene.select(m_scene.tiles().empty() ? -1 : 0);
   if (const auto fw = Desktop::focusState()->window()) {
     for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-      if (m_scene.tiles()[i].win.lock() == fw) {
+      if (tileWindow(m_scene.tiles()[i]) == fw) {
         m_scene.select(static_cast<int>(i));
         break;
       }
@@ -319,7 +319,7 @@ void Overview::close() {
     // the loop rewrites as it goes — testing inside it reads the pre-close value.
     LRect selNat{};
     if (m_scene.focused() >= 0) {
-      if (const auto w = m_scene.tiles()[static_cast<size_t>(m_scene.focused())].win.lock()) {
+      if (const auto w = tileWindow(m_scene.tiles()[static_cast<size_t>(m_scene.focused())])) {
         const auto p = w->positionAnimation()->goal();
         const auto s = w->sizeAnimation()->goal();
         selNat = LRect{p.x - m->m_position.x, p.y - m->m_position.y,
@@ -335,7 +335,7 @@ void Overview::close() {
       // box then belonged to a workspace that is not coming, and the exit spent itself
       // flying each one toward a tile it could never occupy before dropping it in a
       // single frame. Those cards leave standing and dissolve instead (entryFade).
-      if (const auto w = t.win.lock()) {
+      if (const auto w = tileWindow(t)) {
         if (anim::tileExit(frame().goesHome(t)) == anim::TileExit::InPlace) {
           t.natural = t.target;
           continue;
@@ -399,6 +399,10 @@ bool Overview::showAllWorkspaces() const {
   return m_view.allWorkspaces(cfg::behavior.show_all_workspaces != 0);
 }
 
+bool Overview::belongs(const PHLWINDOW &w) const {
+  return tileBelongs(w, m_monitor.lock(), m_workspace.lock());
+}
+
 // buildTiles() and syncTiles() MUST share this
 bool Overview::tileBelongs(const PHLWINDOW &w, const PHLMONITOR &m,
                            const PHLWORKSPACE &ws) const {
@@ -434,7 +438,7 @@ bool Overview::shouldHideWindow(const PHLWINDOW &w,
   if (Fullscreen::controller()->isFullscreen(w))
     return true;
   for (const auto &t : m_scene.tiles())
-    if (t.win.lock() == w)
+    if (tileWindow(t) == w)
       return true;
   if (const auto aw = m->m_activeWorkspace; aw && w->m_workspace == aw)
     return true;
@@ -445,7 +449,7 @@ bool Overview::isTileWindow(const PHLWINDOW &w) const {
     if (!w)
         return false;
     for (const auto &t : m_scene.tiles())
-        if (t.win.lock() == w)
+        if (tileWindow(t) == w)
             return true;
     return false;
 }
@@ -468,7 +472,7 @@ void Overview::syncRecency() {
 
 int Overview::tileOf(const PHLWINDOW &w) const {
   for (size_t i = 0; i < m_scene.size(); ++i)
-    if (m_scene.tiles()[i].win.lock() == w)
+    if (tileWindow(m_scene.tiles()[i]) == w)
       return static_cast<int>(i);
   return -1;
 }
@@ -480,12 +484,15 @@ void Overview::pruneRecency() {
   std::vector<const void *> live;
   live.reserve(m_scene.size());
   for (const auto &t : m_scene.tiles())
-    live.push_back(t.win.lock().get());
+    live.push_back(tileWindow(t).get());
   m_recency.forgetDead(live);
 }
 
 void Overview::deactivate() {
   restorePreviewVisibility();
+  // Let go of the windows. Nothing resolves a subject once the run is over, and holding a
+  // window alive past its own run keeps it out of the compositor's teardown.
+  m_windows.release();
   if (const auto mm = m_monitor.lock()) {
     mm->m_blurFBDirty = true;
     // The window is still flying into its tile here, so Hyprland's own blur is not
@@ -612,7 +619,7 @@ void Overview::updateSnapshots() {
     m_pixel.putSnapshot(w, fb->getTexture());
   };
   for (const auto &t : m_scene.tiles())
-    if (const auto w = t.win.lock())
+    if (const auto w = tileWindow(t))
       grab(w);
   for (const auto &it : m_strip)
     for (const auto &sw : it.wins)

@@ -45,6 +45,7 @@ class CGradientValueData; // general:col.active_border's real type
 #include "render/backdrop.hpp"
 #include "render/frame_pump.hpp"
 #include "render/geometry.hpp"
+#include "model/window_source.hpp"
 #include "session/hooks.hpp"
 #include "session/layer_visibility.hpp"
 #include "session/pending_click.hpp"
@@ -61,7 +62,7 @@ namespace gloview {
 
 // Mission Control-style overview: a workspace strip over live window previews,
 // drawn compositor-side while the real windows are hidden.
-class Overview {
+class Overview : public model::IWindowHost {
 public:
   explicit Overview(HANDLE handle);
   // Automation seam for `hyprctl dispatch gloview:cmd ...`: state / sel / swap /
@@ -120,6 +121,11 @@ public:
   void onMouseMove();
   void updateHover();
   void onKey(const IKeyboard::SKeyEvent &e, bool &cancel);
+  // IWindowHost, the inbound port. Overview answers the one question the window source
+  // cannot answer for itself -- whether a window belongs -- by delegating to tileBelongs.
+  // monitor() is already an inline accessor above; it is this port's other half.
+  [[nodiscard]] bool belongs(const PHLWINDOW &w) const override;
+
   bool shouldHideWindow(const PHLWINDOW &w, const PHLMONITOR &m) const;
   [[nodiscard]] bool isTileWindow(const PHLWINDOW &w) const;
 
@@ -203,6 +209,22 @@ private:
   void syncRecency();
   void pruneRecency();
   model::Scene m_scene;
+  // The window source, behind the boundary. It holds a reference to this object as its
+  // host, so the two must not outlive each other -- they are members of the same class.
+  model::WindowsContentSource m_windows{*this};
+  // The window behind a tile, or null for a tab and for a window that has gone.
+  //
+  // Here and not on Tile: a tile is a value with no route to its owner, and a SubjectRef
+  // carries no refcount, so resolving one means asking the source that holds the
+  // ownership. One place answers it, so there is no second place that could disagree.
+  PHLWINDOW tileWindow(const model::Tile &t) const { return m_windows.windowOf(t.subj); }
+  // The identity of a window the caller already holds. The inverse of tileWindow(), and on
+  // the same side of the boundary: a caller that has a window asks here rather than casting
+  // an address into a SubjectRef in three places.
+  [[nodiscard]] static model::SubjectRef subjectOf(const PHLWINDOW &w) {
+    return w ? model::SubjectRef{reinterpret_cast<std::uintptr_t>(w.get()), 0}
+             : model::SubjectRef{};
+  }
   model::Effects m_fx;
   view::State m_view;
   mutable std::chrono::steady_clock::time_point m_lastAnimTick{};

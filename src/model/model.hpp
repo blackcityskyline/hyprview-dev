@@ -7,6 +7,7 @@
 #include <hyprland/src/desktop/DesktopTypes.hpp>
 
 #include "../anim_types.hpp"
+#include "subject.hpp"
 #include "../clock/clocks.hpp"
 
 namespace Render {
@@ -24,7 +25,14 @@ class ITexture;
 namespace gloview::model {
 
 struct Tile {
-  PHLWINDOWREF win;
+  // What this tile stands for: a window, or a tab inside one. NOT a window handle -- a tab
+  // has none, and putting one here is what made every reader ask "which domain" and get a
+  // different answer depending on who asked.
+  //
+  // The identity carries no refcount. Resolving one goes through the source that holds the
+  // ownership, never through a cast: an address whose owner has been released is a
+  // use-after-free that reads exactly like working code.
+  SubjectRef subj;
   LRect natural;
   LRect target;
   bool parked = false;

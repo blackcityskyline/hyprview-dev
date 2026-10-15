@@ -21,14 +21,22 @@ class WindowsContentSource final : public IContentSource {
   public:
     explicit WindowsContentSource(const IWindowHost &host) : m_host(host) {}
 
-    // All of them, or none of them.
-    //
-    // A SubjectRef whose epoch is not 0 is not a window, whatever its id, and windowOf
-    // refuses it rather than casting a tab id to a pointer. Nothing in the plugin produces
-    // such a ref today; that is the point of checking.
-    [[nodiscard]] static PHLWINDOW windowOf(SubjectRef s);
+    // All of them, or none of them. Refreshes what this source holds alive -- see the note
+    // on IContentSource::enumerate for why that is not a const operation.
+    [[nodiscard]] std::vector<SubjectRef> enumerate() override;
 
-    [[nodiscard]] std::vector<SubjectRef> enumerate() const override;
+    // The window behind an identity FROM THE LAST ENUMERATION, or null. Never a pointer
+    // rebuilt from the id: that is a use-after-free wearing working code's clothes, and it
+    // took the compositor down once --
+    //   CSharedPointer<CWindow>::_delete -> ~CSharedPointer -> Overview::buildTiles
+    // A SubjectRef whose epoch is not 0 is not a window at all, and a stale identity is not
+    // one either. Both are null, which is the only honest answer for "I do not have it".
+    [[nodiscard]] PHLWINDOW windowOf(SubjectRef s) const;
+
+    // Forgets everything. Called when the run ends: holding a window alive past its own run
+    // would keep it out of the compositor's teardown, which is a leak the plugin does not get
+    // to explain.
+    void release() { m_alive.clear(); }
 
     [[nodiscard]] GroupRef groupOf(SubjectRef s) const override;
 
@@ -45,6 +53,9 @@ class WindowsContentSource final : public IContentSource {
 
   private:
     const IWindowHost &m_host;
+    // Strong references taken at the last enumerate(). windowOf hands out COPIES, so the
+    // caller owns what it got too. This is the entire ownership story for a window identity.
+    std::vector<SP<Desktop::View::CWindow>> m_alive;
 };
 
 } // namespace gloview::model

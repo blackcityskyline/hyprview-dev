@@ -68,7 +68,7 @@ LRect Overview::tileBox(size_t i, const LRect &slot) const {
     return slot;
   double aspect = slot.w / std::max(1.0, slot.h);
   if (i < m_scene.tiles().size()) {
-    if (const auto w = m_scene.tiles()[i].win.lock()) {
+    if (const auto w = tileWindow(m_scene.tiles()[i])) {
       const auto s = w->sizeAnimation()->goal();
       if (s.x > 0 && s.y > 0)
         aspect = s.x / s.y;
@@ -90,7 +90,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
   if (!m || i >= m_scene.tiles().size())
     return;
   const auto &t = m_scene.tiles()[i];
-  const auto w  = t.win.lock();
+  const auto w  = tileWindow(t);
   if (!w || !w->m_isMapped || w->isHidden())
     return;
 
@@ -328,7 +328,7 @@ void Overview::renderTiles() const {
   for (size_t i = 0; i < m_scene.tiles().size(); ++i) {
     if (static_cast<int>(i) == dragIdx)
       continue; // the dragged tile floats over the strip; drawn later
-    const auto w = m_scene.tiles()[i].win.lock();
+    const auto w = tileWindow(m_scene.tiles()[i]);
     if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w, false))
       continue; // flying via a landing: its slot is painted by renderSwapFX
     TileLook look;

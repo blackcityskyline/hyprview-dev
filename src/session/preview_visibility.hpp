@@ -28,8 +28,13 @@ namespace gloview::session {
 // desktop wrong for the rest of the session, and nothing else in the plugin notices.
 class PreviewVisibility {
   public:
-    void force(const std::vector<model::Tile>  &tiles,
-               const std::vector<model::StripItem> &strip);
+    // `winFor` resolves a tile to its window, or null for a tab -- and null is the RIGHT
+    // answer here: there is nothing in Hyprland for this to hide behind a tab. Passing the
+    // resolver in is what keeps this session layer free of the content source, which it has
+    // no business knowing about.
+    template <class WinFor>
+    void force(const std::vector<model::Tile> &tiles,
+               const std::vector<model::StripItem> &strip, WinFor &&winFor);
     void restore();
 
     [[nodiscard]] bool active() const {

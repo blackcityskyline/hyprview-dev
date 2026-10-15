@@ -92,8 +92,11 @@ double Overview::entryNow(const model::Tile &t, int i) const {
 // land -- arrives in the frame, because a clock cannot answer either on its own.
 clock::Placement::Frame Overview::frame() const {
   const auto m = m_monitor.lock();
-  return {m_view, m_scene, m_workspace.lock(), opening(), m ? m->m_size.x : 0.0,
-          m ? m->m_size.y : 0.0};
+  const PHLWORKSPACE land = m_workspace.lock();
+  return {m_view, m_scene, m_windows,
+          land ? model::GroupRef{reinterpret_cast<std::uintptr_t>(land.get()), 0}
+               : model::GroupRef{},
+          opening(), m ? m->m_size.x : 0.0, m ? m->m_size.y : 0.0};
 }
 
 LRect Overview::currentBox(const model::Tile &t, int i) const {
