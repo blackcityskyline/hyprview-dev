@@ -68,7 +68,7 @@ bool Overview::dropOnStripCard(const PHLWINDOW &w, double lx, double ly,
 
   PHLWINDOW vj;
   for (size_t j = 0; j < it.wins.size(); ++j) {
-    const auto v = it.wins[j].win.lock();
+    const auto v = m_windows.windowOf(it.wins[j].subj);
     if (!v || v == w || !v->m_isMapped || v->isHidden())
       continue;
     if (stripWinSlotRect(it, stripCardAt(idx), j).contains(lx, ly)) {
@@ -240,8 +240,8 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
     landAfterSwap(win, box, isA ? thumbA : thumbB, isA && dropped ? fromA : LRect{},
                   anim::cfg(leaf).ms, anim::cfg(leaf).curve, draggedOnStrip);
   }
-  kickPulse(wa);
-  kickPulse(wb);
+  kickPulse(subjectOf(wa));
+  kickPulse(subjectOf(wb));
   damage();
   ensureAnimPump();
   return true;
@@ -406,8 +406,8 @@ std::string Overview::runCommand(const std::string &args) {
     if (!swapWindows(tileWindow(m_scene.tiles()[a]), tileWindow(m_scene.tiles()[b]),
                      {}, false))
       return "swap: refused by Hyprland";
-    kickPulse(tileWindow(m_scene.tiles()[a]));
-    kickPulse(tileWindow(m_scene.tiles()[b]));
+    kickPulse(m_scene.tiles()[a].subj);
+    kickPulse(m_scene.tiles()[b].subj);
     damage();
     return "";
   }
@@ -445,7 +445,7 @@ std::string Overview::runCommand(const std::string &args) {
       return "dropcard: bad card";
     if (!dropOnStripCard(w, x, y, -1))
       return "dropcard: refused";
-    kickPulse(w);
+    kickPulse(subjectOf(w));
     landAfterSwap(w, m_lastDragBox, m_lastDragBox, m_lastDragBox,
                   anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve, true);
     return "";
@@ -462,13 +462,13 @@ std::string Overview::runCommand(const std::string &args) {
     const auto &sit = m_strip[static_cast<std::size_t>(ci)];
     if (si < 0 || si >= static_cast<int>(sit.wins.size()))
       return "dropslot: bad slot";
-    const auto v = sit.wins[static_cast<std::size_t>(si)].win.lock();
+    const auto v = m_windows.windowOf(sit.wins[static_cast<std::size_t>(si)].subj);
     if (!v || v == w)
       return "dropslot: slot empty or is the same window";
     if (!swapWindows(w, v, m_lastDragBox, true))
       return "dropslot: refused by Hyprland";
-    kickPulse(w);
-    kickPulse(v);
+    kickPulse(subjectOf(w));
+    kickPulse(subjectOf(v));
     return "";
   }
 
@@ -480,8 +480,8 @@ std::string Overview::runCommand(const std::string &args) {
       return "stripgrid: bad tiles";
     if (!swapWindows(w, v, m_lastDragBox, true))
       return "stripgrid: refused by Hyprland";
-    kickPulse(w);
-    kickPulse(v);
+    kickPulse(subjectOf(w));
+    kickPulse(subjectOf(v));
     return "";
   }
 
@@ -566,10 +566,10 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
   // Same surface only: a window in the all-workspaces view has two live flights at once,
   // and dropping by window alone meant the second one cancelled the first.
   m_fx.dropSwap([&w, toStrip](const model::SwapFX &f) {
-    return f.win.lock() == w && f.toStrip == toStrip;
+    return f.subj == subjectOf(w) && f.toStrip == toStrip;
   });
   model::SwapFX fx;
-  fx.win     = w;
+  fx.subj    = subjectOf(w);
   fx.from    = from;
   fx.toStrip = toStrip;
   fx.style   = style;
@@ -601,7 +601,7 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
 }
 
 bool Overview::swapfxActive(const PHLWINDOW &w, bool strip) const {
-  return m_fx.swapActive(w, strip);
+  return m_fx.swapActive(subjectOf(w), strip);
 }
 
 // One surface's landing. `strip` says which one, and it picks the style key: a grid card
@@ -653,7 +653,7 @@ LRect Overview::stripThumbRect(const PHLWINDOW &w) const {
     if (it.kind != model::StripItem::Kind::Ws)
       continue;
     for (size_t j = 0; j < it.wins.size(); ++j)
-      if (it.wins[j].win.lock() == w)
+      if (m_windows.windowOf(it.wins[j].subj) == w)
         return stripWinSlotRect(it, stripCardAt(i), j);
   }
   return {};
@@ -664,7 +664,7 @@ bool Overview::hasStripThumb(const PHLWINDOW &w) const {
     if (it.kind != model::StripItem::Kind::Ws)
       continue;
     for (const auto &sw : it.wins)
-      if (sw.win.lock() == w)
+      if (m_windows.windowOf(sw.subj) == w)
         return true;
   }
   return false;
@@ -827,7 +827,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     for (const auto &t : m_scene.tiles())
       if (tileWindow(t) == oldWin) { kept = true; break; }
     if (!kept) {
-      m_fx.addGhost(model::Ghost{oldWin, oldBox});
+      m_fx.addGhost(model::Ghost{subjectOf(oldWin), oldBox});
       sameSet = false;
     }
   }

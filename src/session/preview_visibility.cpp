@@ -95,10 +95,10 @@ void PreviewVisibility::force(const std::vector<model::Tile> &tiles,
   };
 
   for (const auto &t : tiles)
-    forceWindow(winFor(t));
+    forceWindow(winFor(t.subj));
   for (const auto &it : strip)
     for (const auto &sw : it.wins)
-      forceWindow(sw.win.lock());
+      forceWindow(winFor(sw.subj));
 }
 
 void PreviewVisibility::restore() {
@@ -126,7 +126,7 @@ void PreviewVisibility::restore() {
 
 void Overview::forcePreviewVisibility() {
   m_previewVis.force(m_scene.tiles(), m_strip.items(),
-                   [this](const model::Tile &t) { return tileWindow(t); });
+                   [this](model::SubjectRef s) { return m_windows.windowOf(s); });
 }
 
 void Overview::restorePreviewVisibility() { m_previewVis.restore(); }

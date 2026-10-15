@@ -188,7 +188,7 @@ void Overview::renderStrip() const {
       if (!suppressContent) {
         for (size_t j = 0; j < it.wins.size(); ++j) {
           const auto &sw = it.wins[j];
-          const auto w = sw.win.lock();
+          const auto w = m_windows.windowOf(sw.subj);
           if (!w || !w->m_isMapped || w->isHidden())
             continue;
           const LRect wbL = stripWinSlotRect(it, card, j);
@@ -261,7 +261,7 @@ void Overview::renderStripWindows() const {
           static_cast<int>(i) == m_drag.idx() &&
           static_cast<int>(j) == m_drag.winIdx())
         continue;
-      const auto w = it.wins[j].win.lock();
+      const auto w = m_windows.windowOf(it.wins[j].subj);
       if (!w || !w->m_isMapped || w->isHidden())
         continue;
       if (swapfxActive(w, true))
@@ -329,7 +329,7 @@ void Overview::renderStripButtons() const {
                  roundPow);
   }
 
-  const auto dragW = m_drag.win().lock();
+  const auto dragW = m_windows.windowOf(m_drag.win());
 
   for (size_t i = 0; i < m_strip.size(); ++i) {
     const auto &it = m_strip[i];
@@ -344,7 +344,7 @@ void Overview::renderStripButtons() const {
 
       if (isRmb) {
         for (size_t j = 0; j < it.wins.size(); ++j) {
-          const auto v = it.wins[j].win.lock();
+          const auto v = m_windows.windowOf(it.wins[j].subj);
           if (!v || v == dragW || !v->m_isMapped || v->isHidden())
             continue;
           const LRect sl = stripWinSlotRect(it, card, j);
@@ -363,7 +363,7 @@ void Overview::renderStripButtons() const {
         const bool dwindle = cfg::behavior.tile_layout.get() == "dwindle";
         bool slotFound = false;
         for (size_t j = 0; j < it.wins.size(); ++j) {
-          const auto v = it.wins[j].win.lock();
+          const auto v = m_windows.windowOf(it.wins[j].subj);
           if (!v || v == dragW)
             continue;
           const LRect sl = stripWinSlotRect(it, card, j);

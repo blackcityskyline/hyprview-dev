@@ -623,7 +623,7 @@ void Overview::updateSnapshots() {
       grab(w);
   for (const auto &it : m_strip)
     for (const auto &sw : it.wins)
-      if (const auto w = sw.win.lock())
+      if (const auto w = m_windows.windowOf(sw.subj))
         grab(w);
 }
 

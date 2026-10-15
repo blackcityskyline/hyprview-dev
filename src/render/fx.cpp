@@ -49,11 +49,11 @@ LRect Overview::dragBox() const {
 }
 
 LRect Overview::dragStripBox() const {
-  if (m_drag.win().expired())
+  if (m_windows.windowOf(m_drag.win()) == nullptr)
     return LRect{0, 0, 0, 0};
   const double sw    = m_drag.fromBox().w > 1.0 ? m_drag.fromBox().w : 150.0;
   const double ww    = sw * dragScale();
-  const auto size    = m_drag.win().lock()->sizeAnimation()->goal();
+  const auto size    = m_windows.windowOf(m_drag.win())->sizeAnimation()->goal();
   const double aspect = (size.x > 0 && size.y > 0) ? size.x / size.y : 16.0 / 9.0;
   return LRect{m_drag.x() + dragOffsetX(), m_drag.y() + dragOffsetY(), ww, ww / std::max(0.1, aspect)};
 }
@@ -74,7 +74,7 @@ void Overview::renderDragTile() const {
   const int dragIdx = draggedTile();
   if (dragIdx < 0) {
     // A window dragged OUT of the strip has no tile; it gets its own chrome.
-    if (m_drag.press() == model::Drag::Press::StripWin && !m_drag.win().expired())
+    if (m_drag.press() == model::Drag::Press::StripWin && m_windows.windowOf(m_drag.win()) != nullptr)
       drawDragStripChrome();
     return;
   }
@@ -87,7 +87,7 @@ void Overview::renderDragTile() const {
 
 void Overview::drawDragStripChrome() const {
   const auto m = m_monitor.lock();
-  const auto w = m_drag.win().lock();
+  const auto w = m_windows.windowOf(m_drag.win());
   if (!m || !w)
     return;
   const double s        = m->m_scale;
@@ -114,7 +114,7 @@ void Overview::renderDragWindow() const {
   if (draggedTile() >= 0)
     return; // drawn whole by renderDragTile
   const auto m = m_monitor.lock();
-  const auto w = m_drag.win().lock();
+  const auto w = m_windows.windowOf(m_drag.win());
   if (!m || !w || !w->m_isMapped || w->isHidden())
     return;
   if (m_drag.press() != model::Drag::Press::StripWin)
@@ -185,10 +185,12 @@ void Overview::renderKillZone() const {
   }
 }
 
-void Overview::kickPulse(const PHLWINDOW &w) {
-  if (!w || !anim::cfg(anim::Id::Pulse).on)
+// A subject, not a window: a pulse is a ring around whatever the run is showing, and a tab
+// has no window to be handed here even though it has a card that can ring.
+void Overview::kickPulse(model::SubjectRef s) {
+  if (s == model::SubjectRef{} || !anim::cfg(anim::Id::Pulse).on)
     return;
-  m_fx.kickPulse(w);
+  m_fx.kickPulse(s);
 }
 
 void Overview::renderPulses(bool strip) const {
@@ -201,7 +203,7 @@ void Overview::renderPulses(bool strip) const {
   const float roundPow = cfg::look.preview_round_power;
   const auto col = cfg::colors.hover_border.get(1.0);
   for (const auto &p : m_fx.pulses()) {
-    const auto w = p.w.lock();
+    const auto w = m_windows.windowOf(p.subj);
     if (!w)
       continue;
     const double pr = std::clamp(p.p, 0.0, 1.0);
@@ -211,7 +213,7 @@ void Overview::renderPulses(bool strip) const {
         if (it.kind != model::StripItem::Kind::Ws)
           continue;
         for (size_t j = 0; j < it.wins.size(); ++j) {
-          if (it.wins[j].win.lock() != w)
+          if (m_windows.windowOf(it.wins[j].subj) != w)
             continue;
           const LRect card = stripCardAt(i);
           const LRect sl = stripWinSlotRect(it, card, j);
@@ -278,7 +280,7 @@ std::vector<LRect> Overview::swapDests(const PHLWINDOW &w, bool strip) const {
     if (it.kind != model::StripItem::Kind::Ws)
       continue;
     for (size_t j = 0; j < it.wins.size(); ++j)
-      if (it.wins[j].win.lock() == w)
+      if (m_windows.windowOf(it.wins[j].subj) == w)
         out.push_back(stripWinSlotRect(it, stripCardAt(i), j));
   }
   return out;
@@ -296,7 +298,7 @@ void Overview::renderSwapFX() const {
   const float roundPow = cfg::look.preview_round_power;
 
   for (const auto &fx : m_fx.swapfx()) {
-    const auto w = fx.win.lock();
+    const auto w = m_windows.windowOf(fx.subj);
     if (!w || !w->m_isMapped || w->isHidden())
       continue;
     std::vector<LRect> dests = swapDests(w, fx.toStrip);

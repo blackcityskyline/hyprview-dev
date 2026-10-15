@@ -145,7 +145,7 @@ void Overview::buildStrip() {
           const auto p = w->positionAnimation()->goal();
           const auto sz = w->sizeAnimation()->goal();
           model::StripWin sw;
-          sw.win = w;
+          sw.subj = subjectOf(w);
           sw.rel = LRect{(p.x - m->m_position.x) / m->m_size.x,
                          (p.y - m->m_position.y) / m->m_size.y,
                          sz.x / m->m_size.x, sz.y / m->m_size.y};
@@ -222,7 +222,7 @@ void Overview::buildStrip() {
       const auto p = w->positionAnimation()->goal();
       const auto s = w->sizeAnimation()->goal();
       model::StripWin sw;
-      sw.win = w;
+      sw.subj = subjectOf(w);
       sw.rel = LRect{(p.x - m->m_position.x) / m->m_size.x,
                      (p.y - m->m_position.y) / m->m_size.y, s.x / m->m_size.x,
                      s.y / m->m_size.y};
@@ -600,7 +600,7 @@ void Overview::startTileGlide(
       for (const auto &t : m_scene.tiles())
         if (tileWindow(t) == oldWin) { kept = true; break; }
       if (!kept)
-        m_fx.addGhost(model::Ghost{oldWin, oldBox});
+        m_fx.addGhost(model::Ghost{subjectOf(oldWin), oldBox});
     }
   } else
     m_scene.settleEntry();

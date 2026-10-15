@@ -165,7 +165,9 @@ void Overview::updateAnimation() {
 
   const auto pulse = anim::cfg(anim::Id::Pulse);
   m_fx.eachPulse([&](auto &p) {
-    if (p.w.expired())
+    // A pulse whose subject no longer resolves has nothing left to ring around. Previously
+    // this was the window handle expiring; now it is the source answering "not mine".
+    if (!m_windows.windowOf(p.subj))
       return;
     p.p += std::min(34.0, std::chrono::duration<double, std::milli>(now - p.last)
                               .count()) /
@@ -174,8 +176,9 @@ void Overview::updateAnimation() {
   });
   // Pruned on each pulse's own accumulated fraction: a live config change must not
   // shorten a ring that is already running.
-  m_fx.dropPulse(
-      [](const model::WinPulse &p) { return p.w.expired() || p.p >= 1.0; });
+  m_fx.dropPulse([&](const model::WinPulse &p) {
+    return !m_windows.windowOf(p.subj) || p.p >= 1.0;
+  });
 
   if (m_place.clocks.rebuild.done(m_place.recipes.ghost.ms) && m_place.clocks.rebuild.done(m_place.recipes.entry.ms)) {
     m_view.setWsSlideDir( 0);
@@ -188,7 +191,7 @@ void Overview::updateAnimation() {
   // prune on each flight's own clock; live config would cut landings short
   const auto flightEnd = std::chrono::steady_clock::now();
   m_fx.dropSwap([&](const model::SwapFX &fx) {
-    const bool done = fx.win.expired() || fx.clock.raw(fx.ms) >= 1.0;
+    const bool done = m_windows.windowOf(fx.subj) == nullptr || fx.clock.raw(fx.ms) >= 1.0;
     // Measured, not configured: the harness compares the two, and a flight that ran
     // long or short is exactly what it is looking for.
     if (done && fx.traceSeq)

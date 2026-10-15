@@ -355,7 +355,7 @@ void Overview::renderGhosts() const {
   const double eOut = curves::eval(m_place.recipes.ghost.curve, p); // 0..1 gone
 
   for (const auto &g : m_fx.ghosts()) {
-    const auto w = g.win.lock();
+    const auto w = m_windows.windowOf(g.subj);
     if (!w || !w->m_isMapped || w->isHidden())
       continue;
     const double k  = 1.0 - 0.3 * eOut; // shrink toward its own center

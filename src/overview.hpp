@@ -287,7 +287,7 @@ private:
   void forcePreviewVisibility();
   void restorePreviewVisibility();
   session::PreviewVisibility m_previewVis;
-  void kickPulse(const PHLWINDOW &w);
+  void kickPulse(model::SubjectRef s);
   void beginSwapFX(const PHLWINDOW &w, const LRect &from,
                    anim::Move style, double ms, const std::string &curve,
                    bool toStrip = false);

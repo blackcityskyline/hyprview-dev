@@ -46,7 +46,9 @@ struct Tile {
 };
 
 struct StripWin {
-  PHLWINDOWREF win;
+  // A subject, not a window: the strip shows whatever the run is showing, and a tab has no
+  // window to hold. Resolution goes through the source, which owns the references.
+  SubjectRef subj;
   LRect rel;
 };
 
@@ -64,20 +66,23 @@ struct StripItem {
 };
 
 struct Ghost {
-  PHLWINDOWREF win;
+  SubjectRef subj;
   LRect box;
 };
 
 // `p` accrues per FRAME, not wall-clock
 struct WinPulse {
-  PHLWINDOWREF w;
+  SubjectRef subj;
   double p = 0.0;
   std::chrono::steady_clock::time_point last;
 };
 
 // The plugin's instantiation of the drag FSM. The template is on the window handle so the
 // FSM itself stays free of hyprland/ and reachable from tests/drag_check.cpp.
-using Drag = DragT<PHLWINDOWREF>;
+// Subject, not window. The FSM stores the handle and hands it back without ever
+// dereferencing it, so it neither needs nor wants to know which domain the thing is from --
+// and a drag that could only ever carry a window could not carry a tab.
+using Drag = DragT<SubjectRef>;
 
 // The movement a flight plays. Same type as the workspace enter: they were two enums
 // with the same members under different names, which is how `fade` ended up in both
@@ -87,7 +92,7 @@ using Move = anim::Move;
 #include <chrono>
 
 struct SwapFX {
-  PHLWINDOWREF win;
+  SubjectRef subj;
   LRect from;
   // Which surface this flight belongs to. A window in the all-workspaces view is drawn
   // twice at once -- a grid card and a strip thumbnail -- and one window can have TWO
