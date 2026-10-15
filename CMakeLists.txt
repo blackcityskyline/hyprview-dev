@@ -220,6 +220,13 @@ add_test(NAME scan_model_window_types
 add_test(NAME tab_feed
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_feed_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_feed_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_feed_check")
 
+# Which Hyprland window is which browser window. The two sides share one fact -- a browser
+# window's title is its active tab's title -- so the match is by title, and every rule here
+# is about refusing to guess. A wrong match files one browser's tabs under another's window
+# and nothing about the result looks wrong on screen.
+add_test(NAME tab_match
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_match_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_match_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_match_check")
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll
