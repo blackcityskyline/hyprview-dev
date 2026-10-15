@@ -15,6 +15,10 @@ include(GNUInstallDirs)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(HYPR_DEPS REQUIRED hyprland)
+# cairo reads the PNGs and is already inside this process via Hyprland; the check needs its
+# flags directly because it deliberately does not compile against hyprland/ (AGENTS.md 2.8).
+pkg_check_modules(CAIRO REQUIRED cairo)
+string(REPLACE ";" " " CAIRO_FLAGS "${CAIRO_CFLAGS};${CAIRO_LDFLAGS}")
 # Raw GL (glCreateShader/glDrawArrays…) for the plugin's own blur shader.
 pkg_check_modules(GLES REQUIRED glesv2)
 # Lua's pkg-config module name varies by distro: `lua` (Arch), `lua5.4`/`lua-5.4`
@@ -40,6 +44,8 @@ add_library(gloview SHARED
   src/cursor.cpp
   src/blur.cpp
   src/pixel/cache.cpp
+  src/pixel/png.cpp
+  src/pixel/png_read.cpp
   src/clock/clock.cpp
   src/clock/clocks.cpp
   src/clock/placement.cpp
@@ -232,6 +238,12 @@ add_test(NAME tab_match
 # is why this compiles under ctest without a compositor.
 add_test(NAME tab_source
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_source_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_source_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_source_check")
+
+# A PNG on disk, decoded. No compositor, no GPU: this is the half that can be checked, and
+# the failures it has to survive -- missing, truncated, not a PNG at all -- are the ones the
+# extension's half-written directory produces routinely.
+add_test(NAME png_read
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/png_read_check.cpp ${CMAKE_SOURCE_DIR}/src/pixel/png_read.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/png_read_check ${CAIRO_FLAGS} && ${CMAKE_CURRENT_BINARY_DIR}/png_read_check")
 
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
