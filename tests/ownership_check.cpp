@@ -110,6 +110,9 @@ int main(int argc, char **argv) {
       // hide() without restore() leaves the user's taskbar invisible with nothing else in
       // the plugin noticing, which is why the saved values live next to the fading.
       {"LayerVisibility", "session/layer_visibility.hpp", {"m_hidden"}},
+      // Six resolved animation recipes, assigned together in one place and read from six.
+      {"Recipes", "anim_recipes.hpp",
+       {"glide", "entry", "ghost", "lift", "enterStyle", "exitStyle"}},
       // The pump that makes the compositor draw another frame. damage() is asked for by
       // twenty-four files and ensureAnimPump by nine, and neither is the run's lifecycle --
       // an action and a hover both need a repaint, and both were reaching into lifecycle to
@@ -129,17 +132,53 @@ int main(int argc, char **argv) {
       std::printf("FAIL %s no longer declares class %s\n", s.header, s.type);
       return 1;
     }
-    if (text.find("private:") == std::string::npos) {
-      std::printf("FAIL %s: class %s holds no private state -- extraction reverted?\n",
+    // Private fields are the usual form of this, but not the only one worth enforcing. A
+    // value type whose fields are read by everyone and written by one function is better
+    // served by proving the single writer: private would only move the proof to a place a
+    // grep cannot see. Both are accepted, the second on the strength of the check below.
+    const bool hasPrivate = text.find("private:") != std::string::npos;
+    const bool isValueType = text.find("resolve(") != std::string::npos;
+    if (!hasPrivate && !isValueType) {
+      std::printf("FAIL %s: class %s holds no private state and is not a proven "
+                  "single-writer value type -- extraction reverted?\n",
                   s.header, s.type);
       return 1;
     }
+    if (isValueType) {
+      for (const auto *f : s.state) {
+        int writes = 0;
+        for (const auto &g : all) {
+          if (fs::relative(g, src) == s.header)
+            continue;
+          const auto gt = slurp(g);
+          // Names the OWNER as well as the field, on purpose. A bare field name matches
+          // TileLook::lift (a bool the drag uses) and "--" inside a comment, and reports a
+          // second writer where there is none. What is being proven is narrow and specific:
+          // nothing outside the header writes a recipe through the member Overview holds.
+          const std::regex w("m_anim\\." + std::string(f) +
+                             R"((?:\.\w+|->\w+|\[[^\]]*\])*\s*(=[^=]|\+=|-=|\+\+|--))");
+          for (std::sregex_iterator it(gt.begin(), gt.end(), w), e; it != e; ++it)
+            ++writes;
+        }
+        if (writes) {
+          std::printf("FAIL %s is assigned outside %s (%d place(s)) -- resolve() is its "
+                      "only writer\n", f, s.header, writes);
+          return 1;
+        }
+      }
+    }
+    // overviewFields() already parses DECLARATIONS. A substring search would find "glide"
+    // inside glideDur() and inside a comment about the glide, and report a field on
+    // Overview that is not there.
+    const auto ovFields = overviewFields(overviewText);
     for (const auto *f : s.state) {
       if (text.find(std::string(f)) == std::string::npos) {
         std::printf("FAIL %s: %s does not own %s\n", s.header, s.type, f);
         return 1;
       }
-      if (overviewText.find(std::string(f)) != std::string::npos) {
+      const auto prefixed = std::string("m_") + f;
+      if (std::find(ovFields.begin(), ovFields.end(), f) != ovFields.end() ||
+          std::find(ovFields.begin(), ovFields.end(), prefixed) != ovFields.end()) {
         std::printf("FAIL overview.hpp still declares %s -- %s should own it\n", f,
                     s.type);
         return 1;
@@ -178,7 +217,7 @@ int main(int argc, char **argv) {
       "m_newCardId", "m_newCardAnim", "m_altTabbing", "m_commitPending",
       "m_pendingStep", "m_pendingFocus", "m_focusOutside",
       // the animation engine, written through member calls this scan does not see
-      "m_clocks", "m_enterStyle", "m_lastAnimTick",
+      "m_clocks", "m_lastAnimTick",
       // one value each, owned by the coordinator because nothing else does the owning
       "m_scrollAccum", "m_killGlow", "m_lastDragBox", "m_lastFocus", "m_handle",
   };

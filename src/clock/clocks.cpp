@@ -88,9 +88,9 @@ double Overview::blurAlpha() const {
 double Overview::animDuration() const { return anim::cfg(masterId()).ms; }
 
 // CLOSE rides m_progress.raw() DOWN: tiles then match the collapsing chrome.
-// Read m_clocks.tileMs, not m_glide.ms: a glideLeaf() flip jumps progress.
+// Read m_clocks.tileMs, not m_anim.glide.ms: a glideLeaf() flip jumps progress.
 double Overview::tileProgress(int i) const {
-  const double glideMs = (m_clocks.tileMs > 0) ? m_clocks.tileMs : m_glide.ms;
+  const double glideMs = (m_clocks.tileMs > 0) ? m_clocks.tileMs : m_anim.glide.ms;
   // currentBox lerps natural -> target as e RISES, so close feeds it m_progress.raw()
   // as-is. Flipping it put every card on its natural box on the first close frame.
   const double base = opening() ? m_clocks.tiles.raw(glideMs) : m_progress.raw();
@@ -103,8 +103,8 @@ double Overview::tileProgress(int i) const {
 
 double Overview::entryProgress(int i) const {
   return curves::eval(
-      m_entry.curve,
-      staggered(m_clocks.rebuild.raw(m_entry.ms), i,
+      m_anim.entry.curve,
+      staggered(m_clocks.rebuild.raw(m_anim.entry.ms), i,
                 static_cast<int>(m_scene.tiles().size())));
 }
 
@@ -118,7 +118,7 @@ double Overview::entryNow(const model::Tile &t, int i) const {
 }
 
 LRect Overview::currentBox(const model::Tile &t, int i) const {
-  const std::string &curve = m_clocks.tileCurve.empty() ? m_glide.curve : m_clocks.tileCurve;
+  const std::string &curve = m_clocks.tileCurve.empty() ? m_anim.glide.curve : m_clocks.tileCurve;
   const double e = curves::eval(curve, tileProgress(i));
   const auto &a = t.natural;
   const auto &b = t.target;
@@ -146,20 +146,20 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
   // which is what made it a dead key: a fade WITH a slide direction travelled sideways,
   // and a fade WITHOUT one fell through to the pop scale-in below. A style that no
   // branch honours is not a setting.
-  if (m_enterStyle.travel == anim::Travel::Slide) {
+  if (m_anim.enterStyle.travel == anim::Travel::Slide) {
     // A slide needs somewhere to come from. Without a direction there is no edge to enter
     // from, so the tile is already where it belongs and only its scale-in is missing --
     // which is the fall-through below, not a silent no-op.
     if (m_view.wsSlideDir() != 0) {
       if (const auto m = m_monitor.lock()) {
-        if (m_enterStyle.axis == anim::Axis::Horizontal)
+        if (m_anim.enterStyle.axis == anim::Axis::Horizontal)
           r.x += static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * (1.0 - ap);
         else
           r.y -= static_cast<double>(m->m_size.y) * (1.0 - ap);
       }
       return r;
     }
-  } else if (m_enterStyle.travel == anim::Travel::Fade) {
+  } else if (m_anim.enterStyle.travel == anim::Travel::Fade) {
     return r; // alpha only -- entryFade() below reads the same clock for it
   }
   // Pop, and a slide with no direction: the scale-in.
@@ -169,12 +169,7 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
 }
 
 void Overview::updateAnimation() {
-  m_glide      = anim::cfg(glideLeaf());
-  m_entry      = anim::cfg(entryLeaf());
-  m_ghost      = anim::cfg(ghostLeaf());
-  m_lift       = anim::cfg(anim::Id::Lift);
-  m_enterStyle = anim::parseMove(anim::style("ws_enter"));
-  m_exitStyle  = anim::parseMove(anim::style("ws_exit"));
+  m_anim.resolve(glideLeaf(), entryLeaf(), ghostLeaf());
 
   const double dur = animDuration();
   // stall guard: rewind every clock past a render hole
@@ -186,7 +181,7 @@ void Overview::updateAnimation() {
       const double glideMs = glideDur();
       m_clocks.master.compensateStall(gapMs, dur);
       m_clocks.tiles.compensateStall(gapMs, glideMs);
-      m_clocks.rebuild.compensateStall(gapMs, std::max(m_entry.ms, m_ghost.ms));
+      m_clocks.rebuild.compensateStall(gapMs, std::max(m_anim.entry.ms, m_anim.ghost.ms));
       m_clocks.strip.compensateStall(gapMs, anim::cfg(anim::Id::StripStep).ms);
       if (m_newCardAnim)
         m_clocks.newCard.compensateStall(gapMs, newCardDur());
@@ -203,7 +198,7 @@ void Overview::updateAnimation() {
     if (elapsedMs >= static_cast<double>(cfg::behavior.hold_lift_ms.get())) {
       m_drag.setLifted(true);
       m_clocks.dragLift.begin();
-      debug::trace::animStart("drag_lift", "lift", "", m_lift.ms, m_lift.curve.c_str());
+      debug::trace::animStart("drag_lift", "lift", "", m_anim.lift.ms, m_anim.lift.curve.c_str());
       damage();
     } else {
       static auto lastHoldDamage = std::chrono::steady_clock::time_point{};
@@ -222,10 +217,10 @@ void Overview::updateAnimation() {
   else
     m_scroll.advance(1.0);
 
-  if (!m_fx.ghosts().empty() && m_clocks.rebuild.done(m_ghost.ms))
+  if (!m_fx.ghosts().empty() && m_clocks.rebuild.done(m_anim.ghost.ms))
     m_fx.clearGhosts();
   // entries must settle explicitly or they keep evaluating curves forever
-  if (m_clocks.rebuild.done(m_entry.ms) &&
+  if (m_clocks.rebuild.done(m_anim.entry.ms) &&
       std::any_of(m_scene.tiles().begin(), m_scene.tiles().end(),
                   [](const model::Tile &t) { return t.landed < 1.0; }))
     m_scene.settleEntry();
@@ -244,7 +239,7 @@ void Overview::updateAnimation() {
   m_fx.dropPulse(
       [](const model::WinPulse &p) { return p.w.expired() || p.p >= 1.0; });
 
-  if (m_clocks.rebuild.done(m_ghost.ms) && m_clocks.rebuild.done(m_entry.ms)) {
+  if (m_clocks.rebuild.done(m_anim.ghost.ms) && m_clocks.rebuild.done(m_anim.entry.ms)) {
     m_view.setWsSlideDir( 0);
     m_view.setExpoFlip( 0);
     if (m_life.consumeJumpClosing()) {

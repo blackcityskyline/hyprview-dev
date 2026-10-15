@@ -30,6 +30,7 @@ class CGradientValueData; // general:col.active_border's real type
 }
 
 #include "anim.hpp"
+#include "anim_recipes.hpp"
 #include "clock/clocks.hpp"
 #include "clock/progress.hpp"
 #include "clock/clock.hpp"
@@ -224,8 +225,7 @@ private:
   // the animateStripTo() caller and the current position by nothing at all.
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
-  anim::Cfg m_glide, m_entry, m_ghost, m_lift;
-  anim::Move m_enterStyle{anim::Travel::Slide, anim::Axis::Horizontal}, m_exitStyle{anim::Travel::Slide, anim::Axis::Horizontal};
+  anim::Recipes m_anim;
   bool animBusy() const;
   // Clocks that outlive the master: the pump must name every clock or the next one
   // added never arms it.

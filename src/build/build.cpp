@@ -595,9 +595,9 @@ void Overview::startTileGlide(
   } else
     m_scene.settleEntry();
   m_clocks.tiles.begin();
-  debug::trace::animStart("glide", "glide", "", m_glide.ms, m_glide.curve.c_str());
-  m_clocks.tileMs    = m_glide.ms;
-  m_clocks.tileCurve = m_glide.curve; // snapshot: currentBox() must use THIS curve
+  debug::trace::animStart("glide", "glide", "", m_anim.glide.ms, m_anim.glide.curve.c_str());
+  m_clocks.tileMs    = m_anim.glide.ms;
+  m_clocks.tileCurve = m_anim.glide.curve; // snapshot: currentBox() must use THIS curve
   // EVERY card is about to move: natural was just rewritten to the box each one occupied,
   // and the glide clock starts at 0. Not one of them is where it is about to be drawn, so
   // the old pixels are garbage and the whole monitor has to be repainted. Without this
@@ -610,7 +610,7 @@ void Overview::startTileGlide(
   damage();
   if (newcomers || !m_fx.ghosts().empty()) {
     m_clocks.rebuild.begin();
-    debug::trace::animStart("rebuild", "ghosts", "", m_ghost.ms, m_ghost.curve.c_str());
+    debug::trace::animStart("rebuild", "ghosts", "", m_anim.ghost.ms, m_anim.ghost.curve.c_str());
     ensureAnimPump(); // frames must keep coming while population runs
   }
 }

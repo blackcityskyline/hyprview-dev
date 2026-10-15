@@ -234,19 +234,28 @@ int main(int argc, char **argv) {
     return animSrc.find("{\"" + name + "\",") != std::string::npos;
   };
 
-  const auto styleCallers = {&clocks, &actions, &overview};
+  // anim_recipes.hpp is in the list because resolve() is now where the two handle-backed
+  // styles are read: the names moved out of clocks.cpp when the six recipes took an owner,
+  // and a check that only watched the old file would now assert on an empty scan.
+  const auto recipes = slurp((root + "/src/anim_recipes.hpp").c_str());
+  const auto styleCallers = {&clocks, &actions, &overview, &recipes};
   int styleCalls = 0;
+  // Both spellings: "anim::style(" outside the namespace and a bare "style(" inside it.
+  // anim_recipes.hpp lives in gloview::anim, where the qualified form would not compile.
+  const std::string kQual{"anim::style(\""}, kBare{"style(\""};
   for (const auto *src : styleCallers) {
-    for (std::size_t p = src->find("anim::style(\""); p != std::string::npos;
-         p = src->find("anim::style(\"", p + 1)) {
-      constexpr std::size_t kAt = 13; // strlen("anim::style(\"")
-      const auto e = src->find('"', p + kAt);
-      const std::string name = src->substr(p + kAt, e - (p + kAt));
-      ++styleCalls;
-      if (!rowsAreDeclared(name)) {
-        std::printf("FAIL anim::style(\"%s\") -- no such row in kRows, so it returns {}\n",
-                    name.c_str());
-        std::exit(1);
+    for (const auto *needle : {&kQual, &kBare}) {
+      for (std::size_t p = src->find(*needle); p != std::string::npos;
+           p = src->find(*needle, p + 1)) {
+        const auto at = p + needle->size();
+        const auto e  = src->find('"', at);
+        const std::string name = src->substr(at, e - at);
+        ++styleCalls;
+        if (!rowsAreDeclared(name)) {
+          std::printf("FAIL %s%s\" -- no such row in kRows, so it returns {}\n",
+                      needle->c_str(), name.c_str());
+          std::exit(1);
+        }
       }
     }
   }

@@ -59,7 +59,7 @@ LRect Overview::dragStripBox() const {
 }
 
 double Overview::dragLiftProgress() const {
-  return curves::eval(m_lift.curve, m_clocks.dragLift.raw(m_lift.ms));
+  return curves::eval(m_anim.lift.curve, m_clocks.dragLift.raw(m_anim.lift.ms));
 }
 
 LRect Overview::dragVisualBox() const {

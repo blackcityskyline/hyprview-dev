@@ -123,7 +123,7 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
         m_newCardId =
             id;
         m_clocks.newCard.begin();
-  debug::trace::animStart("new_card", "card", "", m_entry.ms, m_entry.curve.c_str());
+  debug::trace::animStart("new_card", "card", "", m_anim.entry.ms, m_anim.entry.curve.c_str());
         m_newCardAnim = true;
       }
       model::StripItem it;

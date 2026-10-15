@@ -132,7 +132,7 @@ void Overview::renderStage(eRenderStage stage) {
         " sfx=" + std::to_string(m_fx.swapfx().size()) +
         " dir=" + std::to_string(m_view.wsSlideDir()) +
         " gh=" + std::to_string(m_fx.ghosts().size()) +
-        " pop=" + std::to_string(!m_clocks.rebuild.done(m_entry.ms)));
+        " pop=" + std::to_string(!m_clocks.rebuild.done(m_anim.entry.ms)));
   }
 
   updateHover();
@@ -169,7 +169,7 @@ void Overview::renderStage(eRenderStage stage) {
       // landed = 0 on everything. Same slide, same style key, whichever bind got here.
       m_scene.armEntry();
       m_clocks.rebuild.begin();
-      debug::trace::animStart("entry", "entry", "", m_entry.ms, m_entry.curve.c_str());
+      debug::trace::animStart("entry", "entry", "", m_anim.entry.ms, m_anim.entry.curve.c_str());
       // Arm the slide AFTER the rebuild clock starts. updateAnimation clears wsSlideDir
       // whenever both entry clocks already read done, and on a hop from an empty
       // workspace the previous frame's clocks are done -- so a direction armed earlier
@@ -185,7 +185,7 @@ void Overview::renderStage(eRenderStage stage) {
             ++appearing;
         debug::dbg("WSFOLLOW ->" + std::to_string(m->m_activeWorkspace->m_id) +
                    " dir=" + std::to_string(m_view.wsSlideDir()) +
-                   " style=[" + anim::moveName(m_enterStyle) + "] tiles=" +
+                   " style=[" + anim::moveName(m_anim.enterStyle) + "] tiles=" +
                    std::to_string(m_scene.tiles().size()) + " animating=" +
                    std::to_string(appearing) + " oldBoxes=" +
                    std::to_string(shown.size()));
