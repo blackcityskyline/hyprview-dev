@@ -4,6 +4,9 @@
 #include "../model/scene.hpp"
 #include "../view/state.hpp"
 #include "clock.hpp"
+
+#include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/desktop/view/Window.hpp>
 #include "../layout.hpp"
 #include "progress.hpp"
 
@@ -60,13 +63,23 @@ class Placement {
     struct Frame {
       const view::State &view;
       const model::Scene &scene;
+      // The workspace the run returns to. A tile on it flies home; one on any other
+      // workspace cannot, and leaves by fading instead. Null means "nothing to compare
+      // against", which reads as home -- the flight the run has always done.
+      PHLWORKSPACEREF landing;
       bool opening;
       double monW, monH;
-      bool goesHome;
 
-      Frame(const view::State &v, const model::Scene &sc, bool open, double w, double h,
-            bool home)
-          : view(v), scene(sc), opening(open), monW(w), monH(h), goesHome(home) {}
+      Frame(const view::State &v, const model::Scene &sc, PHLWORKSPACEREF land, bool open,
+            double w, double h)
+          : view(v), scene(sc), landing(land), opening(open), monW(w), monH(h) {}
+
+      [[nodiscard]] bool goesHome(const model::Tile &t) const {
+        const auto w = t.win.lock();
+        if (!w || !landing)
+          return true;
+        return w->m_workspace == landing;
+      }
     };
 
     // Where tile i is this frame, letterboxed by nothing: the raw animated box.
@@ -81,6 +94,15 @@ class Placement {
 
     // The fade paired with the entry clock, for a card that has nowhere to go.
     [[nodiscard]] double entryFade(const model::Tile &t, int i, const Frame &f) const;
+
+    // Every tile's box as it is this frame, paired with its window, skipping `exclude`.
+    //
+    // The layout pass captures this BEFORE it rebuilds, and a swap or a drop hands the
+    // captured boxes to startTileGlide as each tile's `from`. Twelve call sites, all of them
+    // asking the same question at slightly different moments, and none of them able to
+    // disagree with where the tile is being drawn.
+    [[nodiscard]] std::vector<std::pair<PHLWINDOW, LRect>>
+    capture(const Frame &f, const PHLWINDOW exclude) const;
 
     // Re-resolve the six recipes for the leaves the view currently selects.
     void resolve(const view::State &view, bool opening, bool carousel);

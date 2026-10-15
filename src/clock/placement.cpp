@@ -83,7 +83,7 @@ double Placement::entryFade(const model::Tile &t, int i, const Frame &f) const {
   // still until the overlay is torn out from under it. Only ever on a close that is NOT
   // committing: fading a window that is about to become real reads as a double image
   // (AGENTS.md), so every tile that does go home stays at full alpha and flies.
-  if (!f.opening && anim::tileExit(f.goesHome) == anim::TileExit::InPlace)
+  if (!f.opening && anim::tileExit(f.goesHome(t)) == anim::TileExit::InPlace)
     return m_eased;
   // A fade is alpha only, and it fades whenever the tile is playing its entry.
   if (t.landed >= 1.0 || recipes.enterStyle.travel != anim::Travel::Fade)
@@ -106,7 +106,7 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   // The deck's hide motion, in the grid as well as the run. A card that cannot land was
   // pinned to its own box by close(); without this it simply stood there while the backdrop
   // faded and was gone in a frame.
-  if (!f.view.run() && !f.opening && anim::cardHides(0, f.goesHome)) {
+  if (!f.view.run() && !f.opening && anim::cardHides(0, f.goesHome(t))) {
     const double k = anim::hideShrink(exit(f.opening), anim::param(anim::Param::Collapse));
     const double cx = r.cx(), cy = r.cy();
     r = LRect{cx - r.w * k * 0.5, cy - r.h * k * 0.5, r.w * k, r.h * k};
@@ -133,6 +133,18 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   const double k = 1.0 - anim::param(anim::Param::PopScale) * (1.0 - ap);
   const double cx = r.x + r.w / 2.0, cy = r.y + r.h / 2.0;
   return LRect{cx - r.w * k / 2.0, cy - r.h * k / 2.0, r.w * k, r.h * k};
+}
+
+std::vector<std::pair<PHLWINDOW, LRect>>
+Placement::capture(const Frame &f, const PHLWINDOW exclude) const {
+  std::vector<std::pair<PHLWINDOW, LRect>> boxes;
+  const auto &tiles = f.scene.tiles();
+  boxes.reserve(tiles.size());
+  for (std::size_t i = 0; i < tiles.size(); ++i) {
+    if (const auto win = tiles[i].win.lock(); win && win != exclude)
+      boxes.emplace_back(win, box(tiles[i], static_cast<int>(i), f));
+  }
+  return boxes;
 }
 
 void Placement::resolve(const view::State &view, bool opening, bool carousel) {

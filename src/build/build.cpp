@@ -554,14 +554,7 @@ void Overview::layoutTiles() {
 // Survivors glide from their captured boxes; no chrome re-reveal.
 std::vector<std::pair<PHLWINDOW, LRect>>
 Overview::captureCurrentBoxes(PHLWINDOW exclude) const {
-  std::vector<std::pair<PHLWINDOW, LRect>> boxes;
-  const auto &tiles = m_scene.tiles();
-  boxes.reserve(tiles.size());
-  for (size_t i = 0; i < tiles.size(); ++i) {
-    if (const auto win = tiles[i].win.lock(); win && win != exclude)
-      boxes.emplace_back(win, currentBox(tiles[i], static_cast<int>(i)));
-  }
-  return boxes;
+  return m_place.capture(frame(), exclude);
 }
 
 // Freeze tiles at their shown boxes (`oldBoxes`, pre-rebuild); empty = keep

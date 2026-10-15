@@ -179,15 +179,5 @@ int Overview::blurResolution() const {
   return std::clamp(cfg::blur.resolution.get(), 1, 32);
 }
 
-// The close lands on m_workspace, which focusAndClose re-points at the focused window's
-// workspace when one is committed. So "will this window be there" is exactly "is it on
-// m_workspace" -- one comparison, no policy of its own; anim::tileExit holds the policy.
-bool Overview::tileGoesHome(const model::Tile &t) const {
-  const auto w    = t.win.lock();
-  const auto land = m_workspace.lock();
-  if (!w || !land)
-    return true; // nothing to compare against: keep the flight we have always done
-  return w->m_workspace == land;
-}
 
 } // namespace gloview

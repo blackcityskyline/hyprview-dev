@@ -153,9 +153,7 @@ int Overview::tileAt(double lx, double ly) const {
   }
   // One frame for the whole scan, not one per tile: the boxes are what moves the answer,
   // not the bindings.
-  const auto  m = m_monitor.lock();
-  const auto  f = clock::Placement::Frame{m_view, m_scene, opening(), m ? m->m_size.x : 0.0,
-                                   m ? m->m_size.y : 0.0, true};
+  const auto f = frame();
   std::vector<LRect> boxes;
   boxes.reserve(m_scene.tiles().size());
   for (std::size_t i = 0; i < m_scene.tiles().size(); ++i)

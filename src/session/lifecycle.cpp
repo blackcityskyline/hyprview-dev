@@ -336,7 +336,7 @@ void Overview::close() {
       // flying each one toward a tile it could never occupy before dropping it in a
       // single frame. Those cards leave standing and dissolve instead (entryFade).
       if (const auto w = t.win.lock()) {
-        if (anim::tileExit(tileGoesHome(t)) == anim::TileExit::InPlace) {
+        if (anim::tileExit(frame().goesHome(t)) == anim::TileExit::InPlace) {
           t.natural = t.target;
           continue;
         }

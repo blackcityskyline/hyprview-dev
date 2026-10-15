@@ -254,7 +254,10 @@ private:
   // Will this tile's window actually be on screen when the overlay leaves? Only then is
   // its natural box a destination rather than a rectangle on a workspace that is not
   // coming. See anim::tileExit.
-  [[nodiscard]] bool tileGoesHome(const model::Tile &t) const;
+  // The one place a Placement::Frame is built. Three call sites were each assembling the
+  // same six values, and one of them passed `true` for goesHome because the rule lived on
+  // the coordinator and it had no way to reach it -- a stub that reads as an answer.
+  [[nodiscard]] clock::Placement::Frame frame() const;
   // Clear the three pieces of state that make the compositor skip a window that is not on
   // the active workspace: the workspace's alpha, the window's fullscreen alpha, and each
   // surface's visibleRegion. ScrollOverview does the same; without it a window from

@@ -90,10 +90,14 @@ double Overview::entryNow(const model::Tile &t, int i) const {
 // The one call into Placement for "where is tile i". Everything Placement needs that it
 // cannot know -- the monitor it is laid out in, and whether this tile has somewhere to
 // land -- arrives in the frame, because a clock cannot answer either on its own.
-LRect Overview::currentBox(const model::Tile &t, int i) const {
+clock::Placement::Frame Overview::frame() const {
   const auto m = m_monitor.lock();
-  return m_place.box(t, i, {m_view, m_scene, opening(), m ? m->m_size.x : 0.0,
-                             m ? m->m_size.y : 0.0, tileGoesHome(t)});
+  return {m_view, m_scene, m_workspace.lock(), opening(), m ? m->m_size.x : 0.0,
+          m ? m->m_size.y : 0.0};
+}
+
+LRect Overview::currentBox(const model::Tile &t, int i) const {
+  return m_place.box(t, i, frame());
 }
 
 void Overview::updateAnimation() {

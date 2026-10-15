@@ -57,10 +57,8 @@ LRect Overview::closeButtonRect(const LRect &lb) const {
 double Overview::entryFade(size_t i) const {
   if (i >= m_scene.tiles().size())
     return 1.0;
-  const auto  m = m_monitor.lock();
   const auto &t = m_scene.tiles()[i];
-  return m_place.entryFade(t, i, {m_view, m_scene, opening(), m ? m->m_size.x : 0.0,
-                                  m ? m->m_size.y : 0.0, tileGoesHome(t)});
+  return m_place.entryFade(t, i, frame());
 }
 
 // A preview always wears the window's own aspect, so the content's arcs meet the

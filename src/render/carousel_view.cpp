@@ -102,7 +102,7 @@ void Overview::renderCarousel() const {
     // hides whatever its depth, which is what makes a cancel take the whole deck out
     // instead of leaving the centred card pretending to be on its way somewhere. A card
     // that CAN land and is centred keeps currentBox's own lerp — one motion, one place.
-    if (!opening() && anim::cardHides(card.depth, tileGoesHome(t))) {
+    if (!opening() && anim::cardHides(card.depth, frame().goesHome(t))) {
       const double k =
           anim::hideShrink(exitT(), anim::param(anim::Param::Collapse));
       const double cx = look.box.cx(), cy = look.box.cy();
