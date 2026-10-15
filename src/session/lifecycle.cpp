@@ -395,9 +395,8 @@ void Overview::hardClose() {
 }
 
 bool Overview::showAllWorkspaces() const {
-  return m_view.allOverride() < 0
-             ? (cfg::behavior.show_all_workspaces != 0)
-             : (m_view.allOverride() != 0);
+  // The precedence rule lives in view::State; only the config read is this side of it.
+  return m_view.allWorkspaces(cfg::behavior.show_all_workspaces != 0);
 }
 
 // buildTiles() and syncTiles() MUST share this

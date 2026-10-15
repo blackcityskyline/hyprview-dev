@@ -23,6 +23,16 @@ class State {
     [[nodiscard]] int allOverride() const { return m_allOverride; }
     void setAllOverride(int v) { m_allOverride = v; }
 
+    // Whether the run is showing every workspace, which is a question about the run's mode
+    // and not about the config: an override the user set for this run outranks the key, and
+    // -1 is the only value that means "no override".
+    //
+    // Six files ask this, and they were all reaching into the coordinator for a two-term
+    // expression of the same precedence rule.
+    [[nodiscard]] bool allWorkspaces(bool configured) const {
+      return m_allOverride < 0 ? configured : m_allOverride != 0;
+    }
+
     [[nodiscard]] bool run() const { return m_run; }
     void setRun(bool on) { m_run = on; }
 

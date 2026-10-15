@@ -214,6 +214,12 @@ add_test(NAME trace_mask
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/trace_mask_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check && ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check")
 
+# view::State's mode rules. Header-only and Hyprland-free.
+
+add_test(NAME view_state
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/view_state_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/view_state_check && ${CMAKE_CURRENT_BINARY_DIR}/view_state_check")
+
 # Strip::cardAt. model/strip.hpp needs no compositor, so the strip's own geometry is
 # checkable on its own.
 
