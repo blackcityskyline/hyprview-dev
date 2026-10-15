@@ -292,6 +292,11 @@ struct behavior {
   Int switch_on_new_workspace;
   Int show_all_workspaces;
   Int show_special;
+  // Which things the main area shows: one card per window, one per browser tab, or the
+  // window plus its tabs. A tab is only known once the browser extension has reported it;
+  // until then every window falls back to being shown as a window, so the overview never
+  // loses one. See model/entries.hpp -- that fallback is a rule, and it is checked.
+  Str tile_mode;
   Int alttab_advances; // the entry is aimed at the next window
   Int hold_lift_ms;
   Str tile_layout;

@@ -203,6 +203,7 @@ constexpr FloatSpec kFloats[] = {
 
 constexpr StrSpec kStrs[] = {
     {&grid.layout, "plugin:gloview:layout", "rows"},
+    {&behavior.tile_mode, "plugin:gloview:tile_mode", "windows"},
     {&strip.anchor, "plugin:gloview:anchor", ""},
     {&strip.bar_position, "plugin:gloview:bar_position", "top"}, // deprecated alias
     {&strip.empty_mode, "plugin:gloview:strip_empty_mode", "show"},
