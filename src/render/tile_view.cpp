@@ -27,22 +27,6 @@ namespace gloview {
 
 namespace {
 
-LRect fitInside(const LRect &outer, double aspect) {
-  if (outer.w <= 0.0 || outer.h <= 0.0 || aspect <= 0.0)
-    return outer;
-
-  const double outerAspect = outer.w / outer.h;
-  if (std::abs(outerAspect - aspect) <= 0.01)
-    return outer;
-
-  if (outerAspect > aspect) {
-    const double w = outer.h * aspect;
-    return LRect{outer.x + (outer.w - w) / 2.0, outer.y, w, outer.h};
-  }
-
-  const double h = outer.w / aspect;
-  return LRect{outer.x, outer.y + (outer.h - h) / 2.0, outer.w, h};
-}
 
 } // namespace
 
@@ -92,7 +76,7 @@ LRect Overview::tileBox(size_t i, const LRect &slot) const {
         aspect = s.x / s.y;
     }
   }
-  return fitInside(slot, aspect);
+  return render::fitInside(slot, aspect);
 }
 
 LRect Overview::tileRect(size_t i) const {

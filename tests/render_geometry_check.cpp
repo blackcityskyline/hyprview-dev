@@ -324,6 +324,7 @@ int main() {
   
   // One of the two boxes the strip draws and the hit-test must agree on to the pixel.
   {
+    using gloview::render::fitInside;
     using gloview::render::winSlotRect;
     const auto card = LRect{100, 40, 167, 94};
 
@@ -340,6 +341,28 @@ int main() {
     near(floored.x, 100.0, "floor does not move the origin");
     near(winSlotRect(LRect{0, 0, 0.4, 0.4}, card).w, 66.8, "above the floor it scales");
     std::puts("winSlotRect: card-relative scaling with a 2px floor on both axes");
+  }
+
+  // fitInside: the largest box of a given aspect that fits, centred.
+  {
+    using gloview::render::fitInside;
+    const auto outer = LRect{0, 0, 200, 100};
+    sameRect(fitInside(outer, 2.0), outer, "a matching aspect gets the outer box");
+    // Narrower than the outer (2.0): the width is the limit, so it narrows -- pillarboxed
+    // on the sides, centred.
+    sameRect(fitInside(outer, 1.0), LRect{50, 0, 100, 100}, "too narrow -> pillarbox");
+    // Wider than the outer: the height is the limit, so it shortens -- letterboxed top and
+    // bottom, centred.
+    sameRect(fitInside(outer, 4.0), LRect{0, 25, 200, 50}, "too wide -> letterbox");
+    // The tolerance: within 0.01 the outer box comes back untouched, so a preview is never
+    // a pixel narrower than its ring.
+    sameRect(fitInside(outer, 2.005), outer, "just inside the tolerance");
+    sameRect(fitInside(outer, 1.98), LRect{1, 0, 198, 100}, "just outside it");
+    // Degenerate inputs return the outer box rather than dividing by zero.
+    sameRect(fitInside(LRect{0, 0, 0, 0}, 2.0), LRect{0, 0, 0, 0}, "a zero box");
+    sameRect(fitInside(outer, 0.0), outer, "a zero aspect");
+    sameRect(fitInside(outer, -2.0), outer, "a negative aspect");
+    std::puts("fitInside: matched, pillarboxed, letterboxed, tolerance, degenerate");
   }
 
   std::puts("render geometry ok");

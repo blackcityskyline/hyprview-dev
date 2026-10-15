@@ -175,6 +175,32 @@ struct CaptionPills {
     const double hi = screenW - size - inset;
     return hi < inset ? screenW * 0.5 : std::clamp(x, inset, hi);
 }
+// The largest box of the given aspect that fits inside `outer`, centred.
+//
+// A preview always wears the window's own aspect so the content's arcs meet the ring's. A
+// second way to compute a tile box is a second way to be wrong -- and this one sat in an
+// anonymous namespace in tile_view.cpp, where nothing could check it.
+//
+// The 0.01 tolerance: a window whose goal is a fraction off the slot's own aspect gets the
+// slot rather than a sub-pixel letterbox, because a preview that is one pixel narrower than
+// its ring reads as a misaligned ring.
+[[nodiscard]] inline LRect fitInside(const LRect &outer, double aspect) {
+  if (outer.w <= 0.0 || outer.h <= 0.0 || aspect <= 0.0)
+    return outer;
+
+  const double outerAspect = outer.w / outer.h;
+  if (std::abs(outerAspect - aspect) <= 0.01)
+    return outer;
+
+  if (outerAspect > aspect) {
+    const double w = outer.h * aspect;
+    return LRect{outer.x + (outer.w - w) / 2.0, outer.y, w, outer.h};
+  }
+
+  const double h = outer.w / aspect;
+  return LRect{outer.x, outer.y + (outer.h - h) / 2.0, outer.w, h};
+}
+
 // Where one window's thumbnail sits inside a card, from a card-relative rectangle.
 //
 // `rel` is stored relative so the card can be sized from the strip's settings and the
