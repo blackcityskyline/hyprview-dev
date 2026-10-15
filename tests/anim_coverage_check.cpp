@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
     while (std::getline(in, line)) {
       ++n;
       std::smatch m;
-      if (!std::regex_search(line, m, std::regex(R"(m_clocks\.(\w+)\.begin\(\))")))
+      if (!std::regex_search(line, m, std::regex(R"(m_place.clocks\.(\w+)\.begin\(\))")))
         continue;
       ++total;
       const std::string clock = m[1].str();

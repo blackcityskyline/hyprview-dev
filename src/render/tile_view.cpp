@@ -85,7 +85,7 @@ double Overview::entryFade(size_t i) const {
   // `wsSlideDir() == 0` guard used to be here because fade was counted as a sliding
   // style, so it only ever faded on a workspace CHANGE and not on a drop or a rebuild --
   // which is most of the entries there are.
-  if (t.landed >= 1.0 || m_anim.enterStyle.travel != anim::Travel::Fade)
+  if (t.landed >= 1.0 || m_place.recipes.enterStyle.travel != anim::Travel::Fade)
     return 1.0;
   return entryProgress(static_cast<int>(i));
 }
@@ -193,7 +193,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
   }
   renderWindowLive(w, m, pxb(box, s), pxb(box, s), f, Time::steadyNow(),
                    contentRadiusPx(round, ringW, roundPow, s, !look.contain),
-                   roundPow, m_clocks.tiles.done(glideDur()), look.contain);
+                   roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
 
   if (look.tone > 0.0)
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
@@ -372,7 +372,7 @@ void Overview::renderTiles() const {
 }
 
 void Overview::renderGhosts() const {
-  if (m_fx.ghosts().empty() || m_clocks.rebuild.done(m_anim.ghost.ms))
+  if (m_fx.ghosts().empty() || m_place.clocks.rebuild.done(m_place.recipes.ghost.ms))
     return;
   const auto m = m_monitor.lock();
   if (!m)
@@ -380,8 +380,8 @@ void Overview::renderGhosts() const {
   const double scale = m->m_scale;
   const auto when    = Time::steadyNow();
   const float roundPow = cfg::look.preview_round_power;
-  const double p    = std::min(1.0, m_clocks.rebuild.raw(m_anim.ghost.ms));
-  const double eOut = curves::eval(m_anim.ghost.curve, p); // 0..1 gone
+  const double p    = std::min(1.0, m_place.clocks.rebuild.raw(m_place.recipes.ghost.ms));
+  const double eOut = curves::eval(m_place.recipes.ghost.curve, p); // 0..1 gone
 
   for (const auto &g : m_fx.ghosts()) {
     const auto w = g.win.lock();
@@ -396,8 +396,8 @@ void Overview::renderGhosts() const {
     // Same three branches as the entry, and the same order: a slide moves the box, a fade
   // leaves it alone and lets gAlpha below do the work, and a pop scales it. Checking a
   // style by equality against each member is what let `fade` reach none of them.
-  if (m_anim.exitStyle.travel == anim::Travel::Slide && m_view.wsSlideDir() != 0) {
-    if (m_anim.exitStyle.axis == anim::Axis::Horizontal)
+  if (m_place.recipes.exitStyle.travel == anim::Travel::Slide && m_view.wsSlideDir() != 0) {
+    if (m_place.recipes.exitStyle.axis == anim::Axis::Horizontal)
       slidBox.x -= static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * eOut;
     else
       slidBox.y -= static_cast<double>(m_view.wsSlideDir()) * m->m_size.y * eOut;

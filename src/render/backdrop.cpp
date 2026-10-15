@@ -450,12 +450,12 @@ void Overview::primeBackdrop() {
       debug::trace::life(
           "open",
           "dir=" + std::to_string(m_view.wsSlideDir()) + "|style=" +
-              moveName(m_anim.enterStyle) + "|landed0=" +
+              moveName(m_place.recipes.enterStyle) + "|landed0=" +
               std::to_string(t0.landed) + "|tiles=" +
               std::to_string(m_scene.tiles().size()) + "|allws=" +
               std::to_string(showAllWorkspaces() ? 1 : 0) + "|run=" +
               std::to_string(carouselMode() ? 1 : 0) + "|rebuildRaw=" +
-              std::to_string(m_clocks.rebuild.raw(m_anim.entry.ms)) + "|natural=" +
+              std::to_string(m_place.clocks.rebuild.raw(m_place.recipes.entry.ms)) + "|natural=" +
               std::to_string(t0.natural.x) + "," + std::to_string(t0.natural.y) + "," +
               std::to_string(t0.natural.w) + "," + std::to_string(t0.natural.h) +
               "|target=" + std::to_string(t0.target.x) + "," +

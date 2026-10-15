@@ -51,13 +51,13 @@ anim::Id Overview::masterId() const {
   return anim::Id::Close;
 }
 
-// How far the close has run, 0 -> 1. m_progress.raw() runs DOWN on a close (1 open -> 0 closed);
+// How far the close has run, 0 -> 1. m_place.progress.raw() runs DOWN on a close (1 open -> 0 closed);
 // read forwards it looks exactly like no animation. Every exit fraction reads it here so
 // the shrink, the fade and the clock cannot disagree about where the close is.
-double Overview::exitT() const { return m_progress.exit(opening()); }
+double Overview::exitT() const { return m_place.progress.exit(opening()); }
 
 double Overview::eased() const {
-  return curves::eval(anim::cfg(masterId()).curve, m_progress.raw());
+  return curves::eval(anim::cfg(masterId()).curve, m_place.progress.raw());
 }
 
 // WINDOWED exit: hold the backdrop until our own tiles are done AND Hyprland has spent the
@@ -67,7 +67,7 @@ double Overview::eased() const {
 // that test is true on frame 0 and holds nothing.
 bool Overview::backdropSettled() const {
   const auto m = m_monitor.lock();
-  return m_clocks.tiles.done(animDuration()) && (!m || m->m_forceFullFrames <= 0);
+  return m_place.clocks.tiles.done(animDuration()) && (!m || m->m_forceFullFrames <= 0);
 }
 
 // The backdrop is part of the SAME gesture as the tiles, the strip and the chrome: it
@@ -87,13 +87,13 @@ double Overview::blurAlpha() const {
 
 double Overview::animDuration() const { return anim::cfg(masterId()).ms; }
 
-// CLOSE rides m_progress.raw() DOWN: tiles then match the collapsing chrome.
-// Read m_clocks.tileMs, not m_anim.glide.ms: a glideLeaf() flip jumps progress.
+// CLOSE rides m_place.progress.raw() DOWN: tiles then match the collapsing chrome.
+// Read m_place.clocks.tileMs, not m_place.recipes.glide.ms: a glideLeaf() flip jumps progress.
 double Overview::tileProgress(int i) const {
-  const double glideMs = (m_clocks.tileMs > 0) ? m_clocks.tileMs : m_anim.glide.ms;
-  // currentBox lerps natural -> target as e RISES, so close feeds it m_progress.raw()
+  const double glideMs = (m_place.clocks.tileMs > 0) ? m_place.clocks.tileMs : m_place.recipes.glide.ms;
+  // currentBox lerps natural -> target as e RISES, so close feeds it m_place.progress.raw()
   // as-is. Flipping it put every card on its natural box on the first close frame.
-  const double base = opening() ? m_clocks.tiles.raw(glideMs) : m_progress.raw();
+  const double base = opening() ? m_place.clocks.tiles.raw(glideMs) : m_place.progress.raw();
   // The FOCUSED tile is never staggered: stagger() assumes a rising 0..1, so on
   // close it would delay the landing — the same flight, timed differently.
   if (carouselMode() || i == m_scene.focused())
@@ -103,8 +103,8 @@ double Overview::tileProgress(int i) const {
 
 double Overview::entryProgress(int i) const {
   return curves::eval(
-      m_anim.entry.curve,
-      staggered(m_clocks.rebuild.raw(m_anim.entry.ms), i,
+      m_place.recipes.entry.curve,
+      staggered(m_place.clocks.rebuild.raw(m_place.recipes.entry.ms), i,
                 static_cast<int>(m_scene.tiles().size())));
 }
 
@@ -118,7 +118,7 @@ double Overview::entryNow(const model::Tile &t, int i) const {
 }
 
 LRect Overview::currentBox(const model::Tile &t, int i) const {
-  const std::string &curve = m_clocks.tileCurve.empty() ? m_anim.glide.curve : m_clocks.tileCurve;
+  const std::string &curve = m_place.clocks.tileCurve.empty() ? m_place.recipes.glide.curve : m_place.clocks.tileCurve;
   const double e = curves::eval(curve, tileProgress(i));
   const auto &a = t.natural;
   const auto &b = t.target;
@@ -146,20 +146,20 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
   // which is what made it a dead key: a fade WITH a slide direction travelled sideways,
   // and a fade WITHOUT one fell through to the pop scale-in below. A style that no
   // branch honours is not a setting.
-  if (m_anim.enterStyle.travel == anim::Travel::Slide) {
+  if (m_place.recipes.enterStyle.travel == anim::Travel::Slide) {
     // A slide needs somewhere to come from. Without a direction there is no edge to enter
     // from, so the tile is already where it belongs and only its scale-in is missing --
     // which is the fall-through below, not a silent no-op.
     if (m_view.wsSlideDir() != 0) {
       if (const auto m = m_monitor.lock()) {
-        if (m_anim.enterStyle.axis == anim::Axis::Horizontal)
+        if (m_place.recipes.enterStyle.axis == anim::Axis::Horizontal)
           r.x += static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * (1.0 - ap);
         else
           r.y -= static_cast<double>(m->m_size.y) * (1.0 - ap);
       }
       return r;
     }
-  } else if (m_anim.enterStyle.travel == anim::Travel::Fade) {
+  } else if (m_place.recipes.enterStyle.travel == anim::Travel::Fade) {
     return r; // alpha only -- entryFade() below reads the same clock for it
   }
   // Pop, and a slide with no direction: the scale-in.
@@ -169,7 +169,7 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
 }
 
 void Overview::updateAnimation() {
-  m_anim.resolve(glideLeaf(), entryLeaf(), ghostLeaf());
+  m_place.recipes.resolve(glideLeaf(), entryLeaf(), ghostLeaf());
 
   const double dur = animDuration();
   // stall guard: rewind every clock past a render hole
@@ -179,14 +179,14 @@ void Overview::updateAnimation() {
         std::chrono::duration<double, std::milli>(now - m_lastAnimTick).count();
     if (gapMs > 100.0) {
       const double glideMs = glideDur();
-      m_clocks.master.compensateStall(gapMs, dur);
-      m_clocks.tiles.compensateStall(gapMs, glideMs);
-      m_clocks.rebuild.compensateStall(gapMs, std::max(m_anim.entry.ms, m_anim.ghost.ms));
-      m_clocks.strip.compensateStall(gapMs, anim::cfg(anim::Id::StripStep).ms);
+      m_place.clocks.master.compensateStall(gapMs, dur);
+      m_place.clocks.tiles.compensateStall(gapMs, glideMs);
+      m_place.clocks.rebuild.compensateStall(gapMs, std::max(m_place.recipes.entry.ms, m_place.recipes.ghost.ms));
+      m_place.clocks.strip.compensateStall(gapMs, anim::cfg(anim::Id::StripStep).ms);
       if (m_newCardAnim)
-        m_clocks.newCard.compensateStall(gapMs, newCardDur());
+        m_place.clocks.newCard.compensateStall(gapMs, newCardDur());
       if (m_drag.lifted())
-        m_clocks.dragLift.compensateStall(gapMs, anim::cfg(anim::Id::Lift).ms);
+        m_place.clocks.dragLift.compensateStall(gapMs, anim::cfg(anim::Id::Lift).ms);
       m_fx.eachSwap([&](auto &fx) { fx.clock.compensateStall(gapMs, fx.ms); });
     }
   }
@@ -197,8 +197,8 @@ void Overview::updateAnimation() {
         now - m_drag.holdFrom()).count();
     if (elapsedMs >= static_cast<double>(cfg::behavior.hold_lift_ms.get())) {
       m_drag.setLifted(true);
-      m_clocks.dragLift.begin();
-      debug::trace::animStart("drag_lift", "lift", "", m_anim.lift.ms, m_anim.lift.curve.c_str());
+      m_place.clocks.dragLift.begin();
+      debug::trace::animStart("drag_lift", "lift", "", m_place.recipes.lift.ms, m_place.recipes.lift.curve.c_str());
       damage();
     } else {
       static auto lastHoldDamage = std::chrono::steady_clock::time_point{};
@@ -212,15 +212,15 @@ void Overview::updateAnimation() {
   }
 
   const auto st = anim::cfg(anim::Id::StripStep);
-  if (!m_clocks.strip.done(st.ms))
-    m_scroll.advance(curves::eval(st.curve, m_clocks.strip.raw(st.ms)));
+  if (!m_place.clocks.strip.done(st.ms))
+    m_scroll.advance(curves::eval(st.curve, m_place.clocks.strip.raw(st.ms)));
   else
     m_scroll.advance(1.0);
 
-  if (!m_fx.ghosts().empty() && m_clocks.rebuild.done(m_anim.ghost.ms))
+  if (!m_fx.ghosts().empty() && m_place.clocks.rebuild.done(m_place.recipes.ghost.ms))
     m_fx.clearGhosts();
   // entries must settle explicitly or they keep evaluating curves forever
-  if (m_clocks.rebuild.done(m_anim.entry.ms) &&
+  if (m_place.clocks.rebuild.done(m_place.recipes.entry.ms) &&
       std::any_of(m_scene.tiles().begin(), m_scene.tiles().end(),
                   [](const model::Tile &t) { return t.landed < 1.0; }))
     m_scene.settleEntry();
@@ -239,7 +239,7 @@ void Overview::updateAnimation() {
   m_fx.dropPulse(
       [](const model::WinPulse &p) { return p.w.expired() || p.p >= 1.0; });
 
-  if (m_clocks.rebuild.done(m_anim.ghost.ms) && m_clocks.rebuild.done(m_anim.entry.ms)) {
+  if (m_place.clocks.rebuild.done(m_place.recipes.ghost.ms) && m_place.clocks.rebuild.done(m_place.recipes.entry.ms)) {
     m_view.setWsSlideDir( 0);
     m_view.setExpoFlip( 0);
     if (m_life.consumeJumpClosing()) {
@@ -260,24 +260,24 @@ void Overview::updateAnimation() {
     return done;
   });
 
-  const double t = m_clocks.master.raw(dur);
-  m_progress.fromMaster(t, opening());
-  if (m_newCardAnim && m_clocks.newCard.done(newCardDur())) {
+  const double t = m_place.clocks.master.raw(dur);
+  m_place.progress.fromMaster(t, opening());
+  if (m_newCardAnim && m_place.clocks.newCard.done(newCardDur())) {
     m_newCardAnim = false;
     m_newCardId = 0;
   }
-  // NEVER zero m_progress.raw(): a transparent frame before deactivate() flashes.
+  // NEVER zero m_place.progress.raw(): a transparent frame before deactivate() flashes.
   // Clamp as soon as the flight ends, NOT together with the deactivate: the exit ramp
   // outlives the close animation, and at exactly 0 the overlay paints nothing, Hyprland
   // has no damage to serve, and the ramp runs on with no frames to show it (measured:
   // 769ms of ticks with no render).
-  if (!opening() && t >= 1.0 && m_progress.raw() <= 0.0)
-    m_progress.firstFrame();
+  if (!opening() && t >= 1.0 && m_place.progress.raw() <= 0.0)
+    m_place.progress.firstFrame();
   // The overlay outlives the close animation by exactly the windowed-exit hold: that is
   // what keeps the backdrop covering the screen until Hyprland's own blur has taken over
   // on the windows that have just landed. Lingering past that would leave a transparent
   // overlay over a sharp desktop, which is the gap all over again.
-  if (!opening() && t >= 1.0 && m_clocks.tiles.done(dur) && backdropSettled()) {
+  if (!opening() && t >= 1.0 && m_place.clocks.tiles.done(dur) && backdropSettled()) {
     m_life.requestDeactivate();
     debug::trace::life("requestDeactivate", m_life.describe());
   }
@@ -285,16 +285,16 @@ void Overview::updateAnimation() {
 
 bool Overview::animBusy() const {
   return active() &&
-         (secondaryAnimsActive() || !m_clocks.tiles.done(glideDur()) ||
+         (secondaryAnimsActive() || !m_place.clocks.tiles.done(glideDur()) ||
           m_newCardAnim || m_drag.lifted() || !m_fx.swapfx().empty() ||
           m_life.jumpClosing() || m_life.deactivating() ||
-          (opening() && m_progress.raw() < 1.0) || (!opening() && m_progress.raw() > 0.0));
+          (opening() && m_place.progress.raw() < 1.0) || (!opening() && m_place.progress.raw() > 0.0));
 }
 
 double Overview::newCardScale() const {
   if (!m_newCardAnim)
     return 1.0;
-  return curves::eval(anim::cfg(anim::Id::Card).curve, m_clocks.newCard.raw(newCardDur()));
+  return curves::eval(anim::cfg(anim::Id::Card).curve, m_place.clocks.newCard.raw(newCardDur()));
 }
 
 void Overview::animateStripTo(double from, double to) {
@@ -310,9 +310,9 @@ void Overview::animateStripTo(double from, double to) {
   // A glide already in flight retargets from where the group actually is, not from the
   // caller's `from`: that value is the previous TARGET on the rebuild path and the current
   // position on the wheel path, and neither is what should be left behind.
-  if (!m_clocks.strip.done(st.ms))
+  if (!m_place.clocks.strip.done(st.ms))
     m_scroll.beginGlide(m_scroll.current(), m_scroll.target());
-  m_clocks.strip.begin();
+  m_place.clocks.strip.begin();
   debug::trace::animStart("strip_scroll", "strip_step", "", st.ms, st.curve.c_str());
   ensureAnimPump();
 }

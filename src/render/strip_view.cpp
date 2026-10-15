@@ -34,7 +34,7 @@ void Overview::renderStrip() const {
     return;
   const double e = eased();
   // A windowed exit holds the overlay PAST the animation, waiting for Hyprland to rebuild
-  // its blur, and m_progress.raw() is already 1e-6 by then. Gating on e alone stopped drawing
+  // its blur, and m_place.progress.raw() is already 1e-6 by then. Gating on e alone stopped drawing
   // the whole strip while the overlay was still up: measured e=0.000 with active=1, so
   // the band vanished in one frame. While the overlay is still holding, the strip keeps
   // being drawn at full strength -- it is still on screen.
@@ -55,9 +55,9 @@ void Overview::renderStrip() const {
   // contents, and it is still one gesture with them rather than a second one.
   // Written out rather than curves::eval("easeinout", ...): that call returns garbage on
   // its FIRST invocation (measured bandE=6.727 for e=0.025, where the curve is 6.25e-5).
-  // m_progress.raw(), NOT e: a shaped curve is directional. Front loaded on the way in (the
+  // m_place.progress.raw(), NOT e: a shaped curve is directional. Front loaded on the way in (the
   // numbers above), and slow-then-collapsing on the way out, where the alpha fell
-  // 0.96 -> 0.20 in a couple of frames and the paint read as switched off. m_progress.raw() is
+  // 0.96 -> 0.20 in a couple of frames and the paint read as switched off. m_place.progress.raw() is
   // elapsed/duration by construction -- linear in time, symmetric both ways -- so the band
   // fades evenly in and evenly out, which is what "the paint vanishes in one frame" is not.
   // eased(), NOT blurAlpha(): blurAlpha() branches on m_landingEmpty and pins itself to

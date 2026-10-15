@@ -1,5 +1,7 @@
 #pragma once
 
+#include "anim.hpp"
+
 // The six resolved animation recipes the run plays: how long each clock runs, on what
 // curve, and which way two of the card moves travel.
 //

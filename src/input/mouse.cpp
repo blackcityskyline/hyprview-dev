@@ -169,7 +169,7 @@ int Overview::stripItemAt(double lx, double ly) const {
 void Overview::dropLiftIfNotMoved() {
   if (m_drag.lifted() && m_drag.travelSq() < 64.0) {
     m_drag.setLifted(false);
-    m_clocks.dragLift.reset();
+    m_place.clocks.dragLift.reset();
     damage();
   }
 }

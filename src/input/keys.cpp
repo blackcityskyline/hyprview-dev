@@ -122,8 +122,8 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
         m_fx.addNewWorkspace(ws);
         m_newCardId =
             id;
-        m_clocks.newCard.begin();
-  debug::trace::animStart("new_card", "card", "", m_anim.entry.ms, m_anim.entry.curve.c_str());
+        m_place.clocks.newCard.begin();
+  debug::trace::animStart("new_card", "card", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
         m_newCardAnim = true;
       }
       model::StripItem it;

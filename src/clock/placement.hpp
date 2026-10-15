@@ -1,0 +1,60 @@
+#pragma once
+
+#include "../anim_recipes.hpp"
+#include "../model/scene.hpp"
+#include "../view/state.hpp"
+#include "clock.hpp"
+#include "progress.hpp"
+
+namespace gloview::clock {
+
+// Everything that answers "how far along is this", and nothing else.
+//
+// Owns the three things that make a position mean something -- the clocks that advance,
+// the run's Progress, and the resolved recipes -- and answers from them. It does not draw,
+// does not read the compositor, and does not decide anything: it is the one place the
+// numbers come from, so two callers asking at the same moment cannot disagree.
+//
+// The scene and the view are passed per call rather than held. They belong to the run, not
+// to the clock, and holding them here would make this the coordinator again under a smaller
+// name -- which is the shape this refactor is trying to leave.
+class Placement {
+  public:
+    // The run's overall fade, on the master clock's own curve. Read LIVE, so a config edit
+    // mid-fade retimes the rest of the ramp.
+    [[nodiscard]] double eased(const view::State &view, bool opening) const;
+
+    // How far the close has run, 0 -> 1.
+    [[nodiscard]] double exit(bool opening) const { return progress.exit(opening); }
+
+    [[nodiscard]] double masterDuration(const view::State &view, bool opening) const;
+
+    // Which behavior the master clock is currently playing. Three leaves, because the run
+    // can be open, jumping out, or closing, and each has its own row.
+    [[nodiscard]] anim::Id masterId(const view::State &view, bool opening) const;
+    [[nodiscard]] anim::Id entryLeaf(const view::State &view) const;
+    [[nodiscard]] anim::Id ghostLeaf(const view::State &view) const;
+    [[nodiscard]] anim::Id glideLeaf(const view::State &view, bool opening,
+                                     bool carousel) const;
+
+    // Tile i's flight progress. currentBox lerps natural -> target as e RISES, so close
+    // feeds it the run's progress as-is; flipping that put every card on its natural box on
+    // the first close frame.
+    [[nodiscard]] double tileProgress(int i, const view::State &view, bool opening,
+                                      const model::Scene &scene) const;
+
+    [[nodiscard]] double entryProgress(int i, const model::Scene &scene) const;
+
+    // Re-resolve the six recipes for the leaves the view currently selects.
+    void resolve(const view::State &view, bool opening, bool carousel);
+
+  // Public by value: these are the three things a position is made of, and everything
+  // that moves reads and writes them directly. Getters would mean a writer going through a
+  // reference-returning method, which is a way of saying "this class has no state" while it
+  // plainly does.
+  Clocks clocks;
+  Progress progress;
+  anim::Recipes recipes;
+};
+
+} // namespace gloview::clock

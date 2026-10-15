@@ -96,7 +96,7 @@ void Overview::renderCarousel() const {
 
     TileLook look;
     look.box = currentBox(t, i);
-    // m_progress.raw() runs DOWN on close (1 open -> 0 closed); every exit fraction
+    // m_place.progress.raw() runs DOWN on close (1 open -> 0 closed); every exit fraction
     // reads it through exitT. Read backwards it looks exactly like no animation.
     // The deck's ONE hide rule, same predicate as the grid's: a card that cannot land
     // hides whatever its depth, which is what makes a cancel take the whole deck out

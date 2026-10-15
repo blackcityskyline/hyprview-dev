@@ -8,6 +8,14 @@
 
 #include "../anim_types.hpp"
 #include "../clock/clocks.hpp"
+
+namespace Render {
+// Declared here rather than borrowed from overview.hpp. A header that is only complete
+// because some OTHER header was included first is a header that breaks the moment the
+// include order changes -- which is what happened when Placement stopped going through
+// Overview to reach it.
+class ITexture;
+} // namespace Render
 #include "../layout.hpp"
 #include "drag.hpp"
 #include "lifecycle.hpp"

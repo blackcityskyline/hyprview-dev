@@ -594,10 +594,10 @@ void Overview::startTileGlide(
     }
   } else
     m_scene.settleEntry();
-  m_clocks.tiles.begin();
-  debug::trace::animStart("glide", "glide", "", m_anim.glide.ms, m_anim.glide.curve.c_str());
-  m_clocks.tileMs    = m_anim.glide.ms;
-  m_clocks.tileCurve = m_anim.glide.curve; // snapshot: currentBox() must use THIS curve
+  m_place.clocks.tiles.begin();
+  debug::trace::animStart("glide", "glide", "", m_place.recipes.glide.ms, m_place.recipes.glide.curve.c_str());
+  m_place.clocks.tileMs    = m_place.recipes.glide.ms;
+  m_place.clocks.tileCurve = m_place.recipes.glide.curve; // snapshot: currentBox() must use THIS curve
   // EVERY card is about to move: natural was just rewritten to the box each one occupied,
   // and the glide clock starts at 0. Not one of them is where it is about to be drawn, so
   // the old pixels are garbage and the whole monitor has to be repainted. Without this
@@ -609,8 +609,8 @@ void Overview::startTileGlide(
   // did not -- which is why hovering the run flickered and switching workspaces did not.
   damage();
   if (newcomers || !m_fx.ghosts().empty()) {
-    m_clocks.rebuild.begin();
-    debug::trace::animStart("rebuild", "ghosts", "", m_anim.ghost.ms, m_anim.ghost.curve.c_str());
+    m_place.clocks.rebuild.begin();
+    debug::trace::animStart("rebuild", "ghosts", "", m_place.recipes.ghost.ms, m_place.recipes.ghost.curve.c_str());
     ensureAnimPump(); // frames must keep coming while population runs
   }
 }
@@ -626,9 +626,9 @@ void Overview::replayReflow(
   // memory on the next read.
   if (m_scene.selected() >= static_cast<int>(m_scene.size()))
     m_scene.select(m_scene.empty() ? -1 : static_cast<int>(m_scene.size()) - 1);
-  m_progress.settled();
+  m_place.progress.settled();
   m_life.replayEntry();
-  m_clocks.master.pinEnd(animDuration());
+  m_place.clocks.master.pinEnd(animDuration());
   damage();
 }
 

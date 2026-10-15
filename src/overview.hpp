@@ -32,6 +32,7 @@ class CGradientValueData; // general:col.active_border's real type
 #include "anim.hpp"
 #include "anim_recipes.hpp"
 #include "clock/clocks.hpp"
+#include "clock/placement.hpp"
 #include "clock/progress.hpp"
 #include "clock/clock.hpp"
 #include "view/state.hpp"
@@ -165,6 +166,7 @@ public:
 private:
   HANDLE m_handle = nullptr;
   std::chrono::steady_clock::time_point m_openStamp{}; // frame-trace t=0
+  clock::Placement m_place;
   mutable render::FramePump m_pump;
 
   // Who owns the screen, and whether the entry animation is playing.
@@ -203,8 +205,6 @@ private:
   model::Scene m_scene;
   model::Effects m_fx;
   view::State m_view;
-  clock::Clocks m_clocks;
-  clock::Progress m_progress;
   mutable std::chrono::steady_clock::time_point m_lastAnimTick{};
   void startTileGlide(
       const std::vector<std::pair<PHLWINDOW, LRect>> &oldBoxes);
@@ -225,12 +225,11 @@ private:
   // the animateStripTo() caller and the current position by nothing at all.
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
-  anim::Recipes m_anim;
   bool animBusy() const;
   // Clocks that outlive the master: the pump must name every clock or the next one
   // added never arms it.
   bool secondaryAnimsActive() const {
-    return m_clocks.anyRunning(anim::cfg(entryLeaf()).ms, anim::cfg(ghostLeaf()).ms,
+    return m_place.clocks.anyRunning(anim::cfg(entryLeaf()).ms, anim::cfg(ghostLeaf()).ms,
                                anim::cfg(anim::Id::StripStep).ms);
   }
   // Read on the call site: a config edit mid-fade retimes the rest of the ramp.
@@ -332,7 +331,7 @@ private:
   double eased() const; // chrome opacity / backdrop progress
   double animDuration() const; // read LIVE, so config applies in-flight
   [[nodiscard]] anim::Id masterId() const; // which leaf drives the master clock
-  double glideDur() const { return m_clocks.tileMs > 0 ? m_clocks.tileMs : anim::cfg(glideLeaf()).ms; }
+  double glideDur() const { return m_place.clocks.tileMs > 0 ? m_place.clocks.tileMs : anim::cfg(glideLeaf()).ms; }
   bool entrySettled() const;
   uint32_t altTabModBit() const;
   double newCardDur() const { return anim::cfg(anim::Id::NewCard).ms; }

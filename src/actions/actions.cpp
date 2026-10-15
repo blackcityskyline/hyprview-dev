@@ -122,8 +122,8 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
       ++id;
     target = State::workspaceState()->create(id, m->m_id);
     m_newCardId = id;
-    m_clocks.newCard.begin();
-    debug::trace::animStart("new_card", "card", "", m_anim.entry.ms, m_anim.entry.curve.c_str());
+    m_place.clocks.newCard.begin();
+    debug::trace::animStart("new_card", "card", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
     m_newCardAnim = true;
   } else if (it.virtualWs) {
     // Placeholder card: create exactly this id, persistent or it is reaped.
@@ -134,8 +134,8 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
       target->setPersistent(true);
       m_fx.addNewWorkspace(target);
       m_newCardId = it.id;
-      m_clocks.newCard.begin();
-    debug::trace::animStart("new_card", "card", "", m_anim.entry.ms, m_anim.entry.curve.c_str());
+      m_place.clocks.newCard.begin();
+    debug::trace::animStart("new_card", "card", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
       m_newCardAnim = true;
     }
   } else
@@ -157,7 +157,7 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
     return;
   }
 
-  // replayReflow keeps the chrome settled (m_progress.raw() pinned at 1).
+  // replayReflow keeps the chrome settled (m_place.progress.raw() pinned at 1).
   replayReflow(oldBoxes);
   damage();
 }
@@ -809,11 +809,11 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     m_view.setJumpMode( true);
     m_fx.clearGhosts();
     m_scene.settleEntry();
-    m_clocks.rebuild.pinEnd(std::max(m_anim.entry.ms, m_anim.ghost.ms));
-    m_clocks.tiles.pinEnd(glideDur());
-    m_progress.settled();
+    m_place.clocks.rebuild.pinEnd(std::max(m_place.recipes.entry.ms, m_place.recipes.ghost.ms));
+    m_place.clocks.tiles.pinEnd(glideDur());
+    m_place.progress.settled();
     m_life.replayEntry();
-    m_clocks.master.pinEnd(animDuration());
+    m_place.clocks.master.pinEnd(animDuration());
     ensureAnimPump();
     damage();
     return;
@@ -839,15 +839,15 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     m_view.setWsSlideDir(0);
     startTileGlide(oldBoxes);
   } else {
-    m_clocks.rebuild.begin();
-    debug::trace::animStart("entry", "entry", "", m_anim.entry.ms, m_anim.entry.curve.c_str());
+    m_place.clocks.rebuild.begin();
+    debug::trace::animStart("entry", "entry", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
   }
   ensureAnimPump();
   if (!sameSet || oldBoxes.empty())
-    m_clocks.tiles.pinEnd(glideDur());
-  m_progress.settled();
+    m_place.clocks.tiles.pinEnd(glideDur());
+  m_place.progress.settled();
   m_life.replayEntry();
-  m_clocks.master.pinEnd(animDuration());
+  m_place.clocks.master.pinEnd(animDuration());
   damage();
 }
 
@@ -896,8 +896,8 @@ void Overview::addWorkspace() {
   ws->setPersistent(true);
   m_fx.addNewWorkspace(ws);
   m_newCardId = id;
-  m_clocks.newCard.begin();
-    debug::trace::animStart("new_card", "card", "", m_anim.entry.ms, m_anim.entry.curve.c_str());
+  m_place.clocks.newCard.begin();
+    debug::trace::animStart("new_card", "card", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
   m_newCardAnim = true;
   debug::dbg("added workspace " + std::to_string(id));
   if (cfg::behavior.switch_on_new_workspace != 0) {

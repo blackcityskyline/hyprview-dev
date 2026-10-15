@@ -115,8 +115,8 @@ void Overview::toggleAllWorkspaces() {
   if (oldBoxes.empty()) {
     m_scene.armEntry();
     // And the clock, which is the half that was missing. replayReflow() begins only the
-    // tile glide (m_clocks.tiles) -- nothing begins the rebuild clock, so it reads done,
-    // m_clocks.rebuild.raw() answers 1.0, entryNow() answers 1.0 for every card and
+    // tile glide (m_place.clocks.tiles) -- nothing begins the rebuild clock, so it reads done,
+    // m_place.clocks.rebuild.raw() answers 1.0, entryNow() answers 1.0 for every card and
     // the gate at clocks.cpp:145 returns before the slide branch. What was on screen was
     // just the natural->target glide, which for a maximized window reads as a fullscreen
     // card shrinking into its slot.
@@ -124,8 +124,8 @@ void Overview::toggleAllWorkspaces() {
     // painter.cpp arms the same pair on the workspace-follow path; this flip was doing
     // neither. Order matters: the clock starts BEFORE the direction, or updateAnimation
     // clears it in the same tick.
-    m_clocks.rebuild.begin();
-    debug::trace::animStart("entry", "entry", "slide", m_anim.entry.ms, m_anim.entry.curve.c_str());
+    m_place.clocks.rebuild.begin();
+    debug::trace::animStart("entry", "entry", "slide", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
     // A slide is an ENTRY, not a relocation: the card is already the right shape and
     // arrives from the edge. Left at natural, every card starts at the window's REAL
     // geometry and shrinks into its slot -- 1354x756 down to 909x508, measured -- and that
@@ -268,7 +268,7 @@ void Overview::open() {
              std::to_string(std::chrono::duration<double, std::micro>(
                                  m_openStamp - openEntryStamp)
                                  .count()));
-  m_progress.closed();
+  m_place.progress.closed();
   // Parked already counts as owned (see inputRoutedAway), so the real windows lose
   // focus on the first parked frame, not when the overlay actually appears.
   dropFocusFromWindows();
@@ -276,10 +276,10 @@ void Overview::open() {
   // Hyprland blur is what covers the gap the ramp would open.
   m_landingEmpty = !workspaceHasWindows(m_liveWsAtOpen.lock());
   debug::dbg("open: ws=" + std::to_string(m_liveWsAtOpen.lock() ? m_liveWsAtOpen.lock()->m_id : -1) + " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
-  m_clocks.master.begin();
-  debug::trace::animStart("master", "master", "", m_anim.glide.ms, m_anim.glide.curve.c_str());
-  m_clocks.tiles.begin();
-  debug::trace::animStart("open", "glide", m_anim.enterStyle.travel == anim::Travel::Pop ? "pop" : "slide", m_anim.glide.ms, m_anim.glide.curve.c_str());
+  m_place.clocks.master.begin();
+  debug::trace::animStart("master", "master", "", m_place.recipes.glide.ms, m_place.recipes.glide.curve.c_str());
+  m_place.clocks.tiles.begin();
+  debug::trace::animStart("open", "glide", m_place.recipes.enterStyle.travel == anim::Travel::Pop ? "pop" : "slide", m_place.recipes.glide.ms, m_place.recipes.glide.curve.c_str());
   m_lastAnimTick = {};
   // hideLayers() is deliberately NOT called here: it runs at promotion instead. Fading the
   // layers now would leave the desktop bare on frames where the overview draws nothing.
@@ -361,9 +361,9 @@ void Overview::close() {
   restoreLayers();
   m_cursor.onClose();
   // resume from CURRENT progress (1 - raw())
-  m_clocks.master.seek(1.0 - m_progress.raw(), animDuration());
+  m_place.clocks.master.seek(1.0 - m_place.progress.raw(), animDuration());
   m_lastAnimTick = {}; // else a phantom gap rewinds the clocks
-  debug::dbg("=== CLOSE from progress " + std::to_string(m_progress.raw()).substr(0, 5) + " ===");
+  debug::dbg("=== CLOSE from progress " + std::to_string(m_place.progress.raw()).substr(0, 5) + " ===");
   damage();
 }
 
@@ -382,7 +382,7 @@ void Overview::hardClose() {
   m_view.setDesktop( false);
   m_newCardAnim = false;
   m_newCardId = 0;
-  m_progress.closed();
+  m_place.progress.closed();
   m_altTabbing = false;
   m_scene.clear();
   m_strip.clear();
@@ -531,7 +531,7 @@ void Overview::deactivate() {
   m_altTabbing = false;
   m_newCardAnim = false;
   m_newCardId = 0;
-  m_progress.closed();
+  m_place.progress.closed();
   m_scene.clear();
   m_strip.clear();
   m_pixel.clearSnapshots();

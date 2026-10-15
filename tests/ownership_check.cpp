@@ -110,6 +110,8 @@ int main(int argc, char **argv) {
       // hide() without restore() leaves the user's taskbar invisible with nothing else in
       // the plugin noticing, which is why the saved values live next to the fading.
       {"LayerVisibility", "session/layer_visibility.hpp", {"m_hidden"}},
+      // The clocks, the run's position and the recipes: what a position is made of.
+      {"Placement", "clock/placement.hpp", {"clocks", "progress", "recipes"}},
       // Six resolved animation recipes, assigned together in one place and read from six.
       {"Recipes", "anim_recipes.hpp",
        {"glide", "entry", "ghost", "lift", "enterStyle", "exitStyle"}},
@@ -217,7 +219,7 @@ int main(int argc, char **argv) {
       "m_newCardId", "m_newCardAnim", "m_altTabbing", "m_commitPending",
       "m_pendingStep", "m_pendingFocus", "m_focusOutside",
       // the animation engine, written through member calls this scan does not see
-      "m_clocks", "m_lastAnimTick",
+      "m_lastAnimTick",
       // one value each, owned by the coordinator because nothing else does the owning
       "m_scrollAccum", "m_killGlow", "m_lastDragBox", "m_lastFocus", "m_handle",
   };

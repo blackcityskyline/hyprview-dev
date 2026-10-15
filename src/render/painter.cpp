@@ -19,7 +19,7 @@ namespace gloview {
 
 // Both entry clocks done. Committing before this truncates what the tap was for.
 bool Overview::entrySettled() const {
-  return m_clocks.master.done(anim::cfg(anim::Id::Open).ms) && m_clocks.tiles.done(glideDur());
+  return m_place.clocks.master.done(anim::cfg(anim::Id::Open).ms) && m_place.clocks.tiles.done(glideDur());
 }
 
 namespace {
@@ -111,7 +111,7 @@ void Overview::renderStage(eRenderStage stage) {
         "ms tick=" + std::to_string(m_pump.tick()) +
         " forceFF=" + std::to_string(rm->m_forceFullFrames) +
         " open=" + std::to_string(opening()) +
-        " prog=" + std::to_string(m_progress.raw()).substr(0, 5) +
+        " prog=" + std::to_string(m_place.progress.raw()).substr(0, 5) +
         " kk=" + std::to_string(kk).substr(0, 6) +
         " frost=" + std::to_string(1.0 - e).substr(0, 6) +
         " blurOK=" + std::to_string(blurOK) +
@@ -132,7 +132,7 @@ void Overview::renderStage(eRenderStage stage) {
         " sfx=" + std::to_string(m_fx.swapfx().size()) +
         " dir=" + std::to_string(m_view.wsSlideDir()) +
         " gh=" + std::to_string(m_fx.ghosts().size()) +
-        " pop=" + std::to_string(!m_clocks.rebuild.done(m_anim.entry.ms)));
+        " pop=" + std::to_string(!m_place.clocks.rebuild.done(m_place.recipes.entry.ms)));
   }
 
   updateHover();
@@ -168,8 +168,8 @@ void Overview::renderStage(eRenderStage stage) {
       // is what made this path look different from the plugin's own Tab switch, which sets
       // landed = 0 on everything. Same slide, same style key, whichever bind got here.
       m_scene.armEntry();
-      m_clocks.rebuild.begin();
-      debug::trace::animStart("entry", "entry", "", m_anim.entry.ms, m_anim.entry.curve.c_str());
+      m_place.clocks.rebuild.begin();
+      debug::trace::animStart("entry", "entry", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
       // Arm the slide AFTER the rebuild clock starts. updateAnimation clears wsSlideDir
       // whenever both entry clocks already read done, and on a hop from an empty
       // workspace the previous frame's clocks are done -- so a direction armed earlier
@@ -185,7 +185,7 @@ void Overview::renderStage(eRenderStage stage) {
             ++appearing;
         debug::dbg("WSFOLLOW ->" + std::to_string(m->m_activeWorkspace->m_id) +
                    " dir=" + std::to_string(m_view.wsSlideDir()) +
-                   " style=[" + anim::moveName(m_anim.enterStyle) + "] tiles=" +
+                   " style=[" + anim::moveName(m_place.recipes.enterStyle) + "] tiles=" +
                    std::to_string(m_scene.tiles().size()) + " animating=" +
                    std::to_string(appearing) + " oldBoxes=" +
                    std::to_string(shown.size()));
@@ -205,10 +205,10 @@ void Overview::renderStage(eRenderStage stage) {
   // half-damage frames rebuild half the FB
   {
     const bool busy = secondaryAnimsActive() ||
-                      !m_clocks.tiles.done(glideDur()) || m_newCardAnim ||
+                      !m_place.clocks.tiles.done(glideDur()) || m_newCardAnim ||
                       m_drag.lifted() || !m_fx.pulses().empty() ||
                       !m_fx.swapfx().empty() ||
-                      (opening() ? m_progress.raw() < 1.0 : m_progress.raw() > 0.0);
+                      (opening() ? m_place.progress.raw() < 1.0 : m_place.progress.raw() > 0.0);
     if (busy)
       m->m_forceFullFrames = std::max(m->m_forceFullFrames, 1);
   }
