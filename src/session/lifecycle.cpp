@@ -557,14 +557,6 @@ void Overview::finishPendingDeactivate() {
   deactivate();
 }
 
-void Overview::rearmanim() const {
-  m_pump.ensure(animBusy(), m_monitor.lock());
-}
-
-void Overview::damage() const { m_pump.damage(m_monitor.lock()); }
-
-void Overview::ensureAnimPump() { m_pump.ensure(animBusy(), m_monitor.lock()); }
-
 
 // snapshot mode: per-window last committed texture, frozen
 bool Overview::snapshotMode() const {

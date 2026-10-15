@@ -102,8 +102,11 @@ public:
   void renderDragWindow() const;
   void renderCursorOnTop() const;
 
-  void rearmanim() const;
-  void ensureAnimPump();
+  // The pump, asked three ways: arm it now (ensureAnimPump), re-check from inside its own
+  // callback (rearmanim), and just repaint (damage). Same reasoning as damage() above --
+  // all three are the frame pump, none of them is the run's lifecycle.
+  void rearmanim() const { m_pump.ensure(animBusy(), m_monitor.lock()); }
+  void ensureAnimPump() { m_pump.ensure(animBusy(), m_monitor.lock()); }
 
   void finishPendingDeactivate();
 
@@ -400,7 +403,12 @@ private:
   void restoreFill();
   void stepAltTab(int dir);
   int tileOf(const PHLWINDOW &w) const;
-  void damage() const;
+  // Defined here, next to m_pump, rather than in session/lifecycle.cpp. Twenty-two files
+  // ask for a damage and only one of them is about the run's lifecycle -- an action, a
+  // hit-test and a hover all need a repaint. Leaving the definition in lifecycle made
+  // twenty-two files depend on the lifecycle, which is what kept the whole set in one
+  // component.
+  void damage() const { m_pump.damage(m_monitor.lock()); }
 };
 
 } // namespace gloview
