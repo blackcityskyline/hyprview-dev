@@ -132,6 +132,17 @@ void swapTiles(size_t a, size_t b) {
     // tile 0" for that case and drew it centred, so the user had a focused-looking card on
     // screen while every input path asked selected(), read -1, and acted on nothing --
     // which is why Enter did nothing at all and the exit fell through to a bare close.
+    // The window on the card the user can SEE centred, or null.
+    //
+    // focused(), not selected(): the deck can hold tiles while nothing is selected -- an
+    // empty workspace switched to all-workspaces rebuilds into tiles without re-selecting.
+    // Asking the raw index got -1 there, so Enter activated nothing and the exit became a
+    // bare close. Three readers asked this the same way before it had a name.
+    [[nodiscard]] PHLWINDOW focusedWindow() const {
+      const int f = focused();
+      return f >= 0 ? m_tiles[static_cast<std::size_t>(f)].win.lock() : nullptr;
+    }
+
     [[nodiscard]] int focused() const {
       return hasSelection() ? m_selected : (m_tiles.empty() ? -1 : 0);
     }

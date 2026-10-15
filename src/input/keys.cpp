@@ -240,7 +240,7 @@ void Overview::stepAltTab(int dir) {
     const int cur = m_view.slotOf(static_cast<std::size_t>(m_scene.selected()));
     if (cur >= 0) {
       const int nxt = ((cur + dir) % n + n) % n;
-      m_scene.select(static_cast<int>(slot[static_cast<std::size_t>(nxt)]));
+      m_scene.select(m_view.tileInSlot(static_cast<std::size_t>(nxt)));
       damage();
       return;
     }
@@ -250,14 +250,7 @@ void Overview::stepAltTab(int dir) {
 }
 
 void Overview::activateSelection() {
-  PHLWINDOW w;
-  // focused(), not selected(): the card the user can SEE centred is the one Enter must
-  // commit to. Asking the raw index got -1 whenever the deck was rebuilt onto a selection
-  // the overview never had -- an empty workspace switched to all-workspaces -- so Enter
-  // activated nothing and the exit became a bare close.
-  if (const int f = m_scene.focused(); f >= 0)
-    w = m_scene.tiles()[static_cast<size_t>(f)].win.lock();
-  focusAndClose(w, Desktop::FOCUS_REASON_KEYBIND);
+  focusAndClose(m_scene.focusedWindow(), Desktop::FOCUS_REASON_KEYBIND);
 }
 
 

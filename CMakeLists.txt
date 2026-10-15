@@ -214,6 +214,13 @@ add_test(NAME trace_mask
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/trace_mask_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check && ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check")
 
+# The carousel slot: which tile the k-th slot holds. view/state.hpp needs no compositor on
+# the include path.
+
+add_test(NAME view_slots
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/view_slots_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/view_slots_check && ${CMAKE_CURRENT_BINARY_DIR}/view_slots_check")
+
 # view::State's mode rules. Header-only and Hyprland-free.
 
 add_test(NAME view_state

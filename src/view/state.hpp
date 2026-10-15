@@ -66,6 +66,16 @@ class State {
     [[nodiscard]] const std::vector<std::size_t> &slot() const { return m_slot; }
 
 
+    // The tile the carousel's k-th slot holds, or -1.
+    //
+    // The carousel orders tiles by DEPTH, not index, so stepping selection has to go
+    // through the slot: the next card on screen is not the next index. Returns -1 when the
+    // slot is stale -- it is a cache that outlives a shrink of the tile array -- and a
+    // caller that gets -1 falls back rather than selecting an unrelated tile.
+    [[nodiscard]] int tileInSlot(std::size_t k) const {
+      return k < m_slot.size() ? static_cast<int>(m_slot[k]) : -1;
+    }
+
     [[nodiscard]] int slotOf(std::size_t tile) const {
       for (std::size_t k = 0; k < m_slot.size(); ++k)
         if (m_slot[k] == tile)
