@@ -252,6 +252,13 @@ add_test(NAME png_read
 add_test(NAME subject_cache
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/subject_cache_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/subject_cache_check && ${CMAKE_CURRENT_BINARY_DIR}/subject_cache_check")
 
+# scan_config_keys proves every key is REGISTERED, which is the easy half: adding the line is
+# all it takes to pass. This proves every key is READ. tile_mode sat registered and unread for
+# the whole of the tab work, its default happened to match the behaviour, and a user setting
+# tile_mode = "tabs" was ignored with no trace of any kind.
+add_test(NAME scan_config_keys_read
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/config_keys_read_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/config_keys_read_check && ${CMAKE_CURRENT_BINARY_DIR}/config_keys_read_check ${CMAKE_SOURCE_DIR}")
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll

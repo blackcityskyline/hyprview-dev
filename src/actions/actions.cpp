@@ -166,14 +166,25 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
 // window's real goal().
 bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
                            const LRect &fromA, bool draggedOnStrip) {
-  if (!wa || !wb || wa == wb ||
-      Fullscreen::controller()->isFullscreen(wa) ||
-      Fullscreen::controller()->isFullscreen(wb))
+  // Which of the five reasons below fired, because "refused by Hyprland" was the whole
+  // answer and it covers a missing window, a fullscreen one and a window the layout has no
+  // target for -- three problems with nothing in common and no way to tell them apart.
+  const auto why = [&](const char *r) {
+    debug::trace::record("SWAP", "refused", std::string("why=") + r);
     return false;
+  };
+  if (!wa || !wb)
+    return why("no-window");
+  if (wa == wb)
+    return why("same-window");
+  if (Fullscreen::controller()->isFullscreen(wa) || Fullscreen::controller()->isFullscreen(wb))
+    return why("fullscreen");
   const auto ta = wa->layoutTarget();
   const auto tb = wb->layoutTarget();
-  if (!g_layoutManager || !ta || !tb)
-    return false;
+  if (!g_layoutManager)
+    return why("no-layout-manager");
+  if (!ta || !tb)
+    return why("no-layout-target");
 
   auto oldBoxes = captureCurrentBoxes();
   // Captured before the rebuild, which replaces the strip: this is where the thumbnail

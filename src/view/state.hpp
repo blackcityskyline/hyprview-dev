@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../layout.hpp"
+#include "../model/subject.hpp"
 
 #include <cstddef>
 #include <utility>
@@ -38,6 +39,16 @@ class State {
 
     [[nodiscard]] bool carouselOn() const { return m_carouselOn; }
     void setCarouselOn(bool on) { m_carouselOn = on; }
+
+    // Which subjects this run is showing: windows, tabs, or both. Resolved once when the run
+    // opens and kept here for the rest of it, exactly like m_engine, and for the same reason --
+    // a run that changed its mind halfway through would be laying out two vocabularies at
+    // once, which is worse than being wrong about either of them consistently.
+    //
+    // The config is read at the point of resolution, never cached in the field above it
+    // (AGENTS.md 2.16), so a live config change lands on the NEXT run rather than never.
+    [[nodiscard]] model::Domain domain() const { return m_domain; }
+    void setDomain(model::Domain d) { m_domain = d; }
 
     [[nodiscard]] int wsSlideDir() const { return m_wsSlideDir; }
     void setWsSlideDir(int d) { m_wsSlideDir = d; }
@@ -134,6 +145,7 @@ class State {
     double m_s = 1.0, m_ox = 0.0, m_oy = 0.0;
 
     Engine m_engine = Engine::Rows;
+    model::Domain m_domain = model::Domain::Windows;
     CarouselLayout m_carousel;
     std::vector<std::size_t> m_slot;
     int m_carouselFor = -1;

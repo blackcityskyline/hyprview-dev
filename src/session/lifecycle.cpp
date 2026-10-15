@@ -63,7 +63,10 @@ void Overview::toggle() {
 // on; all -> all, run only flips. No path back — that is "a"'s job.
 void Overview::toggleCarousel() {
   if (!m_life.openingNow()) {
-    m_view.setCarouselOn( true); // BEFORE open(): buildTiles reads it
+    // Before buildTiles(), which is the first thing that asks. The mode is a property of this
+  // run, not of the process: see view::State::domain().
+  m_view.setDomain(model::parseDomain(cfg::behavior.tile_mode.get()));
+  m_view.setCarouselOn( true); // BEFORE open(): buildTiles reads it
     m_view.setAllOverride( 1);
     open();
     if (!openedOrParked())
