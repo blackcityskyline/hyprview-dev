@@ -87,8 +87,9 @@ int main(int argc, char **argv) {
       // all three: a flight is drawn, not just positioned
       {"src/render/fx.cpp", {"Slide", "Pop", "Fade"}},
       // the entry and the exit separate slide from fade; pop is the scale-in below
-      {"src/clock/clocks.cpp", {"Slide", "Fade"}},
-      {"src/render/tile_view.cpp", {"Slide", "Fade"}},
+      // placement.cpp, not clocks.cpp: the entry's three branches moved there with box()
+      // when Placement took the tile's position.
+      {"src/clock/placement.cpp", {"Slide", "Fade"}},
   };
   int dead = 0;
   for (const auto &d : kDispatchers) {

@@ -4,6 +4,7 @@
 #include "../model/scene.hpp"
 #include "../view/state.hpp"
 #include "clock.hpp"
+#include "../layout.hpp"
 #include "progress.hpp"
 
 namespace gloview::clock {
@@ -44,6 +45,33 @@ class Placement {
                                       const model::Scene &scene) const;
 
     [[nodiscard]] double entryProgress(int i, const model::Scene &scene) const;
+
+    // What a position can only be measured against: the run's modes, the tile list, the
+    // monitor it is laid out in, and whether this tile has somewhere to land.
+    struct Frame {
+      const view::State &view;
+      const model::Scene &scene;
+      bool opening;
+      double monW, monH;
+      bool goesHome;
+
+      Frame(const view::State &v, const model::Scene &sc, bool open, double w, double h,
+            bool home)
+          : view(v), scene(sc), opening(open), monW(w), monH(h), goesHome(home) {}
+    };
+
+    // Where tile i is this frame, letterboxed by nothing: the raw animated box.
+    [[nodiscard]] LRect box(const model::Tile &t, int i, const Frame &f) const;
+
+    // How far ALONG its entry this tile is. t.landed is the flag (0 = armed, 1 = already
+    // on screen) and entryProgress is the clock it is played against; a tile that is not
+    // playing must not read the clock, or a stale rebuild clock would keep shrinking cards
+    // that have already landed.
+    [[nodiscard]] double entryNow(const model::Tile &t, int i,
+                                  const model::Scene &scene) const;
+
+    // The fade paired with the entry clock, for a card that has nowhere to go.
+    [[nodiscard]] double entryFade(const model::Tile &t, int i, const Frame &f) const;
 
     // Re-resolve the six recipes for the leaves the view currently selects.
     void resolve(const view::State &view, bool opening, bool carousel);

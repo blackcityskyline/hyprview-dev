@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "../anim.hpp"
+#include "../layout.hpp"
 #include "curves.hpp"
 
 namespace gloview::clock {
@@ -75,6 +76,69 @@ double Placement::entryProgress(int i, const model::Scene &scene) const {
       recipes.entry.curve,
       staggered(clocks.rebuild.raw(recipes.entry.ms), i,
                 static_cast<int>(scene.tiles().size())));
+}
+
+double Placement::entryNow(const model::Tile &t, int i,
+                           const model::Scene &scene) const {
+  return t.landed >= 1.0 ? 1.0 : entryProgress(i, scene);
+}
+
+double Placement::entryFade(const model::Tile &t, int i, const Frame &f) const {
+  // A card with nowhere to go cannot fly anywhere -- close() pinned its natural box to its
+  // own tile box -- so it leaves by dissolving on the master clock instead of standing
+  // still until the overlay is torn out from under it. Only ever on a close that is NOT
+  // committing: fading a window that is about to become real reads as a double image
+  // (AGENTS.md), so every tile that does go home stays at full alpha and flies.
+  if (!f.opening && anim::tileExit(f.goesHome) == anim::TileExit::InPlace)
+    return eased(f.view, f.opening);
+  // A fade is alpha only, and it fades whenever the tile is playing its entry.
+  if (t.landed >= 1.0 || recipes.enterStyle.travel != anim::Travel::Fade)
+    return 1.0;
+  return entryProgress(i, f.scene);
+}
+
+LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
+  const std::string &curve =
+      clocks.tileCurve.empty() ? recipes.glide.curve : clocks.tileCurve;
+  const double e = curves::eval(curve, tileProgress(i, f.view, f.opening, f.scene));
+  const auto &a = t.natural;
+  const auto &b = t.target;
+  LRect r{lerp(a.x, b.x, e), lerp(a.y, b.y, e), lerp(a.w, b.w, e),
+          lerp(a.h, b.h, e)};
+  // A card off the carousel run has a zeroed target. Nothing paints it, so it must not
+  // resize on its way there either -- hold the box it was last shown at.
+  if (f.view.run() && b.w < 1.0 && a.w >= 1.0)
+    r = a;
+  // The deck's hide motion, in the grid as well as the run. A card that cannot land was
+  // pinned to its own box by close(); without this it simply stood there while the backdrop
+  // faded and was gone in a frame.
+  if (!f.view.run() && !f.opening && anim::cardHides(0, f.goesHome)) {
+    const double k = anim::hideShrink(exit(f.opening), anim::param(anim::Param::Collapse));
+    const double cx = r.cx(), cy = r.cy();
+    r = LRect{cx - r.w * k * 0.5, cy - r.h * k * 0.5, r.w * k, r.h * k};
+  }
+  const double ap = entryNow(t, i, f.scene);
+  if (ap >= 1.0)
+    return r;
+  // Three branches, and all three are reachable. A style that no branch honours is not a
+  // setting.
+  if (recipes.enterStyle.travel == anim::Travel::Slide) {
+    // A slide needs somewhere to come from. Without a direction there is no edge to enter
+    // from, so the tile is already where it belongs and only its scale-in is missing.
+    if (f.view.wsSlideDir() != 0) {
+      if (recipes.enterStyle.axis == anim::Axis::Horizontal)
+        r.x += static_cast<double>(f.view.wsSlideDir()) * f.monW * (1.0 - ap);
+      else
+        r.y -= f.monH * (1.0 - ap);
+      return r;
+    }
+  } else if (recipes.enterStyle.travel == anim::Travel::Fade) {
+    return r; // alpha only -- entryFade() reads the same clock for it
+  }
+  // Pop, and a slide with no direction: the scale-in.
+  const double k = 1.0 - anim::param(anim::Param::PopScale) * (1.0 - ap);
+  const double cx = r.x + r.w / 2.0, cy = r.y + r.h / 2.0;
+  return LRect{cx - r.w * k / 2.0, cy - r.h * k / 2.0, r.w * k, r.h * k};
 }
 
 void Placement::resolve(const view::State &view, bool opening, bool carousel) {

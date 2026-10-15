@@ -73,21 +73,10 @@ LRect Overview::closeButtonRect(const LRect &lb) const {
 double Overview::entryFade(size_t i) const {
   if (i >= m_scene.tiles().size())
     return 1.0;
+  const auto  m = m_monitor.lock();
   const auto &t = m_scene.tiles()[i];
-  // A card with nowhere to go cannot fly anywhere -- close() pinned its natural box to its
-  // own tile box -- so it leaves by dissolving on the master clock instead of standing
-  // still until the overlay is torn out from under it. Only ever on a close that is NOT
-  // committing: fading a window that is about to become real reads as a double image
-  // (AGENTS.md), so every tile that does go home stays at full alpha and flies.
-  if (!opening() && anim::tileExit(tileGoesHome(t)) == anim::TileExit::InPlace)
-    return eased();
-  // A fade is alpha only, and it fades whenever the tile is playing its entry. The
-  // `wsSlideDir() == 0` guard used to be here because fade was counted as a sliding
-  // style, so it only ever faded on a workspace CHANGE and not on a drop or a rebuild --
-  // which is most of the entries there are.
-  if (t.landed >= 1.0 || m_place.recipes.enterStyle.travel != anim::Travel::Fade)
-    return 1.0;
-  return entryProgress(static_cast<int>(i));
+  return m_place.entryFade(t, i, {m_view, m_scene, opening(), m ? m->m_size.x : 0.0,
+                                  m ? m->m_size.y : 0.0, tileGoesHome(t)});
 }
 
 // A preview always wears the window's own aspect, so the content's arcs meet the

@@ -90,82 +90,24 @@ double Overview::animDuration() const { return anim::cfg(masterId()).ms; }
 // CLOSE rides m_place.progress.raw() DOWN: tiles then match the collapsing chrome.
 // Read m_place.clocks.tileMs, not m_place.recipes.glide.ms: a glideLeaf() flip jumps progress.
 double Overview::tileProgress(int i) const {
-  const double glideMs = (m_place.clocks.tileMs > 0) ? m_place.clocks.tileMs : m_place.recipes.glide.ms;
-  // currentBox lerps natural -> target as e RISES, so close feeds it m_place.progress.raw()
-  // as-is. Flipping it put every card on its natural box on the first close frame.
-  const double base = opening() ? m_place.clocks.tiles.raw(glideMs) : m_place.progress.raw();
-  // The FOCUSED tile is never staggered: stagger() assumes a rising 0..1, so on
-  // close it would delay the landing — the same flight, timed differently.
-  if (carouselMode() || i == m_scene.focused())
-    return base;
-  return staggered(base, i, static_cast<int>(m_scene.tiles().size()));
+  return m_place.tileProgress(i, m_view, opening(), m_scene);
 }
 
 double Overview::entryProgress(int i) const {
-  return curves::eval(
-      m_place.recipes.entry.curve,
-      staggered(m_place.clocks.rebuild.raw(m_place.recipes.entry.ms), i,
-                static_cast<int>(m_scene.tiles().size())));
+  return m_place.entryProgress(i, m_scene);
 }
 
-// How far ALONG its entry a tile is right now. t.landed is the flag (0 = armed,
-// 1 = already on screen) and entryProgress(i) is the clock it is played against; a tile
-// that is not playing must not read the clock, or a stale rebuild clock would keep
-// shrinking cards that have already landed. Three readers asked this the same way
-// before it had a name.
 double Overview::entryNow(const model::Tile &t, int i) const {
-  return t.landed < 1.0 ? entryProgress(i) : 1.0;
+  return m_place.entryNow(t, i, m_scene);
 }
 
+// The one call into Placement for "where is tile i". Everything Placement needs that it
+// cannot know -- the monitor it is laid out in, and whether this tile has somewhere to
+// land -- arrives in the frame, because a clock cannot answer either on its own.
 LRect Overview::currentBox(const model::Tile &t, int i) const {
-  const std::string &curve = m_place.clocks.tileCurve.empty() ? m_place.recipes.glide.curve : m_place.clocks.tileCurve;
-  const double e = curves::eval(curve, tileProgress(i));
-  const auto &a = t.natural;
-  const auto &b = t.target;
-  LRect r{lerp(a.x, b.x, e), lerp(a.y, b.y, e), lerp(a.w, b.w, e),
-          lerp(a.h, b.h, e)};
-  // A card off the carousel run has a zeroed target. Nothing paints it, so it
-  // must not resize on its way there either — hold the box it was last shown at.
-  if (carouselMode() && b.w < 1.0 && a.w >= 1.0)
-    r = a;
-  // The deck's hide motion, in the grid as well as the run. A card that cannot land was
-  // pinned to its own box by close(); without this it simply stood there while the
-  // backdrop faded and was gone in a frame. The run stands down here: it knows the card's
-  // depth, which this does not, and applies the same predicate itself -- two shrinks of the
-  // same card would compound into k*k.
-  if (!carouselMode() && !opening() && anim::cardHides(0, tileGoesHome(t))) {
-    const double k =
-        anim::hideShrink(exitT(), anim::param(anim::Param::Collapse));
-    const double cx = r.cx(), cy = r.cy();
-    r = LRect{cx - r.w * k * 0.5, cy - r.h * k * 0.5, r.w * k, r.h * k};
-  }
-  const double ap = entryNow(t, i);
-  if (ap >= 1.0)
-    return r;
-  // Three branches, and all three are reachable now. Fade used to sit in wsStyleSlides(),
-  // which is what made it a dead key: a fade WITH a slide direction travelled sideways,
-  // and a fade WITHOUT one fell through to the pop scale-in below. A style that no
-  // branch honours is not a setting.
-  if (m_place.recipes.enterStyle.travel == anim::Travel::Slide) {
-    // A slide needs somewhere to come from. Without a direction there is no edge to enter
-    // from, so the tile is already where it belongs and only its scale-in is missing --
-    // which is the fall-through below, not a silent no-op.
-    if (m_view.wsSlideDir() != 0) {
-      if (const auto m = m_monitor.lock()) {
-        if (m_place.recipes.enterStyle.axis == anim::Axis::Horizontal)
-          r.x += static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * (1.0 - ap);
-        else
-          r.y -= static_cast<double>(m->m_size.y) * (1.0 - ap);
-      }
-      return r;
-    }
-  } else if (m_place.recipes.enterStyle.travel == anim::Travel::Fade) {
-    return r; // alpha only -- entryFade() below reads the same clock for it
-  }
-  // Pop, and a slide with no direction: the scale-in.
-  const double k = 1.0 - anim::param(anim::Param::PopScale) * (1.0 - ap);
-  const double cx = r.x + r.w / 2.0, cy = r.y + r.h / 2.0;
-  return LRect{cx - r.w * k / 2.0, cy - r.h * k / 2.0, r.w * k, r.h * k};
+  const auto m = m_monitor.lock();
+  return m_place.box(t, i, {m_view, m_scene, opening(), m ? m->m_size.x : 0.0,
+                             m ? m->m_size.y : 0.0, tileGoesHome(t)});
 }
 
 void Overview::updateAnimation() {
