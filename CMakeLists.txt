@@ -206,6 +206,13 @@ add_test(NAME scan_anim_coverage
 add_test(NAME scan_subject_ownership
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/subject_ownership_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/subject_own_check && ${CMAKE_CURRENT_BINARY_DIR}/subject_own_check ${CMAKE_SOURCE_DIR}")
 
+# src/model/ may not name a window. A tab has none, so a window-typed field is a field that
+# is null in the other domain and every reader then skips or crashes with nothing written
+# down. The two adapter files are exempt by name; workspaces are not covered, because they
+# have no tab equivalent and are workspace-shaped by nature.
+add_test(NAME scan_model_window_types
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/model_window_types_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/model_win_check && ${CMAKE_CURRENT_BINARY_DIR}/model_win_check ${CMAKE_SOURCE_DIR}")
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll
