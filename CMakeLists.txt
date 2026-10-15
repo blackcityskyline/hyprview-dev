@@ -214,6 +214,14 @@ add_test(NAME trace_mask
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/trace_mask_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check && ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check")
 
+# The content-source contract, implemented twice. The point is that two unrelated
+# implementations can be written against it without either one's types leaking into the
+# other, and that the caller written once against the contract runs against both.
+
+add_test(NAME content_source
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/content_source_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/content_source_check && ${CMAKE_CURRENT_BINARY_DIR}/content_source_check")
+
 # Subject identity and the epoch rule. model/subject.hpp has no compositor in it.
 
 add_test(NAME subject
