@@ -19,6 +19,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <string>
 #include <utility>
@@ -38,6 +39,16 @@ using gloview::render::captionPillY;
 namespace {
 
 constexpr double kEps = 1e-9;
+
+int g_checks = 0;
+
+void want(bool got, bool expected, const char* what) {
+  ++g_checks;
+  if (got != expected) {
+    std::fprintf(stderr, "  %s: got %d, want %d\n", what, got, expected);
+    std::abort();
+  }
+}
 
 void near(double got, double want, const char* what) {
   if (std::fabs(got - want) >= kEps) {
@@ -363,6 +374,35 @@ int main() {
     sameRect(fitInside(outer, 0.0), outer, "a zero aspect");
     sameRect(fitInside(outer, -2.0), outer, "a negative aspect");
     std::puts("fitInside: matched, pillarboxed, letterboxed, tolerance, degenerate");
+  }
+
+  // firstHit: which of a row of boxes is under the cursor.
+  {
+    using gloview::render::firstHit;
+    const LRect row[] = {{0, 0, 100, 100}, {100, 0, 100, 100}, {200, 0, 100, 100}};
+
+    want(firstHit(50, 50, row, 3) == 0, true, "a point in the first box");
+    want(firstHit(150, 50, row, 3) == 1, true, "a point in the second");
+    want(firstHit(250, 50, row, 3) == 2, true, "a point in the third");
+
+    // A miss is -1, and it is asked for on every mouse move outside a tile, so it has to be
+    // an answer rather than a clamp onto the nearest card.
+    want(firstHit(50, 500, row, 3) == -1, true, "below the row");
+    want(firstHit(-5, 50, row, 3) == -1, true, "left of the row");
+    want(firstHit(400, 50, row, 3) == -1, true, "right of the row");
+    want(firstHit(50, 50, row, 0) == -1, true, "an empty row");
+
+    // Boundary: contains() is inclusive on both edges, so the seam between two boxes
+    // belongs to the first one. Either answer is defensible there; what is NOT defensible
+    // is a seam that belongs to neither.
+    want(firstHit(100, 50, row, 3) == 0, true, "the seam belongs to the earlier box");
+
+    // Overlapping boxes: first match in ORDER wins, which is the grid rule. The carousel's
+    // rule is the opposite and lives in its own loop -- a single helper doing both is how a
+    // click lands on the card behind the one you aimed at.
+    const LRect overlap[] = {{0, 0, 200, 200}, {0, 0, 50, 50}};
+    want(firstHit(10, 10, overlap, 2) == 0, true, "an overlap picks the earlier box");
+    std::puts("firstHit: hits, misses, seams, an empty row, and overlap order");
   }
 
   std::puts("render geometry ok");

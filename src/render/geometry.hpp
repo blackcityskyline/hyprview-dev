@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include <cmath>
 #include <string>
 
@@ -184,6 +185,23 @@ struct CaptionPills {
 // The 0.01 tolerance: a window whose goal is a fraction off the slot's own aspect gets the
 // slot rather than a sub-pixel letterbox, because a preview that is one pixel narrower than
 // its ring reads as a misaligned ring.
+// Which of a row of boxes is under the cursor, or -1.
+//
+// First match wins, in order. This is the GRID hit-test and it is deliberately NOT the
+// carousel's: carousel cards overlap and there the front-most must win, which is the
+// opposite rule, and one helper that secretly did both is how a click lands on the card
+// behind the card you aimed at.
+//
+// -1 for an empty row and for a miss. The caller asks "what is under the cursor" on every
+// mouse move, and "nothing" is a normal answer.
+[[nodiscard]] inline int firstHit(double lx, double ly, const LRect *boxes,
+                                   std::size_t n) {
+  for (std::size_t i = 0; i < n; ++i)
+    if (boxes[i].contains(lx, ly))
+      return static_cast<int>(i);
+  return -1;
+}
+
 [[nodiscard]] inline LRect fitInside(const LRect &outer, double aspect) {
   if (outer.w <= 0.0 || outer.h <= 0.0 || aspect <= 0.0)
     return outer;

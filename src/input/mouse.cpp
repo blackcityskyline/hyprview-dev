@@ -151,10 +151,18 @@ int Overview::tileAt(double lx, double ly) const {
     }
     return best;
   }
-  for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-    if (currentBox(m_scene.tiles()[i], static_cast<int>(i)).contains(lx, ly))
-      return static_cast<int>(i);
-  return -1;
+  // One frame for the whole scan, not one per tile: the boxes are what moves the answer,
+  // not the bindings.
+  const auto  m = m_monitor.lock();
+  const auto  f = clock::Placement::Frame{m_view, m_scene, opening(), m ? m->m_size.x : 0.0,
+                                   m ? m->m_size.y : 0.0, true};
+  std::vector<LRect> boxes;
+  boxes.reserve(m_scene.tiles().size());
+  for (std::size_t i = 0; i < m_scene.tiles().size(); ++i)
+    // The index is not decoration: box() staggers by it, so passing 0 for every tile would
+    // land them all on one card's timing.
+    boxes.push_back(m_place.box(m_scene.tiles()[i], static_cast<int>(i), f));
+  return render::firstHit(lx, ly, boxes.data(), boxes.size());
 }
 
 int Overview::stripItemAt(double lx, double ly) const {
