@@ -245,6 +245,13 @@ add_test(NAME tab_source
 add_test(NAME png_read
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/png_read_check.cpp ${CMAKE_SOURCE_DIR}/src/pixel/png_read.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/png_read_check ${CAIRO_FLAGS} && ${CMAKE_CURRENT_BINARY_DIR}/png_read_check")
 
+# The staleness rule of the subject cache. A tab id belongs to the connection that issued it,
+# so a picture made under an old connection must not answer under a new one -- the browser
+# is reusing those ids right now. Templated on the stored type so it can be checked without a
+# GPU or an ITexture (AGENTS.md 2.8).
+add_test(NAME subject_cache
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/subject_cache_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/subject_cache_check && ${CMAKE_CURRENT_BINARY_DIR}/subject_cache_check")
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll
