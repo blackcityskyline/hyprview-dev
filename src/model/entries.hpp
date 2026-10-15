@@ -1,5 +1,7 @@
 #pragma once
 
+#include "subject.hpp"
+
 #include <cstddef>
 #include <vector>
 
@@ -21,17 +23,6 @@ struct Entry {
     int tabId = -1;
 };
 
-// Which of the three the user asked for.
-enum class TileMode {
-    // One entry per window. What the plugin always did.
-    Windows,
-    // One entry per TAB, and a window with no tabs contributes nothing at all -- it is not
-    // shown as a window, because the point of this mode is that only tabs are shown.
-    Tabs,
-    // The window itself plus each of its tabs.
-    Both,
-};
-
 // What the extension has told us about one window's tabs.
 struct TabSet {
     // False when nothing has been reported for this window yet, which is NOT the same as
@@ -50,37 +41,18 @@ struct TabSet {
 //
 // A window we HAVE heard from, and which reported none, contributes nothing. That is the
 // mode working.
-[[nodiscard]] inline std::vector<Entry> entriesFor(const void *win, TileMode mode,
+[[nodiscard]] inline std::vector<Entry> entriesFor(const void *win, Domain mode,
                                                    const TabSet &tabs) {
     std::vector<Entry> out;
-    const bool window = mode != TileMode::Tabs || !tabs.known;
+    const bool window = showsWindows(mode) || !tabs.known;
     if (window)
       out.push_back(Entry{win, -1});
-    if (mode != TileMode::Windows) {
+    if (showsTabs(mode)) {
         out.reserve(out.size() + tabs.ids.size());
         for (const auto id : tabs.ids)
             out.push_back(Entry{win, id});
     }
     return out;
-}
-
-// A mode parsed from config. Anything unrecognised is Windows: the mode that was always
-// there, so a typo cannot turn the overview into something else.
-[[nodiscard]] inline TileMode parseTileMode(const std::string &s) {
-    if (s == "tabs")
-        return TileMode::Tabs;
-    if (s == "both")
-        return TileMode::Both;
-    return TileMode::Windows;
-}
-
-[[nodiscard]] inline const char *tileModeName(TileMode m) {
-    switch (m) {
-        case TileMode::Tabs:   return "tabs";
-        case TileMode::Both:   return "both";
-        case TileMode::Windows: break;
-    }
-    return "windows";
 }
 
 } // namespace gloview::model

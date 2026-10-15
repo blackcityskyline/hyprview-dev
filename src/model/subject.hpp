@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <string_view>
 
 namespace gloview::model {
 
@@ -60,6 +61,22 @@ enum class Domain : int {
 
 [[nodiscard]] constexpr bool showsTabs(Domain d) {
     return d != Domain::Windows;
+}
+
+// A mode parsed from config. Anything unrecognised is Windows -- the mode that was always
+// there, so a typo cannot quietly turn the overview into something else. This used to exist
+// as a second enum with the same three values and its own predicates, one file over; two
+// spellings of one question is how "which mode is this" gets answered two ways.
+[[nodiscard]] constexpr Domain parseDomain(std::string_view s) {
+    if (s == "tabs")
+        return Domain::Tabs;
+    if (s == "both")
+        return Domain::Both;
+    return Domain::Windows;
+}
+
+[[nodiscard]] constexpr const char *domainName(Domain d) {
+    return d == Domain::Tabs ? "tabs" : d == Domain::Both ? "both" : "windows";
 }
 
 } // namespace gloview::model

@@ -20,9 +20,10 @@
 
 using gloview::model::Entry;
 using gloview::model::TabSet;
-using gloview::model::TileMode;
+using gloview::model::Domain;
 using gloview::model::entriesFor;
-using gloview::model::parseTileMode;
+using gloview::model::domainName;
+using gloview::model::parseDomain;
 
 namespace {
 
@@ -58,13 +59,13 @@ bool allTabs(const std::vector<Entry> &e, const std::vector<int> &ids) {
 int main() {
   // --- windows mode: unchanged, whatever the extension says -----------------------------
   {
-    const auto none = entriesFor(kWin, TileMode::Windows, TabSet{false, {}});
+    const auto none = entriesFor(kWin, Domain::Windows, TabSet{false, {}});
     want(none.size() == 1 && none[0].tabId == -1, true, "windows, never heard from");
 
-    const auto some = entriesFor(kWin, TileMode::Windows, tabs({7, 8, 9}));
+    const auto some = entriesFor(kWin, Domain::Windows, tabs({7, 8, 9}));
     want(some.size() == 1 && some[0].tabId == -1, true, "windows, three tabs reported");
 
-    const auto zero = entriesFor(kWin, TileMode::Windows, tabs({}));
+    const auto zero = entriesFor(kWin, Domain::Windows, tabs({}));
     want(zero.size() == 1, true, "windows, reported none");
     std::puts("windows mode: one entry always, whatever the extension says");
   }
@@ -72,42 +73,42 @@ int main() {
   // --- tabs mode -------------------------------------------------------------------------
   {
     // The fallback: not heard from yet, so shown as a window rather than dropped.
-    const auto unknown = entriesFor(kWin, TileMode::Tabs, TabSet{false, {}});
+    const auto unknown = entriesFor(kWin, Domain::Tabs, TabSet{false, {}});
     want(unknown.size() == 1 && unknown[0].tabId == -1, true,
          "tabs, never heard from, falls back to the window");
     want(unknown[0].win == kWin, true, "and it is this window");
 
     // Heard from: the window itself is NOT shown, only its tabs.
-    want(allTabs(entriesFor(kWin, TileMode::Tabs, tabs({7, 8, 9})), {7, 8, 9}),
+    want(allTabs(entriesFor(kWin, Domain::Tabs, tabs({7, 8, 9})), {7, 8, 9}),
          true, "tabs, three reported");
 
     // Heard from with none: nothing. This is the case that must not fall back.
-    want(entriesFor(kWin, TileMode::Tabs, tabs({})).empty(), true,
+    want(entriesFor(kWin, Domain::Tabs, tabs({})).empty(), true,
          "tabs, reported none, contributes nothing");
 
     // Order is the extension's, and it is the extension's because that is the order the user
     // sees in their own browser bar.
-    want(allTabs(entriesFor(kWin, TileMode::Tabs, tabs({30, 10, 20})), {30, 10, 20}),
+    want(allTabs(entriesFor(kWin, Domain::Tabs, tabs({30, 10, 20})), {30, 10, 20}),
          true, "tabs keep the extension's order");
 
     // The other window is unaffected by this one's data.
-    const auto other = entriesFor(kOther, TileMode::Tabs, tabs({}));
+    const auto other = entriesFor(kOther, Domain::Tabs, tabs({}));
     want(other.empty(), true, "a second window with no tabs also contributes nothing");
     std::puts("tabs mode: falls back when unheard from, tab-only when heard from");
   }
 
   // --- both -------------------------------------------------------------------------------
   {
-    const auto b = entriesFor(kWin, TileMode::Both, tabs({7, 8}));
+    const auto b = entriesFor(kWin, Domain::Both, tabs({7, 8}));
     want(b.size() == 3, true, "both: the window and its two tabs");
     want(b[0].tabId == -1, true, "and the window comes first");
     want(b[1].tabId == 7 && b[2].tabId == 8, true, "then the tabs in order");
 
-    const auto bUnknown = entriesFor(kWin, TileMode::Both, TabSet{false, {}});
+    const auto bUnknown = entriesFor(kWin, Domain::Both, TabSet{false, {}});
     want(bUnknown.size() == 1, true, "both, unheard from, is just the window");
     want(bUnknown[0].tabId == -1, true, "as a window");
 
-    const auto bZero = entriesFor(kWin, TileMode::Both, tabs({}));
+    const auto bZero = entriesFor(kWin, Domain::Both, tabs({}));
     want(bZero.size() == 1 && bZero[0].tabId == -1, true,
          "both, reported none, is still the window");
     std::puts("both mode: the window, then its tabs");
@@ -115,24 +116,42 @@ int main() {
 
   // --- the parse: a typo must not change what the overview is ------------------------------
   {
-    want(parseTileMode("windows") == TileMode::Windows, true, "windows");
-    want(parseTileMode("tabs") == TileMode::Tabs, true, "tabs");
-    want(parseTileMode("both") == TileMode::Both, true, "both");
-    want(parseTileMode("") == TileMode::Windows, true, "empty is windows");
-    want(parseTileMode("Windows") == TileMode::Windows, true, "case differs");
+    want(parseDomain("windows") == Domain::Windows, true, "windows");
+    want(parseDomain("tabs") == Domain::Tabs, true, "tabs");
+    want(parseDomain("both") == Domain::Both, true, "both");
+    want(parseDomain("") == Domain::Windows, true, "empty is windows");
+    want(parseDomain("Windows") == Domain::Windows, true, "case differs");
     // The load-bearing one: a misspelling must not land on tabs, which would silently
     // change what every window contributes.
-    want(parseTileMode("tab") == TileMode::Windows, true, "a typo is windows, not tabs");
-    want(parseTileMode("tabss") == TileMode::Windows, true, "and another");
-    want(parseTileMode("t") == TileMode::Windows, true, "and a prefix");
+    want(parseDomain("tab") == Domain::Windows, true, "a typo is windows, not tabs");
+    want(parseDomain("tabss") == Domain::Windows, true, "and another");
+    want(parseDomain("t") == Domain::Windows, true, "and a prefix");
     std::puts("parse: unknown names are windows, never tabs");
+  }
+
+  // --- the name and the parse are one vocabulary, or the trace lies --------------------------
+  // domainName() is what gets written into ANIM| and SWAP|, and parseDomain() is what reads
+  // it back out of a config. If the two ever drift -- "tab" written, "tabs" read -- then a
+  // mode written into a trace would not survive a round trip through the only place it can
+  // be restored, and the record would name a mode that cannot be selected.
+  {
+    for (const auto d : {Domain::Windows, Domain::Tabs, Domain::Both})
+      want(parseDomain(domainName(d)) == d, true,
+           "a mode must survive being written and read back");
+    // And the three names must stay distinct, which a copy-paste into domainName() would
+    // not be caught by if only one direction were checked.
+    want(domainName(Domain::Windows) != domainName(Domain::Tabs) &&
+             domainName(Domain::Tabs) != domainName(Domain::Both) &&
+             domainName(Domain::Windows) != domainName(Domain::Both),
+         true, "the three modes have three different names");
+    std::puts("names round-trip through the parser");
   }
 
   // --- tab id 0 is a tab, not a missing one ---------------------------------------------------
   {
     // ids[0] == 0 is a real tab id. If 0 were treated as "absent" the first tab of every
     // window would silently become the window itself.
-    const auto e = entriesFor(kWin, TileMode::Tabs, tabs({0}));
+    const auto e = entriesFor(kWin, Domain::Tabs, tabs({0}));
     want(e.size() == 1, true, "tab id 0 produces one entry");
     want(e[0].tabId == 0, true, "and it is the tab, not the window");
     std::puts("tab id 0 is a tab, not a missing id");
