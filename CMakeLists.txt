@@ -36,6 +36,7 @@ add_library(gloview SHARED
   src/actions/actions.cpp
   src/layout.cpp
   src/model/recency.cpp
+  src/model/window_source.cpp
   src/cursor.cpp
   src/blur.cpp
   src/pixel/cache.cpp
