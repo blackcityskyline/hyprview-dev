@@ -227,6 +227,12 @@ add_test(NAME tab_feed
 add_test(NAME tab_match
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_match_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_match_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_match_check")
 
+# The second IContentSource implementation, built only out of the interface: no Hyprland type,
+# no window, no workspace. That is what makes `virtual` on the interface mean something, and it
+# is why this compiles under ctest without a compositor.
+add_test(NAME tab_source
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_source_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_source_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_source_check")
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll
