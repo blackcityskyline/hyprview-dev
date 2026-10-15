@@ -601,10 +601,7 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
 }
 
 bool Overview::swapfxActive(const PHLWINDOW &w, bool strip) const {
-  for (const auto &l : m_fx.swapfx())
-    if (l.win.lock() == w && l.toStrip == strip)
-      return true;
-  return false;
+  return m_fx.swapActive(w, strip);
 }
 
 // One surface's landing. `strip` says which one, and it picks the style key: a grid card

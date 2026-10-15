@@ -20,6 +20,23 @@ class Effects {
       return m_pulses;
     }
     [[nodiscard]] const std::vector<SwapFX> &swapfx() const { return m_swapfx; }
+
+    // Is this window flying on THIS surface? The grid asks false, the strip true, and each
+    // one only stands down for its own flight -- a shared predicate made the strip's
+    // thumbnail disappear while the card flew.
+    [[nodiscard]] bool swapActive(const PHLWINDOW &w, bool strip) const {
+      for (const auto &l : m_swapfx)
+        if (l.win.lock() == w && l.toStrip == strip)
+          return true;
+      return false;
+    }
+
+    // A pulse for this window, replacing any it already has. Pulses accrue per FRAME, so
+    // re-kicking one in flight restarts it rather than stacking a second ring on top.
+    void kickPulse(const PHLWINDOW &w) {
+      dropPulse([&w](const WinPulse &p) { return p.w.lock() == w; });
+      addPulse(model::WinPulse{w, 0.0, std::chrono::steady_clock::now()});
+    }
     [[nodiscard]] const std::vector<PHLWORKSPACEREF> &newWorkspaces() const {
       return m_newWorkspaces;
     }

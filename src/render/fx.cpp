@@ -188,8 +188,7 @@ void Overview::renderKillZone() const {
 void Overview::kickPulse(const PHLWINDOW &w) {
   if (!w || !anim::cfg(anim::Id::Pulse).on)
     return;
-  m_fx.dropPulse([&w](const model::WinPulse &p) { return p.w.lock() == w; });
-  m_fx.addPulse(model::WinPulse{w, 0.0, std::chrono::steady_clock::now()});
+  m_fx.kickPulse(w);
 }
 
 void Overview::renderPulses(bool strip) const {
