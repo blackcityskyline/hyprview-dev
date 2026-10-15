@@ -327,11 +327,9 @@ Vector2D Overview::stripScroll() const {
 LRect Overview::stripCardAt(size_t i) const {
   if (i >= m_strip.size())
     return LRect{0, 0, 0, 0};
-  const LRect &c = m_strip[i].card;
   const Vector2D scroll = stripScroll();
-  const Vector2D slide =
-      stripOffset(eased()); // draw and hit-test must share this slide
-  return LRect{c.x + slide.x + scroll.x, c.y + slide.y + scroll.y, c.w, c.h};
+  const Vector2D slide = stripOffset(eased());
+  return render::cardAt(m_strip[i].card, {slide.x, slide.y}, {scroll.x, scroll.y});
 }
 
 // `card` is already scroll/slide-adjusted.
@@ -339,9 +337,7 @@ LRect Overview::stripWinSlotRect(const model::StripItem &it, const LRect &card,
                                  size_t j) const {
   if (j >= it.wins.size())
     return LRect{0, 0, 0, 0};
-  const auto &rel = it.wins[j].rel;
-  return LRect{card.x + rel.x * card.w, card.y + rel.y * card.h,
-               std::max(2.0, rel.w * card.w), std::max(2.0, rel.h * card.h)};
+  return render::winSlotRect(it.wins[j].rel, card);
 }
 
 void Overview::layoutTiles() {

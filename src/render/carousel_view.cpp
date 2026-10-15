@@ -28,10 +28,6 @@ double depthTaper() { return cfg::carousel.depth_taper; }
 
 } // namespace
 
-bool Overview::carouselMode() const {
-  return m_view.run();
-}
-
 // A selection move is a relayout + glide, detected once: renderStage vs m_view.carouselFor().
 void Overview::relayoutCarousel() {
   if (!carouselMode() || m_scene.tiles().empty())

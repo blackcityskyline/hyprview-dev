@@ -175,8 +175,28 @@ struct CaptionPills {
     const double hi = screenW - size - inset;
     return hi < inset ? screenW * 0.5 : std::clamp(x, inset, hi);
 }
-// The close glyph sits in one corner of a card, at a size that tracks the card but stays
-// clickable on a small one.
+// A strip card's on-screen box: its laid-out box plus the band's slide and the card
+// group's scroll.
+//
+// Draw and hit-test MUST agree on this to the pixel -- a card that is drawn where it is
+// not clickable reads as a dead area, and the error is exactly the slide, which is
+// animated. That is why it is one function with three inputs rather than three places
+// that add two of them.
+[[nodiscard]] inline LRect cardAt(const LRect& card, LVec2 slide, LVec2 scroll) {
+    return LRect{card.x + slide.x + scroll.x, card.y + slide.y + scroll.y, card.w,
+                 card.h};
+}
+
+// Where one window's thumbnail sits inside a card, from a card-relative rectangle.
+//
+// `rel` is stored relative so the card can be sized from the strip's settings and the
+// thumbnails follow. The 2px floor is on both axes: a thumbnail of zero width is
+// invisible, so a window on a tall thin strip would get a clickable sliver it does not
+// have.
+[[nodiscard]] inline LRect winSlotRect(const LRect& rel, const LRect& card) {
+    return LRect{card.x + rel.x * card.w, card.y + rel.y * card.h,
+                 std::max(2.0, rel.w * card.w), std::max(2.0, rel.h * card.h)};
+}
 [[nodiscard]] inline LRect closeButtonRect(const LRect& card, double sizeScale, Corner corner) {
     const double scale = std::max(0.3, sizeScale);
     const double r     = std::clamp(std::min(card.w, card.h) * 0.11, 9.0, 18.0) * scale;

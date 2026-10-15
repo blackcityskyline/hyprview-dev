@@ -321,6 +321,40 @@ int main() {
     std::puts("strip slide: off the anchored edge, scaled by thickness and slide_frac");
   }
 
+  
+  // The two boxes the strip draws and the hit-test must agree on to the pixel.
+  {
+    using gloview::render::cardAt;
+    using gloview::render::winSlotRect;
+
+    // Slide and scroll add, and they are independent: the band slides vertically while the
+    // card group scrolls horizontally, and neither may fold into the other.
+    const auto card = LRect{100, 40, 167, 94};
+    sameRect(cardAt(card, {0, 0}, {0, 0}), card, "no slide, no scroll is the laid-out box");
+    sameRect(cardAt(card, {0, -30}, {0, 0}), LRect{100, 10, 167, 94}, "slide alone");
+    sameRect(cardAt(card, {0, 0}, {-64, 0}), LRect{36, 40, 167, 94}, "scroll alone");
+    sameRect(cardAt(card, {0, -30}, {-64, 0}), LRect{36, 10, 167, 94}, "both");
+    // The size never changes. A card that resized with the scroll would make the scroll
+    // read as a zoom.
+    const auto moved = cardAt(card, {5, 5}, {-64, 12});
+    near(moved.w, 167.0, "slide does not change width");
+    near(moved.h, 94.0, "slide does not change height");
+    std::puts("cardAt: slide and scroll add, size is fixed");
+
+    // A thumbnail is stored card-relative, so it follows the card's size.
+    sameRect(winSlotRect(LRect{0.5, 0.0, 0.5, 0.25}, card),
+             LRect{183.5, 40, 83.5, 23.5}, "a relative box scales onto the card");
+    sameRect(winSlotRect(LRect{0, 0, 1, 1}, card), card, "rel of 1,1 is the card itself");
+    // The 2px floor on both axes: a window on a tall thin strip otherwise gets an
+    // invisible sliver it cannot be clicked on. Above the floor it scales normally.
+    const auto floored = winSlotRect(LRect{0, 0, 0.001, 0.001}, card);
+    near(floored.w, 2.0, "width floor");
+    near(floored.h, 2.0, "height floor");
+    near(floored.x, 100.0, "floor does not move the origin");
+    near(winSlotRect(LRect{0, 0, 0.4, 0.4}, card).w, 66.8, "above the floor it scales");
+    std::puts("winSlotRect: card-relative scaling with a 2px floor on both axes");
+  }
+
   std::puts("render geometry ok");
   return 0;
 }

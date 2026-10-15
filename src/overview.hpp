@@ -90,7 +90,10 @@ public:
   void renderPulses(bool strip) const;
   void renderTiles() const;
   void renderCarousel() const;
-  bool carouselMode() const;
+  // Not defined in carousel_view.cpp: fourteen files ask this and only clocks, build,
+  // lifecycle, mouse and keys have any business knowing where the carousel draws. It is a
+  // read of the run's mode and nothing else, so it lives with the mode.
+  [[nodiscard]] bool carouselMode() const { return m_view.run(); }
   void relayoutCarousel();
   void renderGhosts() const;
   void renderDragTile() const;
