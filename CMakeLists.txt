@@ -214,6 +214,12 @@ add_test(NAME trace_mask
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/trace_mask_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check && ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check")
 
+# Subject identity and the epoch rule. model/subject.hpp has no compositor in it.
+
+add_test(NAME subject
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/subject_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/subject_check && ${CMAKE_CURRENT_BINARY_DIR}/subject_check")
+
 # What one window contributes: one entry, or one per tab. model/entries.hpp has no
 # compositor in it, which is what makes the three modes checkable here.
 
