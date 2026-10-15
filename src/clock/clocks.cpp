@@ -97,7 +97,10 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
 }
 
 void Overview::updateAnimation() {
-  m_place.recipes.resolve(glideLeaf(), entryLeaf(), ghostLeaf());
+  // Placement::resolve, NOT recipes.resolve: this is also where the frame's eased()
+  // and master duration are computed. Calling the recipe resolver here leaves them
+  // at zero for the whole frame -- an overlay that draws everything at alpha 0.
+  m_place.resolve(m_view, opening(), carouselMode());
 
   const double dur = animDuration();
   // stall guard: rewind every clock past a render hole

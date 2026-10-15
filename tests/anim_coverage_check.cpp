@@ -139,6 +139,36 @@ int main(int argc, char **argv) {
               "exemption list WITH a reason -- an unexplained exemption fails.");
     return 1;
   }
+  // The frame's derived values are computed by Placement::resolve, not by the recipe
+  // resolver it happens to call. Getting this wrong compiles, passes every test here, and
+  // paints the whole overlay at alpha zero: no exit animation, no strip, no caption pills,
+  // no cursor -- and nothing crashes, so the harness reports green throughout.
+  //
+  // It happened. Placement::resolve recomputes eased() and the master duration every frame
+  // from the recipes; m_place.recipes.resolve() only fills the recipes, so those two stayed
+  // at their initial 0.0 for as long as the plugin was loaded.
+  {
+    const auto clocksText = slurp((root + "/src/clock/clocks.cpp").c_str());
+    // Which of the two updateAnimation() reaches for.
+    std::size_t pos = clocksText.find("void Overview::updateAnimation() {");
+    assert(pos != std::string::npos && "updateAnimation moved");
+    const auto end = clocksText.find("\n}\n", pos);
+    const auto body = clocksText.substr(pos, end - pos);
+    if (body.find("m_place.resolve(") == std::string::npos) {
+      std::puts("FAIL updateAnimation does not call Placement::resolve -- the frame's "
+                "eased() and master duration are computed there");
+      std::puts("  m_place.recipes.resolve() fills the recipes only; both values stay 0 and "
+                "the overlay paints at alpha 0");
+      std::exit(1);
+    }
+    if (body.find("m_place.recipes.resolve(") != std::string::npos) {
+      std::puts("FAIL updateAnimation resolves the recipes directly -- that skips the "
+                "per-frame eased() and master duration");
+      std::exit(1);
+    }
+    std::puts("updateAnimation resolves the frame through Placement");
+  }
+
   std::puts("OK");
   return 0;
 }
