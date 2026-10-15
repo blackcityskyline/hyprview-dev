@@ -19,7 +19,7 @@
 #include "../src/model/entries.hpp"
 
 using gloview::model::Entry;
-using gloview::model::TabSet;
+using gloview::model::ReportedTabs;
 using gloview::model::Domain;
 using gloview::model::entriesFor;
 using gloview::model::domainName;
@@ -40,8 +40,12 @@ void want(bool got, bool expected, const char *what) {
   }
 }
 
-TabSet tabs(std::vector<int> ids) {
-  return TabSet{true, std::move(ids)};
+ReportedTabs tabs(std::vector<int> ids) {
+  ReportedTabs t;
+  t.known = true;
+  for (const auto id : ids)
+    t.tabs.push_back({id, {}});
+  return t;
 }
 
 // All entries are TABS of this window, and there are exactly the ids given, in order.
@@ -59,7 +63,7 @@ bool allTabs(const std::vector<Entry> &e, const std::vector<int> &ids) {
 int main() {
   // --- windows mode: unchanged, whatever the extension says -----------------------------
   {
-    const auto none = entriesFor(kWin, Domain::Windows, TabSet{false, {}});
+    const auto none = entriesFor(kWin, Domain::Windows, ReportedTabs{});
     want(none.size() == 1 && none[0].tabId == -1, true, "windows, never heard from");
 
     const auto some = entriesFor(kWin, Domain::Windows, tabs({7, 8, 9}));
@@ -73,7 +77,7 @@ int main() {
   // --- tabs mode -------------------------------------------------------------------------
   {
     // The fallback: not heard from yet, so shown as a window rather than dropped.
-    const auto unknown = entriesFor(kWin, Domain::Tabs, TabSet{false, {}});
+    const auto unknown = entriesFor(kWin, Domain::Tabs, ReportedTabs{});
     want(unknown.size() == 1 && unknown[0].tabId == -1, true,
          "tabs, never heard from, falls back to the window");
     want(unknown[0].win == kWin, true, "and it is this window");
@@ -104,7 +108,7 @@ int main() {
     want(b[0].tabId == -1, true, "and the window comes first");
     want(b[1].tabId == 7 && b[2].tabId == 8, true, "then the tabs in order");
 
-    const auto bUnknown = entriesFor(kWin, Domain::Both, TabSet{false, {}});
+    const auto bUnknown = entriesFor(kWin, Domain::Both, ReportedTabs{});
     want(bUnknown.size() == 1, true, "both, unheard from, is just the window");
     want(bUnknown[0].tabId == -1, true, "as a window");
 

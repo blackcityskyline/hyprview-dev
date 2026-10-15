@@ -1,6 +1,7 @@
 #pragma once
 
 #include "subject.hpp"
+#include "tab_feed.hpp"
 
 #include <cstddef>
 #include <vector>
@@ -18,18 +19,14 @@ namespace gloview::model {
 // index; deciding whether a window belongs on the run at all is somebody else's question,
 // and keeping Hyprland out of this header is what lets the rule below be checked without a
 // compositor.
+//
+// `tabId == -1` means the window itself. It was once its own struct, TabSet, and it was a
+// duplicate: same `known`, same list of ids, one place carrying the titles and the other
+// throwing them away. Two spellings of one shape is how "which tabs does this window have"
+// gets answered twice and the answers drift.
 struct Entry {
     const void *win;
     int tabId = -1;
-};
-
-// What the extension has told us about one window's tabs.
-struct TabSet {
-    // False when nothing has been reported for this window yet, which is NOT the same as
-    // "it has no tabs" and has to stay distinguishable: a window whose data has not arrived
-    // must not vanish from the overview.
-    bool known = false;
-    std::vector<int> ids; // tab ids, in the extension's order
 };
 
 // The entries one window contributes.
@@ -42,15 +39,15 @@ struct TabSet {
 // A window we HAVE heard from, and which reported none, contributes nothing. That is the
 // mode working.
 [[nodiscard]] inline std::vector<Entry> entriesFor(const void *win, Domain mode,
-                                                   const TabSet &tabs) {
+                                                   const ReportedTabs &tabs) {
     std::vector<Entry> out;
     const bool window = showsWindows(mode) || !tabs.known;
     if (window)
       out.push_back(Entry{win, -1});
     if (showsTabs(mode)) {
-        out.reserve(out.size() + tabs.ids.size());
-        for (const auto id : tabs.ids)
-            out.push_back(Entry{win, id});
+        out.reserve(out.size() + tabs.tabs.size());
+        for (const auto &[id, info] : tabs.tabs)
+            out.push_back(Entry{win, static_cast<int>(id)});
     }
     return out;
 }

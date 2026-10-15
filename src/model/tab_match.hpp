@@ -21,8 +21,10 @@
 //     the user cannot detect by looking.
 //
 // Unmatched is a supported outcome, not a failure: the window then contributes nothing in
-// Tabs mode, exactly as a window nobody has heard from does (see TabSet::known). The whole
+// Tabs mode, exactly as a window nobody has heard from does (see ReportedTabs::known). The whole
 // point of that mode's fallback is that the ambiguous case degrades into the ordinary one.
+
+#include "tab_feed.hpp"
 
 #include <cstdint>
 #include <string>
@@ -87,5 +89,52 @@ struct HostWindow {
     }
     return out;
 }
+
+// The match, kept. A map from a compositor window to the browser window whose tabs it shows.
+//
+// This is a type rather than a bare map because it has a lifetime: it is built when a run
+// opens and dropped when it ends, and "dropped" is the part that has to be right. Holding
+// it for the life of the plugin would mean a title that matched during one run still
+// deciding which browser a window belongs to during the next -- and titles are what the
+// match is made of.
+//
+// Both directions, because both get asked and answering one by scanning for the other is a
+// second place that could disagree with the first.
+class BrowserLinks {
+  public:
+    void rebuild(const std::vector<HostWindow> &hosts,
+                 const std::unordered_map<std::uint64_t, std::string> &activeTitles) {
+      // Replaced, never accumulated: the next run must not inherit the last run's answers.
+      m_byHost.clear();
+      m_byBrowser.clear();
+      for (const auto &[browserWindow, host] :
+           matchBrowserWindows(hosts, activeTitles)) {
+        m_byHost.emplace(hosts[host].id, browserWindow);
+        m_byBrowser.emplace(browserWindow, hosts[host].id);
+      }
+    }
+
+    // The browser window whose tabs this one carries, or 0 -- which is never a browser window
+    // id, so "none" needs no separate spelling and no optional.
+    [[nodiscard]] std::uint64_t browserOf(std::uint64_t host) const {
+      const auto it = m_byHost.find(host);
+      return it == m_byHost.end() ? 0 : it->second;
+    }
+
+    [[nodiscard]] std::uint64_t hostOf(std::uint64_t browserWindow) const {
+      const auto it = m_byBrowser.find(browserWindow);
+      return it == m_byBrowser.end() ? 0 : it->second;
+    }
+
+    [[nodiscard]] bool empty() const { return m_byHost.empty(); }
+    void clear() {
+      m_byHost.clear();
+      m_byBrowser.clear();
+    }
+
+  private:
+    std::unordered_map<std::uint64_t, std::uint64_t> m_byHost;
+    std::unordered_map<std::uint64_t, std::uint64_t> m_byBrowser;
+};
 
 } // namespace gloview::model

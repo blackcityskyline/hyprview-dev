@@ -12,6 +12,7 @@
 
 #include "../src/model/tab_match.hpp"
 
+using gloview::model::BrowserLinks;
 using gloview::model::HostWindow;
 using gloview::model::matchBrowserWindows;
 
@@ -95,6 +96,32 @@ int main() {
     want(matchBrowserWindows(hosts, {}).empty(), true, "nothing reported, nothing matched");
     want(matchBrowserWindows({}, titles({{7, "kitty"}})).empty(), true,
          "no hosts, no matches");
+  }
+
+  // --- the match, kept ----------------------------------------------------------------------------
+  // Its own type because it has a lifetime: built when a run opens, dropped when it ends.
+  // Holding it for the life of the plugin would let a title that matched during one run keep
+  // deciding which browser a window belongs to during the next, and titles are what the match
+  // is made of.
+  {
+    BrowserLinks links;
+    links.rebuild(hosts, titles({{7, "Inbox — mail"}, {8, "kitty"}}));
+    want(links.browserOf(100) == 7, true, "host to browser");
+    want(links.browserOf(101) == 8, true, "and again");
+    want(links.browserOf(102) == 0, true, "an unmatched host answers 0, not a stale match");
+    want(links.hostOf(7) == 100, true, "browser to host, the other direction");
+    want(links.hostOf(8) == 101, true, "and again");
+    want(links.hostOf(9) == 0, true, "an unmatched browser answers 0");
+    // A rebuild REPLACES. This is the point of holding it at all: the next run must not
+    // inherit the last one's answers.
+    links.rebuild(hosts, titles({{9, "kitty"}}));
+    want(links.browserOf(100) == 0, true, "the previous run's match is gone");
+    want(links.browserOf(101) == 9, true, "and the new one took its place");
+    want(links.browserOf(102) == 0, true, "nothing carried over");
+    links.clear();
+    want(links.empty(), true, "and clearing empties it");
+    want(links.browserOf(101) == 0, true, "with no answer left behind");
+    std::puts("links: both directions, and a rebuild replaces");
   }
 
   if (failures) {
