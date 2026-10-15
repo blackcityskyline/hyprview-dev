@@ -23,12 +23,21 @@ class Placement {
   public:
     // The run's overall fade, on the master clock's own curve. Read LIVE, so a config edit
     // mid-fade retimes the rest of the ramp.
-    [[nodiscard]] double eased(const view::State &view, bool opening) const;
+    // The run's overall fade, on the master clock's own curve. Read LIVE, so a config edit
+    // mid-fade retimes the rest of the ramp.
+    //
+    // Resolved once per frame by resolve(), not per call. Six files ask for eased() and two
+    // for masterDuration(), and both are the same curve lookup plus the same master leaf --
+    // evaluating that twenty times a frame across the paint is work for one answer. A
+    // config edit still applies on the next frame, which is the same thing the live read
+    // bought.
+    [[nodiscard]] double eased() const { return m_eased; }
+    [[nodiscard]] double masterDuration() const { return m_masterMs; }
 
     // How far the close has run, 0 -> 1.
     [[nodiscard]] double exit(bool opening) const { return progress.exit(opening); }
 
-    [[nodiscard]] double masterDuration(const view::State &view, bool opening) const;
+
 
     // Which behavior the master clock is currently playing. Three leaves, because the run
     // can be open, jumping out, or closing, and each has its own row.
@@ -80,6 +89,8 @@ class Placement {
   // that moves reads and writes them directly. Getters would mean a writer going through a
   // reference-returning method, which is a way of saying "this class has no state" while it
   // plainly does.
+  double m_eased = 0.0;
+  double m_masterMs = 0.0;
   Clocks clocks;
   Progress progress;
   anim::Recipes recipes;

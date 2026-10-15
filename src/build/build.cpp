@@ -329,7 +329,7 @@ LRect Overview::stripCardAt(size_t i) const {
     return LRect{0, 0, 0, 0};
   const Vector2D scroll = stripScroll();
   const Vector2D slide = stripOffset(eased());
-  return render::cardAt(m_strip[i].card, {slide.x, slide.y}, {scroll.x, scroll.y});
+  return m_strip.cardAt(i, {slide.x, slide.y}, {scroll.x, scroll.y});
 }
 
 // `card` is already scroll/slide-adjusted.

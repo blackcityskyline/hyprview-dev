@@ -214,6 +214,13 @@ add_test(NAME trace_mask
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/trace_mask_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check && ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check")
 
+# Strip::cardAt. model/strip.hpp needs no compositor, so the strip's own geometry is
+# checkable on its own.
+
+add_test(NAME strip
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/strip_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/strip_check && ${CMAKE_CURRENT_BINARY_DIR}/strip_check")
+
 # The run's open/close position. progress.hpp is header-only and Hyprland-free.
 
 add_test(NAME progress

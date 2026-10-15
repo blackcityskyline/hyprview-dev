@@ -43,6 +43,20 @@ class Strip {
       return m_items[i];
     }
 
+    // Card i's on-screen box: its laid-out box plus the band's slide and the group's
+    // scroll. Out of range is an empty box rather than a throw -- callers are hit-testing
+    // against a moving strip, and "no card there" is an answer they ask for.
+    //
+    // It lives here because the card's box is the strip's, not the builder's: eleven files
+    // ask for it, and the two numbers that displace it (slide, scroll) are the only things
+    // it needs from the run.
+    [[nodiscard]] LRect cardAt(std::size_t i, LVec2 slide, LVec2 scroll) const {
+      if (i >= m_items.size())
+        return LRect{0, 0, 0, 0};
+      const auto &c = m_items[i].card;
+      return LRect{c.x + slide.x + scroll.x, c.y + slide.y + scroll.y, c.w, c.h};
+    }
+
     // buildStrip() hoists the special cards to the front by moving them out wholesale.
     // Swapping an empty vector in and the leftovers out is the cheapest way to do that
     // without a second container being reallocated every frame.

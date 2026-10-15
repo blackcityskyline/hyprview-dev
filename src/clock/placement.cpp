@@ -51,13 +51,7 @@ anim::Id Placement::masterId(const view::State &view, bool opening) const {
   return anim::Id::Close;
 }
 
-double Placement::eased(const view::State &view, bool opening) const {
-  return curves::eval(anim::cfg(masterId(view, opening)).curve, progress.raw());
-}
 
-double Placement::masterDuration(const view::State &view, bool opening) const {
-  return anim::cfg(masterId(view, opening)).ms;
-}
 
 double Placement::tileProgress(int i, const view::State &view, bool opening,
                                const model::Scene &scene) const {
@@ -90,7 +84,7 @@ double Placement::entryFade(const model::Tile &t, int i, const Frame &f) const {
   // committing: fading a window that is about to become real reads as a double image
   // (AGENTS.md), so every tile that does go home stays at full alpha and flies.
   if (!f.opening && anim::tileExit(f.goesHome) == anim::TileExit::InPlace)
-    return eased(f.view, f.opening);
+    return m_eased;
   // A fade is alpha only, and it fades whenever the tile is playing its entry.
   if (t.landed >= 1.0 || recipes.enterStyle.travel != anim::Travel::Fade)
     return 1.0;
@@ -143,6 +137,9 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
 
 void Placement::resolve(const view::State &view, bool opening, bool carousel) {
   recipes.resolve(glideLeaf(view, opening, carousel), entryLeaf(view), ghostLeaf(view));
+  const auto id = masterId(view, opening);
+  m_masterMs = anim::cfg(id).ms;
+  m_eased    = curves::eval(anim::cfg(id).curve, progress.raw());
 }
 
 } // namespace gloview::clock

@@ -39,26 +39,10 @@ anim::Id Overview::glideLeaf() const {
   return carouselMode() ? anim::Id::CarouselStep : anim::Id::Glide;
 }
 
-// The master leaf is decided once, by masterLeaf(), and read by both the curve lookup
-// below and animDuration() -- they were separate expressions of the same question and
-// nothing checked that they agreed.
-anim::Id Overview::masterId() const {
-  switch (anim::masterLeaf(m_view.jumpMode(), opening())) {
-    case anim::MasterLeaf::Open:    return anim::Id::Open;
-    case anim::MasterLeaf::JumpOut: return anim::Id::JumpOut;
-    case anim::MasterLeaf::Close:   break;
-  }
-  return anim::Id::Close;
-}
-
 // How far the close has run, 0 -> 1. m_place.progress.raw() runs DOWN on a close (1 open -> 0 closed);
 // read forwards it looks exactly like no animation. Every exit fraction reads it here so
 // the shrink, the fade and the clock cannot disagree about where the close is.
 double Overview::exitT() const { return m_place.progress.exit(opening()); }
-
-double Overview::eased() const {
-  return curves::eval(anim::cfg(masterId()).curve, m_place.progress.raw());
-}
 
 // WINDOWED exit: hold the backdrop until our own tiles are done AND Hyprland has spent the
 // forced full frames close() asked for -- those are the frames it rebuilds its blur in.
@@ -85,7 +69,9 @@ double Overview::blurAlpha() const {
   return std::clamp(eased(), 0.0, 1.0);
 }
 
-double Overview::animDuration() const { return anim::cfg(masterId()).ms; }
+double Overview::eased() const { return m_place.eased(); }
+
+double Overview::animDuration() const { return m_place.masterDuration(); }
 
 // CLOSE rides m_place.progress.raw() DOWN: tiles then match the collapsing chrome.
 // Read m_place.clocks.tileMs, not m_place.recipes.glide.ms: a glideLeaf() flip jumps progress.
