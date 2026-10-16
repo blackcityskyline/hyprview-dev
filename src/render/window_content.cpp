@@ -5,10 +5,12 @@
 #include <chrono>
 #include <cmath>
 
+#include <hyprland/src/config/ConfigValue.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/WLSurface.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/helpers/time/Time.hpp>
+#include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
@@ -23,6 +25,47 @@
 using Render::GL::g_pHyprOpenGL;
 
 namespace gloview {
+
+namespace {
+
+// Real opacity: active/inactive rule x FULLSCREEN/LAYOUT fade; workspace-switch and FADE
+// alphas excluded — they compound with the caller's fade.
+float windowRealAlpha(const PHLWINDOW &w, const PHLMONITOR &mon) {
+  if (!w)
+    return 1.0F;
+  float active = 1.0F;
+  if (w->m_ruleApplicator) {
+    static auto PACTIVEALPHA =
+        CConfigValue<Config::FLOAT>("decoration:active_opacity");
+    static auto PINACTIVEALPHA =
+        CConfigValue<Config::FLOAT>("decoration:inactive_opacity");
+    static auto PFULLSCREENALPHA =
+        CConfigValue<Config::FLOAT>("decoration:fullscreen_opacity");
+    if (Fullscreen::controller()->isFullscreen(w,
+                                               Fullscreen::FSMODE_FULLSCREEN)) {
+      active =
+          w->m_ruleApplicator->alphaFullscreen().valueOrDefault().applyAlpha(
+              *PFULLSCREENALPHA);
+    } else {
+      const bool reallyFocused = mon &&
+                                 w->m_workspace == mon->m_activeWorkspace &&
+                                 w == Desktop::focusState()->window();
+      active = reallyFocused
+                   ? w->m_ruleApplicator->alpha().valueOrDefault().applyAlpha(
+                         *PACTIVEALPHA)
+                   : w->m_ruleApplicator->alphaInactive()
+                         .valueOrDefault()
+                         .applyAlpha(*PINACTIVEALPHA);
+    }
+    if (w->m_ruleApplicator->opaque().valueOrDefault())
+      active = 1.0F;
+  }
+  const float fade = w->alphaValue(Desktop::View::WINDOW_ALPHA_FULLSCREEN) *
+                     w->alphaValue(Desktop::View::WINDOW_ALPHA_LAYOUT);
+  return std::clamp(active * fade, 0.0F, 1.0F);
+}
+
+} // namespace
 
 // roundPx is the corner radius the CONTENT carries, in monitor px; matching it to
 // the ring is the caller's job. destPx must carry the window's own aspect.
@@ -86,9 +129,14 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   data.h        = std::max(size.y, 5.0);
   data.surface  = w->wlSurface()->resource();
   data.dontRound      = false;
-  // Opaque: a preview shows the window, not the desktop's own opacity rules.
-  // Every preview goes through here, so one assignment covers them all.
-  data.fadeAlpha = 1.F;
+  // The window's own opacity, not a constant. It was pinned to 1 by bab6eb3 ("show windows
+  // opaque") on the argument that depth is carried by size and overlap instead -- but that is
+  // a different claim from "the user never set an opacity rule", and a window with
+  // active_opacity or inactive_opacity below 1 stopped looking like itself on every card. The
+  // surface's own alphaModifier and overallOpacity still apply on top of this (see
+  // SurfacePassElement.cpp), so this is the compositor's rule opacity, not a replacement for
+  // the client's.
+  data.fadeAlpha = windowRealAlpha(w, mon);
   data.alpha          = std::clamp(alpha, 0.F, 1.F);
   data.decorate       = false;
   data.rounding       = roundPx;

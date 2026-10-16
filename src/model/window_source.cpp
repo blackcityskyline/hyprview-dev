@@ -39,9 +39,17 @@ std::vector<SubjectRef> WindowsContentSource::enumerate() {
     if (!m_host.monitor())
         return out;
     for (const auto &w : Desktop::windowState()->windows()) {
+        // EVERY window is held, and only the belonging ones are returned as subjects. Those
+        // are different lists for a reason: the run draws the strip of EVERY workspace, and a
+        // thumbnail there resolves its window through this same list. Filling it with the
+        // belonging subset alone left every card but the current workspace's showing the bare
+        // wallpaper, because the window it wanted had never been held by anyone.
+        //
+        // Holding a reference is not the same as showing it, so this costs nothing but memory
+        // and grants a window no place on the run.
+        m_alive.push_back(w);
         if (!m_host.belongs(w))
             continue;
-        m_alive.push_back(w);
         out.push_back(SubjectRef{reinterpret_cast<std::uintptr_t>(w.get()), 0});
     }
     return out;
