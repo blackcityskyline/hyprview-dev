@@ -196,7 +196,11 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
                               {.round = pxr(round, s), .roundingPower = roundPow});
 
-  if ((framed || selected) && !look.lift) {
+  // A window's card is its own content, so one caption at a time is enough. A tab has no
+  // content: the title IS the card, and an uncaptioned tab card is the frosted desktop it
+  // sits on -- correctly placed, correctly sized, invisible. The run showed five cards and
+  // one of them was real.
+  if ((framed || selected || tab) && !look.lift) {
     // The caption was captured to the card's own width, so the pill measures the
     // texture it draws — not the uncut entry it used to.
     //

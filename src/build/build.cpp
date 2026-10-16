@@ -627,7 +627,14 @@ void Overview::layoutTiles() {
                    sel, slot);
     for (int k = 0; k < n; ++k) {
       const auto i = slot[static_cast<std::size_t>(k)];
-      const auto &c = m_view.carousel().cards[static_cast<std::size_t>(k)];
+      // cards[] is filled by computeCarousel() under the SEQUENCE index -- the card for the
+      // tile that is n places from the selection -- while this loop walks STRIP positions.
+      // Reading cards[k] pairs a card with a tile by two unrelated numbering schemes, and it
+      // comes out right for exactly one tile: the focused one, where the two indices happen to
+      // coincide. Every other card on the run was drawn with some other tile's geometry, or
+      // with an entry computeCarousel() never filled, which is a zero box. One card on screen
+      // and nothing beside it. The card belonging to tile `i` is cards[i].
+      const auto &c = m_view.carousel().cards[i];
       auto &t = m_scene.tileAt(static_cast<size_t>(i));
       // Zero target = off-run: nothing paints it, and a zeroed box keeps the glide
       // from resizing the card on its way out.
@@ -639,14 +646,24 @@ void Overview::layoutTiles() {
       // Capture the caption HERE, where the card width is known, cut to it. Paint
       // only reads: mid-pass text rendering is unsafe, and asking at paint time
       // measured the pill off the uncut entry.
-      if (c.visible && tileWindow(t))
-        // The fitted box, not the card: a portrait window is drawn narrower than
-        // the standard card, and the pill is sized off what it actually covers.
-        t.label = m_pixel.windowLabel(tileWindow(t), t.labelText,
-                                      cfg::colors.title_label.get(1.0),
-                                      cfg::look.title_font_size.get(),
-                                      static_cast<int>(std::max(
-                                          1.0, tileBox(i, t.target).w - 28.0)));
+      //
+      // A tab's caption comes from the browser, not from a window, and the gate used to be
+      // `tileWindow(t)` -- so a tab was skipped and got no label at all. A card with no label,
+      // no icon and no screenshot IS the frosted desktop it sits on: correctly placed,
+      // correctly sized, and invisible. Five cards on the run and one on the screen, because
+      // the one you can see is the one with a caption.
+      if (c.visible && !t.labelText.empty()) {
+        const auto maxW =
+            static_cast<int>(std::max(1.0, tileBox(i, t.target).w - 28.0));
+        if (const auto w = tileWindow(t))
+          t.label = m_pixel.windowLabel(w, t.labelText,
+                                        cfg::colors.title_label.get(1.0),
+                                        cfg::look.title_font_size.get(), maxW);
+        else
+          t.label = m_pixel.subjectLabel(t.subj, t.labelText,
+                                         cfg::colors.title_label.get(1.0),
+                                         cfg::look.title_font_size.get(), maxW);
+      }
       // The counter is its own pill under the caption. Same reason, same place: it is
       // text, and text has to be rasterised before the pass, not inside it. Its own
       // font size, so the two labels can be set apart.
