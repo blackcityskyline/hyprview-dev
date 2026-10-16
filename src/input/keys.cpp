@@ -236,15 +236,14 @@ void Overview::stepAltTab(int dir) {
   const int n = static_cast<int>(m_scene.size());
   if (n == 0)
     return;
-  // Where the cards ARE is where they came from. A step is a shuffle of slots, and a card
-  // leaving a slot slides from the slot it occupied -- but `natural` still held whatever
-  // buildTiles() last put there, which for a tab is the browser WINDOW's box. So the cards
-  // flew in from full screen, swept the whole panel, and pushOut() shoved the strip out of
-  // their way as they passed: the band vanishing and coming back for a frame, on some steps
-  // and not others depending on where a card happened to be. Set before the relayout below,
-  // so `natural` is the outgoing slot and the new target is the incoming one.
+  // A TAB's card slides from the slot it occupied. Its `natural` still held whatever
+  // buildTiles() last put there, which for a tab is the browser WINDOW's box -- so the cards
+  // flew in from full screen and swept the panel. A window's natural is already its own box
+  // on the desktop and must keep gliding from there, so this is tabs only: pinning every
+  // card's natural to its target took the window run's slide away with it.
   for (std::size_t i = 0; i < m_scene.size(); ++i)
-    m_scene.setNatural(i, m_scene.tiles()[i].target);
+    if (m_tabs.isTab(m_scene.tiles()[i].subj))
+      m_scene.setNatural(i, m_scene.tiles()[i].target);
   const auto &slot = m_view.slot();
   if (carouselMode() && m_scene.hasSelection() &&
       slot.size() == static_cast<std::size_t>(n)) {

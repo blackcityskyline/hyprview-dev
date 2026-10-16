@@ -627,14 +627,14 @@ void Overview::layoutTiles() {
                    sel, slot);
     for (int k = 0; k < n; ++k) {
       const auto i = slot[static_cast<std::size_t>(k)];
-      // cards[] is filled by computeCarousel() under the SEQUENCE index -- the card for the
-      // tile that is n places from the selection -- while this loop walks STRIP positions.
-      // Reading cards[k] pairs a card with a tile by two unrelated numbering schemes, and it
-      // comes out right for exactly one tile: the focused one, where the two indices happen to
-      // coincide. Every other card on the run was drawn with some other tile's geometry, or
-      // with an entry computeCarousel() never filled, which is a zero box. One card on screen
-      // and nothing beside it. The card belonging to tile `i` is cards[i].
-      const auto &c = m_view.carousel().cards[i];
+      // cards[] is indexed by STRIP POSITION, which is exactly what computeCarousel()
+      // writes: its `sel` arrives here as selSlot, a position inside `slot`, and idx walks
+      // positions outward from it. Indexing by the tile instead pairs a card with a tile by
+      // two different numbering schemes and comes out right for exactly one tile -- the
+      // focused one, whose tile and position coincide -- which took the window run's ladder
+      // away. The reason one card and no ladder was ever visible here is a separate one and
+      // was the caption: a tab card with no label is the frosted desktop it sits on.
+      const auto &c = m_view.carousel().cards[static_cast<std::size_t>(k)];
       auto &t = m_scene.tileAt(static_cast<size_t>(i));
       // Zero target = off-run: nothing paints it, and a zeroed box keeps the glide
       // from resizing the card on its way out.
