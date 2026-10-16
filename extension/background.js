@@ -37,13 +37,23 @@ function connect() {
   try {
     port = api.runtime.connectNative(NATIVE_APP);
   } catch (e) {
+    // LOGGED, not swallowed. A bare `return` here is what cost an afternoon: the port never
+    // opened, nothing was written, and the console stayed empty -- so every conclusion after
+    // that was a guess about a failure whose actual message was thrown away one frame above it.
+    console.error('gloview: connectNative("' + NATIVE_APP + '") failed:', e && e.message ? e.message : e);
     return;
   }
+  console.log('gloview: native port opened to ' + NATIVE_APP);
   port.onMessage.addListener((reply) => {
     if (reply && reply.ok === false)
       console.warn('gloview mediator refused:', reply.reason);
   });
-  port.onDisconnect.addListener(() => {
+  // The handler is GIVEN the port, and that port carries the reason. Reading only "it
+  // disconnected" is what turned this into an afternoon of guessing at manifests: the port
+  // opens, Zen refuses the host, and the refusal arrives right here, ignored.
+  port.onDisconnect.addListener((dead) => {
+    const why = dead && dead.error ? dead.error : '(no reason given)';
+    console.warn('gloview: native port disconnected -- ' + why);
     port = null;
     // The mediator is gone when the browser updates, when it crashes, or when it was never
     // installed. Retrying on a fixed short delay hammers a host that is not coming back.
@@ -59,9 +69,14 @@ async function report() {
   if (!port) return;
   let tabs = [];
   let active = [];
+  // Declared HERE, not in the try below. A `const` inside a block is scoped to that block, and
+  // using it after the block is a ReferenceError at runtime that no linter on a background
+  // script will catch before it fires: the whole report function died on every event, so the
+  // port connected, the send never happened, and there was nothing on disk to look at.
+  let focused = null;
   try {
     tabs = await api.tabs.query({});
-    const focused = await api.windows.getLastFocused({});
+    focused = await api.windows.getLastFocused({});
     active = tabs
       .filter((t) => t.windowId === focused.id && t.active)
       .map((t) => t.id);
@@ -73,7 +88,9 @@ async function report() {
     // an empty active list is correct and is not a failure state worth retrying.
     try {
       port.postMessage({ name: 'report', tabs: simplify(tabs), active: [] });
-    } catch (e) {}
+    } catch (e) {
+      console.error('gloview: postMessage failed:', e && e.message ? e.message : e);
+    }
     return;
   }
   const screenshot = await capture(focused.id);
@@ -84,7 +101,9 @@ async function report() {
       active,
       screenshot: screenshot || undefined,
     });
-  } catch (e) {}
+  } catch (e) {
+    console.error('gloview: postMessage failed:', e && e.message ? e.message : e);
+  }
 }
 
 function simplify(tabs) {

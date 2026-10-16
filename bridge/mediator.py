@@ -42,10 +42,45 @@ import sys
 GENERATION = 1
 
 
+_LOGFILE = [None]
+
+
+# Fixed absolute path, on purpose. The browser spawns the host with whatever environment it
+# happens to have, which is not the one a shell has: XDG_RUNTIME_DIR may be absent, and then
+# every path derived from it points somewhere nobody looks. A log that can move is a log that
+# is not there.
+DEBUG_LOG = "/tmp/gloview_mediator.log"
+
+
+def open_log(directory):
+    """A file, because stderr from a native messaging host is invisible from outside.
+
+    The browser owns the host's stderr and does not surface it, so when Zen refused to start
+    the host the only thing observable was the port opening and dropping with no reason given.
+    Best effort -- a read-only /tmp must not stop the tabs from being reported.
+    """
+    for path in (DEBUG_LOG, os.path.join(directory, "mediator.log")):
+        try:
+            _LOGFILE[0] = open(path, "a", buffering=1)
+            return
+        except OSError:
+            continue
+    _LOGFILE[0] = None
+
+
 def log(msg):
-    # stderr, because stdout is the protocol channel and a stray line there is a corrupt frame.
-    sys.stderr.write("gloview-mediator: %s\n" % msg)
-    sys.stderr.flush()
+    line = "gloview-mediator: %s\n" % msg
+    # stderr too, in case someone is watching it from the browser's own logs.
+    try:
+        sys.stderr.write(line)
+        sys.stderr.flush()
+    except (OSError, ValueError):
+        pass
+    if _LOGFILE[0] is not None:
+        try:
+            _LOGFILE[0].write(line)
+        except (OSError, ValueError):
+            pass
 
 
 def parent_pid(pid):
@@ -200,15 +235,20 @@ def main():
     )
     args = ap.parse_args()
     os.makedirs(os.path.join(args.dir, "previews"), exist_ok=True)
+    open_log(args.dir)
 
     own = os.getpid()
     stdin, stdout = sys.stdin.buffer, sys.stdout.buffer
+    log("ARGS=%r CWD=%s" % (sys.argv[1:], os.getcwd()))
     log("started, pid %d, parent %s, writing %s" % (own, parent_pid(own), args.dir))
 
     while True:
+        log("waiting for a command")
         command = read_frame(stdin)
         if command is None:
+            log("stdin reached end of stream -- exiting")
             return 0
+        log("got a command: %s" % (command or {}).get("name"))
         try:
             reply = handle(command, args.dir, own)
         except Exception as e:  # a report must never cost the connection
