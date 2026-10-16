@@ -1,5 +1,5 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 2,
   "browser_specific_settings": {
     "gecko": {
       "id": "gloview@localhost",
@@ -7,11 +7,12 @@
     }
   },
   "name": "GloView tabs",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Reports open tabs to the GloView compositor plugin.",
-  "permissions": ["tabs", "nativeMessaging"],
+  "permissions": ["tabs", "nativeMessaging", "activeTab"],
   "optional_permissions": ["<all_urls>"],
   "background": {
-    "scripts": ["background.js"]
+    "scripts": ["background.js"],
+    "persistent": true
   }
 }

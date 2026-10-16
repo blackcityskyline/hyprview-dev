@@ -66,7 +66,10 @@ function connect() {
 // the pid is per-browser but the windows are per-profile, and the two are not always the same
 // set once private windows are involved.
 async function report() {
-  if (!port) return;
+  if (!port)
+    connect(); // the event page may have been restarted with no port and no top-level run
+  if (!port)
+    return;
   let tabs = [];
   let active = [];
   // Declared HERE, not in the try below. A `const` inside a block is scoped to that block, and
@@ -129,6 +132,12 @@ async function capture(windowId) {
 }
 
 function schedule() {
+  // Connect here too, not only at load. In MV3 the background is an EVENT PAGE: it starts
+  // when something happens, so a connect() that only ran once at top level never ran at all
+  // on a browser where nothing had happened yet. Every path that needs the port therefore has
+  // to be able to open it, not just the one that happened to be written first.
+  if (!port)
+    connect();
   if (timer !== null) clearTimeout(timer);
   timer = setTimeout(() => {
     timer = null;

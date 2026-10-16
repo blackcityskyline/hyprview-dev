@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """The mediator: the browser half of gloview's tabs, and the only thing that writes.
 
 Started by the extension through `runtime.connectNative`, which is what makes this work without
@@ -31,7 +31,6 @@ reads these while they change, and a reader catching a file mid-write sees a pic
 refuses and a feed the parser rejects.
 """
 
-import argparse
 import json
 import os
 import struct
@@ -229,18 +228,26 @@ def write_frame(stdout, message):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--dir", default=os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "gloview")
-    )
-    args = ap.parse_args()
-    os.makedirs(os.path.join(args.dir, "previews"), exist_ok=True)
-    open_log(args.dir)
+    # argv is NOT ours. Native messaging launches the host as
+    #     <manifest.json> <extension-id>
+    # and argparse treats both as positional arguments it does not know, exits 2, and the host
+    # dies on the spot -- which looks from the extension exactly like "the port opened and
+    # dropped", on a five-second loop, with nothing in any log. Parsed by hand, ignoring
+    # whatever we did not ask for, because the caller is the browser and it is not negotiable.
+    args = [sys.argv[1:]]
+    directory = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "gloview")
+    for a in args[0]:
+        if a.startswith("--dir="):
+            directory = a.split("=", 1)[1]
+        elif directory is None:
+            directory = a
+    os.makedirs(os.path.join(directory, "previews"), exist_ok=True)
+    open_log(directory)
 
     own = os.getpid()
     stdin, stdout = sys.stdin.buffer, sys.stdout.buffer
     log("ARGS=%r CWD=%s" % (sys.argv[1:], os.getcwd()))
-    log("started, pid %d, parent %s, writing %s" % (own, parent_pid(own), args.dir))
+    log("started, pid %d, parent %s, writing %s" % (own, parent_pid(own), directory))
 
     while True:
         log("waiting for a command")
@@ -250,7 +257,7 @@ def main():
             return 0
         log("got a command: %s" % (command or {}).get("name"))
         try:
-            reply = handle(command, args.dir, own)
+            reply = handle(command, directory, own)
         except Exception as e:  # a report must never cost the connection
             log("command failed: %r" % e)
             reply = {"ok": False, "reason": str(e)}
