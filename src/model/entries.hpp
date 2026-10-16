@@ -33,10 +33,15 @@ struct Entry {
 
 // The entries one window contributes.
 //
-// The fallback is the part that matters. In Tabs mode a window we have never heard about
-// falls back to being shown as a window, because a browser that has not reported yet is
-// indistinguishable from one with no tabs -- and silently dropping every window until the
+// The fallback is the part that matters. In Tabs mode a BROWSER we have never heard from falls
+// back to being shown as a window, because a browser that has not reported yet is
+// indistinguishable from one with no tabs -- and silently dropping every browser until the
 // extension connects is the failure mode that reads as "the overview lost my windows".
+//
+// A window that is not a browser at all is a different thing and does not get that fallback.
+// "Never heard from" and "not a browser" are both an empty tab list, and reading them as the
+// same thing put the terminal in the browser's view -- a view whose whole subject is one
+// program's tabs is not a view of that program. So the caller says which of the two it has.
 //
 // A window we HAVE heard from, and which reported none, contributes nothing. That is the
 // mode working.
@@ -47,9 +52,10 @@ struct Entry {
 // that produced it -- so a caller asking this question cannot be given one.
 [[nodiscard]] inline std::vector<Entry> entriesFor(const void *win, Domain mode,
                                                    bool tabsKnown,
-                                                   std::span<const std::int64_t> tabIds) {
+                                                   std::span<const std::int64_t> tabIds,
+                                                   bool isBrowser) {
     std::vector<Entry> out;
-    const bool window = showsWindows(mode) || !tabsKnown;
+    const bool window = showsWindows(mode) || (isBrowser && !tabsKnown);
     if (window)
       out.push_back(Entry{win, -1});
     if (showsTabs(mode)) {

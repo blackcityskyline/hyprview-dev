@@ -151,7 +151,7 @@ void Overview::buildTiles() {
     const auto ids = m_tabs.tabIdsFor(bw);
 
     for (const auto &entry :
-         model::entriesFor(w.get(), mode, m_tabs.knownFor(bw), ids)) {
+         model::entriesFor(w.get(), mode, m_tabs.knownFor(bw), ids, bw != 0)) {
       model::Tile t;
       // tabId == -1 is the window itself; anything else is a tab, identified under the
       // connection that issued the id. That is the whole difference and it is decided in one

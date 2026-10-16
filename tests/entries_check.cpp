@@ -43,11 +43,12 @@ std::vector<std::int64_t> tabs(std::vector<int> ids) {
   return {ids.begin(), ids.end()};
 }
 
-// The two facts entriesFor() takes, which is what a caller holding a browser window can
-// actually answer without rebuilding a container it does not own.
+// The three facts entriesFor() takes, which is what a caller holding a window can actually
+// answer without rebuilding a container it does not own. isBrowser defaults to true: every
+// case below that does not say otherwise is about a browser window.
 std::vector<Entry> entries(const void *win, Domain mode, bool known,
-                           const std::vector<std::int64_t> &ids) {
-  return entriesFor(win, mode, known, ids);
+                           const std::vector<std::int64_t> &ids, bool isBrowser = true) {
+  return entriesFor(win, mode, known, ids, isBrowser);
 }
 
 // All entries are TABS of this window, and there are exactly the ids given, in order.
@@ -101,6 +102,25 @@ int main() {
     const auto other = entries(kOther, Domain::Tabs, true, tabs({}));
     want(other.empty(), true, "a second window with no tabs also contributes nothing");
     std::puts("tabs mode: falls back when unheard from, tab-only when heard from");
+  }
+
+  // --- a window that is not a browser ---------------------------------------------------------
+  //
+  // "Never heard from" and "not a browser" are both an empty tab list. Reading them as one
+  // thing put the terminal, the editor and everything else on the desktop into the browser's
+  // view -- which is a view whose whole subject is one program's tabs, so it is not a view of
+  // that program. The fallback above is deliberately kept for the BROWSER case: an extension
+  // that has not connected yet must not empty the screen.
+  {
+    want(entries(kOther, Domain::Tabs, false, {}, false).empty(), true,
+         "tabs, a non-browser unheard from, contributes nothing");
+    want(entries(kOther, Domain::Tabs, true, tabs({}), false).empty(), true,
+         "tabs, a non-browser heard from, contributes nothing");
+    // Windows mode still shows everything -- it is the default view and it does not care what
+    // the extension says.
+    want(entries(kOther, Domain::Windows, false, {}, false).size() == 1, true,
+         "windows mode, a non-browser, is still one entry");
+    std::puts("a non-browser is not in the browser's view");
   }
 
   // --- both -------------------------------------------------------------------------------

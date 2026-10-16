@@ -181,7 +181,11 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // its caption and no picture, which is the honest state of a browser that has not got
     // round to writing one.
     if (const auto tex = tabArt(t))
-      g_pHyprOpenGL->renderTexture(tex, pxb(box, s), {.a = f});
+      // round/roundingPower are not decoration here. renderWindowLive() takes them, so a window
+      // card's content is clipped to the card's corners; a tab card's content was square inside
+      // a rounded frost and the mismatch showed at every corner of every card.
+      g_pHyprOpenGL->renderTexture(tex, pxb(box, s),
+                                   {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
   } else {
     renderWindowLive(w, m, pxb(box, s), pxb(box, s), f, Time::steadyNow(),
                      contentRadiusPx(round, ringW, roundPow, s, !look.contain),
