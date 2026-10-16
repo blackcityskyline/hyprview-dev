@@ -258,9 +258,22 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const std::string cpos = cfg::look.counter_position.get();
     const bool counterBelow = cpos.empty() ? titleBelow : cpos != "top";
     const bool sameEdge = counterH <= 0.0 || counterBelow == titleBelow;
+    // A caption clamps to a SCREEN edge, and the strip is not the screen edge -- it is furniture
+    // standing on one. With the band on top, a card high enough that its caption would sit above
+    // the band got clamped to the bare margin instead, which is inside the band: the title pill
+    // landed on the workspace strip and read as the strip snapping. Traced, the pill Ys were
+    // 24..42 against a band at 41, while every pill that belonged under its card was at 102+.
+    // The clamp needs the band's inner edge, so the band is reserved here the same way the
+    // layout reserves it.
+    // BOTH vertical edges, not the anchored one: stripAnchor() and the band the user is
+    // looking at disagreed here, and a pill got through on the edge nobody predicted. A pill
+    // on either band is wrong, so the reservation does not get to pick which edge that is.
+    const double band = stripThickness() + stripOffset();
+    const double marginTop    = margin + band;
+    const double marginBottom = margin + band;
     const render::CaptionPills pos =
         render::captionPills(box.y, box.h, ph, counterH, cfg::look.title_gap, stackGap,
-                             titleBelow, m->m_size.y, margin);
+                             titleBelow, m->m_size.y, titleBelow ? marginBottom : marginTop);
     const double counterY =
         sameEdge ? pos.counterY
                  : render::captionPillY(box.y, box.h, counterH, cfg::look.title_gap,
