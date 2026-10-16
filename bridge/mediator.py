@@ -145,10 +145,20 @@ def build_feed(command, browser_pid):
 
 
 def merge_into(root, incoming):
-    """Fold this browser's windows into the feed on disk, keeping the first generation line.
+    """Fold this browser's windows into the feed on disk, REPLACING the windows it covers.
 
-    The header belongs to the whole document, because generation is about the run of tabs and
-    every id in the file is only meaningful under one.
+    Replacement is per window, not per line and not per feed. A browser window's tab list is
+    authoritative over itself -- it knows which of its tabs still exist -- and appending it
+    made the feed grow without bound: 387 lines for 17 real tabs, one id 32 times over, and
+    the plugin laid out 379 cards from a browser with seventeen.
+
+    The `p` lines are keyed by (process, window) and a `t` line belongs to whichever window
+    names it, so a window is dropped by name and everything else on disk survives. That is also
+    what lets two browsers share one feed: neither writes over the other's windows.
+
+    The generation header is written once by whoever gets there first and belongs to the whole
+    document, because generation is about the run of tabs and every id in the file is only
+    meaningful under one.
     """
     path = os.path.join(root, "tabs")
     header = None
@@ -161,13 +171,32 @@ def merge_into(root, incoming):
                         header = line
                 elif line.strip():
                     body.append(line)
-    for line in incoming.split(b"\n"):
+
+    incoming_lines = incoming.split(b"\n")
+    covered = set()
+    for line in incoming_lines:
+        if line.startswith(b"t "):
+            parts = line.split(b" ", 2)
+            if len(parts) >= 3:
+                covered.add(parts[1])
+
+    out = [header] if header else []
+    for line in body:
+        parts = line.split(b" ", 2)
+        # A tab line is "t <window> <tab> <active> <title>"; its window is field 2.
+        window = parts[1] if (line.startswith(b"t ") and len(parts) >= 3) else None
+        if window is not None and window in covered:
+            continue  # this browser window just told us what it actually has
+        out.append(line)
+
+    for line in incoming_lines:
         if line.startswith(b"g "):
             if header is None:
                 header = line
-        elif line.strip():
-            body.append(line)
-    out = ([header] if header else []) + body
+                out.append(line)
+            continue
+        if line.strip():
+            out.append(line)
     atomic_write(path, b"\n".join(out) + b"\n")
 
 

@@ -150,6 +150,39 @@ def main():
         want(not os.path.exists(os.path.join(root, "atomic.bin") + ".part"),
              "and the .part is gone once it is done")
 
+        # A report REPLACES the window's tabs. Appending instead grew the feed without bound --
+        # 387 lines for 17 real tabs, one id repeated 32 times, and the plugin laid out 379
+        # cards from a browser with seventeen. Checked by reporting the same window twice with
+        # fewer tabs the second time, which is exactly what closing a tab looks like.
+        for n in (3, 3):
+            send(proc, {"name": "report",
+                        "tabs": [{"id": i, "windowId": 1, "title": "t%d" % i}
+                                 for i in range(100, 100 + n)], "active": []})
+            recv(proc)
+        def tab_lines(window=None):
+            rows = [l for l in open(os.path.join(root, "tabs")).read().strip().split("\n")
+                    if l.startswith("t ")]
+            if window is None:
+                return rows
+            return [l for l in rows if l.split(" ")[1] == str(window)]
+
+        for n in (3, 3):
+            send(proc, {"name": "report",
+                        "tabs": [{"id": i, "windowId": 77, "title": "t%d" % i}
+                                 for i in range(100, 100 + n)], "active": []})
+            recv(proc)
+        mine = tab_lines(77)
+        want(len(mine) == 3,
+             "a repeat report replaces rather than accumulates: %d lines" % len(mine))
+        before = len(tab_lines())
+        send(proc, {"name": "report",
+                    "tabs": [{"id": 200, "windowId": 78, "title": "other"}], "active": []})
+        recv(proc)
+        want(len(tab_lines()) == before + 1,
+             "and another window is left alone: %d -> %d"
+             % (before, len(tab_lines())))
+
+
         # Both spellings of --dir. Only the spaced form was checked, and dropping the other
         # passed the whole suite -- the same shape as the atomicity gap, twice in one file.
         for args, label in ((["--dir=" + root + "/eq"], "--dir=PATH"),
