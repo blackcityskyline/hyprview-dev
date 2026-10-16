@@ -84,6 +84,16 @@ Vector2D Overview::stripPush(const LRect &band) const {
     const LRect b = currentBox(tiles[i], static_cast<int>(i));
     if (b.w < 1.0 || b.h < 1.0)
       continue;
+    // The strip is shoved clear of whatever would COVER it. A window's card covers it with its
+    // own content, so the shove is right. A tab's card covers it with nothing -- frost, an
+    // outline, a caption -- and shoving for one threw the whole band off the top of the
+    // screen whenever a tab card crossed the band, which on the run is every step. It read
+    // as the strip snapping away and coming back.
+    //
+    // This is pushOut()'s question asked a second time, in a second function with its own
+    // loop, and the answer belongs to cardOf() in both.
+    if (!cardOf(tiles[i]).coversChrome)
+      continue;
     double pen = 0.0;
     switch (stripAnchor()) {
     case Anchor::Bottom: pen = (b.y + b.h) - band.y; break;

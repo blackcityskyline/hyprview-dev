@@ -75,8 +75,14 @@ void Overview::renderCarousel() const {
 
   for (const int i : paint) {
     const int k = m_view.slotOf(static_cast<std::size_t>(i));
-    const auto &card =
-        m_view.carousel().cards[static_cast<std::size_t>(k < 0 ? 0 : k)];
+    // No slot means this tile is not on the run -- and substituting slot 0 handed it the
+    // FOCUSED card's geometry, which is `visible`, so a tile the run has already dropped was
+    // painted full size behind the cards for the frame before it was collected: a window the
+    // width of the screen, sitting under the carousel, that then settled at the end. There is
+    // no card here to draw, so say so instead of borrowing one.
+    if (k < 0)
+      continue;
+    const auto &card = m_view.carousel().cards[static_cast<std::size_t>(k)];
     if (!card.visible)
       continue;
     if (i == draggedTile())
