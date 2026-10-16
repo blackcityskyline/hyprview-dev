@@ -129,7 +129,12 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
              static_cast<float>(e * cfg::look.shadow_alpha * f), round, roundPow);
 
   if (look.frame) {
-    if (cfg::look.show_border != 0) {
+    // A window's card is its content, so with show_border off it is a picture and needs no
+    // edge. A tab's card is the frosted desktop, which IS the background: no edge and it is
+    // not a card at all, it is a caption floating in space. show_border is the user's economy
+    // and it still holds for windows; a card with nothing in it gets its outline regardless,
+    // because the outline is the only thing that makes it a card.
+    if (cfg::look.show_border != 0 || tab) {
       strokeRing(box, s, cfg::colors.border.get(e * f), cfg::look.border_size,
                  round, roundPow);
       debug::trace::ring("tile_border", box, round, static_cast<double>(e * f));
