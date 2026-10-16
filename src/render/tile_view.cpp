@@ -143,8 +143,14 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
 
   // Transition frost: the cached blur at CONSTANT alpha (fading it leaks
   // C*e*(1-e) of the sharp desktop) plus the dim rect at the GLOBAL alpha e.
+  //
+  // A tab needs it ALWAYS. A window's card background is the window's own content, so once the
+  // transition is over there is nothing left to draw and skipping the frost is free. A tab has
+  // no window: its card is this frost or it is nothing at all, and 13 cards of a browser with
+  // no screenshots yet came out as 13 holes in the grid. Not a special case -- it is the same
+  // backdrop, held for a subject whose content does not exist yet.
   const double apNow = entryNow(t, static_cast<int>(i));
-  if (opening() && (e < 0.999 || apNow < 0.999)) {
+  if (tab || (opening() && (e < 0.999 || apNow < 0.999))) {
     if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
       const double pxW = static_cast<double>(m->m_pixelSize.x);
       const double pxH = static_cast<double>(m->m_pixelSize.y);
