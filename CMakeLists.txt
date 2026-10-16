@@ -259,6 +259,12 @@ add_test(NAME subject_cache
 add_test(NAME scan_config_keys_read
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/config_keys_read_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/config_keys_read_check && ${CMAKE_CURRENT_BINARY_DIR}/config_keys_read_check ${CMAKE_SOURCE_DIR}")
 
+# The bridge, against a real client speaking real WebSocket frames. The extension cannot
+# write files on either engine, so this process is what touches the disk, and every claim
+# the plugin makes about what arrives is a claim about this output.
+add_test(NAME bridge
+         COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/bridge_check.py)
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll

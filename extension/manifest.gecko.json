@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "gloview@localhost",
+      "strict_min_version": "121.0"
+    }
+  },
+  "name": "GloView tabs",
+  "version": "0.1.0",
+  "description": "Reports open tabs to the GloView compositor plugin.",
+  "permissions": ["tabs", "favicon"],
+  "optional_permissions": ["<all_urls>"],
+  "background": {
+    "scripts": ["background.js"]
+  }
+}
