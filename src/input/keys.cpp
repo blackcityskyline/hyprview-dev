@@ -105,6 +105,8 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
     toggleAllWorkspaces();
   else if (keyMatches(k, mods, cfg::keys.carousel.get()))
     toggleCarousel();
+  else if (keyMatches(k, mods, cfg::keys.browser.get()))
+    toggleBrowserView();
   // Ctrl masked out: bare digit and Ctrl+digit both land here.
   else if (const int idx =
                keyIndex(k, mods & ~HL_MODIFIER_CTRL, cfg::keys.workspace.get());

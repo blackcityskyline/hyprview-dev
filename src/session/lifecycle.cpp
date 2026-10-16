@@ -85,6 +85,37 @@ void Overview::toggleCarousel() {
   debug::dbg("TOGGLE-CAROUSEL on=" + std::to_string(m_view.carouselOn()));
 }
 
+void Overview::switchDomain(model::Domain d) {
+  if (d == m_view.domain())
+    return;
+  m_view.setDomain(d);
+  if (!openedOrParked())
+    return;
+  // A view change is a rebuild, not a relayout: the cards are DIFFERENT SUBJECTS now, so
+  // buildTiles() has to run and layoutTiles() alone would leave windows in a tab grid's
+  // slots. loadTabs() comes with it because the feed is a file on disk and a browser may
+  // have reported since the run opened -- asking for the tab view is when its contents
+  // matter. The old boxes go in so the survivors glide instead of popping.
+  //
+  // open() is not the way in: it re-reads tile_mode (lifecycle.cpp:245) and would undo the
+  // switch on the next line. Same rebuild either way, minus the config read.
+  loadTabs();
+  m_view.setWsSlideDir( 0); // the workspace does not move, only what is in a card
+  m_view.setExpoFlip( 0);
+  auto oldBoxes = captureCurrentBoxes();
+  replayReflow(oldBoxes);
+  debug::trace::emitState(std::string("DOMAIN|to=") + model::domainName(m_view.domain()) +
+                          "|tiles=" + std::to_string(m_scene.size()));
+  debug::dbg("DOMAIN-SWITCH to=" + std::string(model::domainName(m_view.domain())));
+}
+
+void Overview::toggleBrowserView() {
+  // Windows <-> Tabs. Both is not in the cycle: it puts a window's card and its tabs in
+  // one grid, which is a third thing to look at and neither of the two is it.
+  switchDomain(m_view.domain() == model::Domain::Tabs ? model::Domain::Windows
+                                                      : model::Domain::Tabs);
+}
+
 void Overview::toggleAllWorkspaces() {
   if (!m_life.openingNow()) {
     m_view.setAllOverride(

@@ -82,6 +82,8 @@ public:
   void toggleDesktop();       // open, or switch into free-arrange mode
   void toggleAllWorkspaces();
   void toggleCarousel();   // flip the run on/off; on_open picks the start
+  void switchDomain(model::Domain d); // window view <-> browser-tab view, live
+  void toggleBrowserView();  // what key_browser calls: flip to the other of the two
   void altTabInvoke(bool reverse); // opens+seeds if closed, else advances
 
   void renderStage(eRenderStage stage);

@@ -265,8 +265,13 @@ add_test(NAME scan_config_keys_read
 add_test(NAME scan_preview_regressions
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/preview_regressions_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/preview_regressions_check && ${CMAKE_CURRENT_BINARY_DIR}/preview_regressions_check ${CMAKE_SOURCE_DIR}")
 
-# The brotab adapter, against a fake mediator speaking its real endpoints on a real port
-# inside its real range. The pid -> ppid hop is what the whole feature rests on and it is
+# key_browser's view switch. The two views hold different subjects, so it is a rebuild and not
+# a relayout; and Both stays out of the toggle cycle, which is a product decision with nothing
+# left to enforce it once someone tidies the enum into a three-way rotation.
+add_test(NAME scan_domain_view
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/domain_view_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/domain_view_check && ${CMAKE_CURRENT_BINARY_DIR}/domain_view_check ${CMAKE_SOURCE_DIR}")
+
+# The brotab adapter, against a fake mediator speaking its real endpoints on a real port# inside its real range. The pid -> ppid hop is what the whole feature rests on and it is
 # only checkable against a live process.
 add_test(NAME mediator
          COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/mediator_check.py)

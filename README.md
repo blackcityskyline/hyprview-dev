@@ -459,6 +459,7 @@ window set. With `carousel = 0` the layout runs untouched in both views.
 | `carousel` | int | `0` | Lay the main area out as a card run instead of `layout`; all-workspaces view only |
 | `carousel_on_open` | bool (0/1) | `1` | `carousel` only: whether the run is on when the all-workspaces view is opened from outside. `key_carousel` ignores this |
 | `key_carousel` | key | `c` | From one-workspace: switch to all-workspaces **with** the run on. From all-workspaces: flip the run only, no view change |
+| `key_browser` | key | `b` | Flip the main area between the window view and the browser-tab view, live. The cards glide from windows to tabs rather than snapping. `tile_mode` still picks which one a run starts in |
 | `carousel_cards` | int | `5` | How many cards the run shows (any count, even included) |
 | `carousel_card_width` | int (px) | `0` | Narrow the standard box; 0 keeps the fullscreen box |
 | `carousel_scale` | float | `1.0` | Zoom the whole run on top of the automatic fit; above 1 it deliberately overflows |

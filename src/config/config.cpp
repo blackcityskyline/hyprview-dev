@@ -227,6 +227,7 @@ constexpr StrSpec kStrs[] = {
     {&keys.desktop, "plugin:gloview:key_desktop", "shift"},
     {&keys.all_workspaces, "plugin:gloview:key_all_workspaces", "a"},
     {&keys.carousel, "plugin:gloview:key_carousel", "c"},
+    {&keys.browser, "plugin:gloview:key_browser", "b"},
     {&keys.workspace, "plugin:gloview:key_workspace", "1,2,3,4,5,6,7,8,9,0"},
     {&keys.alt_tab_modifier, "plugin:gloview:alt_tab_modifier", "alt"},
     {&behavior.preview_mode, "plugin:gloview:preview_mode", "live"},

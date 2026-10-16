@@ -281,6 +281,9 @@ std::string Overview::runCommand(const std::string &args) {
   const auto num = [&tok](std::size_t i) {
     return i < tok.size() ? std::atoi(tok[i].c_str()) : -1;
   };
+  const auto word = [&tok](std::size_t i) {
+    return i < tok.size() ? tok[i] : std::string();
+  };
 
   // "state" first: it is how a harness learns what it is driving, and it must work
   // whether or not the overlay is open.
@@ -351,6 +354,16 @@ std::string Overview::runCommand(const std::string &args) {
     const bool want = num(1) != 0;
     if (want != showAllWorkspaces())
       toggleAllWorkspaces();
+    return "";
+  }
+  if (tok[0] == "domain") {
+    // Same reason as allws, and the same method key_browser ends up in. No argument means
+    // "the other one", which is the whole point of a toggle: a matrix keying off `b` does
+    // not have to know which view it is currently looking at.
+    if (word(1).empty())
+      toggleBrowserView();
+    else
+      switchDomain(model::parseDomain(word(1)));
     return "";
   }
 
