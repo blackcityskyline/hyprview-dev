@@ -507,7 +507,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       // Its own glide source: captureCurrentBoxes excludes it, so startTileGlide
       // called it a newcomer and it faded in while a swap FX flew a second copy.
       if (w)
-        oldBoxes.emplace_back(w, m_lastDragBox);
+        oldBoxes.emplace_back(subjectOf(w), m_lastDragBox);
       replayReflow(oldBoxes);
       ensureAnimPump();
       damage();

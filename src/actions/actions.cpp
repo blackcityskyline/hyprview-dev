@@ -245,8 +245,11 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
   if (dropped)
     m_scene.setNatural(ia, fromA);
 
-  for (const auto &[win, box] : oldBoxes) {
-    const bool isA = win == wa;
+  // Keyed by subject, so a tab is a participant in this like a window is. Resolving each one
+  // back to a window would drop every tab and the swap would animate one side only.
+  for (const auto &[subj, box] : oldBoxes) {
+    const auto win = m_windows.windowOf(subj);
+    const bool isA = subj == subjectOf(wa);
     const auto leaf = isA ? anim::Id::SwapMain : anim::Id::SwapPartner;
     landAfterSwap(win, box, isA ? thumbA : thumbB, isA && dropped ? fromA : LRect{},
                   anim::cfg(leaf).ms, anim::cfg(leaf).curve, draggedOnStrip);
@@ -752,8 +755,8 @@ void Overview::swapOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
   landAfterSwap(w, m_lastDragBox, m_lastDragBox, m_lastDragBox,
                 anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve,
                 true); // dragged on the strip
-  for (const auto &[win, box] : oldBoxes)
-    if (win == partner)
+  for (const auto &[subj, box] : oldBoxes)
+    if (subj == subjectOf(partner))
       landAfterSwap(partner, box, box, {}, anim::cfg(anim::Id::SwapPartner).ms,
                     anim::cfg(anim::Id::SwapPartner).curve, true);
   damage();
@@ -846,12 +849,12 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
   // setWsSlideDir(0): switching by plugin bind or by clicking the strip cleared the
   // slide, and the tiles fell to the scale-in instead of the configured style.
   bool sameSet = !oldBoxes.empty();
-  for (const auto &[oldWin, oldBox] : oldBoxes) {
+  for (const auto &[oldSubj, oldBox] : oldBoxes) {
     bool kept = false;
     for (const auto &t : m_scene.tiles())
-      if (tileWindow(t) == oldWin) { kept = true; break; }
+      if (t.subj == oldSubj) { kept = true; break; }
     if (!kept) {
-      m_fx.addGhost(model::Ghost{subjectOf(oldWin), oldBox});
+      m_fx.addGhost(model::Ghost{oldSubj, oldBox});
       sameSet = false;
     }
   }

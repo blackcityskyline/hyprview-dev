@@ -254,7 +254,7 @@ private:
   view::State m_view;
   mutable std::chrono::steady_clock::time_point m_lastAnimTick{};
   void startTileGlide(
-      const std::vector<std::pair<PHLWINDOW, LRect>> &oldBoxes);
+      const std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes);
   PHLMONITORREF m_monitor;
   PHLWORKSPACEREF m_workspace;
   PHLWORKSPACEREF m_liveWsAtOpen; // for exit_on_switch
@@ -467,9 +467,13 @@ private:
   double killZoneGlow(double lx, double ly) const;
   void renderKillZone() const;
   double m_killGlow = 0.0; // 1 at the zone, 0 a screen-width away, while dragging
-  std::vector<std::pair<PHLWINDOW, LRect>> captureCurrentBoxes(
+  // Keyed by SUBJECT, not by window. A browser tab has no window, and a vector keyed by one
+  // drops every tab on the floor: capture came back empty, the glide was never armed, and the
+  // card sat at the browser window's box instead of its own -- a full-screen card that did not
+  // move. The subject is the identity both kinds have.
+  std::vector<std::pair<model::SubjectRef, LRect>> captureCurrentBoxes(
       PHLWINDOW exclude = {}) const;
-  void replayReflow(std::vector<std::pair<PHLWINDOW, LRect>> &oldBoxes);
+  void replayReflow(std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes);
   void releaseNewWorkspaces();
   void syncTiles();
   void stepWorkspace(int dir);

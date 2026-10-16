@@ -675,33 +675,31 @@ void Overview::layoutTiles() {
 }
 
 // Survivors glide from their captured boxes; no chrome re-reveal.
-std::vector<std::pair<PHLWINDOW, LRect>>
+std::vector<std::pair<model::SubjectRef, LRect>>
 Overview::captureCurrentBoxes(PHLWINDOW exclude) const {
-  // Placement filters by SUBJECT; converting here keeps the window comparison on this side
-  // of the boundary, where the window still exists.
+  // Placement already filters by SUBJECT, so nothing is converted and nothing is dropped.
+  // Resolving each subject back to a window here -- which is what this did -- threw away
+  // every tab, because a tab has no window, and an empty capture is the same as no previous
+  // layout: the glide never starts and every card draws at its natural, which for a tab is
+  // the whole browser window.
   const auto keep = m_place.capture(
       frame(), exclude ? model::SubjectRef{reinterpret_cast<std::uintptr_t>(exclude.get()), 0}
                        : model::SubjectRef{});
-  std::vector<std::pair<PHLWINDOW, LRect>> out;
-  out.reserve(keep.size());
-  for (const auto &[subj, box] : keep)
-    if (const auto w = m_windows.windowOf(subj))
-      out.emplace_back(w, box);
-  return out;
+  return keep;
 }
 
 // Freeze tiles at their shown boxes (`oldBoxes`, pre-rebuild); empty = keep
     // the fresh naturals, so a plain open starts from the real boxes.
 void Overview::startTileGlide(
-    const std::vector<std::pair<PHLWINDOW, LRect>> &oldBoxes) {
+    const std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes) {
   bool newcomers = false;
   if (!oldBoxes.empty()) {
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
       t.natural = t.target;
       bool matched = false;
-      for (const auto &[oldWin, oldBox] : oldBoxes)
-        if (oldWin == tileWindow(t)) {
+      for (const auto &[oldSubj, oldBox] : oldBoxes)
+        if (oldSubj == t.subj) {
           t.natural = oldBox;
           matched = true;
           break;
@@ -711,12 +709,12 @@ void Overview::startTileGlide(
     }
     // Every removed tile fades out where it was — never vanishes one frame.
     m_fx.clearGhosts();
-    for (const auto &[oldWin, oldBox] : oldBoxes) {
+    for (const auto &[oldSubj, oldBox] : oldBoxes) {
       bool kept = false;
       for (const auto &t : m_scene.tiles())
-        if (tileWindow(t) == oldWin) { kept = true; break; }
+        if (t.subj == oldSubj) { kept = true; break; }
       if (!kept)
-        m_fx.addGhost(model::Ghost{subjectOf(oldWin), oldBox});
+        m_fx.addGhost(model::Ghost{oldSubj, oldBox});
     }
   } else
     m_scene.settleEntry();
@@ -742,7 +740,7 @@ void Overview::startTileGlide(
 }
 
 void Overview::replayReflow(
-    std::vector<std::pair<PHLWINDOW, LRect>> &oldBoxes) {
+    std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes) {
   m_scene.clearHover();
   buildTiles();
   buildStrip();
