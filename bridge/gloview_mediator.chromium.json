@@ -1,0 +1,7 @@
+{
+  "name": "gloview_mediator",
+  "description": "Reports tabs to the GloView compositor plugin",
+  "path": "/ABSOLUTE/PATH/TO/bridge/mediator.py",
+  "type": "stdio",
+  "allowed_extensions": []
+}

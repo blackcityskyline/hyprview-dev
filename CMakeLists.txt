@@ -268,8 +268,8 @@ add_test(NAME scan_preview_regressions
 # The brotab adapter, against a fake mediator speaking its real endpoints on a real port
 # inside its real range. The pid -> ppid hop is what the whole feature rests on and it is
 # only checkable against a live process.
-add_test(NAME bridge
-         COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/gloview_bridge_check.py)
+add_test(NAME mediator
+         COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/mediator_check.py)
 
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
