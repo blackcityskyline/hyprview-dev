@@ -340,14 +340,22 @@ private:
   // What the browser side left for this subject: a screenshot if it managed one, otherwise the
   // tab's icon, otherwise nothing. Both paths are exact -- built from ids already in hand --
   // so "nothing there" is an answer, never a guess.
+  // A tab's art is its icon, and nothing else.
+  //
+  // The browser side CANNOT produce a picture of one tab. captureVisibleTab photographs the
+  // visible window, so what lands in previews/<id>.png is the whole browser -- chrome, sidebar,
+  // and every OTHER tab's thumbnail. Drawing it put a picture of the browser on each of the
+  // browser's own tab cards, thirteen times, which reads as a carousel of windows wearing tab
+  // captions. It is a window screenshot filed under a tab's name; there is no crop that fixes
+  // it without hardcoding one browser's sidebar geometry.
+  //
+  // So a tab card is its icon or its caption. That is the honest state, and it is the state the
+  // whole feature ran in before <all_urls> was granted.
   SP<Render::ITexture> tabArt(const model::Tile &t) const {
     if (!m_tabs.isTab(t.subj))
       return nullptr;
-    auto tex = m_pixel.putPicture(t.subj, browserSideFile("/previews/" +
-                                                            std::to_string(t.subj.id) + ".png"),
-                                  browserSideFile("/icons/tab-" + std::to_string(t.subj.id) +
-                                                      ".png"));
-    return tex;
+    return m_pixel.putPicture(t.subj, "", browserSideFile("/icons/tab-" +
+                                                               std::to_string(t.subj.id) + ".png"));
   }
   void renderSwapFX() const;
   // Every box this window flies to on one surface. Shared by the painter and the
