@@ -107,9 +107,13 @@ void Overview::buildTiles() {
     if (w) {
       hosts.push_back(model::HostWindow{reinterpret_cast<std::uintptr_t>(w.get()),
                                         w->m_title});
-      // Lengths, not the text: a window title may itself contain the field separator, and a
-      // field carrying a separator makes every later field of the record unreadable.
-      hostTitles += std::to_string(w->m_title.size()) + ",";
+      // The title itself, with the field separators a title may contain folded out of the
+      // way. Lengths were the first attempt and they were useless: they proved two titles
+      // differed without saying which, which is the one question this record exists for.
+      hostTitles += "[" + w->m_title + "] ";
+      for (auto &c : hostTitles)
+        if (c == '|' || c == '\n' || c == '\r')
+          c = '_';
     }
   }
   for (const auto &[browserWindow, reported] : m_tabs.snapshot().windows)
