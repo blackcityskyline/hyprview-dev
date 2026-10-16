@@ -139,6 +139,33 @@ int main() {
     std::puts("order: the writer's order is the plugin's order");
   }
 
+  // --- the process a browser window belongs to --------------------------------------------------------
+  // The one thing a compositor window and a browser window can be matched on exactly. A title
+  // cannot: the browser appends its own name to it, so the string a compositor holds and the
+  // string an extension reports differ by construction.
+  {
+    const auto &s = must(parseTabs("g 4\np 1234 12\np 1234 13\np 5678 14\n"
+                                   "t 12 41 0 a\nt 13 1 0 b\nt 14 7 0 c\n"),
+                         "a feed with processes");
+    want(s.pids.size() == 3, true, "one process per window");
+    want(s.pids.at(12) == 1234, true, "window 12 belongs to process 1234");
+    // Two windows of the SAME browser share a process, which is the grouping wanted: a browser
+    // with two windows is one program, and its tabs belong together.
+    want(s.pids.at(13) == 1234, true, "and so does window 13");
+    want(s.pids.at(14) == 5678, true, "while window 14 belongs to another browser");
+    want(s.pids.count(99) == 0, true, "an unmentioned window has no process");
+
+    // A feed with tabs but no processes is not useless -- it is what an older writer produced --
+    // but it matches nothing, and saying so is the point.
+    const auto &bare = must(parseTabs("g 5\nt 12 41 0 a\n"), "a feed with no processes");
+    want(bare.pids.empty(), true, "no process lines means no processes");
+    want(bare.windows.size() == 1, true, "and the tabs are still there");
+
+    refuses("p abc 12\n", "a non-numeric process id");
+    refuses("p 1234\n", "a process line with no window");
+    std::puts("pids: per window, and shared within a browser");
+  }
+
   if (failures) {
     std::printf("tab_feed: %d failure(s)\n", failures);
     return 1;

@@ -11,6 +11,7 @@
 // title is the rest of the line, which is all a caption ever wanted from it:
 //
 //   g <generation>
+//   p <pid> <window>      the process a browser window belongs to
 //   t <window> <tab> <active> <title...>
 //
 // <generation> is the connection's identity. It is what makes tab ids safe: ids are reused
@@ -52,6 +53,17 @@ struct ReportedTabs {
 // Everything one connection said. `generation` is that connection's identity.
 struct TabSnapshot {
     std::uint32_t generation = 0;
+    // browser window id -> the OS process its window belongs to.
+    //
+    // This is what a browser window is matched to a compositor window BY, and it is a pid
+    // rather than a title because a browser appends its own name to a window's title --
+    // "(page) - YouTube -- Zen Browser" -- so the title a compositor holds and the title an
+    // extension reports are different strings by construction. A pid is not a heuristic: two
+    // windows of the same browser share it, which is exactly the grouping wanted, and a
+    // window of a different browser never does.
+    //
+    // A window absent from this map has no pid and matches nothing.
+    std::unordered_map<std::uint64_t, std::uint64_t> pids;
     // Window id -> its tabs, in the order they were reported. A window absent from this map
     // has NOT been heard from -- which is not the same as having no tabs, and must never be
     // collapsed into it.
@@ -115,6 +127,20 @@ struct TabSnapshot {
                 return std::nullopt;
             out.generation = static_cast<std::uint32_t>(gen);
             haveHeader     = true;
+            continue;
+        }
+
+        // Process: 'p' pid window. Declared per window rather than once per feed because a
+        // feed can describe several browsers -- each mediator is a separate process on its own
+        // port -- and their windows must not be attributed to one another.
+        if (line.front() == 'p') {
+            if (line.size() < 4 || line[1] != ' ')
+                return std::nullopt;
+            std::size_t pp = 2;
+            std::uint64_t pid = 0, window = 0;
+            if (!number(line, pp, pid) || !number(line, pp, window))
+                return std::nullopt;
+            out.pids[window] = pid;
             continue;
         }
 

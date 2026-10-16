@@ -100,13 +100,15 @@ void Overview::buildTiles() {
   // one list of windows: the tile a tab is built for and the window that match put its tabs on
   // cannot be different windows.
   std::vector<model::HostWindow> hosts;
-  std::unordered_map<std::uint64_t, std::string> activeTitles;
   std::string hostTitles;
   for (const auto subj : subjects) {
     const auto w = m_windows.windowOf(subj);
     if (w) {
+      // The process, not the title. A browser appends its own name to a window's title, so
+      // what the compositor holds and what an extension reports are different strings by
+      // construction; a pid is the same number on both sides.
       hosts.push_back(model::HostWindow{reinterpret_cast<std::uintptr_t>(w.get()),
-                                        w->m_title});
+                                        static_cast<std::uint64_t>(w->getPID())});
       // The title itself, with the field separators a title may contain folded out of the
       // way. Lengths were the first attempt and they were useless: they proved two titles
       // differed without saying which, which is the one question this record exists for.
@@ -116,19 +118,16 @@ void Overview::buildTiles() {
           c = '_';
     }
   }
-  for (const auto &[browserWindow, reported] : m_tabs.snapshot().windows)
-    for (const auto &[tabId, info] : reported.tabs)
-      if (info.active) {
-        (void)tabId;
-        activeTitles.emplace(browserWindow, std::string{info.title});
-        break;
-      }
-  m_links.rebuild(hosts, activeTitles);
+  // Process per browser window, straight out of the feed. Two windows of one browser share
+  // it, which is the grouping wanted, and it comes from the browser side rather than from
+  // anything guessed here.
+  const auto &pids = m_tabs.snapshot().pids;
+  m_links.rebuild(hosts, pids);
   debug::trace::record("TABS", "match",
                        std::string("mode=") + model::domainName(m_view.domain()) + "|gen=" +
                            std::to_string(m_tabs.generation()) + "|hosts=" +
                            std::to_string(hosts.size()) + "|titles=" +
-                           std::to_string(activeTitles.size()) + "|links=" +
+                           std::to_string(pids.size()) + "|links=" +
                            std::to_string(m_links.empty() ? 0 : 1) + "|cfg=" +
                            cfg::behavior.tile_mode.get() + "|hostLens=" + hostTitles);
   for (const auto subj : subjects) {

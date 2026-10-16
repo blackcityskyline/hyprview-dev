@@ -37,54 +37,40 @@ namespace gloview::model {
 struct HostWindow {
     // Opaque identity of the compositor window; the caller resolves it.
     std::uint64_t id = 0;
-    std::string title;
+    // The OS process it belongs to. This is the match, and a title was not: a browser appends
+    // its own name to a window's title, so what the compositor holds and what the extension
+    // reports are different strings by construction. See TabSnapshot::pids.
+    std::uint64_t pid = 0;
 };
 
 // Browser window id -> index into `hosts`, for those that matched.
 //
-// `activeTitles` is the same map keyed by browser window id: the title of that browser
-// window's active tab, which is what a browser window's title is. A browser window absent
-// from it is not matched either -- no active tab, no title, nothing to agree on.
+// `pids` is keyed by browser window id: the OS process that window belongs to. A window absent
+// from it has no process and matches nothing.
+//
+// Two windows of one browser share a process, so "is this host the right browser?" is not a
+// question with one answer -- it is a set. That is the whole shape of this function now, and
+// it is why matching by title had to go: two windows of the same browser differ in title and
+// agree in process, the opposite of what the old rule assumed.
 [[nodiscard]] inline std::unordered_map<std::uint64_t, std::size_t> matchBrowserWindows(
     const std::vector<HostWindow> &hosts,
-    const std::unordered_map<std::uint64_t, std::string> &activeTitles) {
+    const std::unordered_map<std::uint64_t, std::uint64_t> &pids) {
 
-    // Host indices by title. A title seen twice makes it unmatchable, which is why this keeps
-    // every index rather than the first hit: keeping the first would be a coin flip dressed
-    // up as a rule.
-    std::unordered_map<std::string, std::vector<std::size_t>> byTitle;
+    // Host indices per process. Every index is kept, never just the first, because picking one
+    // out of several would be a coin flip dressed up as a rule.
+    std::unordered_map<std::uint64_t, std::vector<std::size_t>> byPid;
     for (std::size_t i = 0; i < hosts.size(); ++i)
-        byTitle[hosts[i].title].push_back(i);
-
-    // How many browser windows claim each title, and the other half of the rule: a title must
-    // be claimed exactly once. Anything else is a guess -- two windows with one title, or two
-    // browser windows fighting over one.
-    //
-    // Counting the BROWSER side too is not redundancy. Counting only the hosts would leave
-    // "two browser windows, one title" to be decided by whichever the hash map visited first:
-    // a coin flip that lands differently between runs on identical input.
-    //
-    // Empty titles are excluded here, by never being counted, rather than by a second check
-    // further down. That is why they can never satisfy "exactly once" below: an empty title
-    // reads as UNKNOWN, not as a window that agrees to be empty, and matching it would hand
-    // one browser's tabs to whatever window had no title yet. The test pins this by breaking
-    // this line and nothing else -- a separate guard for it would pass the same test whether
-    // or not this one was there.
-    std::unordered_map<std::string, int> browserTitleUses;
-    for (const auto &[browserWindow, title] : activeTitles)
-        if (!title.empty())
-            ++browserTitleUses[title];
+        if (hosts[i].pid != 0)
+            byPid[hosts[i].pid].push_back(i);
 
     std::unordered_map<std::uint64_t, std::size_t> out;
-    for (const auto &[browserWindow, title] : activeTitles) {
-        if (browserTitleUses[title] != 1)
-            continue; // unclaimed, shared, or empty: none of those is a match
-        const auto it = byTitle.find(title);
-        if (it == byTitle.end())
-            continue;
+    for (const auto &[browserWindow, pid] : pids) {
+        const auto it = byPid.find(pid);
+        if (it == byPid.end())
+            continue; // that browser has no window on this run
         const auto &cands = it->second;
         if (cands.size() != 1)
-            continue; // ambiguous: two windows, one title, no way to tell
+            continue; // two windows of this browser are on the run and nothing says which
         out.emplace(browserWindow, cands.front());
     }
     return out;
@@ -94,21 +80,20 @@ struct HostWindow {
 //
 // This is a type rather than a bare map because it has a lifetime: it is built when a run
 // opens and dropped when it ends, and "dropped" is the part that has to be right. Holding
-// it for the life of the plugin would mean a title that matched during one run still
-// deciding which browser a window belongs to during the next -- and titles are what the
-// match is made of.
+// it for the life of the plugin would mean a process that matched during one run still
+// deciding which browser a window belongs to during the next.
 //
 // Both directions, because both get asked and answering one by scanning for the other is a
 // second place that could disagree with the first.
 class BrowserLinks {
   public:
     void rebuild(const std::vector<HostWindow> &hosts,
-                 const std::unordered_map<std::uint64_t, std::string> &activeTitles) {
+                 const std::unordered_map<std::uint64_t, std::uint64_t> &pids) {
       // Replaced, never accumulated: the next run must not inherit the last run's answers.
       m_byHost.clear();
       m_byBrowser.clear();
       for (const auto &[browserWindow, host] :
-           matchBrowserWindows(hosts, activeTitles)) {
+           matchBrowserWindows(hosts, pids)) {
         m_byHost.emplace(hosts[host].id, browserWindow);
         m_byBrowser.emplace(browserWindow, hosts[host].id);
       }
