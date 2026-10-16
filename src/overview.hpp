@@ -506,6 +506,8 @@ private:
   void restoreLayers();
   void restoreFill();
   void stepAltTab(int dir);
+  // A card that joined or left the run has no slot to glide between. See keys.cpp.
+  void pinRunEdges(const std::vector<char> &wasOnRun);
   int tileOf(const PHLWINDOW &w) const;
   // Defined here, next to m_pump, rather than in session/lifecycle.cpp. Twenty-two files
   // ask for a damage and only one of them is about the run's lifecycle -- an action, a

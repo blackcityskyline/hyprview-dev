@@ -233,40 +233,62 @@ void Overview::moveSelection(int dx, int dy) {
 // the array index would move the selection to a window that is not the next card on
 // screen. A grid has no slot order and keeps the array order it is drawn in.
 void Overview::stepAltTab(int dir) {
-  const int n = static_cast<int>(m_scene.size());
+  const std::size_t n = m_scene.size();
   if (n == 0)
     return;
-  // A TAB's card slides from the slot it occupied. Its `natural` still held whatever
+
+  // Which cards are on the run right now. A card that joins or leaves it between one step
+  // and the next has no slot to glide from or to: off-stage its box is empty, so handing it a
+  // target made it grow out of the top left corner of the monitor, and its caption came with
+  // it and got clamped up into the strip band. The caption is what read as the strip
+  // jumping. Taken before anything below changes a target.
+  std::vector<char> wasOnRun(n, 0);
+  for (std::size_t i = 0; i < n; ++i)
+    wasOnRun[i] = m_scene.tiles()[i].target.w >= 1.0 ? 1 : 0;
+
+  // A TAB's card slides from the slot it occupied. Its natural still holds whatever
   // buildTiles() last put there, which for a tab is the browser WINDOW's box -- so the cards
   // flew in from full screen and swept the panel. A window's natural is already its own box
   // on the desktop and must keep gliding from there, so this is tabs only: pinning every
   // card's natural to its target took the window run's slide away with it.
-  for (std::size_t i = 0; i < m_scene.size(); ++i)
+  for (std::size_t i = 0; i < n; ++i)
     if (cardOf(m_scene.tiles()[i]).isTab())
       m_scene.setNatural(i, m_scene.tiles()[i].target);
+
   const auto &slot = m_view.slot();
-  if (carouselMode() && m_scene.hasSelection() &&
-      slot.size() == static_cast<std::size_t>(n)) {
+  if (carouselMode() && m_scene.hasSelection() && slot.size() == n) {
     const int cur = m_view.slotOf(static_cast<std::size_t>(m_scene.selected()));
     if (cur >= 0) {
-      const int nxt = ((cur + dir) % n + n) % n;
+      const int count = static_cast<int>(n);
+      const int nxt = ((cur + dir) % count + count) % count;
       m_scene.select(m_view.tileInSlot(static_cast<std::size_t>(nxt)));
-      // The run's geometry is built FROM the selection -- computeCarousel() takes the selected
+      // The run's geometry is built FROM the selection: computeCarousel() takes the selected
       // slot and decides what is centred and what is off-run. Selecting without relaying out
-      // leaves the previous step's cards standing while the slot map has already moved on; the
-      // NEXT step then reads a slot map that no longer matches the scene and takes the other
-      // branch, and that is the one-frame jump of the whole overview -- on some steps and not
-      // on others, which is what made it look like noise. altTabInvoke() already relays out
-      // for its own step; this is the same motion arriving from the other side.
+      // leaves the previous step's cards standing while the slot map has already moved on.
       layoutTiles();
+      pinRunEdges(wasOnRun);
       damage();
       return;
     }
   }
   m_scene.stepSelection(dir);
-  if (carouselMode())
+  if (carouselMode()) {
     layoutTiles();
+    pinRunEdges(wasOnRun);
+  }
   damage();
+}
+
+// The cards that changed between the two sides of the run have no slot between them. Pinned
+// to their own target they simply are, or are not; the cards that stayed on the run keep
+// sliding from the slot they left to the slot they took.
+void Overview::pinRunEdges(const std::vector<char> &wasOnRun) {
+  for (std::size_t i = 0; i < m_scene.size(); ++i) {
+    const auto &t = m_scene.tiles()[i];
+    const bool onRunNow = t.target.w >= 1.0;
+    if (cardOf(t).isTab() && (onRunNow != (wasOnRun[i] != 0)))
+      m_scene.setNatural(i, t.target);
+  }
 }
 
 void Overview::activateSelection() {
