@@ -67,6 +67,18 @@ class PixelCache {
     // A tab has no window to own the entry, so the SubjectCache's epoch is the owner: an entry
     // made under one connection is dropped when the next one arrives, which is the same rule
     // the picture cache follows and for the same reason.
+    // A picture for a subject, whichever of the two files the browser side left for it: a
+    // screenshot first, then an icon, then nothing. The paths are the caller's because the
+    // browser side is its business and this cache's is not to know where files come from.
+    //
+    // Nothing found is NOT cached. A file that is not there yet is the ordinary state of a
+    // directory the browser is writing, and caching the miss would keep drawing an empty card
+    // for the rest of the connection.
+    SP<Render::ITexture> putPicture(const model::SubjectRef &s,
+                                   const std::string &screenshotPath,
+                                   const std::string &iconPath);
+    [[nodiscard]] SP<Render::ITexture> picture(const model::SubjectRef &s) const;
+
     SP<Render::ITexture> subjectLabel(const model::SubjectRef &s,
                                       const std::string &text,
                                       const CHyprColor &col, int size,
@@ -147,6 +159,7 @@ class PixelCache {
     std::unordered_map<WORKSPACEID, LabelEntry> m_virtualLabels;
     std::unordered_map<Desktop::View::CWindow *, WinSnapshot> m_snapshots;
     SubjectCache<LabelEntry> m_subjectLabels;
+    SubjectCache<SP<Render::ITexture>> m_subjectArt;
     SP<Render::ITexture> m_glyph;
     std::string m_glyphIcon;
 };

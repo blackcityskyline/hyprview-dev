@@ -1,5 +1,7 @@
 #include "cache.hpp"
 
+#include "png.hpp"
+
 #include <algorithm>
 
 #include <hyprland/src/render/Renderer.hpp>
@@ -52,6 +54,24 @@ SP<Render::ITexture> PixelCache::windowLabel(const PHLWINDOW &win,
                                             const CHyprColor &col, int size,
                                             int maxW) {
   return labelIn(m_winLabels, PHLWINDOWREF{win}, text, col, size, maxW);
+}
+
+SP<Render::ITexture> PixelCache::putPicture(const model::SubjectRef &s,
+                                           const std::string &screenshotPath,
+                                           const std::string &iconPath) {
+  if (const auto *hit = m_subjectArt.find(s))
+    return *hit;
+  auto tex = loadPng(screenshotPath);
+  if (!tex && !iconPath.empty())
+    tex = loadPng(iconPath);
+  if (tex)
+    m_subjectArt.put(s, tex);
+  return tex;
+}
+
+SP<Render::ITexture> PixelCache::picture(const model::SubjectRef &s) const {
+  const auto *hit = m_subjectArt.find(s);
+  return hit ? *hit : nullptr;
 }
 
 SP<Render::ITexture> PixelCache::subjectLabel(const model::SubjectRef &s,

@@ -233,6 +233,14 @@ private:
   // carries no refcount, so resolving one means asking the source that holds the
   // ownership. One place answers it, so there is no second place that could disagree.
   PHLWINDOW tileWindow(const model::Tile &t) const { return m_windows.windowOf(t.subj); }
+  // The directory the browser side writes into. One place, because the feed, the screenshots
+  // and the icons all live under it and a second spelling of the root is a second place for
+  // them to disagree -- which is exactly the bug that left the feed at a doubled path for a
+  // commit.
+  static std::string browserSideFile(const std::string &leaf) {
+    const char *rt = std::getenv("XDG_RUNTIME_DIR");
+    return (rt && *rt ? std::string(rt) : std::string("/tmp")) + "/gloview" + leaf;
+  }
   // The identity of a window the caller already holds. The inverse of tileWindow(), and on
   // the same side of the boundary: a caller that has a window asks here rather than casting
   // an address into a SubjectRef in three places.
@@ -320,6 +328,25 @@ private:
   // one only stands down for its own flight -- a shared predicate made the strip's
   // thumbnail disappear while the card flew.
   [[nodiscard]] bool swapfxActive(const PHLWINDOW &w, bool strip) const;
+  // The same question for a subject rather than a window, which is what a tile carries. Two
+  // predicates answering one thing from two sides is the arrangement that lets a tab quietly
+  // skip every effect that a window gets.
+  [[nodiscard]] bool swapfxActiveSubject(model::SubjectRef s, bool strip) const {
+    return m_fx.swapActive(s, strip);
+  }
+
+  // What the browser side left for this subject: a screenshot if it managed one, otherwise the
+  // tab's icon, otherwise nothing. Both paths are exact -- built from ids already in hand --
+  // so "nothing there" is an answer, never a guess.
+  SP<Render::ITexture> tabArt(const model::Tile &t) const {
+    if (!m_tabs.isTab(t.subj))
+      return nullptr;
+    auto tex = m_pixel.putPicture(t.subj, browserSideFile("/previews/" +
+                                                            std::to_string(t.subj.id) + ".png"),
+                                  browserSideFile("/icons/tab-" + std::to_string(t.subj.id) +
+                                                      ".png"));
+    return tex;
+  }
   void renderSwapFX() const;
   // Every box this window flies to on one surface. Shared by the painter and the
   // trace so a reported target cannot differ from a drawn one.

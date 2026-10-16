@@ -32,11 +32,15 @@ namespace gloview {
 // Where the browser side leaves what it knows. Under the runtime dir rather than the home
 // one: it is live state, it is per-user and per-boot, and nothing should survive a logout for
 // a compositor to read as current.
-static std::string tabFeedPath() {
+static std::string browserSideDir() {
     const char *rt = std::getenv("XDG_RUNTIME_DIR");
-    const std::string dir = rt && *rt ? std::string(rt) : std::string("/tmp");
-    return dir + "/gloview/tabs";
+    return (rt && *rt ? std::string(rt) : std::string("/tmp")) + "/gloview";
 }
+
+// What the browser side left for one subject, in the order it should be preferred. Exact
+// paths built from ids the plugin already holds -- this looks nothing up and matches nothing,
+// so "not there" is a defined answer rather than a guess.
+static std::string tabFeedPath() { return browserSideDir() + "/tabs"; }
 
 void Overview::loadTabs() {
     // Read once, whole. A snapshot replaces the previous one rather than merging, so there is
@@ -51,33 +55,23 @@ void Overview::loadTabs() {
     // "forget" means downstream is entriesFor()'s fallback -- every window shows as a window --
     // which is the mode working, not the mode broken.
     if (!parsed || !m_tabs.adopt(*parsed)) {
+        // Not a failure to speak of: no extension running is the ordinary state, and it lands
+        // on entriesFor's fallback. Recorded anyway, because "no tabs" and "the file was not
+        // there" and "the file was rejected" look identical from the outside otherwise.
+        debug::trace::record("TABS", "load",
+                             std::string("mode=") + model::domainName(m_view.domain()) +
+                                 "|parsed=" + std::to_string(parsed.has_value() ? 1 : 0) +
+                                 "|bytes=" + std::to_string(text.size()));
         m_tabs.clear();
         m_links.clear();
         return;
     }
 
-    // The two sides of the match: this compositor's windows and their titles, and each browser
-    // window's ACTIVE tab title -- which is what a browser window's title is. An ambiguous pair
-    // is left unmatched on purpose; see matchBrowserWindows.
-    std::vector<model::HostWindow> hosts;
-    std::unordered_map<std::uint64_t, std::string> activeTitles;
-    for (const auto subj : m_windows.enumerate()) {
-        const auto w = m_windows.windowOf(subj);
-        if (!w)
-            continue;
-        hosts.push_back(model::HostWindow{reinterpret_cast<std::uintptr_t>(w.get()),
-                                          w->m_title});
-    }
-    for (const auto &[browserWindow, reported] : m_tabs.snapshot().windows) {
-        for (const auto &[tabId, info] : reported.tabs) {
-            (void)tabId;
-            if (!info.active)
-                continue;
-            activeTitles.emplace(browserWindow, std::string{info.title});
-            break;
-        }
-    }
-    m_links.rebuild(hosts, activeTitles);
+    // The matching is NOT built here. It used to be, against this enumeration, and it
+    // was stale the moment the user toggled all-workspaces -- a different window set, matched
+    // against the previous one. The links are now derived in buildTiles(), from the very same
+    // enumeration that builds the tiles, so the two cannot disagree about which window carries
+    // whose tabs. A rebuild per tile pass is cheap; being wrong is not.
 }
 
 void Overview::buildTiles() {
@@ -100,7 +94,40 @@ void Overview::buildTiles() {
   // The membership filter is not repeated: enumerate() asks the host, which is tileBelongs()
   // with the monitor and workspace already locked. One rule, one place.
   const auto mode = m_view.domain();
-  for (const auto subj : m_windows.enumerate()) {
+  const auto subjects = m_windows.enumerate();
+
+  // The match, from THIS enumeration. Both halves of every question below therefore come from
+  // one list of windows: the tile a tab is built for and the window that match put its tabs on
+  // cannot be different windows.
+  std::vector<model::HostWindow> hosts;
+  std::unordered_map<std::uint64_t, std::string> activeTitles;
+  std::string hostTitles;
+  for (const auto subj : subjects) {
+    const auto w = m_windows.windowOf(subj);
+    if (w) {
+      hosts.push_back(model::HostWindow{reinterpret_cast<std::uintptr_t>(w.get()),
+                                        w->m_title});
+      // Lengths, not the text: a window title may itself contain the field separator, and a
+      // field carrying a separator makes every later field of the record unreadable.
+      hostTitles += std::to_string(w->m_title.size()) + ",";
+    }
+  }
+  for (const auto &[browserWindow, reported] : m_tabs.snapshot().windows)
+    for (const auto &[tabId, info] : reported.tabs)
+      if (info.active) {
+        (void)tabId;
+        activeTitles.emplace(browserWindow, std::string{info.title});
+        break;
+      }
+  m_links.rebuild(hosts, activeTitles);
+  debug::trace::record("TABS", "match",
+                       std::string("mode=") + model::domainName(m_view.domain()) + "|gen=" +
+                           std::to_string(m_tabs.generation()) + "|hosts=" +
+                           std::to_string(hosts.size()) + "|titles=" +
+                           std::to_string(activeTitles.size()) + "|links=" +
+                           std::to_string(m_links.empty() ? 0 : 1) + "|cfg=" +
+                           cfg::behavior.tile_mode.get() + "|hostLens=" + hostTitles);
+  for (const auto subj : subjects) {
     const auto w = m_windows.windowOf(subj);
     if (!w)
       continue; // cannot happen straight after enumerating; not worth assuming

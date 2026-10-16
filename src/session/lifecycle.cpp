@@ -63,10 +63,7 @@ void Overview::toggle() {
 // on; all -> all, run only flips. No path back — that is "a"'s job.
 void Overview::toggleCarousel() {
   if (!m_life.openingNow()) {
-    // Before buildTiles(), which is the first thing that asks. The mode is a property of this
-  // run, not of the process: see view::State::domain().
-  m_view.setDomain(model::parseDomain(cfg::behavior.tile_mode.get()));
-  m_view.setCarouselOn( true); // BEFORE open(): buildTiles reads it
+    m_view.setCarouselOn( true); // BEFORE open(): buildTiles reads it
     m_view.setAllOverride( 1);
     open();
     if (!openedOrParked())
@@ -241,7 +238,11 @@ void Overview::open() {
   m_newCardId = 0;
   releaseNewWorkspaces();
 
-  // BEFORE buildTiles(), which is the first thing that asks which tabs ride on which window.
+  // Once per run, right before the first thing that reads it. This was in toggleCarousel() by
+  // accident -- placed by matching a comment rather than a function -- which meant open() never
+  // set it and every run silently used the default. A mode that looks live and never moves is
+  // the worst kind of dead config.
+  m_view.setDomain(model::parseDomain(cfg::behavior.tile_mode.get()));
   loadTabs();
   buildTiles();
   buildStrip();

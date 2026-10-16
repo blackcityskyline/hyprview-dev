@@ -68,6 +68,9 @@ LRect Overview::tileBox(size_t i, const LRect &slot) const {
     return slot;
   double aspect = slot.w / std::max(1.0, slot.h);
   if (i < m_scene.tiles().size()) {
+    // The window's own proportions, when there is one. A tab takes the slot's aspect, which is
+    // what it did before any of this: a tab has no geometry of its own and a card squeezed to a
+    // made-up ratio would be worse than one that simply fills the slot it was given.
     if (const auto w = tileWindow(m_scene.tiles()[i])) {
       const auto s = w->sizeAnimation()->goal();
       if (s.x > 0 && s.y > 0)
@@ -90,8 +93,12 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
   if (!m || i >= m_scene.tiles().size())
     return;
   const auto &t = m_scene.tiles()[i];
-  const auto w  = tileWindow(t);
-  if (!w || !w->m_isMapped || w->isHidden())
+  // A tab has no window, and this was where it ended. The card chrome above -- frost, ring,
+  // shadow, pill -- is drawn from geometry alone and applies to a tab exactly as to a window;
+  // only the CONTENT needs a window, and that is the one thing branched further down.
+  const auto w = tileWindow(t);
+  const bool tab = m_tabs.isTab(t.subj);
+  if (!tab && (!w || !w->m_isMapped || w->isHidden()))
     return;
 
   const LRect box = look.box;
@@ -162,9 +169,18 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                                 {.round = pxr(round, s), .roundingPower = roundPow});
     }
   }
-  renderWindowLive(w, m, pxb(box, s), pxb(box, s), f, Time::steadyNow(),
-                   contentRadiusPx(round, ringW, roundPow, s, !look.contain),
-                   roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
+  if (tab) {
+    // What the browser side left: a screenshot, an icon, or nothing. Nothing is not a special
+    // case -- the frost above already drew the card, so a tab with no art yet is a card with
+    // its caption and no picture, which is the honest state of a browser that has not got
+    // round to writing one.
+    if (const auto tex = tabArt(t))
+      g_pHyprOpenGL->renderTexture(tex, pxb(box, s), {.a = f});
+  } else {
+    renderWindowLive(w, m, pxb(box, s), pxb(box, s), f, Time::steadyNow(),
+                     contentRadiusPx(round, ringW, roundPow, s, !look.contain),
+                     roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
+  }
 
   if (look.tone > 0.0)
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
@@ -328,9 +344,18 @@ void Overview::renderTiles() const {
   for (size_t i = 0; i < m_scene.tiles().size(); ++i) {
     if (static_cast<int>(i) == dragIdx)
       continue; // the dragged tile floats over the strip; drawn later
-    const auto w = tileWindow(m_scene.tiles()[i]);
-    if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w, false))
-      continue; // flying via a landing: its slot is painted by renderSwapFX
+    const auto &t = m_scene.tiles()[i];
+    // A tab has no window, and this used to be where it ended: `!w` was true for every tab,
+    // so a tabs run drew nothing at all -- and drew it silently, because "no window" is also
+    // what a window that has gone looks like, and the two were not told apart.
+    if (m_tabs.isTab(t.subj)) {
+      if (swapfxActiveSubject(t.subj, false))
+        continue;
+    } else {
+      const auto w = tileWindow(t);
+      if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w, false))
+        continue; // flying via a landing: its slot is painted by renderSwapFX
+    }
     TileLook look;
     look.box = tileRect(i);
     look.button = wantButtons;
