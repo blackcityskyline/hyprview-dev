@@ -713,7 +713,15 @@ void Overview::startTileGlide(
   if (!oldBoxes.empty()) {
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
-      t.natural = t.target;
+      // The outgoing box is the TARGET, because the tile already moved there. On the run that
+      // is right for a card that is on it -- and catastrophic for one that is not: a card
+      // off the run has an EMPTY target, so this set its natural to the origin and it grew out
+      // of the top left corner of the monitor, dragging its caption with it and clamping it
+      // into the strip. Traced: i=3 at 35,9 10x6, then 80x45, then 142x79. A card keeps the
+      // box it was last shown at when it has none of its own, which is what Placement::box
+      // already does with an empty target -- so do nothing rather than zero it.
+      if (t.target.w >= 1.0 || t.natural.w < 1.0)
+        t.natural = t.target;
       bool matched = false;
       for (const auto &[oldSubj, oldBox] : oldBoxes)
         if (oldSubj == t.subj) {
