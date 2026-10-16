@@ -243,11 +243,21 @@ void Overview::stepAltTab(int dir) {
     if (cur >= 0) {
       const int nxt = ((cur + dir) % n + n) % n;
       m_scene.select(m_view.tileInSlot(static_cast<std::size_t>(nxt)));
+      // The run's geometry is built FROM the selection -- computeCarousel() takes the selected
+      // slot and decides what is centred and what is off-run. Selecting without relaying out
+      // leaves the previous step's cards standing while the slot map has already moved on; the
+      // NEXT step then reads a slot map that no longer matches the scene and takes the other
+      // branch, and that is the one-frame jump of the whole overview -- on some steps and not
+      // on others, which is what made it look like noise. altTabInvoke() already relays out
+      // for its own step; this is the same motion arriving from the other side.
+      layoutTiles();
       damage();
       return;
     }
   }
   m_scene.stepSelection(dir);
+  if (carouselMode())
+    layoutTiles();
   damage();
 }
 
