@@ -185,7 +185,7 @@ void Overview::buildTiles() {
       // an empty string, and an empty caption is the kind of thing that looks intentional.
       std::string text;
       SP<Render::ITexture> tex;
-      if (m_tabs.isTab(t.subj)) {
+      if (cardOf(t).isTab()) {
         text = m_tabs.label(t.subj);
         tex  = m_pixel.subjectLabel(t.subj, text, lblCol, cfg::look.title_font_size.get());
       } else {

@@ -97,7 +97,8 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
   // shadow, pill -- is drawn from geometry alone and applies to a tab exactly as to a window;
   // only the CONTENT needs a window, and that is the one thing branched further down.
   const auto w = tileWindow(t);
-  const bool tab = m_tabs.isTab(t.subj);
+  const auto card = cardOf(t);
+  const bool tab = card.isTab();
   if (!tab && (!w || !w->m_isMapped || w->isHidden()))
     return;
 
@@ -367,7 +368,7 @@ void Overview::renderTiles() const {
     // A tab has no window, and this used to be where it ended: `!w` was true for every tab,
     // so a tabs run drew nothing at all -- and drew it silently, because "no window" is also
     // what a window that has gone looks like, and the two were not told apart.
-    if (m_tabs.isTab(t.subj)) {
+    if (cardOf(t).isTab()) {
       if (swapfxActiveSubject(t.subj, false))
         continue;
     } else {

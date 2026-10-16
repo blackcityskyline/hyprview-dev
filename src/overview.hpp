@@ -235,6 +235,31 @@ private:
   // carries no refcount, so resolving one means asking the source that holds the
   // ownership. One place answers it, so there is no second place that could disagree.
   PHLWINDOW tileWindow(const model::Tile &t) const { return m_windows.windowOf(t.subj); }
+
+  // What a card IS, resolved in one place, with named answers.
+  //
+  // Thirty-three call sites used to ask `tileWindow(t)` for themselves and branch on the
+  // result, and they did not agree: drawTile skipped a null window, pushOut yielded to it,
+  // the caption was gated on it, the border was not, captureCurrentBoxes dropped it and
+  // startTileGlide matched nullptr against nullptr and called it found. A subject kind that
+  // has no window was then a bug hunt rather than a one-line change -- every site had to be
+  // found, and each one's intent had to be guessed.
+  //
+  // Three named answers are the whole mechanism. A fourth kind changes this function and the
+  // sites keep reading; a site that needs to know something else asks here, not the source.
+  struct Card {
+    PHLWINDOW window = {};        // empty for anything that is not a window
+    bool      paintsOwnContent = false; // draws a picture of itself
+    bool      coversChrome = false;     // occludes the strip and yields to it
+
+    [[nodiscard]] bool isTab() const { return !window; }
+    [[nodiscard]] bool hasWindow() const { return static_cast<bool>(window); }
+  };
+  [[nodiscard]] Card cardOf(const model::Tile &t) const {
+    const auto w = m_windows.windowOf(t.subj);
+    return Card{w, static_cast<bool>(w), static_cast<bool>(w)};
+  }
+
   // The directory the browser side writes into. One place, because the feed, the screenshots
   // and the icons all live under it and a second spelling of the root is a second place for
   // them to disagree -- which is exactly the bug that left the feed at a doubled path for a
@@ -352,7 +377,7 @@ private:
   // So a tab card is its icon or its caption. That is the honest state, and it is the state the
   // whole feature ran in before <all_urls> was granted.
   SP<Render::ITexture> tabArt(const model::Tile &t) const {
-    if (!m_tabs.isTab(t.subj))
+    if (!cardOf(t).isTab())
       return nullptr;
     return m_pixel.putPicture(t.subj, "", browserSideFile("/icons/tab-" +
                                                                std::to_string(t.subj.id) + ".png"));

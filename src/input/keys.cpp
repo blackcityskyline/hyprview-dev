@@ -242,7 +242,7 @@ void Overview::stepAltTab(int dir) {
   // on the desktop and must keep gliding from there, so this is tabs only: pinning every
   // card's natural to its target took the window run's slide away with it.
   for (std::size_t i = 0; i < m_scene.size(); ++i)
-    if (m_tabs.isTab(m_scene.tiles()[i].subj))
+    if (cardOf(m_scene.tiles()[i]).isTab())
       m_scene.setNatural(i, m_scene.tiles()[i].target);
   const auto &slot = m_view.slot();
   if (carouselMode() && m_scene.hasSelection() &&

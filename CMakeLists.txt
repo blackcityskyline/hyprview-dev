@@ -271,6 +271,13 @@ add_test(NAME scan_preview_regressions
 add_test(NAME scan_domain_view
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/domain_view_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/domain_view_check && ${CMAKE_CURRENT_BINARY_DIR}/domain_view_check ${CMAKE_SOURCE_DIR}")
 
+# A card's kind is decided in ONE function and the sites read named answers. It was 33 call
+# sites each asking tileWindow() for itself and they disagreed, and every one of the
+# disagreements was found by a user report rather than by a test. Adding a kind without a
+# window cost three days for that reason alone.
+add_test(NAME scan_card_kind
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/card_kind_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/card_kind_check && ${CMAKE_CURRENT_BINARY_DIR}/card_kind_check ${CMAKE_SOURCE_DIR}")
+
 # The brotab adapter, against a fake mediator speaking its real endpoints on a real port# inside its real range. The pid -> ppid hop is what the whole feature rests on and it is
 # only checkable against a live process.
 add_test(NAME mediator

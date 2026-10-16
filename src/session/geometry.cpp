@@ -122,7 +122,7 @@ Vector2D Overview::pushOut(const LRect &r) const {
     // strip get shoved on every step of the run -- the cards change places on every step, and
     // the shoving stopped only once the ladder wrapped and the set of boxes settled. A
     // window's card is its own content and that one still yields.
-    if (m_tabs.isTab(tiles[i].subj))
+    if (!cardOf(tiles[i]).coversChrome)
       continue;
     const double ox = std::min(b.x + b.w, r.x + r.w) - std::max(b.x, r.x);
     const double oy = std::min(b.y + b.h, r.y + r.h) - std::max(b.y, r.y);
