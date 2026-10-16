@@ -222,6 +222,14 @@ int main(int argc, char **argv) {
       "m_lastAnimTick",
       // one value each, owned by the coordinator because nothing else does the owning
       "m_scrollAccum", "m_killGlow", "m_lastDragBox", "m_lastFocus", "m_handle",
+      // The browser side: what the extension wrote, and which window carries whose tabs.
+      // Written by one file because loadTabs() is the only thing that may -- it reads a file
+      // and re-derives the matching, and both must happen at the same moment or the two halves
+      // disagree about which window shows what. That pairing is the reason to keep one writer,
+      // and it is also why this is an entry with a reason rather than an extraction already
+      // done: the pair wants to be one type with a private load(), and until it is one, saying
+      // so here is the honest state. Not a silent pass.
+      "m_tabs", "m_links",
   };
 
   std::vector<Single>                          single;

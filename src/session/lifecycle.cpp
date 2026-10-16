@@ -241,6 +241,8 @@ void Overview::open() {
   m_newCardId = 0;
   releaseNewWorkspaces();
 
+  // BEFORE buildTiles(), which is the first thing that asks which tabs ride on which window.
+  loadTabs();
   buildTiles();
   buildStrip();
   if (m_scene.tiles().empty() && m_strip.size() <= 1)

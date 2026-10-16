@@ -1,10 +1,14 @@
 #include "../config/config.hpp"
 #include "../debug/log.hpp"
 #include "../overview.hpp"
+#include "../model/entries.hpp"
 #include "../render/gl_util.hpp"
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <cmath>
 #include <numeric>
 #include <set>
@@ -25,6 +29,57 @@ using Render::GL::g_pHyprOpenGL;
 
 namespace gloview {
 
+// Where the browser side leaves what it knows. Under the runtime dir rather than the home
+// one: it is live state, it is per-user and per-boot, and nothing should survive a logout for
+// a compositor to read as current.
+static std::string tabFeedPath() {
+    const char *rt = std::getenv("XDG_RUNTIME_DIR");
+    const std::string dir = rt && *rt ? std::string(rt) : std::string("/tmp");
+    return dir + "/gloview/tabs";
+}
+
+void Overview::loadTabs() {
+    // Read once, whole. A snapshot replaces the previous one rather than merging, so there is
+    // nothing to reconcile and no point reading the file twice.
+    std::ifstream in(tabFeedPath(), std::ios::binary);
+    std::string text;
+    if (in)
+        text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+
+    const auto parsed = model::parseTabs(text);
+    // No snapshot, or a refused one: forget rather than keep serving an old generation. What
+    // "forget" means downstream is entriesFor()'s fallback -- every window shows as a window --
+    // which is the mode working, not the mode broken.
+    if (!parsed || !m_tabs.adopt(*parsed)) {
+        m_tabs.clear();
+        m_links.clear();
+        return;
+    }
+
+    // The two sides of the match: this compositor's windows and their titles, and each browser
+    // window's ACTIVE tab title -- which is what a browser window's title is. An ambiguous pair
+    // is left unmatched on purpose; see matchBrowserWindows.
+    std::vector<model::HostWindow> hosts;
+    std::unordered_map<std::uint64_t, std::string> activeTitles;
+    for (const auto subj : m_windows.enumerate()) {
+        const auto w = m_windows.windowOf(subj);
+        if (!w)
+            continue;
+        hosts.push_back(model::HostWindow{reinterpret_cast<std::uintptr_t>(w.get()),
+                                          w->m_title});
+    }
+    for (const auto &[browserWindow, reported] : m_tabs.snapshot().windows) {
+        for (const auto &[tabId, info] : reported.tabs) {
+            (void)tabId;
+            if (!info.active)
+                continue;
+            activeTitles.emplace(browserWindow, std::string{info.title});
+            break;
+        }
+    }
+    m_links.rebuild(hosts, activeTitles);
+}
+
 void Overview::buildTiles() {
   // parked boxes survive the rebuild
   std::unordered_map<model::SubjectRef, std::pair<LRect, bool>> priorTargets;
@@ -44,23 +99,43 @@ void Overview::buildTiles() {
   //
   // The membership filter is not repeated: enumerate() asks the host, which is tileBelongs()
   // with the monitor and workspace already locked. One rule, one place.
+  const auto mode = m_view.domain();
   for (const auto subj : m_windows.enumerate()) {
     const auto w = m_windows.windowOf(subj);
     if (!w)
       continue; // cannot happen straight after enumerating; not worth assuming
 
-    model::Tile t;
-    t.subj = subj;
-    if (const auto it = priorTargets.find(t.subj); it != priorTargets.end()) {
-      t.target = it->second.first;
-      t.parked = true;
-    }
-    // goal(), not value(): value() carries the slide offset
+    // goal(), not value(): value() carries the slide offset. One box, shared by everything
+    // this window contributes -- a tab has no geometry of its own, only a position inside a
+    // window that does.
     const auto p = w->positionAnimation()->goal();
     const auto s = w->sizeAnimation()->goal();
-    t.natural = LRect{p.x - m->m_position.x, p.y - m->m_position.y,
-                      std::max(1.0, s.x), std::max(1.0, s.y)};
-    m_scene.add(std::move(t));
+    const LRect box{p.x - m->m_position.x, p.y - m->m_position.y,
+                    std::max(1.0, s.x), std::max(1.0, s.y)};
+
+    // Which browser window's tabs ride on this one, and whether anything has been said about
+    // it. browserOf() answering 0 is not a browser window, so it falls through to "no tabs
+    // reported" -- which is the fallback, not a special case: a window nobody could match is
+    // indistinguishable from one whose browser has not spoken yet, and both show as a window.
+    const auto bw = m_links.browserOf(reinterpret_cast<std::uintptr_t>(w.get()));
+    const auto ids = m_tabs.tabIdsFor(bw);
+
+    for (const auto &entry :
+         model::entriesFor(w.get(), mode, m_tabs.knownFor(bw), ids)) {
+      model::Tile t;
+      // tabId == -1 is the window itself; anything else is a tab, identified under the
+      // connection that issued the id. That is the whole difference and it is decided in one
+      // place -- entriesFor -- rather than by each reader guessing which domain it is in.
+      t.subj = entry.tabId < 0 ? subj
+                               : model::SubjectRef{static_cast<std::uint64_t>(entry.tabId),
+                                                   m_tabs.generation()};
+      t.natural = box;
+      if (const auto it = priorTargets.find(t.subj); it != priorTargets.end()) {
+        t.target = it->second.first;
+        t.parked = true;
+      }
+      m_scene.add(std::move(t));
+    }
   }
 
   // NO makeEGLCurrent() here. buildTiles()/buildStrip() are reached from key handlers and

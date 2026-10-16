@@ -61,6 +61,11 @@ class TabsContentSource final : public IContentSource {
     }
 
     [[nodiscard]] std::uint32_t generation() const { return m_snap.generation; }
+
+    // The snapshot as parsed, for the questions knownFor()/tabIdsFor() do not answer. The
+    // only one today is which tab of a browser window is active, and a second accessor's
+    // existence would be a second place that could disagree about the same snapshot.
+    [[nodiscard]] const TabSnapshot &snapshot() const { return m_snap; }
     [[nodiscard]] bool empty() const { return m_snap.windows.empty(); }
 
     // One subject per tab, in the order the browser reported them.

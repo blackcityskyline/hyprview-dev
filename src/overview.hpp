@@ -46,6 +46,8 @@ class CGradientValueData; // general:col.active_border's real type
 #include "render/frame_pump.hpp"
 #include "render/geometry.hpp"
 #include "model/window_source.hpp"
+#include "model/tab_match.hpp"
+#include "model/tab_source.hpp"
 #include "session/hooks.hpp"
 #include "session/layer_visibility.hpp"
 #include "session/pending_click.hpp"
@@ -125,6 +127,11 @@ public:
   // cannot answer for itself -- whether a window belongs -- by delegating to tileBelongs.
   // monitor() is already an inline accessor above; it is this port's other half.
   [[nodiscard]] bool belongs(const PHLWINDOW &w) const override;
+
+  // Reads what the browser side has written and re-decides the matching. Called when a run
+  // opens, never per frame: the file changes when the browser does, and re-reading it per
+  // frame would be a syscall per tile per frame to learn nothing new.
+  void loadTabs();
 
   bool shouldHideWindow(const PHLWINDOW &w, const PHLMONITOR &m) const;
   [[nodiscard]] bool isTileWindow(const PHLWINDOW &w) const;
@@ -212,6 +219,14 @@ private:
   // The window source, behind the boundary. It holds a reference to this object as its
   // host, so the two must not outlive each other -- they are members of the same class.
   model::WindowsContentSource m_windows{*this};
+  // The browser side, read in rather than dialled: a file under XDG_RUNTIME_DIR that
+  // whatever carries the extension writes. No socket, no thread, no JSON in this process
+  // (AGENTS.md 1) -- and the plugin cannot tell which one wrote it, so the transport above it
+  // stays a separate deliverable that does not touch the compositor.
+  model::TabsContentSource m_tabs;
+  // Which window carries which browser's tabs. Rebuilt per run, because it is made of titles
+  // and a title is only true of the run it was read in.
+  model::BrowserLinks m_links;
   // The window behind a tile, or null for a tab and for a window that has gone.
   //
   // Here and not on Tile: a tile is a value with no route to its owner, and a SubjectRef
