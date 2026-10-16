@@ -234,13 +234,20 @@ def main():
     # dies on the spot -- which looks from the extension exactly like "the port opened and
     # dropped", on a five-second loop, with nothing in any log. Parsed by hand, ignoring
     # whatever we did not ask for, because the caller is the browser and it is not negotiable.
-    args = [sys.argv[1:]]
+    # Both spellings: --dir=PATH and --dir PATH. Anything we did not ask for is ignored, since
+    # the browser's own two arguments are not ours to reject.
     directory = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "gloview")
-    for a in args[0]:
-        if a.startswith("--dir="):
-            directory = a.split("=", 1)[1]
-        elif directory is None:
-            directory = a
+    argv = sys.argv[1:]
+    i = 0
+    while i < len(argv):
+        if argv[i] == "--dir" and i + 1 < len(argv):
+            directory = argv[i + 1]
+            i += 2
+        elif argv[i].startswith("--dir="):
+            directory = argv[i].split("=", 1)[1]
+            i += 1
+        else:
+            i += 1
     os.makedirs(os.path.join(directory, "previews"), exist_ok=True)
     open_log(directory)
 

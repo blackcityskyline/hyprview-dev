@@ -149,6 +149,57 @@ def main():
         )
         want(not os.path.exists(os.path.join(root, "atomic.bin") + ".part"),
              "and the .part is gone once it is done")
+
+        # Both spellings of --dir. Only the spaced form was checked, and dropping the other
+        # passed the whole suite -- the same shape as the atomicity gap, twice in one file.
+        for args, label in ((["--dir=" + root + "/eq"], "--dir=PATH"),
+                            (["--dir", root + "/sp"], "--dir PATH")):
+            out = root + ("/eq" if "=" in args[0] else "/sp")
+            os.makedirs(out, exist_ok=True)
+            proc2 = subprocess.Popen([sys.executable, MEDIATOR] + args,
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                     stderr=subprocess.DEVNULL)
+            try:
+                body = json.dumps({"name": "report",
+                                   "tabs": [{"id": 1, "windowId": 1, "title": "x"}],
+                                   "active": []}).encode("utf-8")
+                proc2.stdin.write(struct.pack("@I", len(body)))
+                proc2.stdin.write(body)
+                proc2.stdin.flush()
+                reply2 = recv(proc2)
+                want(reply2 is not None and reply2.get("ok") is True,
+                     "%s is honoured: %r" % (label, reply2))
+                want(os.path.exists(os.path.join(out, "tabs")),
+                     "%s actually wrote where it was told: %r" % (label, out))
+            finally:
+                proc2.kill()
+
+        # The exact argv a browser passes. This is the one that killed the host: native
+        # messaging runs it as <manifest.json> <extension-id>, argparse rejected both, exited 2,
+        # and the extension saw a port that opened and dropped every five seconds. Nothing
+        # else in this file would have caught it, because everything else runs with a clean argv.
+        out = root + "/browser"
+        os.makedirs(out, exist_ok=True)
+        proc3 = subprocess.Popen(
+            [sys.executable, MEDIATOR,
+             os.path.expanduser("~/.mozilla/native-messaging-hosts/gloview_mediator.json"),
+             "gloview@localhost", "--dir", out],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        try:
+            body = json.dumps({"name": "report",
+                               "tabs": [{"id": 1, "windowId": 1, "title": "x"}],
+                               "active": []}).encode("utf-8")
+            proc3.stdin.write(struct.pack("@I", len(body)))
+            proc3.stdin.write(body)
+            proc3.stdin.flush()
+            reply3 = recv(proc3)
+            want(reply3 is not None and reply3.get("ok") is True,
+                 "a browser's own two arguments do not kill the host: %r" % reply3)
+            want(os.path.exists(os.path.join(out, "tabs")),
+                 "and --dir still wins over them")
+        finally:
+            proc3.kill()
+
         proc.stdin.close()
         want(proc.wait(timeout=10) == 0, "closing stdin ends the mediator cleanly")
 
