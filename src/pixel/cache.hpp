@@ -1,5 +1,7 @@
 #pragma once
 
+#include "subject_cache.hpp"
+
 #include <cstdint>
 
 #include <unordered_map>
@@ -58,6 +60,18 @@ class PixelCache {
     // A null window means one of the fixed slots, which are never swept.
     SP<Render::ITexture> windowLabel(const PHLWINDOW &win, const std::string &text,
                                      const CHyprColor &col, int size, int maxW = 0);
+    // A label for a subject rather than a window. Same rendering and the same truncation as
+    // windowLabel() -- deliberately the same code path, because two label caches would be two
+    // places to disagree about how a title is drawn.
+    //
+    // A tab has no window to own the entry, so the SubjectCache's epoch is the owner: an entry
+    // made under one connection is dropped when the next one arrives, which is the same rule
+    // the picture cache follows and for the same reason.
+    SP<Render::ITexture> subjectLabel(const model::SubjectRef &s,
+                                      const std::string &text,
+                                      const CHyprColor &col, int size,
+                                      int maxW = 0);
+
     SP<Render::ITexture> workspaceLabel(const PHLWORKSPACE &ws,
                                         const std::string &text,
                                         const CHyprColor &col, int size,
@@ -132,6 +146,7 @@ class PixelCache {
     std::unordered_map<Slot, LabelEntry> m_slotLabels;
     std::unordered_map<WORKSPACEID, LabelEntry> m_virtualLabels;
     std::unordered_map<Desktop::View::CWindow *, WinSnapshot> m_snapshots;
+    SubjectCache<LabelEntry> m_subjectLabels;
     SP<Render::ITexture> m_glyph;
     std::string m_glyphIcon;
 };

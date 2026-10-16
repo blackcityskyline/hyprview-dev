@@ -150,16 +150,27 @@ void Overview::buildTiles() {
     const auto lblCol = cfg::colors.title_label.get();
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
-      const auto w = tileWindow(t);
-      if (!w)
-        continue;
-      std::string text = w->m_title;
-      if (text.empty())
-        text = w->m_class;
-      if (text.size() > 80)
-        text = text.substr(0, 79) + "…";
+      // The title comes from whichever source owns this subject, so a window and a tab are
+      // captioned by whoever knows their name. Asking the window source for a tab would return
+      // an empty string, and an empty caption is the kind of thing that looks intentional.
+      std::string text;
+      SP<Render::ITexture> tex;
+      if (m_tabs.isTab(t.subj)) {
+        text = m_tabs.label(t.subj);
+        tex  = m_pixel.subjectLabel(t.subj, text, lblCol, cfg::look.title_font_size.get());
+      } else {
+        const auto w = tileWindow(t);
+        if (!w)
+          continue;
+        text = w->m_title;
+        if (text.empty())
+          text = w->m_class;
+        if (text.size() > 80)
+          text = text.substr(0, 79) + "…";
+        tex = m_pixel.windowLabel(w, text, lblCol, cfg::look.title_font_size.get());
+      }
       t.labelText = text;
-      t.label = m_pixel.windowLabel(w, text, lblCol, cfg::look.title_font_size.get());
+      t.label     = tex;
     }
     // glyph pre-rendered: text rendering mid-pass is unsafe
     const std::string closeIcon =

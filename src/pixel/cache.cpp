@@ -54,6 +54,18 @@ SP<Render::ITexture> PixelCache::windowLabel(const PHLWINDOW &win,
   return labelIn(m_winLabels, PHLWINDOWREF{win}, text, col, size, maxW);
 }
 
+SP<Render::ITexture> PixelCache::subjectLabel(const model::SubjectRef &s,
+                                             const std::string &text,
+                                             const CHyprColor &col, int size,
+                                             int maxW) {
+  auto &e = *m_subjectLabels.slot(s);
+  if (e.matches(text, maxW, size, col))
+    return e.tex;
+  e = LabelEntry{truncate(text, col, size, maxW), maxW, size, col, nullptr};
+  e.tex = render(e.text, col, size);
+  return e.tex;
+}
+
 SP<Render::ITexture> PixelCache::workspaceLabel(const PHLWORKSPACE &ws,
                                                  const std::string &text,
                                                  const CHyprColor &col, int size,

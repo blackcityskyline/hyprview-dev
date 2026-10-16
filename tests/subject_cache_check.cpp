@@ -102,6 +102,31 @@ int main() {
     std::puts("clear: a picture does not outlive its run");
   }
 
+  // --- slot(), which is how a cached entry is UPDATED -------------------------------------------
+  // Added for the label cache, and at first with no check of its own: a slot() that did not
+  // clear on a generation move passed the whole suite, because every test above used put().
+  // A new entry point with no test is the failure this file exists to prevent, so it has one now.
+  {
+    SubjectCache<FakeTex> c;
+    auto *first = c.slot(SubjectRef{41, 7});
+    want(first != nullptr, true, "slot() hands out an entry");
+    // slot() CREATES, unlike put() which refuses anything falsy. That is the difference
+    // between the two entry points: put takes a value you already hold and skips a null one,
+    // slot hands out a place to fill in. An empty entry occupies the key from here on, which
+    // is what a label cache wants -- the key is the label's identity, not its contents.
+    want(c.has(SubjectRef{41, 7}), true, "and the key it created is now in the cache");
+    first->name = "label-one";
+    want(c.find(SubjectRef{41, 7})->name == "label-one", true, "and reads back");
+
+    // The connection moves. The entry made under the old one must go, even though nothing was
+    // ever put() -- otherwise a label written for last week's tab answers for this one's.
+    auto *second = c.slot(SubjectRef{41, 8});
+    want(second != nullptr, true, "slot() under the new generation");
+    want(second->name.empty(), true, "comes back empty: the old entry is gone");
+    want(c.size() == 1, true, "and so is everything cached under the old one");
+    std::puts("slot: updates in place, and still drops the lot on a generation move");
+  }
+
   if (failures) {
     std::printf("subject_cache: %d failure(s)\n", failures);
     return 1;
