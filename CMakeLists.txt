@@ -265,6 +265,12 @@ add_test(NAME scan_config_keys_read
 add_test(NAME scan_preview_regressions
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/preview_regressions_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/preview_regressions_check && ${CMAKE_CURRENT_BINARY_DIR}/preview_regressions_check ${CMAKE_SOURCE_DIR}")
 
+# The brotab adapter, against a fake mediator speaking its real endpoints on a real port
+# inside its real range. The pid -> ppid hop is what the whole feature rests on and it is
+# only checkable against a live process.
+add_test(NAME bridge
+         COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/gloview_bridge_check.py)
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll
