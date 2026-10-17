@@ -214,25 +214,9 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // Gating it on a title used to hide the counter outright on a window with no caption,
     // which is the one card where the position is least obvious and most wanted.
     const bool hasLabel = t.label && t.label->m_size.x > 0;
-    // The counter is its own pill UNDER the caption, not a stem on it. The stem shape was
-    // tried and abandoned: two translucent shapes cannot share a silhouette without either a
-    // gap at the join (Hyprland rounds all four corners with one radius) or a density step
-    // where they overlap -- an opaque shoulder under the pill measured 0.086 brighter over
-    // the stem than beside it, and any two @0.8 layers are 0.069 apart. Neither reads as one
-    // piece, so it is two pills with their own knobs instead.
     const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
-    // Built in the scene pass, not here: paint only reads, and the first frame for a new
-    // string used to allocate a texture mid-pass. The constant colour is not optional --
-    // PixelCache keys on (text, maxW) and bakes the FIRST frame's colour, so a fading one
-    // here would bake the counter dim and leave it dim. The fade rides the draw alpha.
     auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
     const bool hasCounter = countTex && countTex->m_size.x > 0;
-    // The card's OWN box, traced for every drawn card and not only for the captioned ones.
-    // Inside the caption block it read as "the foreground window's rect", because the
-    // foreground is the one that usually HAS a caption -- which is how a card that flew out at
-    // monitor size got read as a card that was simply laid out that way. The ring is the
-    // only place the box and the pill are both visible, so it cannot be inside the branch
-    // that decides whether a pill exists.
     debug::trace::ring("title_card", box, pxr(round, s), e * f);
     if (hasLabel || hasCounter) {
     // Each pill is sized off the texture it draws plus ITS OWN padding, so the two can be
@@ -243,62 +227,26 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const double countH = hasCounter ? countTex->m_size.y : 0.0;
     const double padX = cfg::look.title_pad_x, padY = cfg::look.title_pad_y;
     const double cPadX = cfg::look.counter_pad_x, cPadY = cfg::look.counter_pad_y;
-    // With no title there is no pill to hang anything off, so the counter stands alone --
-    // and stands alone it sizes itself, not to a width it has no reason to match.
     const double textW = hasLabel ? lw : countW;
     const double textH = hasLabel ? lh : countH;
-    // Sized off the texture, then scaled down to fit the CARD. The label is rasterised once
-    // at full width and never changes, while the run's cards shrink in rounding steps with
-    // distance -- so a pill sized off the texture alone is the same width on every card, and
-    // on a shrunken one it is wider than the thing it labels. That is what a hover over a
-    // secondary card showed: a title bar belonging to no card in particular, in the same
-    // place as the foreground window's, because that is where a full-size pill lands.
-    //
-    // One uniform factor over the whole pill -- padding included -- so the label narrows WITH
-    // the card instead of being stretched inside a pill that stayed tall. Drawn at the scaled
-    // size, and renderTexture scales a texture into the box it is given, so the glyphs come
-    // down with it.
-    // Two factors, both at most 1: the card's own step scale (a caption two slots out is not
-    // labelled at the centred card's caption size) and the fit to the card. min(), because a
-    // caption has one size and both say it must not be larger.
     const double kCard = render::cardScale(box.w, m_view.cardRefW());
     const double kFit  = std::min(kCard, render::pillScale(box.w, std::max<double>(cfg::grid.gap, 1.0),
                                                            textW + 2 * (hasLabel ? padX : cPadX)));
     const double pw   = (textW + 2 * (hasLabel ? padX : cPadX)) * kFit;
     const double ph   = (textH + 2 * (hasLabel ? padY : cPadY)) * kFit;
-    // Drawn into the scaled pill, so the inset and the glyph both follow.
     const double sPadX = (hasLabel ? padX : cPadX) * kFit;
     const double sPadY = (hasLabel ? padY : cPadY) * kFit;
     const double sTextW = textW * kFit;
     const double sTextH = textH * kFit;
     const double cGap = hasLabel ? cfg::look.counter_gap : 0.0;
-    // The counter rides with the caption, so the clamp that keeps the pair on screen has to
-    // reserve its height too -- otherwise a card near the bottom shoves the number off the
-    // panel. Solved from sizes, which do not depend on where the block lands.
     const double counterH = hasLabel && hasCounter ? countH + 2 * cPadY : 0.0;
     const double stackGap = counterH > 0.0 ? cGap : 0.0;
     const double margin = hasLabel ? cfg::look.title_margin : cfg::look.counter_margin;
     const double px = render::insetWithin(box.cx() - pw / 2.0, pw, m->m_size.x, 6.0);
-    // Each knob names a card EDGE, nothing else. On one edge the counter is always the outer
-    // pill -- above the card it leads, below the card it trails -- so the pair reads the same
-    // way whichever way round the card is; split across two edges there is no order to speak
-    // of, and each pill simply hangs off its own.
     const bool titleBelow = cfg::look.title_position.get() != "top";
     const std::string cpos = cfg::look.counter_position.get();
     const bool counterBelow = cpos.empty() ? titleBelow : cpos != "top";
     const bool sameEdge = counterH <= 0.0 || counterBelow == titleBelow;
-    // A caption clamps to a SCREEN edge, and the strip is not the screen edge -- it is furniture
-    // standing on one. With the band on top, a card high enough that its caption would sit above
-    // the band got clamped to the bare margin instead, which is inside the band: the title pill
-    // landed on the workspace strip and read as the strip snapping. Traced, the pill Ys were
-    // 24..42 against a band at 41, while every pill that belonged under its card was at 102+.
-    // The clamp needs the band's inner edge, so the band is reserved here the same way the
-    // layout reserves it.
-    // The band is reserved on the edge it is actually DRAWN on, read from its own rect rather
-    // than from stripAnchor() -- the configured anchor and the band on screen disagreed here,
-    // which is how a pill got onto the band. And only on that one edge: reserving both cost
-    // the window run its caption, because the bottom clamp fired 16px high and pushed the title
-    // and the counter up onto the card's own bottom edge, the counter under the title.
     const auto bandR = stripBand();
     const bool bandOnTop = bandR.y < m->m_size.y * 0.5;
     const double marginTop    = margin + (bandOnTop ? bandR.h : 0.0);
@@ -310,63 +258,19 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
         sameEdge ? pos.counterY
                  : render::captionPillY(box.y, box.h, counterH, cfg::look.title_gap,
                                         counterBelow, m->m_size.y, cfg::look.counter_margin);
-    // Yields like every other chrome element when a preview reaches it -- but AFTER the
-    // clamp above, and deliberately unclamped itself: the clamp exists to keep the caption on
-    // screen while the card is laid out, while the push is what shoves the pill clear. With
-    // the clamp applied last the pill travelled to the screen edge, stopped there and just
-    // faded (measured on exit).
-    //
-    // EACH pill pushes on its OWN box. The union was measured displacing the pair by 60px
-    // sideways with no preview over either of them: on opposite edges the union spans the
-    // whole card column, so every preview on the card touched it and a centred counter sat
-    // visibly off centre for as long as the cursor was anywhere near.
     const LRect pill{px, pos.titleY, pw, ph};
-    // Centred on the MONITOR, not on the pill. It counts the whole run, and the run's centre
-    // is the only centre it has; riding the pill's left edge instead meant a long title
-    // clamped at the screen edge dragged the number off with it. Clamped the same way, so a
-    // wide counter on a narrow monitor still lands inside.
     const double cW = countW + 2 * cPadX;
     const LRect counter{render::insetWithin(m->m_size.x / 2.0 - cW / 2.0, cW, m->m_size.x, 6.0),
                         counterY, cW, counterH};
-    // A caption never lifts off its own card. pushOut() ejects toward the nearest edge, and
-    // for a caption sitting ABOVE its card the nearest edge is the top -- so once the title
-    // was long enough for the centred card to overlap it, the caption was shoved further up
-    // and further up, ending up above the card with nothing between it and the strip. The card
-    // may cover the caption; the caption may not leave the card. Downward and sideways pushes
-    // are untouched: only the direction that separates a caption from its card is refused.
     const Vector2D push = pushOut(pill);
-    // A caption that is being shoved is on its way out, and where it was going was the strip:
-    // the push walks it up the screen until it collides with the band, which read as the strip
-    // fighting the caption. So it leaves by the way it came -- displaced by its own width it is
-    // gone, and on the run the strip is never more than a gap and a card away, so it is always
-    // gone before it arrives. Faded rather than scaled: a caption half way up and half way out
-    // is a caption lying about which card it belongs to.
-    // A caption that is being shoved leaves by POPPING, not by fading. The push walks it up
-    // the screen and the thing it walks into is the strip band, so it has to be smaller by the
-    // time it gets there: displaced by its own width it has shrunk away. Scale about its own
-    // centre, so it collapses in place instead of sliding along while shrinking, and it shrinks
-    // the same way the cards do -- the run's rounding steps are a scale too, and a caption that
-    // merely faded out was answering a different question than the one the cards ask.
+    // A shoved caption leaves by POPPING, over a quarter of its own width, and also on the
+    // card's exit clock -- the rule and both of its reasons live in captionRemains().
     const double shove = std::hypot(push.x, push.y);
-    // Gone over a QUARTER of its own width, not its whole width. At the full width the pill
-    // was still shrinking when it arrived, and it arrives between the strip and the card, so
-    // it spent the last of the exit pinched in that gap and climbing onto the card. A caption
-    // that is being shoved has lost its argument already; the motion that follows is it being
-    // dismissed, and it is over long before the strip is a conflict.
-    // And it collapses on the CARD's exit clock, not only on being shoved. The deck shrinks
-    // every card toward its own centre on the way out; the pill sat above that shrinking box at
-    // its full height, so by the time the card was gone the pill was still there, pinched
-    // between the strip and the card it had already been supposed to leave. Same fraction, same
-    // clock: when the card has finished collapsing there is nothing left to label.
     const double pop = render::captionRemains(shove, pw, ph, exitT(), opening());
     const double cf = e * f;
     const Vector2D cPush = pushOut(counter);
-    // Traced before the push AND after it: the two differ, and reading only the drawn box
-    // cannot tell a misplacement apart from a preview shoving a correctly placed pill off
-    // the screen -- which is the whole difference between the two bugs this found.
     debug::trace::ring("title_pill", pill,
                        pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), cf);
-    // The popped rect, about the pushed centre: what the scale actually moves.
     LRect drawn = render::scaledAboutCentre(pill, pop);
     drawn.x += push.x;
     drawn.y += push.y;
@@ -375,16 +279,9 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const double ux = pill.x + push.x;
     const double uy = pill.y + push.y;
     if (counterH > 0.0) {
-      // The counter collapses exactly like the title: same factor, same clock, same reason.
-      // Leaving it out was a deliberate exception and it read as two rules on one screen -- the
-      // title had gone and the number was still standing under it. That is not "the counter
-      // counts the run", it is the caption half applied.
       LRect cAt = render::scaledAboutCentre(counter, pop);
       cAt.x += cPush.x;
       cAt.y += cPush.y;
-      // The configured radius at the run's own roundingPower. NOT 1.0: the cut is
-      // distanceWithRounding (src/render/shaders/glsl/rounding.glsl:7), a p-norm of the offset
-      // from the corner centre, and p = 1 is the manhattan metric -- a diamond, not an arc.
       safeRenderRect("tile", pxb(CBox(cAt.x, cAt.y, cAt.w, cAt.h), s),
                               cfg::colors.counter_pill.get(cf),
                               {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
