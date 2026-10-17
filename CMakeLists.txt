@@ -175,6 +175,13 @@ add_test(NAME layout
 add_test(NAME scan_hypr_types
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/hypr_types_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check && ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check ${CMAKE_SOURCE_DIR}/src")
 
+# Where a card starts. Header-only and pure, so the decision that produced every visual
+# bug of the tab work -- five sites, five rules, one hidden boolean each -- is checkable
+# without a compositor.
+add_test(NAME origin
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/origin_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/origin_check && ${CMAKE_CURRENT_BINARY_DIR}/origin_check")
+
 # Overview must not hold state that has exactly one writer. The god object accumulated one
 # correct-looking field per commit; the property that separates them from the genuinely shared
 # state is which file writes them, and that is greppable. Registry half guards the extractions

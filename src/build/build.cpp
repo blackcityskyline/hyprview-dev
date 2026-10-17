@@ -2,6 +2,7 @@
 #include "../debug/log.hpp"
 #include "../overview.hpp"
 #include "../model/entries.hpp"
+#include "../model/origin.hpp"
 #include "../render/gl_util.hpp"
 
 #include <algorithm>
@@ -721,27 +722,24 @@ void Overview::startTileGlide(
   if (!oldBoxes.empty()) {
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
-      // On the run the caller has already decided: stepAltTab points a card that is STAYING
-      // at the slot it is leaving, and pinRunEdges points a card that is JOINING or LEAVING at
-      // its own slot, because that is the only place it has ever been. Rewriting natural to the
-      // target undoes both -- a joining card flies in from wherever it last was, which is the
-      // origin when it has never been on the run (it grows out of the top left corner) and a
-      // stale full-size box when it has (it comes in too big and hangs out of the carousel).
-      // Off the run, target IS the box the tile is already at, so it still has to be set.
-      // Empty natural means the tile has never had a box of its own -- a tab coming in from
-      // buildTiles(). The target is the only place it has ever been, so start there. A natural
-      // the caller set is a real outgoing slot and is left alone: that is the flight.
-      if (!m_view.run() || t.natural.w < 1.0)
-        t.natural = t.target;
-      bool matched = false;
+      // Where this card starts, from the one rule. It used to be three statements here and
+      // four more in the callers, and the parts that disagreed were a hidden boolean each --
+      // has this subject a place that exists without the overlay -- so a subject kind that
+      // got it wrong flew in from a box it was never at. model::outgoingBox() is that rule,
+      // with tests on every branch; nothing left here can re-introduce a variant of it.
+      //
+      // The capture is authoritative for the slot: it is the box each card was actually
+      // drawn at, which for a tab is the only place that ever held one.
+      const LRect *drawn = nullptr;
       for (const auto &[oldSubj, oldBox] : oldBoxes)
-        if (oldSubj == t.subj) {
-          t.natural = oldBox;
-          matched = true;
-          break;
-        }
-      t.landed = matched ? 1.0 : 0.0;
-      newcomers |= !matched;
+        if (oldSubj == t.subj) { drawn = &oldBox; break; }
+      const bool onRun = m_view.run();
+      const LRect ownPlace = t.natural;
+      t.natural = model::outgoingBox(cardOf(t).hasWindow(), onRun,
+                                     drawn ? *drawn : model::noPlace(), ownPlace,
+                                     t.target);
+      t.landed = drawn ? 1.0 : 0.0;
+      newcomers |= drawn == nullptr;
     }
     // Every removed tile fades out where it was — never vanishes one frame.
     m_fx.clearGhosts();

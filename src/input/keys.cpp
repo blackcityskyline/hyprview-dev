@@ -1,5 +1,6 @@
 #include "../config/config.hpp"
 #include "../overview.hpp"
+#include "../model/origin.hpp"
 #include "key_combo.hpp"
 #include "../debug/log.hpp"
 
@@ -246,14 +247,24 @@ void Overview::stepAltTab(int dir) {
   for (std::size_t i = 0; i < n; ++i)
     wasOnRun[i] = m_scene.tiles()[i].target.w >= 1.0 ? 1 : 0;
 
-  // A TAB's card slides from the slot it occupied. Its natural still holds whatever
-  // buildTiles() last put there, which for a tab is the browser WINDOW's box -- so the cards
-  // flew in from full screen and swept the panel. A window's natural is already its own box
-  // on the desktop and must keep gliding from there, so this is tabs only: pinning every
-  // card's natural to its target took the window run's slide away with it.
-  for (std::size_t i = 0; i < n; ++i)
-    if (cardOf(m_scene.tiles()[i]).isTab())
-      m_scene.setNatural(i, m_scene.tiles()[i].target);
+  // Freeze each card at the slot it holds RIGHT NOW, before any target below is rewritten --
+  // after that the question has no answer. The rule is model::priorSlot(): a window's natural
+  // already IS its prior slot, and a tab's is not, because the build seeded it with the browser
+  // window's box. Off the run the grid has no slots and every card is already where it belongs,
+  // so there is nothing to freeze.
+  //
+  // Read through outgoingBox() rather than spelled out, because the spelling was the bug: it
+  // said "tabs only" and applied it by asking isTab() -- the boolean the rule exists to hide.
+  if (m_view.run())
+    for (std::size_t i = 0; i < n; ++i) {
+      const auto &t = m_scene.tiles()[i];
+      m_scene.setNatural(i,
+                         model::outgoingBox(cardOf(t).hasWindow(), true,
+                                            model::priorSlot(cardOf(t).hasWindow(),
+                                                             wasOnRun[i] != 0, t.natural,
+                                                             t.target),
+                                            t.natural, t.target));
+    }
 
   const auto &slot = m_view.slot();
   if (carouselMode() && m_scene.hasSelection() && slot.size() == n) {
@@ -279,15 +290,24 @@ void Overview::stepAltTab(int dir) {
   damage();
 }
 
-// The cards that changed between the two sides of the run have no slot between them. Pinned
-// to their own target they simply are, or are not; the cards that stayed on the run keep
-// sliding from the slot they left to the slot they took.
+// The cards that changed between the two sides of the run have no slot between them. A card
+// that just JOINED has never held one, so its only place is the slot it is taking; a card that
+// just LEFT holds the slot it had, which the run keeps on screen until it fades. A card that
+// stayed keeps sliding from the slot it left to the slot it took.
+//
+// No kind test here. The rule reads the same for every subject and decides the kind itself,
+// which is the point: the tabs-only spelling is what left a new subject to repeat the
+// question and get it wrong.
 void Overview::pinRunEdges(const std::vector<char> &wasOnRun) {
   for (std::size_t i = 0; i < m_scene.size(); ++i) {
     const auto &t = m_scene.tiles()[i];
-    const bool onRunNow = t.target.w >= 1.0;
-    if (cardOf(t).isTab() && (onRunNow != (wasOnRun[i] != 0)))
-      m_scene.setNatural(i, t.target);
+    if (model::isPlaced(t.target) == (wasOnRun[i] != 0))
+      continue;
+    m_scene.setNatural(i, model::outgoingBox(
+                               cardOf(t).hasWindow(), /*onRun=*/true,
+                               model::priorSlot(cardOf(t).hasWindow(),
+                                                wasOnRun[i] != 0, t.natural, t.target),
+                               t.natural, t.target));
   }
 }
 
