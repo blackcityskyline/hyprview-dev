@@ -276,4 +276,43 @@ struct CaptionPills {
     return std::clamp(cardW / refW, 0.45, 1.0);
 }
 
+
+// Which axis a chrome element takes to get out from under a card that reached it, and how far.
+//
+// The vertical escape from a card is UP when the element sits above that card's centre. For
+// a caption that is the one direction that separates it from the card it belongs to, so a long
+// enough title overlapped by the centred card was shoved further and further above its own
+// card, and by the time it reached the strip it read as the strip moving. Refusing the vertical
+// outright is the same defect from the other side -- the pill stopped being pushed at all.
+//
+// So: sideways. Same depth, away from the covering card, pressed against its own card's top
+// edge. And downward pushes are untouched, because below the card is still beside the card.
+//
+// Plain arithmetic over boxes, no clock and no window handle, so a regression here is a red
+// test instead of a screenshot.
+struct Escape {
+  double dx = 0.0;
+  double dy = 0.0;
+  double depth = 0.0;
+};
+
+[[nodiscard]] inline Escape escapeFrom(const LRect &self, const LRect &cover, double ox,
+                                       double oy) {
+  Escape e;
+  if (ox < oy) {
+    e.dx = std::copysign(1.0, self.cx() - cover.cx());
+    e.depth = ox;
+    return e;
+  }
+  e.depth = oy;
+  const double up = std::copysign(1.0, self.cy() - cover.cy());
+  if (up < 0.0 && self.y + self.h <= cover.y) {
+    e.dx = std::copysign(1.0, self.cx() - cover.cx());
+    e.depth = ox;
+    return e;
+  }
+  e.dy = up;
+  return e;
+}
+
 } // namespace gloview::render

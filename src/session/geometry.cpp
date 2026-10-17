@@ -1,3 +1,4 @@
+#include "../render/geometry.hpp"
 #include "../config/config.hpp"
 #include "../debug/log.hpp"
 #include "../overview.hpp"
@@ -161,12 +162,10 @@ Vector2D Overview::pushOut(const LRect &r) const {
         d = Vector2D{0.0, 1.0};
       }
       depth = near;
-    } else if (ox < oy) {
-      depth = ox;
-      d = Vector2D{std::copysign(1.0, r.cx() - b.cx()), 0.0};
     } else {
-      depth = oy;
-      d = Vector2D{0.0, std::copysign(1.0, r.cy() - b.cy())};
+      const render::Escape esc = render::escapeFrom(r, b, ox, oy);
+      depth = esc.depth;
+      d = Vector2D{esc.dx, esc.dy};
     }
     if (depth > best) {
       best = depth;

@@ -334,9 +334,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // and further up, ending up above the card with nothing between it and the strip. The card
     // may cover the caption; the caption may not leave the card. Downward and sideways pushes
     // are untouched: only the direction that separates a caption from its card is refused.
-    const Vector2D rawPush = pushOut(pill);
-    const Vector2D push = titleBelow ? rawPush
-                                     : Vector2D{rawPush.x, std::max(rawPush.y, 0.0)};
+    const Vector2D push = pushOut(pill);
     const Vector2D cPush = pushOut(counter);
     // Traced before the push AND after it: the two differ, and reading only the drawn box
     // cannot tell a misplacement apart from a preview shoving a correctly placed pill off

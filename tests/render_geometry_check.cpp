@@ -29,6 +29,7 @@
 using gloview::LRect;
 using gloview::render::closeButtonRect;
 using gloview::render::cardScale;
+using gloview::render::escapeFrom;
 using gloview::render::pillScale;
 using gloview::render::Corner;
 using gloview::render::dragVisualBox;
@@ -89,6 +90,58 @@ static void captionFollowsItsCard() {
   want(cardScale(40.0, 692.0) >= 0.45, true,
        "the scale is floored: a caption scaled to nothing is an absent caption");
   std::puts("cardScale: reference, neighbours, the outermost ring, no reference, and the floor");
+}
+
+// Which way a chrome element gets out from under a card that reached it. This rule went
+// wrong twice in a day and both times it was found by eye: once the caption was lifted
+// further and further above its own card until it reached the strip, and once the fix for
+// that stopped the caption being pushed at all. Both are this one choice of axis, so the
+// choice is the test.
+static void chromeTakesTheAxisThatKeepsItWithItsCard() {
+  const LRect card{400, 300, 300, 200};   // the covering card
+  const LRect capAbove{360, 240, 380, 40}; // a caption above it, wider than the card
+
+  // The regression this exists for: the caption is wholly above the card, the vertical escape
+  // is up, and up is the one direction that takes it away from the card it labels.
+  {
+    // ox > oy on purpose: that is the input that REACHES the vertical branch at all, which is
+    // the branch the caption-above case lives in. With ox < oy the horizontal branch returns
+    // first and this test would pass whatever the vertical branch did -- which is how it
+    // passed with the guard deleted.
+    const auto e = escapeFrom(capAbove, card, 200, 40);
+    want(e.dy == 0.0, true, "a caption above the card is never lifted");
+    want(e.dx != 0.0, true, "it slides sideways instead -- it is still pushed");
+    want(e.depth == 200.0, true, "with the depth of the axis it took");
+  }
+  // A caption BELOW the card: down is beside the card, so the vertical push stands.
+  {
+    const LRect capBelow{360, 520, 380, 40};
+    const auto e = escapeFrom(capBelow, card, 200, 40);
+    want(e.dy > 0.0, true, "a caption below the card is pushed down");
+    want(e.depth == 40.0, true, "by the vertical overlap");
+  }
+  // Room on the horizontal axis alone: that axis was always chosen and must stay.
+  {
+    const LRect wide{380, 280, 340, 240};
+    const auto e = escapeFrom(wide, card, 40, 200);
+    want(e.dx != 0.0 && e.dy == 0.0, true, "the cheaper axis still wins");
+    want(e.depth == 40.0, true, "by the horizontal overlap");
+  }
+  // Direction is away from the covering card on both axes, or the element moves deeper in.
+  {
+    want(escapeFrom(LRect{100, 200, 100, 40}, card, 20, 50).dx < 0.0, true,
+         "left of the card means left");
+    want(escapeFrom(LRect{600, 200, 100, 40}, card, 20, 50).dx > 0.0, true,
+         "right of the card means right");
+  }
+  // A caption that STRADDLES the card's top edge is not wholly above it, so the push is the
+  // ordinary one -- the cover is what it straddles, not a card below it.
+  {
+    const LRect straddle{360, 290, 380, 40};
+    want(escapeFrom(straddle, card, 200, 50).dy != 0.0, true,
+         "a caption overlapping the card's top edge is pushed normally");
+  }
+  std::puts("escapeFrom: a caption above its card slides, one below is pushed down, cheaper axis, direction");
 }
 
 static void pillFitsCard() {
@@ -443,6 +496,7 @@ int main() {
     std::puts("firstHit: hits, misses, seams, an empty row, and overlap order");
   }
 
+  chromeTakesTheAxisThatKeepsItWithItsCard();
   pillFitsCard();
   captionFollowsItsCard();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
