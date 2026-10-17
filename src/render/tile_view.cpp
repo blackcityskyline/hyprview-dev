@@ -258,8 +258,12 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // the card instead of being stretched inside a pill that stayed tall. Drawn at the scaled
     // size, and renderTexture scales a texture into the box it is given, so the glyphs come
     // down with it.
-    const double kFit  = render::pillScale(box.w, std::max<double>(cfg::grid.gap, 1.0),
-                                           textW + 2 * (hasLabel ? padX : cPadX));
+    // Two factors, both at most 1: the card's own step scale (a caption two slots out is not
+    // labelled at the centred card's caption size) and the fit to the card. min(), because a
+    // caption has one size and both say it must not be larger.
+    const double kCard = render::cardScale(box.w, m_view.cardRefW());
+    const double kFit  = std::min(kCard, render::pillScale(box.w, std::max<double>(cfg::grid.gap, 1.0),
+                                                           textW + 2 * (hasLabel ? padX : cPadX)));
     const double pw   = (textW + 2 * (hasLabel ? padX : cPadX)) * kFit;
     const double ph   = (textH + 2 * (hasLabel ? padY : cPadY)) * kFit;
     // Drawn into the scaled pill, so the inset and the glyph both follow.
@@ -324,7 +328,15 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const double cW = countW + 2 * cPadX;
     const LRect counter{render::insetWithin(m->m_size.x / 2.0 - cW / 2.0, cW, m->m_size.x, 6.0),
                         counterY, cW, counterH};
-    const Vector2D push = pushOut(pill);
+    // A caption never lifts off its own card. pushOut() ejects toward the nearest edge, and
+    // for a caption sitting ABOVE its card the nearest edge is the top -- so once the title
+    // was long enough for the centred card to overlap it, the caption was shoved further up
+    // and further up, ending up above the card with nothing between it and the strip. The card
+    // may cover the caption; the caption may not leave the card. Downward and sideways pushes
+    // are untouched: only the direction that separates a caption from its card is refused.
+    const Vector2D rawPush = pushOut(pill);
+    const Vector2D push = titleBelow ? rawPush
+                                     : Vector2D{rawPush.x, std::max(rawPush.y, 0.0)};
     const Vector2D cPush = pushOut(counter);
     // Traced before the push AND after it: the two differ, and reading only the drawn box
     // cannot tell a misplacement apart from a preview shoving a correctly placed pill off

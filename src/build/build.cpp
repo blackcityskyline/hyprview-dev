@@ -634,6 +634,13 @@ void Overview::layoutTiles() {
     // position in the sequence.
     m_view.resolve(m_view.engine(), computeCarousel(n, selSlot, usable, mt),
                    sel, slot);
+    // The centred card is the one every caption measures itself against. Written here,
+    // where the run's boxes exist, and read at paint -- so a caption shrinks with its card
+    // instead of arriving at full size on a card a third of the width.
+    m_view.setCardRefW(
+        selSlot >= 0 && selSlot < n
+            ? m_view.carousel().cards[static_cast<std::size_t>(selSlot)].w
+            : 0.0);
     for (int k = 0; k < n; ++k) {
       const auto i = slot[static_cast<std::size_t>(k)];
       // cards[] is indexed by STRIP POSITION, which is exactly what computeCarousel()

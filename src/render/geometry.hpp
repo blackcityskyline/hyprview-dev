@@ -262,4 +262,18 @@ struct CaptionPills {
     return std::min(1.0, std::max(cardW - inset, 1.0) / pillW);
 }
 
+// How far a caption comes down with its card. The run's cards shrink in steps with distance
+// and the label is rasterised at one size, so a card two or three slots out was labelled at
+// the CENTRED card's caption size: the same pill on a card half the width, and worst on the
+// outermost cards of a five-card run. refW is the centred card -- the one scale 1.0 belongs
+// to. A layout that never set one (off the run) leaves every card at its own full size.
+//
+// Floored, because a pill scaled to nothing is not a small caption, it is an absent one, and
+// the last ring of a wide run is where it would happen first.
+[[nodiscard]] inline double cardScale(double cardW, double refW) {
+    if (refW <= 0.0 || cardW <= 0.0)
+        return 1.0;
+    return std::clamp(cardW / refW, 0.45, 1.0);
+}
+
 } // namespace gloview::render

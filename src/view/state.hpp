@@ -36,6 +36,14 @@ class State {
 
     [[nodiscard]] bool run() const { return m_run; }
     void setRun(bool on) { m_run = on; }
+    // The width of the CENTRED card, which is the reference every other card's chrome is
+    // measured against. The run's cards shrink in steps with distance, and a caption that
+    // does not shrink with its card is the same size on a card half the width -- which is
+    // what a second and third card from the centre showed, and what the outermost cards of a
+    // five-card run showed worst. Written once per layout, read at paint: one writer, and it
+    // is a fact about the layout rather than about any one card.
+    void        setCardRefW(double w) { m_cardRefW = w > 0.0 ? w : 0.0; }
+    [[nodiscard]] double cardRefW() const { return m_cardRefW; }
 
     [[nodiscard]] bool carouselOn() const { return m_carouselOn; }
     void setCarouselOn(bool on) { m_carouselOn = on; }
@@ -135,7 +143,8 @@ class State {
   private:
     bool m_desktop = false;
     int  m_allOverride = -1;
-    bool m_run = false;
+    bool   m_run      = false;
+    double m_cardRefW = 0.0;
     bool m_carouselOn = true;
 
     int  m_wsSlideDir = 0;

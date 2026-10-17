@@ -28,6 +28,7 @@
 
 using gloview::LRect;
 using gloview::render::closeButtonRect;
+using gloview::render::cardScale;
 using gloview::render::pillScale;
 using gloview::render::Corner;
 using gloview::render::dragVisualBox;
@@ -75,6 +76,21 @@ void sameRect(const LRect& got, const LRect& want, const char* what) {
 // alone is the same width on every card -- wider than the thing it labels on a shrunken one,
 // which is what a hover over a secondary card showed. Each case below turns red if its half
 // of pillScale() is replaced by a constant.
+// A caption is labelled at its OWN card's size. The run's cards shrink in steps with distance,
+// so a card two or three slots out was carrying the CENTRED card's caption size: the same pill
+// on a card half the width, and worst on the outermost cards of a five-card run.
+static void captionFollowsItsCard() {
+  near(cardScale(692.0, 692.0), 1.0, "the centred card labels at full size");
+  near(cardScale(526.0, 692.0), 526.0 / 692.0, "a neighbour scales with its card");
+  want(cardScale(300.0, 692.0) < cardScale(526.0, 692.0), true,
+       "the outermost ring scales further than the near neighbour");
+  near(cardScale(692.0, 0.0), 1.0, "no reference set means no scaling, not a division by zero");
+  near(cardScale(0.0, 692.0), 1.0, "a zero-width card is not scaled");
+  want(cardScale(40.0, 692.0) >= 0.45, true,
+       "the scale is floored: a caption scaled to nothing is an absent caption");
+  std::puts("cardScale: reference, neighbours, the outermost ring, no reference, and the floor");
+}
+
 static void pillFitsCard() {
   // A pill that already fits is untouched, or the foreground card's title would shrink for no
   // reason and every caption would come out smaller than its text needs to be.
@@ -428,6 +444,7 @@ int main() {
   }
 
   pillFitsCard();
+  captionFollowsItsCard();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

@@ -45,9 +45,16 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
     overStrip = band.contains(lx, ly);
   }
 
+  // Vertical only. A touchpad has two axes and only one of them means "the next thing":
+  // up and down page the run, a sideways swipe is the gesture for turning a page or moving a
+  // pane and taking the carousel with it read the run as scrolling left and right too, so
+  // both axes moved the selection. Over the strip both axes still scroll the strip -- that is
+  // a horizontal thing by nature and it is fenced off below, not here.
+  const bool vertical = e.axis == WL_POINTER_AXIS_VERTICAL_SCROLL;
+
   // The run pages on the wheel: notches * carousel_scroll_speed = cards moved. Its
   // own switch, not scroll_switches_workspace, which is about WORKSPACES.
-  if (!overStrip && carouselMode()) {
+  if (!overStrip && vertical && carouselMode()) {
     const double speed =
         std::clamp(static_cast<double>(cfg::carousel.scroll_speed), 0.05, 20.0);
     const double cards = notches * speed;
@@ -65,7 +72,10 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
     return true;
   }
 
-  if (!overStrip &&
+  // Same fence as the run: a sideways swipe must not reach the workspace switch either, or it
+  // lands there the moment the carousel is off and the wheel did something the user did not
+  // ask for in a place they were not looking at.
+  if (!overStrip && vertical &&
       cfg::behavior.scroll_switches_workspace != 0) {
     if (notches != 0.0)
       stepWorkspace(notches > 0 ? 1 : -1);
