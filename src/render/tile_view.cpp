@@ -341,16 +341,26 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // gone, and on the run the strip is never more than a gap and a card away, so it is always
     // gone before it arrives. Faded rather than scaled: a caption half way up and half way out
     // is a caption lying about which card it belongs to.
+    // A caption that is being shoved leaves by POPPING, not by fading. The push walks it up
+    // the screen and the thing it walks into is the strip band, so it has to be smaller by the
+    // time it gets there: displaced by its own width it has shrunk away. Scale about its own
+    // centre, so it collapses in place instead of sliding along while shrinking, and it shrinks
+    // the same way the cards do -- the run's rounding steps are a scale too, and a caption that
+    // merely faded out was answering a different question than the one the cards ask.
     const double shove = std::hypot(push.x, push.y);
-    const double shoveFade =
-        1.0 - std::clamp(shove / std::max(std::max(pw, ph), 1.0), 0.0, 1.0);
-    const double cf = e * f * shoveFade;
+    const double pop = 1.0 - std::clamp(shove / std::max(std::max(pw, ph), 1.0), 0.0, 1.0);
+    const double cf = e * f;
     const Vector2D cPush = pushOut(counter);
     // Traced before the push AND after it: the two differ, and reading only the drawn box
     // cannot tell a misplacement apart from a preview shoving a correctly placed pill off
     // the screen -- which is the whole difference between the two bugs this found.
     debug::trace::ring("title_pill", pill,
                        pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), cf);
+    // The popped rect, about the pushed centre: what the scale actually moves.
+    const double pcx = pill.x + push.x + pw / 2.0;
+    const double pcy = pill.y + push.y + ph / 2.0;
+    const double spw = pw * pop, sph = ph * pop;
+    const LRect drawn{pcx - spw / 2.0, pcy - sph / 2.0, spw, sph};
     debug::trace::ring("counter_pill", counter, 0, cf);
     debug::trace::ring("caption_push", LRect{push.x, push.y, cPush.x, cPush.y}, 0, e * f);
     const double ux = pill.x + push.x;
@@ -369,15 +379,18 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
           pxb(LRect{cAt.x + (cAt.w - countW) / 2.0, cAt.y + cPadY, countW, countH}, s),
           {.a = static_cast<float>(cf)});
     }
-    debug::trace::ring("title_pill_drawn", LRect{ux, uy, pw, ph},
-                       pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), cf);
-    safeRenderRect("tile", pxb(CBox(ux, uy, pw, ph), s),
+    debug::trace::ring("title_pill_drawn", drawn,
+                       pxr(render::pillRadius(cfg::look.title_round, drawn.w, drawn.h), s),
+                       cf);
+    safeRenderRect("tile", pxb(CBox(drawn.x, drawn.y, drawn.w, drawn.h), s),
                               cfg::colors.title_pill.get(cf),
-                              {.round = pxr(render::pillRadius(cfg::look.title_round, pw, ph), s),
+                              {.round = pxr(render::pillRadius(cfg::look.title_round, drawn.w,
+                                                                drawn.h), s),
                                .roundingPower = roundPow});
     if (hasLabel)
       g_pHyprOpenGL->renderTexture(t.label,
-                                   pxb(CBox(ux + sPadX, uy + sPadY, sTextW, sTextH), s),
+                                   pxb(CBox(drawn.x + sPadX * pop, drawn.y + sPadY * pop,
+                                            sTextW * pop, sTextH * pop), s),
                                    {.a = static_cast<float>(cf)});
     else
       g_pHyprOpenGL->renderTexture(
