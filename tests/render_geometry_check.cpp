@@ -29,7 +29,9 @@
 using gloview::LRect;
 using gloview::render::closeButtonRect;
 using gloview::render::cardScale;
+using gloview::render::captionRemains;
 using gloview::render::escapeFrom;
+using gloview::render::scaledAboutCentre;
 using gloview::render::pillScale;
 using gloview::render::Corner;
 using gloview::render::dragVisualBox;
@@ -142,6 +144,45 @@ static void chromeTakesTheAxisThatKeepsItWithItsCard() {
          "a caption overlapping the card's top edge is pushed normally");
   }
   std::puts("escapeFrom: a caption above its card slides, one below is pushed down, cheaper axis, direction");
+}
+
+// How much of a caption is left. Two reasons it leaves -- being shoved, and its card leaving
+// -- and every version of this has been inline arithmetic in drawTile, adjusted by eye and by
+// screenshot. It is the one decision in the caption that had no pure form, which is why its
+// rate was the thing I could not measure.
+static void aCaptionIsGoneWhenItsCardIs() {
+  // Nothing wrong with it: it stays whole, whatever the exit fraction says while opening.
+  near(captionRemains(0.0, 300.0, 27.0, 1.0, /*opening=*/true), 1.0,
+       "a caption that is not being shoved is whole, even mid-open");
+  // Shoved a quarter of its own width: gone. A tenth of it: nearly whole. The rate is the
+  // point -- at its full width it was still shrinking when it arrived at the strip.
+  near(captionRemains(75.0, 300.0, 27.0, 0.0, true), 0.0, "gone over a quarter of its width");
+  want(captionRemains(10.0, 300.0, 27.0, 0.0, true) > 0.8, true,
+       "barely shoved leaves it nearly whole");
+  // Its card leaving: it leaves with the card, and never outlives it.
+  near(captionRemains(0.0, 300.0, 27.0, 1.0, false), 0.0, "gone when the card is gone");
+  want(captionRemains(0.0, 300.0, 27.0, 0.5, false) < 0.6, true, "half out with a half-gone card");
+  // Either reason is enough, and together they do not fight: a caption on a card that is
+  // leaving AND being shoved is the smaller of the two, never the larger.
+  want(captionRemains(300.0, 300.0, 27.0, 0.1, false) <=
+       captionRemains(0.0, 300.0, 27.0, 0.1, false), true,
+       "the stronger reason wins, never the weaker");
+  std::puts("captionRemains: whole at rest, gone over a quarter width, gone with its card");
+}
+
+// Both pills, one factor, one rule. The counter was left out once on the grounds that it
+// counts the run rather than labelling a card, and the screen showed two different rules on
+// one caption: the title gone, the number standing under it.
+static void bothPillsShareOneRect() {
+  const LRect r{100.0, 50.0, 300.0, 27.0};
+  const LRect half = scaledAboutCentre(r, 0.5);
+  near(half.w, 150.0, "halved width");
+  near(half.h, 13.5, "halved height");
+  near(half.cx(), r.cx(), "about its own centre in x");
+  near(half.cy(), r.cy(), "about its own centre in y");
+  near(scaledAboutCentre(r, 0.0).w, 0.0, "gone is gone, not negative");
+  near(scaledAboutCentre(r, 1.0).w, r.w, "whole is whole");
+  std::puts("scaledAboutCentre: both axes, about the centre, and the two ends");
 }
 
 static void pillFitsCard() {
@@ -497,6 +538,8 @@ int main() {
   }
 
   chromeTakesTheAxisThatKeepsItWithItsCard();
+  aCaptionIsGoneWhenItsCardIs();
+  bothPillsShareOneRect();
   pillFitsCard();
   captionFollowsItsCard();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");

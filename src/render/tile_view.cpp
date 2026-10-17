@@ -353,16 +353,12 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // it spent the last of the exit pinched in that gap and climbing onto the card. A caption
     // that is being shoved has lost its argument already; the motion that follows is it being
     // dismissed, and it is over long before the strip is a conflict.
-    constexpr double kPopOver = 0.25;
-    const double shoved = 1.0 - std::clamp(
-                              shove / std::max(std::max(pw, ph) * kPopOver, 1.0), 0.0, 1.0);
     // And it collapses on the CARD's exit clock, not only on being shoved. The deck shrinks
     // every card toward its own centre on the way out; the pill sat above that shrinking box at
     // its full height, so by the time the card was gone the pill was still there, pinched
     // between the strip and the card it had already been supposed to leave. Same fraction, same
     // clock: when the card has finished collapsing there is nothing left to label.
-    const double pop = opening() ? shoved
-                                 : std::min(shoved, std::clamp(1.0 - exitT(), 0.0, 1.0));
+    const double pop = render::captionRemains(shove, pw, ph, exitT(), opening());
     const double cf = e * f;
     const Vector2D cPush = pushOut(counter);
     // Traced before the push AND after it: the two differ, and reading only the drawn box
@@ -371,10 +367,9 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     debug::trace::ring("title_pill", pill,
                        pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), cf);
     // The popped rect, about the pushed centre: what the scale actually moves.
-    const double pcx = pill.x + push.x + pw / 2.0;
-    const double pcy = pill.y + push.y + ph / 2.0;
-    const double spw = pw * pop, sph = ph * pop;
-    const LRect drawn{pcx - spw / 2.0, pcy - sph / 2.0, spw, sph};
+    LRect drawn = render::scaledAboutCentre(pill, pop);
+    drawn.x += push.x;
+    drawn.y += push.y;
     debug::trace::ring("counter_pill", counter, 0, cf);
     debug::trace::ring("caption_push", LRect{push.x, push.y, cPush.x, cPush.y}, 0, e * f);
     const double ux = pill.x + push.x;
@@ -384,8 +379,9 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
       // Leaving it out was a deliberate exception and it read as two rules on one screen -- the
       // title had gone and the number was still standing under it. That is not "the counter
       // counts the run", it is the caption half applied.
-      const LRect cAt{counter.cx() - counter.w * pop / 2.0, counter.cy() - counter.h * pop / 2.0,
-                      counter.w * pop, counter.h * pop};
+      LRect cAt = render::scaledAboutCentre(counter, pop);
+      cAt.x += cPush.x;
+      cAt.y += cPush.y;
       // The configured radius at the run's own roundingPower. NOT 1.0: the cut is
       // distanceWithRounding (src/render/shaders/glsl/rounding.glsl:7), a p-norm of the offset
       // from the corner centre, and p = 1 is the manhattan metric -- a diamond, not an arc.

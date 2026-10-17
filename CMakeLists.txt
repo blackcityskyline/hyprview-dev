@@ -178,6 +178,13 @@ add_test(NAME scan_hypr_types
 # Where a card starts. Header-only and pure, so the decision that produced every visual
 # bug of the tab work -- five sites, five rules, one hidden boolean each -- is checkable
 # without a compositor.
+# The ratchet on AGENTS.md 2.15. A knob read inside paint lands on the tiles painted before
+# it and not the ones after -- which is why a caption ends up right on one card and wrong on
+# the next. The rule is broken in 111 places today, so the check is a baseline that may only go
+# DOWN: an increase is a new decision made in a paint function, and it is red.
+add_test(NAME scan_render_config
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/render_config_ratchet_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/render_config_ratchet_check && ${CMAKE_CURRENT_BINARY_DIR}/render_config_ratchet_check ${CMAKE_SOURCE_DIR}/src")
+
 add_test(NAME origin
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/origin_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/origin_check && ${CMAKE_CURRENT_BINARY_DIR}/origin_check")

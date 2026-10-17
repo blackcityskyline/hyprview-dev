@@ -315,4 +315,44 @@ struct Escape {
   return e;
 }
 
+
+// How much of a caption is left. 1.0 is all of it, 0.0 is gone.
+//
+// Two reasons a caption leaves, and they are not the same reason, so this is the ONE place
+// that weighs them:
+//
+//   - It is being shoved. A preview reached it and pushOut() walked it up the screen, and
+//     where it was going was the strip band.
+//   - Its card is leaving. The deck collapses every card toward its own centre on the way
+//     out, and a caption at full height above a shrinking card outlives the card it labels.
+//
+// The shove is over in a QUARTER of the caption's own width: by the time the pill is a
+// quarter pinned between the strip and the card, the question it was asking has been
+// answered. The exit fraction is the card's own, so there is no frame in which a card is
+// gone and its caption is not.
+//
+// exitFrac is the card's exit fraction and is IGNORED while opening -- there it runs the
+// other way, and a caption that has just appeared is the last thing that should be gone.
+//
+// min(), not a blend: a caption has one size and either of the two is enough on its own.
+[[nodiscard]] inline double captionRemains(double shove, double pillW, double pillH,
+                                          double exitFrac, bool opening) {
+  constexpr double kGoneOver = 0.25; // of its own width
+  const double byShove =
+      1.0 - std::clamp(shove / std::max(std::max(pillW, pillH) * kGoneOver, 1.0), 0.0, 1.0);
+  if (opening)
+    return byShove;
+  return std::min(byShove, std::clamp(1.0 - exitFrac, 0.0, 1.0));
+}
+
+// The same factor applied to a rect, about its own centre: a caption shrinks where it is
+// rather than travelling while it shrinks. Both pills go through here, so the title and the
+// number cannot end up with two different rules on one screen -- which is what happened when
+// the counter was left out on the grounds that it counts the run rather than labelling a card.
+[[nodiscard]] inline LRect scaledAboutCentre(const LRect &r, double k) {
+  const double cx = r.x + r.w / 2.0, cy = r.y + r.h / 2.0;
+  const double w = r.w * k, h = r.h * k;
+  return LRect{cx - w / 2.0, cy - h / 2.0, w, h};
+}
+
 } // namespace gloview::render
