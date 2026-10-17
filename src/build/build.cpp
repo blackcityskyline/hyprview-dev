@@ -713,14 +713,14 @@ void Overview::startTileGlide(
   if (!oldBoxes.empty()) {
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
-      // The outgoing box is the TARGET, because the tile already moved there. On the run that
-      // is right for a card that is on it -- and catastrophic for one that is not: a card
-      // off the run has an EMPTY target, so this set its natural to the origin and it grew out
-      // of the top left corner of the monitor, dragging its caption with it and clamping it
-      // into the strip. Traced: i=3 at 35,9 10x6, then 80x45, then 142x79. A card keeps the
-      // box it was last shown at when it has none of its own, which is what Placement::box
-      // already does with an empty target -- so do nothing rather than zero it.
-      if (t.target.w >= 1.0 || t.natural.w < 1.0)
+      // On the run the caller has already decided: stepAltTab points a card that is STAYING
+      // at the slot it is leaving, and pinRunEdges points a card that is JOINING or LEAVING at
+      // its own slot, because that is the only place it has ever been. Rewriting natural to the
+      // target undoes both -- a joining card flies in from wherever it last was, which is the
+      // origin when it has never been on the run (it grows out of the top left corner) and a
+      // stale full-size box when it has (it comes in too big and hangs out of the carousel).
+      // Off the run, target IS the box the tile is already at, so it still has to be set.
+      if (!m_view.run())
         t.natural = t.target;
       bool matched = false;
       for (const auto &[oldSubj, oldBox] : oldBoxes)
