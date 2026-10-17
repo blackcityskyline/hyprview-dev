@@ -189,6 +189,13 @@ add_test(NAME scan_hypr_types
 add_test(NAME scan_render_config
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/render_config_ratchet_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/render_config_ratchet_check && ${CMAKE_CURRENT_BINARY_DIR}/render_config_ratchet_check ${CMAKE_SOURCE_DIR}/src")
 
+# Comment weight. Five successive comment blocks inside drawTile described five successive
+# versions of one rule, each written to answer the bug visible that day and each cancelling the
+# one above it. A comment that is not the current answer is worse than none: it reads as the
+# answer. 20.7% today, 10% is the target, and going over the baseline is red.
+add_test(NAME scan_comment_weight
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/comment_weight_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/comment_weight_check && ${CMAKE_CURRENT_BINARY_DIR}/comment_weight_check ${CMAKE_SOURCE_DIR}/src")
+
 add_test(NAME origin
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/origin_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/origin_check && ${CMAKE_CURRENT_BINARY_DIR}/origin_check")
