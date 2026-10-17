@@ -65,7 +65,13 @@ void Overview::renderStrip() const {
   // the band's opacity changed in one frame, to exactly the empty-workspace value. The
   // band is chrome, not backdrop: it follows the animation and knows nothing about
   // windows, so its opacity is the same number on every workspace in every state.
-  const double bandE = stripE;
+  // On the way OUT the band fades on exitT() -- the same number the cards leave on, which is
+  // what "the band and the cards go together" means. stripE was used on both sides of that,
+  // and on a close it is pinned to 1.0: blurAlpha() holds itself up while a windowed exit is
+  // waited on, and the landing workspace of an all-workspaces run usually HAS windows, so the
+  // branch that pins it was the one that ran. The band then sat at full alpha for the whole
+  // exit while the cards were already gone -- the desync.
+  const double bandE = opening() ? stripE : exitT();
   auto bandCol       = cfg::colors.strip_band.get(bandE);
   // strip_band_opacity is the single source of the band's alpha; the colour string's own
   // alpha is ignored. Below ~60% the band reads at two different densities on the same

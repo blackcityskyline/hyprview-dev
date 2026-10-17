@@ -26,9 +26,15 @@ namespace gloview {
 bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
   if (!active())
     return false;
+  // Hyprland reports a wheel axis in 120ths of a degree, so ONE notch is 120 -- measured,
+  // not assumed. Reading deltaDiscrete as a notch count made a single click 120 clicks, and
+  // 120 steps round a carousel of any size lands on the card it started from: the wheel did
+  // nothing at all, on either run, and no trace of why. The divisor is applied to BOTH arms,
+  // since a continuous axis from a touchpad is in the same unit.
+  constexpr double kDegreesPerNotch = 120.0;
   const double notches = e.deltaDiscrete != 0
-                             ? static_cast<double>(e.deltaDiscrete)
-                             : e.delta / 15.0;
+                             ? static_cast<double>(e.deltaDiscrete) / kDegreesPerNotch
+                             : e.delta / kDegreesPerNotch;
 
   bool overStrip = false;
   if (const auto m = m_monitor.lock()) {
