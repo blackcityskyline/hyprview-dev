@@ -335,13 +335,23 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // may cover the caption; the caption may not leave the card. Downward and sideways pushes
     // are untouched: only the direction that separates a caption from its card is refused.
     const Vector2D push = pushOut(pill);
+    // A caption that is being shoved is on its way out, and where it was going was the strip:
+    // the push walks it up the screen until it collides with the band, which read as the strip
+    // fighting the caption. So it leaves by the way it came -- displaced by its own width it is
+    // gone, and on the run the strip is never more than a gap and a card away, so it is always
+    // gone before it arrives. Faded rather than scaled: a caption half way up and half way out
+    // is a caption lying about which card it belongs to.
+    const double shove = std::hypot(push.x, push.y);
+    const double shoveFade =
+        1.0 - std::clamp(shove / std::max(std::max(pw, ph), 1.0), 0.0, 1.0);
+    const double cf = e * f * shoveFade;
     const Vector2D cPush = pushOut(counter);
     // Traced before the push AND after it: the two differ, and reading only the drawn box
     // cannot tell a misplacement apart from a preview shoving a correctly placed pill off
     // the screen -- which is the whole difference between the two bugs this found.
     debug::trace::ring("title_pill", pill,
-                       pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), e * f);
-    debug::trace::ring("counter_pill", counter, 0, e * f);
+                       pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), cf);
+    debug::trace::ring("counter_pill", counter, 0, cf);
     debug::trace::ring("caption_push", LRect{push.x, push.y, cPush.x, cPush.y}, 0, e * f);
     const double ux = pill.x + push.x;
     const double uy = pill.y + push.y;
@@ -351,30 +361,30 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
       // distanceWithRounding (src/render/shaders/glsl/rounding.glsl:7), a p-norm of the offset
       // from the corner centre, and p = 1 is the manhattan metric -- a diamond, not an arc.
       safeRenderRect("tile", pxb(CBox(cAt.x, cAt.y, cAt.w, cAt.h), s),
-                              cfg::colors.counter_pill.get(e * f),
+                              cfg::colors.counter_pill.get(cf),
                               {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
                                .roundingPower = roundPow});
       g_pHyprOpenGL->renderTexture(
           countTex,
           pxb(LRect{cAt.x + (cAt.w - countW) / 2.0, cAt.y + cPadY, countW, countH}, s),
-          {.a = static_cast<float>(e * f)});
+          {.a = static_cast<float>(cf)});
     }
     debug::trace::ring("title_pill_drawn", LRect{ux, uy, pw, ph},
-                       pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), e * f);
+                       pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), cf);
     safeRenderRect("tile", pxb(CBox(ux, uy, pw, ph), s),
-                              cfg::colors.title_pill.get(e * f),
+                              cfg::colors.title_pill.get(cf),
                               {.round = pxr(render::pillRadius(cfg::look.title_round, pw, ph), s),
                                .roundingPower = roundPow});
     if (hasLabel)
       g_pHyprOpenGL->renderTexture(t.label,
                                    pxb(CBox(ux + sPadX, uy + sPadY, sTextW, sTextH), s),
-                                   {.a = static_cast<float>(e * f)});
+                                   {.a = static_cast<float>(cf)});
     else
       g_pHyprOpenGL->renderTexture(
           countTex,
           pxb(LRect{ux + (pw - countW * kFit) / 2.0, uy + cPadY * kFit, countW * kFit,
                     countH * kFit}, s),
-          {.a = static_cast<float>(e * f)});
+          {.a = static_cast<float>(cf)});
     }
   }
 
