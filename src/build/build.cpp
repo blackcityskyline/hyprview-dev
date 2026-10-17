@@ -159,7 +159,15 @@ void Overview::buildTiles() {
       t.subj = entry.tabId < 0 ? subj
                                : model::SubjectRef{static_cast<std::uint64_t>(entry.tabId),
                                                    m_tabs.generation()};
-      t.natural = box;
+      // A window's natural is where it sits on the desktop, and that is a real place. A TAB
+      // has no place of its own -- it is a slot inside a window, and the code above says so --
+      // so handing it the window's box gives it a 1354x756 natural on a domain that has no
+      // desktop in it. Nothing between here and the first scroll replaces it: a card that had
+      // not been through stepAltTab yet therefore started the run at the size of the whole
+      // browser, hanging out past the top of the carousel, and settled into its slot from
+      // there. Empty means "no box of my own yet", which is true, and startTileGlide fills it
+      // in from the target on the way in.
+      t.natural = entry.tabId < 0 ? box : LRect{};
       if (const auto it = priorTargets.find(t.subj); it != priorTargets.end()) {
         t.target = it->second.first;
         t.parked = true;
@@ -720,7 +728,10 @@ void Overview::startTileGlide(
       // origin when it has never been on the run (it grows out of the top left corner) and a
       // stale full-size box when it has (it comes in too big and hangs out of the carousel).
       // Off the run, target IS the box the tile is already at, so it still has to be set.
-      if (!m_view.run())
+      // Empty natural means the tile has never had a box of its own -- a tab coming in from
+      // buildTiles(). The target is the only place it has ever been, so start there. A natural
+      // the caller set is a real outgoing slot and is left alone: that is the flight.
+      if (!m_view.run() || t.natural.w < 1.0)
         t.natural = t.target;
       bool matched = false;
       for (const auto &[oldSubj, oldBox] : oldBoxes)

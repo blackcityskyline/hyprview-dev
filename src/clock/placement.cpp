@@ -103,6 +103,17 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   // resize on its way there either -- hold the box it was last shown at.
   if (f.view.run() && b.w < 1.0 && a.w >= 1.0)
     r = a;
+  // And a card that has NEVER had a box of its own has an empty natural: a tab, which is a
+  // slot inside a window and not a place on the desktop. Interpolating from nothing starts
+  // the card at the origin, so it grew out of the top left corner of the monitor and only
+  // then became itself -- which is the card everyone can see flying out of the corner on
+  // every step. It has exactly one place it has ever been, and that is its target.
+  //
+  // Here rather than in the callers because this is the one function every draw path goes
+  // through: startTileGlide, replayReflow and stepAltTab each set natural by their own rules
+  // and each of them missed this case at least once.
+  if (a.w < 1.0 && b.w >= 1.0)
+    r = b;
   // The deck's hide motion, in the grid as well as the run. A card that cannot land was
   // pinned to its own box by close(); without this it simply stood there while the backdrop
   // faded and was gone in a frame.
