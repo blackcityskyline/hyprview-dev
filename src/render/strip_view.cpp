@@ -71,16 +71,7 @@ void Overview::renderStrip() const {
   // waited on, and the landing workspace of an all-workspaces run usually HAS windows, so the
   // branch that pins it was the one that ran. The band then sat at full alpha for the whole
   // exit while the cards were already gone -- the desync.
-  // How the band LEAVES is one setting, not two motions that both happen. It used to slide
-  // off its own edge and dissolve at the same time, on the same clock, with neither separable:
-  // "the strip is doing something twice" is what you see when you cannot ask for one of them.
-  // both keeps that. fade leaves it standing and dissolving, slide walks it off the edge
-  // still opaque, none holds it until the overlay is torn down.
-  const bool closing   = !opening();
-  const std::string xs = cfg::strip.exit_style.get();
-  const bool doSlide = !closing || xs == "slide" || xs == "both";
-  const bool doFade  = !closing || xs == "fade" || xs == "both";
-  const double bandE = doFade ? (closing ? exitT() : stripE) : 1.0;
+  const double bandE = opening() ? stripE : exitT();
   auto bandCol       = cfg::colors.strip_band.get(bandE);
   // strip_band_opacity is the single source of the band's alpha; the colour string's own
   // alpha is ignored. Below ~60% the band reads at two different densities on the same
@@ -88,7 +79,7 @@ void Overview::renderStrip() const {
   // instability this removes.
   bandCol.a = std::clamp(cfg::strip.band_opacity.get() / 100.0, 0.0, 1.0) * bandE;
   const LRect bandR  = stripBand();
-  const Vector2D slide = doSlide ? stripOffset(e) : Vector2D{};
+  const Vector2D slide = stripOffset(e);
   safeRenderRect("band", pxb(CBox(bandR.x + slide.x, bandR.y + slide.y, bandR.w, bandR.h), s),
                  bandCol, {});
 

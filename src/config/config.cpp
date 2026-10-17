@@ -185,7 +185,6 @@ constexpr FloatSpec kFloats[] = {
     {&strip.label_band, "plugin:gloview:strip_label_band", 26.0},
     {&strip.label_extra, "plugin:gloview:strip_label_extra", 24.0},
     {&strip.slide_frac, "plugin:gloview:strip_slide_frac", 0.55},
-    {&strip.exit_style, "plugin:gloview:strip_exit_style", "both"},
     {&strip.offset_max, "plugin:gloview:strip_offset_max", 0.42},
 
     {&behavior.kill_zone_size, "plugin:gloview:kill_zone_size", 40.0},
