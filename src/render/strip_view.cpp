@@ -78,8 +78,20 @@ void Overview::renderStrip() const {
   // screen depending on whether a blurred or a sharp backdrop is behind it, which is the
   // instability this removes.
   bandCol.a = std::clamp(cfg::strip.band_opacity.get() / 100.0, 0.0, 1.0) * bandE;
+  // STRIPBAND: alpha, offset and the two rects it was derived from, in one line. The band was
+  // reported as blinking for a single frame on focus, with the band reading as darker or more
+  // transparent, and offset and alpha are two different causes that look identical from
+  // outside -- a card that grows into the band pushes it, and anything that moves stripE takes
+  // the alpha with it.
+
   const LRect bandR  = stripBand();
   const Vector2D slide = stripOffset(e);
+  // STRIPBAND: offset, alpha, and the rect it was derived from, in one line. The band was
+  // reported as blinking for a single frame on focus, reading as darker or more transparent,
+  // and offset and alpha are two different causes that look identical from outside: a card that
+  // grows into the band pushes it, and anything that moves bandE takes the alpha with it.
+  debug::trace::ring("strip_band", LRect{slide.x, slide.y, bandCol.a, bandE}, 0, bandE);
+  debug::trace::ring("strip_band_rect", stripBand(), 0, bandE);
   safeRenderRect("band", pxb(CBox(bandR.x + slide.x, bandR.y + slide.y, bandR.w, bandR.h), s),
                  bandCol, {});
 
