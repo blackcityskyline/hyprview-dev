@@ -144,6 +144,10 @@ struct strip {
   Float label_band;
   Float label_extra;
   Float slide_frac;
+  // How the band leaves: fade | slide | both | none. It used to do the first two at
+  // once, with neither of them separately controllable, so the band slid off its own edge
+  // while also dissolving and the two could not be turned down independently.
+  Str exit_style;
   Float offset_max;
   Str anchor;
   Str bar_position;
