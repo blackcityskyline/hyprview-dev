@@ -265,12 +265,15 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // 24..42 against a band at 41, while every pill that belonged under its card was at 102+.
     // The clamp needs the band's inner edge, so the band is reserved here the same way the
     // layout reserves it.
-    // BOTH vertical edges, not the anchored one: stripAnchor() and the band the user is
-    // looking at disagreed here, and a pill got through on the edge nobody predicted. A pill
-    // on either band is wrong, so the reservation does not get to pick which edge that is.
-    const double band = stripThickness() + stripOffset();
-    const double marginTop    = margin + band;
-    const double marginBottom = margin + band;
+    // The band is reserved on the edge it is actually DRAWN on, read from its own rect rather
+    // than from stripAnchor() -- the configured anchor and the band on screen disagreed here,
+    // which is how a pill got onto the band. And only on that one edge: reserving both cost
+    // the window run its caption, because the bottom clamp fired 16px high and pushed the title
+    // and the counter up onto the card's own bottom edge, the counter under the title.
+    const auto bandR = stripBand();
+    const bool bandOnTop = bandR.y < m->m_size.y * 0.5;
+    const double marginTop    = margin + (bandOnTop ? bandR.h : 0.0);
+    const double marginBottom = margin + (bandOnTop ? 0.0 : bandR.h);
     const render::CaptionPills pos =
         render::captionPills(box.y, box.h, ph, counterH, cfg::look.title_gap, stackGap,
                              titleBelow, m->m_size.y, titleBelow ? marginBottom : marginTop);
