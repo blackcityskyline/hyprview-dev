@@ -348,7 +348,21 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // the same way the cards do -- the run's rounding steps are a scale too, and a caption that
     // merely faded out was answering a different question than the one the cards ask.
     const double shove = std::hypot(push.x, push.y);
-    const double pop = 1.0 - std::clamp(shove / std::max(std::max(pw, ph), 1.0), 0.0, 1.0);
+    // Gone over a QUARTER of its own width, not its whole width. At the full width the pill
+    // was still shrinking when it arrived, and it arrives between the strip and the card, so
+    // it spent the last of the exit pinched in that gap and climbing onto the card. A caption
+    // that is being shoved has lost its argument already; the motion that follows is it being
+    // dismissed, and it is over long before the strip is a conflict.
+    constexpr double kPopOver = 0.25;
+    const double shoved = 1.0 - std::clamp(
+                              shove / std::max(std::max(pw, ph) * kPopOver, 1.0), 0.0, 1.0);
+    // And it collapses on the CARD's exit clock, not only on being shoved. The deck shrinks
+    // every card toward its own centre on the way out; the pill sat above that shrinking box at
+    // its full height, so by the time the card was gone the pill was still there, pinched
+    // between the strip and the card it had already been supposed to leave. Same fraction, same
+    // clock: when the card has finished collapsing there is nothing left to label.
+    const double pop = opening() ? shoved
+                                 : std::min(shoved, std::clamp(1.0 - exitT(), 0.0, 1.0));
     const double cf = e * f;
     const Vector2D cPush = pushOut(counter);
     // Traced before the push AND after it: the two differ, and reading only the drawn box
