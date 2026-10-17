@@ -380,7 +380,12 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const double ux = pill.x + push.x;
     const double uy = pill.y + push.y;
     if (counterH > 0.0) {
-      const LRect cAt{counter.x + cPush.x, counter.y + cPush.y, counter.w, counter.h};
+      // The counter collapses exactly like the title: same factor, same clock, same reason.
+      // Leaving it out was a deliberate exception and it read as two rules on one screen -- the
+      // title had gone and the number was still standing under it. That is not "the counter
+      // counts the run", it is the caption half applied.
+      const LRect cAt{counter.cx() - counter.w * pop / 2.0, counter.cy() - counter.h * pop / 2.0,
+                      counter.w * pop, counter.h * pop};
       // The configured radius at the run's own roundingPower. NOT 1.0: the cut is
       // distanceWithRounding (src/render/shaders/glsl/rounding.glsl:7), a p-norm of the offset
       // from the corner centre, and p = 1 is the manhattan metric -- a diamond, not an arc.
@@ -390,7 +395,8 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                                .roundingPower = roundPow});
       g_pHyprOpenGL->renderTexture(
           countTex,
-          pxb(LRect{cAt.x + (cAt.w - countW) / 2.0, cAt.y + cPadY, countW, countH}, s),
+          pxb(LRect{cAt.x + (cAt.w - countW * pop) / 2.0, cAt.y + (cAt.h - countH * pop) / 2.0,
+                    countW * pop, countH * pop}, s),
           {.a = static_cast<float>(cf)});
     }
     debug::trace::ring("title_pill_drawn", drawn,
