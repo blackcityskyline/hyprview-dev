@@ -50,7 +50,11 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
     const int whole = static_cast<int>(std::trunc(m_scrollAccum));
     if (whole != 0) {
       m_scrollAccum -= static_cast<double>(whole);
-      stepAltTab(whole);
+      // The same call the left and right keys make. The wheel is another way of asking for
+      // the next card, not another gesture: routing it through stepAltTab() made it the
+      // alt-tab advance, which carries its own seeding, its own slot remap and its own
+      // open-if-closed, and none of that is what a wheel notch means on an open overlay.
+      moveSelection(whole, 0);
     }
     return true;
   }
