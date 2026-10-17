@@ -181,7 +181,11 @@ add_test(NAME scan_hypr_types
 # The ratchet on AGENTS.md 2.15. A knob read inside paint lands on the tiles painted before
 # it and not the ones after -- which is why a caption ends up right on one card and wrong on
 # the next. The rule is broken in 111 places today, so the check is a baseline that may only go
-# DOWN: an increase is a new decision made in a paint function, and it is red.
+# AGENTS.md 2.15, at its actual scope: the geometry layer takes its settings as arguments and
+# reads no config. Scoped to the PURE headers, because that is the boundary the rule names --
+# the Overview:: wrapper gathers the inputs and render::geometry does the arithmetic. A read
+# there takes the header out of reach of every header-only test, which is the only reason any
+# of it can be tested without a compositor.
 add_test(NAME scan_render_config
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/render_config_ratchet_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/render_config_ratchet_check && ${CMAKE_CURRENT_BINARY_DIR}/render_config_ratchet_check ${CMAKE_SOURCE_DIR}/src")
 

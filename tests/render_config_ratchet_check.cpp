@@ -1,20 +1,20 @@
-// The ratchet on AGENTS.md 2.15: geometry takes its settings as arguments and never reads
-// the config itself.
+// AGENTS.md 2.15: the geometry layer takes its settings as arguments and never reads the
+// config. "The geometry layer" is the PURE headers -- render/geometry.hpp, render/tile_look.hpp
+// -- because that is the boundary the rule names: "the Overview:: wrapper gathers the inputs,
+// render::geometry does the arithmetic".
 //
-// Why a ratchet and not a pass/fail. The rule is broken in 106 places today, in files nobody
-// is going to rewrite this week, and a test that simply fails would be red forever -- which
-// teaches the next person that red is normal here. So the number is the baseline: it is
-// allowed to go DOWN and every increase is a new violation, which is the one direction that
-// means a decision was made inside a paint function instead of being passed to it.
+// SCOPE, and getting it wrong is how this check would have pushed the codebase the wrong way.
+// A first version counted every cfg:: read in src/render/ and found 111, which reads like a
+// large violation and is not one: a read inside an Overview:: method is the wrapper doing
+// exactly what the rule tells it to do. Demanding those be passed as arguments would push 45
+// values through drawTile's signature to satisfy a rule the rule does not make -- more
+// plumbing, same behaviour, and every future knob a reason to cheat. So the count is over the
+// pure headers only, where a read has no excuse: nothing there can reach a monitor, a window
+// or a clock, so a config read there is a pure function that stopped being pure.
 //
-// This is the rule that made the same bug repeat for a week. A knob read inside paint is a
-// knob whose effect depends on WHEN in the frame it is read -- paint runs per tile, so the
-// first tile reads a config the rest of the frame has not caught up with, and a value changed
-// mid-frame lands on some cards and not others. That is not a style complaint; it is the
-// mechanism behind "the caption is wrong on the second card only".
-//
-// Counted, not listed: a list is a to-do that rots. The count is a number that has to be
-// defended, and defending it is the work.
+// This is a boundary, not a budget. It has no baseline and cannot be traded against: zero is
+// the only value that means the geometry layer is reachable from ctest without a compositor,
+// which is the only reason any of it can be tested at all.
 
 #include <algorithm>
 #include <cstdio>
@@ -26,14 +26,13 @@
 
 namespace {
 
-// The count at the moment the ratchet was set. Lower it when you migrate a file; never raise
-// it. If a change genuinely needs a config read in render/, the argument is in the rule, not
-// here -- change the rule and the reason with it, in the same commit.
-constexpr int kBaseline = 111;
+// The pure half of render/. A cfg:: read here makes the header depend on the compositor's
+// config, which takes it out of reach of every header-only test in CMakeLists.txt and puts its
+// arithmetic back under test-by-screenshot.
+const char *kPure[] = {"render/geometry.hpp", "render/tile_look.hpp"};
 
-// A read is `cfg::something`. A NAMESPACE-qualified mention is not a read and must not be
-// counted: the rule is about reading a setting, and matching the token alone would also match
-// the comment that explains why the file does not.
+// A read is `cfg::something`. Comments and literals are prose about the rule, not the rule, and
+// are stripped before the count.
 const std::regex kRead(R"(cfg::[a-zA-Z_][a-zA-Z0-9_]*)");
 
 int countReads(const std::string &src) {
@@ -60,42 +59,28 @@ int countFile(const std::filesystem::path &p) {
 
 int main(int argc, char **argv) {
   const std::filesystem::path root = argc > 1 ? argv[1] : "src";
-  const std::filesystem::path render = root / "render";
 
-  if (!std::filesystem::exists(render)) {
-    std::fprintf(stderr, "no %s -- pass the source root\n", render.c_str());
-    return 2;
-  }
-
-  std::vector<std::pair<std::string, int>> per;
   int total = 0;
-  for (const auto &e : std::filesystem::directory_iterator(render)) {
-    if (!e.is_regular_file())
-      continue;
-    const auto ext = e.path().extension().string();
-    if (ext != ".cpp" && ext != ".hpp")
-      continue;
-    const int n = countFile(e.path());
-    total += n;
-    if (n)
-      per.emplace_back(e.path().filename().string(), n);
+  for (const char *rel : kPure) {
+    const std::filesystem::path p = root / rel;
+    if (!std::filesystem::exists(p)) {
+      std::fprintf(stderr, "  pure geometry header missing: %s\n", rel);
+      return 2;
+    }
+    const int n = countFile(p);
+    if (n) {
+      std::fprintf(stderr, "  %s reads the config %d time(s)\n", rel, n);
+      total += n;
+    }
   }
-  std::sort(per.begin(), per.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
 
-  if (total > kBaseline) {
-    std::fprintf(stderr, "  %s: %d config reads in src/render/, the baseline is %d (+%d)\n",
-                 "render config ratchet", total, kBaseline, total - kBaseline);
-    for (const auto &[f, n] : per)
-      if (n >= 5)
-        std::fprintf(stderr, "    %-22s %d\n", f.c_str(), n);
+  if (total) {
     std::fprintf(stderr,
-                 "  a read inside paint lands on the tiles painted before it and not the ones\n"
-                 "  after. Pass the value in (AGENTS.md 2.15) and lower kBaseline in\n"
-                 "  tests/render_config_ratchet_check.cpp by what you removed.\n");
+                 "  the geometry layer stays reachable from the header-only tests only while it\n"
+                 "  reads nothing but arithmetic (AGENTS.md 2.15). Pass the value in as an\n"
+                 "  argument; the wrapper gathers it.\n");
     return 1;
   }
-
-  std::printf("render config ratchet: %d reads, baseline %d, headroom %d\n", total, kBaseline,
-              kBaseline - total);
+  std::printf("render geometry reads no config: the pure layer is still testable\n");
   return 0;
 }
