@@ -46,9 +46,9 @@ constexpr LRect kNothing{};                   // off-stage, or never placed
 // what makes a windowed card fly across the screen instead of one slot along the run.
 void cardWithASlotStartsAtIt() {
   expect("window on the run glides from the slot it left, not the desktop",
-         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/true, kLeft, kDesktop, kNext), kLeft);
+         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/true, /*revealed=*/true, kLeft, kDesktop, kNext), kLeft);
   expect("tab on the run glides from the slot it left too",
-         outgoingBox(/*hasOwnPlace=*/false, /*onRun=*/true, kLeft, noPlace(), kNext), kLeft);
+         outgoingBox(/*hasOwnPlace=*/false, /*onRun=*/true, /*revealed=*/true, kLeft, noPlace(), kNext), kLeft);
 }
 
 // 2. A window JOINING the run has no slot, and the fly-in from its desktop box is the
@@ -56,7 +56,7 @@ void cardWithASlotStartsAtIt() {
 // fix that took it away was this rule and not the tab rule it was meant to be.
 void windowJoiningTheRunFliesInFromItsOwnPlace() {
   expect("window joining the run has no slot, so it comes from the desktop",
-         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/true, noPlace(), kDesktop, kSlot), kDesktop);
+         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/true, /*revealed=*/true, noPlace(), kDesktop, kSlot), kDesktop);
 }
 
 // 3. A tab is a slot inside a window and has no place of its own, so the desktop box the
@@ -65,12 +65,12 @@ void windowJoiningTheRunFliesInFromItsOwnPlace() {
 // happens to sit in ownPlace -- that is what "no place of its own" MEANS.
 void tabNeverStartsFromTheDesktop() {
   expect("tab on the run starts at its slot, not at the seeded desktop box",
-         outgoingBox(/*hasOwnPlace=*/false, /*onRun=*/true, noPlace(), kDesktop, kSlot), kSlot);
+         outgoingBox(/*hasOwnPlace=*/false, /*onRun=*/true, /*revealed=*/true, noPlace(), kDesktop, kSlot), kSlot);
   expect("a tab's answer does not depend on ownPlace at all",
-         outgoingBox(/*hasOwnPlace=*/false, /*onRun=*/true, noPlace(), kDesktop, kSlot),
-         outgoingBox(/*hasOwnPlace=*/false, /*onRun=*/true, noPlace(), noPlace(), kSlot));
+         outgoingBox(/*hasOwnPlace=*/false, /*onRun=*/true, /*revealed=*/true, noPlace(), kDesktop, kSlot),
+         outgoingBox(/*hasOwnPlace=*/false, /*onRun=*/true, /*revealed=*/true, noPlace(), noPlace(), kSlot));
   expect("tab off the run is off-stage, not parked on the desktop",
-         outgoingBox(/*hasOwnPlace=*/false, /*onRun=*/false, noPlace(), kDesktop, kNothing),
+         outgoingBox(/*hasOwnPlace=*/false, /*onRun=*/false, /*revealed=*/true, noPlace(), kDesktop, kNothing),
          kNothing);
 }
 
@@ -79,13 +79,33 @@ void tabNeverStartsFromTheDesktop() {
 // from while the overlay is up.
 void offTheRunCardsAppearWhereTheyBelong() {
   expect("window off the run appears in its cell",
-         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/false, noPlace(), kDesktop, kCell), kCell);
+         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/false, /*revealed=*/true, noPlace(), kDesktop, kCell), kCell);
   expect("a window off the run and off-stage is nowhere, not on the desktop",
-         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/false, noPlace(), kDesktop, kNothing),
+         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/false, /*revealed=*/true, noPlace(), kDesktop, kNothing),
          kNothing);
 }
 
-// 5. `natural` is evidence for a window and is not evidence for a tab -- that inversion is
+// 5. A card that JOINS a scene already on screen did not come from the desktop, whatever
+// box it has there. It was not in the picture a moment ago, so the desktop is a place it is
+// about to have, not one it is leaving. This is the window that flew out at 1354x756 when
+// all-workspaces was toggled and shrank into its slot while its sibling slid one slot along.
+void aJoiningCardStartsAtItsSlot() {
+  expect("a window joining an already-shown run does NOT fly from the desktop",
+         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/true, /*revealed=*/false, noPlace(),
+                     kDesktop, kSlot),
+         kSlot);
+  expect("the same window DOES fly from the desktop when the overlay reveals the scene",
+         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/true, /*revealed=*/true, noPlace(),
+                     kDesktop, kSlot),
+         kDesktop);
+  // A card that WAS on screen still glides from where it was, revealed or not.
+  expect("reveal does not override a real prior slot",
+         outgoingBox(/*hasOwnPlace=*/true, /*onRun=*/true, /*revealed=*/true, kLeft, kDesktop,
+                     kNext),
+         kLeft);
+}
+
+// 6. `natural` is evidence for a window and is not evidence for a tab -- that inversion is
 // the whole boolean, and three sites got it backwards. A tab whose natural was seeded with
 // the browser window's box must still read its prior slot from the run.
 void naturalIsEvidenceForAWindowAndNotForATab() {
@@ -110,10 +130,11 @@ void nothingGrowsOutOfTheCorner() {
   // this covers all 32 and not the 16 that read better in the count below.
   for (const bool hasOwn : {false, true})
     for (const bool onRun : {false, true})
-      for (const LRect &prior : {kNothing, kLeft})
-        for (const LRect &own : {kNothing, kDesktop})
-          for (const LRect &target : {kNothing, kSlot}) {
-            const LRect got = outgoingBox(hasOwn, onRun, prior, own, target);
+      for (const bool revealed : {false, true})
+        for (const LRect &prior : {kNothing, kLeft})
+          for (const LRect &own : {kNothing, kDesktop})
+            for (const LRect &target : {kNothing, kSlot}) {
+              const LRect got = outgoingBox(hasOwn, onRun, revealed, prior, own, target);
             if (!isPlaced(got) && isPlaced(target)) {
               std::printf("FAIL grows out of the corner: hasOwn=%d run=%d prior=%g own=%g\n",
                           int(hasOwn), int(onRun), prior.w, own.w);
@@ -121,8 +142,8 @@ void nothingGrowsOutOfTheCorner() {
             }
             ++checked;
           }
-  if (checked != 32)
-    std::printf("FAIL exhaustive sweep covered %d of 32\n", checked), ++failures;
+  if (checked != 64)
+    std::printf("FAIL exhaustive sweep covered %d of 64\n", checked), ++failures;
 }
 
 } // namespace
@@ -132,6 +153,7 @@ int main() {
   windowJoiningTheRunFliesInFromItsOwnPlace();
   tabNeverStartsFromTheDesktop();
   offTheRunCardsAppearWhereTheyBelong();
+  aJoiningCardStartsAtItsSlot();
   naturalIsEvidenceForAWindowAndNotForATab();
   nothingGrowsOutOfTheCorner();
 

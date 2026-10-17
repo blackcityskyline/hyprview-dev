@@ -247,4 +247,19 @@ struct CaptionPills {
     return LRect{cx - r, cy - r, 2 * r, 2 * r};
 }
 
+// How far a caption pill comes down to fit its card. 1.0 fits, less shrinks it.
+//
+// The run's cards shrink in rounding steps with distance, while the label is rasterised once
+// at full width and never changes. A pill sized off the texture alone is therefore the same
+// width on every card, and on a shrunken one it is wider than the thing it labels -- measured
+// on a hover over a secondary card, where it read as a title bar belonging to no card.
+//
+// One factor over the WHOLE pill, padding included, so the label narrows with the card rather
+// than being squeezed inside a pill that stayed tall.
+[[nodiscard]] inline double pillScale(double cardW, double inset, double pillW) {
+    if (pillW <= 0.0)
+        return 1.0;
+    return std::min(1.0, std::max(cardW - inset, 1.0) / pillW);
+}
+
 } // namespace gloview::render

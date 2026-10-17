@@ -259,7 +259,9 @@ void Overview::stepAltTab(int dir) {
     for (std::size_t i = 0; i < n; ++i) {
       const auto &t = m_scene.tiles()[i];
       m_scene.setNatural(i,
-                         model::outgoingBox(cardOf(t).hasWindow(), true,
+                         model::outgoingBox(cardOf(t).hasWindow(),
+                                            /*onRun=*/true,
+                                            /*revealed=*/false,
                                             model::priorSlot(cardOf(t).hasWindow(),
                                                              wasOnRun[i] != 0, t.natural,
                                                              t.target),
@@ -305,6 +307,7 @@ void Overview::pinRunEdges(const std::vector<char> &wasOnRun) {
       continue;
     m_scene.setNatural(i, model::outgoingBox(
                                cardOf(t).hasWindow(), /*onRun=*/true,
+                               /*revealed=*/false,
                                model::priorSlot(cardOf(t).hasWindow(),
                                                 wasOnRun[i] != 0, t.natural, t.target),
                                t.natural, t.target));

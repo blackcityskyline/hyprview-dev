@@ -736,6 +736,7 @@ void Overview::startTileGlide(
       const bool onRun = m_view.run();
       const LRect ownPlace = t.natural;
       t.natural = model::outgoingBox(cardOf(t).hasWindow(), onRun,
+                                     /*revealed=*/oldBoxes.empty(),
                                      drawn ? *drawn : model::noPlace(), ownPlace,
                                      t.target);
       t.landed = drawn ? 1.0 : 0.0;

@@ -4,6 +4,7 @@
 
 #include "../anim.hpp"
 #include "../layout.hpp"
+#include "../debug/log.hpp"
 #include "curves.hpp"
 
 namespace gloview::clock {
@@ -122,6 +123,21 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
     const double cx = r.cx(), cy = r.cy();
     r = LRect{cx - r.w * k * 0.5, cy - r.h * k * 0.5, r.w * k, r.h * k};
   }
+  // TILEBOX: the box every draw path agrees on, with the two it was interpolated from. The
+  // overlay's cards shrink in rounding steps with distance and the caption and the capture
+  // both read this one number, so "the card is at the wrong size" and "the pill is at the
+  // wrong place" have not been separable from the outside: a card's OWN rect was traced by
+  // name (title_card) and read as the window's box, and every conclusion drawn from it was
+  // about the wrong rectangle. One line, both ends in it.
+  debug::trace::emitState("TILEBOX|i=" + std::to_string(i) + "|subj=" +
+                          std::to_string(t.subj.id) + "|a=" + std::to_string(a.x) + "," +
+                          std::to_string(a.y) + "," + std::to_string(a.w) + "," +
+                          std::to_string(a.h) + "|b=" + std::to_string(b.x) + "," +
+                          std::to_string(b.y) + "," + std::to_string(b.w) + "," +
+                          std::to_string(b.h) + "|r=" + std::to_string(r.x) + "," +
+                          std::to_string(r.y) + "," + std::to_string(r.w) + "," +
+                          std::to_string(r.h) + "|run=" + std::to_string(f.view.run() ? 1 : 0) +
+                          "|e=" + std::to_string(e));
   const double ap = entryNow(t, i, f.scene);
   if (ap >= 1.0)
     return r;

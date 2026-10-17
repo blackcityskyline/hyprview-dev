@@ -31,9 +31,19 @@
 //      from the box it had before the overlay opened.
 //   2. Off the run there is no flight: the grid and the desktop lay cards out in place,
 //      and a window's desktop box is not a source it should fly from there.
-//   3. A card joining the run with no slot glides in from its own place. This is the
-//      classic window fly-in, and pinning every card to its target took it away.
-//   4. Anything else -- a tab, which has exactly one place it has ever been -- starts at
+//   3. A card that is being REVEALED glides in from its own place. That is the classic
+//      window fly-in -- the windows lifting off the desktop when the overlay opens -- and
+//      pinning every card to its target took it away. Revealed means nothing was captured,
+//      so every card is arriving at once and the desktop is the one place they all came
+//      from.
+//   4. A card that JOINS a scene already on screen did not come from the desktop, however
+//      true it is that it has a box there: it was not in the picture a moment ago, so the
+//      desktop is a place it is ABOUT to have, not one it is leaving. Toggling all-workspaces
+//      put a second window into a run whose first window was already in its slot, and that
+//      one flew out at 1354x756 and shrank into place while its sibling slid one slot along
+//      (measured: a=6,6,1354,756 b=336,227,692,389, so the card was nearly the monitor on
+//      its first frame). It starts at its slot.
+//   5. Anything else -- a tab, which has exactly one place it has ever been -- starts at
 //      its target. Including an empty one: a card off the run has a zeroed target and is
 //      not drawn, and starting it from a desktop box it was never at is the bug this
 //      function exists to make unrepresentable.
@@ -72,7 +82,10 @@ namespace gloview::model {
 // priorSlot: the box the card occupied a moment ago, empty if it has never been on the
 // run. ownPlace: the place the subject has without the overlay, empty when it has none.
 // target: where it is going.
-[[nodiscard]] constexpr LRect outgoingBox(bool hasOwnPlace, bool onRun,
+// revealed: nothing was captured, so this card is arriving with the rest of the scene and
+// the desktop is where all of them came from. Passed in rather than derived, because it is
+// a property of the CAPTURE -- one fact about the whole frame, not one per card.
+[[nodiscard]] constexpr LRect outgoingBox(bool hasOwnPlace, bool onRun, bool revealed,
                                            const LRect &priorSlot,
                                            const LRect &ownPlace,
                                            const LRect &target) {
@@ -80,7 +93,7 @@ namespace gloview::model {
     return priorSlot;
   if (!onRun)
     return target;
-  if (hasOwnPlace && isPlaced(ownPlace))
+  if (revealed && hasOwnPlace && isPlaced(ownPlace))
     return ownPlace;
   return target;
 }

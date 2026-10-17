@@ -28,6 +28,7 @@
 
 using gloview::LRect;
 using gloview::render::closeButtonRect;
+using gloview::render::pillScale;
 using gloview::render::Corner;
 using gloview::render::dragVisualBox;
 using gloview::render::insetWithin;
@@ -68,6 +69,27 @@ void sameRect(const LRect& got, const LRect& want, const char* what) {
 }
 
 } // namespace
+
+// The caption pill must fit the card it labels. The run's cards shrink in rounding steps with
+// distance and the label is rasterised once at full width, so a pill sized off the texture
+// alone is the same width on every card -- wider than the thing it labels on a shrunken one,
+// which is what a hover over a secondary card showed. Each case below turns red if its half
+// of pillScale() is replaced by a constant.
+static void pillFitsCard() {
+  // A pill that already fits is untouched, or the foreground card's title would shrink for no
+  // reason and every caption would come out smaller than its text needs to be.
+  want(pillScale(692.0, 12.0, 305.0) == 1.0, true, "a pill that already fits is not shrunk");
+  // A step-shrunk card brings its pill down with it, and it ENDS UP fitting -- which is the
+  // point, since 1.0 sails past a card of every size on the run.
+  const double k = pillScale(180.0, 12.0, 305.0);
+  want(k < 1.0, true, "a pill wider than its card is scaled down");
+  want(305.0 * k <= 180.0 - 12.0, true, "the scaled pill fits the card");
+  // A card narrower than the inset still gets a drawable pill rather than a negative size,
+  // which is what an unguarded max() hands to a rect.
+  want(pillScale(4.0, 12.0, 305.0) > 0.0, true, "a card narrower than the inset still scales");
+  // No pill is not a division by zero.
+  want(pillScale(692.0, 12.0, 0.0) == 1.0, true, "no pill is not a division by zero");
+}
 
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
@@ -405,6 +427,8 @@ int main() {
     std::puts("firstHit: hits, misses, seams, an empty row, and overlap order");
   }
 
+  pillFitsCard();
+  std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;
 }

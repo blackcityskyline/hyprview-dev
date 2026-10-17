@@ -227,6 +227,13 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // here would bake the counter dim and leave it dim. The fade rides the draw alpha.
     auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
     const bool hasCounter = countTex && countTex->m_size.x > 0;
+    // The card's OWN box, traced for every drawn card and not only for the captioned ones.
+    // Inside the caption block it read as "the foreground window's rect", because the
+    // foreground is the one that usually HAS a caption -- which is how a card that flew out at
+    // monitor size got read as a card that was simply laid out that way. The ring is the
+    // only place the box and the pill are both visible, so it cannot be inside the branch
+    // that decides whether a pill exists.
+    debug::trace::ring("title_card", box, pxr(round, s), e * f);
     if (hasLabel || hasCounter) {
     // Each pill is sized off the texture it draws plus ITS OWN padding, so the two can be
     // set independently; the counter's size comes from the run it counts, not from the title.
@@ -240,8 +247,26 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     // and stands alone it sizes itself, not to a width it has no reason to match.
     const double textW = hasLabel ? lw : countW;
     const double textH = hasLabel ? lh : countH;
-    const double pw   = textW + 2 * (hasLabel ? padX : cPadX);
-    const double ph   = textH + 2 * (hasLabel ? padY : cPadY);
+    // Sized off the texture, then scaled down to fit the CARD. The label is rasterised once
+    // at full width and never changes, while the run's cards shrink in rounding steps with
+    // distance -- so a pill sized off the texture alone is the same width on every card, and
+    // on a shrunken one it is wider than the thing it labels. That is what a hover over a
+    // secondary card showed: a title bar belonging to no card in particular, in the same
+    // place as the foreground window's, because that is where a full-size pill lands.
+    //
+    // One uniform factor over the whole pill -- padding included -- so the label narrows WITH
+    // the card instead of being stretched inside a pill that stayed tall. Drawn at the scaled
+    // size, and renderTexture scales a texture into the box it is given, so the glyphs come
+    // down with it.
+    const double kFit  = render::pillScale(box.w, std::max<double>(cfg::grid.gap, 1.0),
+                                           textW + 2 * (hasLabel ? padX : cPadX));
+    const double pw   = (textW + 2 * (hasLabel ? padX : cPadX)) * kFit;
+    const double ph   = (textH + 2 * (hasLabel ? padY : cPadY)) * kFit;
+    // Drawn into the scaled pill, so the inset and the glyph both follow.
+    const double sPadX = (hasLabel ? padX : cPadX) * kFit;
+    const double sPadY = (hasLabel ? padY : cPadY) * kFit;
+    const double sTextW = textW * kFit;
+    const double sTextH = textH * kFit;
     const double cGap = hasLabel ? cfg::look.counter_gap : 0.0;
     // The counter rides with the caption, so the clamp that keeps the pair on screen has to
     // reserve its height too -- otherwise a card near the bottom shoves the number off the
@@ -307,7 +332,6 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     debug::trace::ring("title_pill", pill,
                        pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), e * f);
     debug::trace::ring("counter_pill", counter, 0, e * f);
-    debug::trace::ring("title_card", box, pxr(round, s), e * f);
     debug::trace::ring("caption_push", LRect{push.x, push.y, cPush.x, cPush.y}, 0, e * f);
     const double ux = pill.x + push.x;
     const double uy = pill.y + push.y;
@@ -332,12 +356,14 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                               {.round = pxr(render::pillRadius(cfg::look.title_round, pw, ph), s),
                                .roundingPower = roundPow});
     if (hasLabel)
-      g_pHyprOpenGL->renderTexture(t.label, pxb(CBox(ux + padX, uy + padY, lw, lh), s),
-                                 {.a = static_cast<float>(e * f)});
+      g_pHyprOpenGL->renderTexture(t.label,
+                                   pxb(CBox(ux + sPadX, uy + sPadY, sTextW, sTextH), s),
+                                   {.a = static_cast<float>(e * f)});
     else
       g_pHyprOpenGL->renderTexture(
           countTex,
-          pxb(LRect{ux + (pw - countW) / 2.0, uy + cPadY, countW, countH}, s),
+          pxb(LRect{ux + (pw - countW * kFit) / 2.0, uy + cPadY * kFit, countW * kFit,
+                    countH * kFit}, s),
           {.a = static_cast<float>(e * f)});
     }
   }
