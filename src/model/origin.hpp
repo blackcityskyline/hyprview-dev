@@ -1,5 +1,12 @@
 #pragma once
 
+// Where a card starts when the layout moves it. Five rebuild paths used to answer this
+// separately and disagreed; the disagreement was one hidden boolean each -- does this subject
+// have a place that exists without the overlay -- so the boolean is the whole signature.
+// Rules, in order: a card that WAS somewhere starts there; off the run nothing flies; a card
+// being revealed glides in from its own place; a card JOINING a shown scene starts at its
+// slot; anything else starts at its target. Pure arithmetic over boxes, so ctest reaches it.
+
 #include "../layout.hpp"
 
 // Where a card starts when the layout moves it. One question, one answer.
@@ -52,26 +59,17 @@
 // and runs without hyprland/ and is reachable from a test.
 namespace gloview::model {
 
-// A subject with no place of its own outside the overlay. A tab is a slot inside a
-// window; the seed every caller passes as a window's natural until a real one replaces it.
+// A subject with no place of its own outside the overlay: a tab, which is a slot inside a
+// window. The seed a window's natural gets until a real one replaces it.
 [[nodiscard]] constexpr LRect noPlace() { return LRect{}; }
 
 [[nodiscard]] constexpr bool isPlaced(const LRect &b) { return b.w >= 1.0; }
 
-// The box the card occupied a moment ago. Empty when it has never been on the run.
-//
-// This is where the boolean bites, and it is a separate function because three sites got it
-// wrong by asking the wrong question of `natural`:
-//
-//   - A WINDOW's natural IS its prior slot. startTileGlide set it from the capture, and
-//     layoutTiles has since moved only the target. So read it.
-//   - A TAB's natural is whatever the build seeded, which is a box the tab was never at --
-//     the browser window's box -- so it is NOT evidence. Its prior slot is the target it is
-//     about to be replaced by, and only while it was on the run to have one. Reading natural
-//     here is the bug that sent a tab card in at the size of the whole browser.
-//
-// `wasOnRun` is whether the card held a slot before this layout. Taken BEFORE any target is
-// written, at every call site, because afterwards the question has no answer left.
+// The box the card occupied a moment ago, empty if it has never been on the run. A window's
+// natural IS its prior slot (startTileGlide set it from the capture, layoutTiles has since
+// moved only the target). A tab's natural is whatever the build seeded -- the browser window's
+// box -- so its prior slot is the target it is about to be replaced by, and only while it was
+// on the run to have one. wasOnRun is read BEFORE any target is written.
 [[nodiscard]] constexpr LRect priorSlot(bool hasOwnPlace, bool wasOnRun,
                                         const LRect &natural, const LRect &target) {
   if (hasOwnPlace)
@@ -82,9 +80,9 @@ namespace gloview::model {
 // priorSlot: the box the card occupied a moment ago, empty if it has never been on the
 // run. ownPlace: the place the subject has without the overlay, empty when it has none.
 // target: where it is going.
-// revealed: nothing was captured, so this card is arriving with the rest of the scene and
-// the desktop is where all of them came from. Passed in rather than derived, because it is
-// a property of the CAPTURE -- one fact about the whole frame, not one per card.
+// revealed: nothing was captured, so the card arrives with the rest of the scene and the
+// desktop is where all of them came from. Passed in because it is a property of the capture --
+// one fact about the frame, not one per card.
 [[nodiscard]] constexpr LRect outgoingBox(bool hasOwnPlace, bool onRun, bool revealed,
                                            const LRect &priorSlot,
                                            const LRect &ownPlace,
