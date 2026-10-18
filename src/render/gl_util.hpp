@@ -41,24 +41,15 @@ inline int clampRound(int round, double w, double h) {
 
 // --- GL state fence ---------------------------------------------------------------------
 //
-// The half of GL discipline no test and no trace covered: that the state we change is put
-// back. `scan_draw_sites` catches a raw draw call outside the helpers, and the static side
-// of the rule; nothing caught the other half, and two real defects were found by READING
-// CODE (backdrop leaving blend enabled, blur calling raw glDisable) rather than by any
-// check. The comment in the render audit that said "verified" was, for these two, a claim
-// with nothing behind it.
-//
-// A mock cannot help here: it proves which functions were called, not what the driver ended
-// up in. So read it back instead -- glGet is observation, not substitution. The cost is a
-// pipeline sync, which is why every call is behind debug_trace and why paint takes this
-// twice rather than at every site.
-//
-// GLState and glStateDelta are split into state_fence.hpp so the comparison -- the part
-// that carries the invariant -- can be unit-tested without pulling in a GL header.
+// The half of GL discipline nothing covered: that the state we change is put back.
+// scan_draw_sites catches a raw draw call outside the helpers, the static half; two real
+// defects (backdrop leaving blend enabled, blur calling raw glDisable) were found by reading
+// code instead. A mock proves which functions were called, not what the driver ended in, so
+// read it back: glGet is observation, not substitution. Cost is a pipeline sync, hence every
+// call is behind debug_trace and paint brackets itself twice rather than at every site.
 
-// Read the live state. Needs a current context; a reader outside a pass sees whatever the
-// last pass left, which is exactly the point -- the delta is read against a fence taken
-// inside the same frame.
+// Needs a current context. A reader outside a pass sees whatever the last left; the delta is
+// read against a fence taken inside the same frame, which is the point.
 [[nodiscard]] inline render::GLState readGLState() {
   render::GLState s;
   GLboolean on = GL_FALSE;
@@ -73,10 +64,9 @@ inline int clampRound(int round, double w, double h) {
   return s;
 }
 
-// A named reading, once per frame like every RING| site. The volume is the norm here under
-// an explicit debug flag, and it is what makes the check mean anything: a once-per-process
-// heartbeat cannot tell a reader that the fence is running, and "silence" then has to mean
-// either "clean" or "not looking" with nothing to tell them apart.
+// A named reading, once per frame like every RING| site. Volume is the norm under an explicit
+// debug flag: a once-per-process heartbeat cannot tell a reader the fence is running, and
+/// silence then means either "clean" or "not looking" with nothing to tell them apart.
 inline void glStateFence(const char *where) {
   if (!debug::trace::enabled())
     return;
@@ -93,18 +83,14 @@ inline void glStateFence(const char *where) {
 }
 
 // The other end of the pair paint() brackets itself with: what came back different is the
-// leak. Reported ONLY when something differs -- the entry line above already says a frame
-// happened, so silence here means the frame was clean.
+// leak. Reported only when something differs, so silence here means the frame was clean.
 inline void glStateReport(const render::GLState &before, const char *where) {
   if (!debug::trace::enabled())
     return;
   const render::GLState after = readGLState();
   const auto delta = render::glStateDelta(before, after);
   if (!delta.empty()) {
-    // The VALUES, not just the names. "scissor" alone says a field changed and leaves the
-    // reader to re-add instrumentation to find which call site did it; the before/after pair
-    // usually identifies the offender on sight -- a scissor left at one card's box is that
-    // card's draw, and the leak is somewhere in it.
+    // The VALUES, not just the names: a scissor left at one card's box is that card's draw.
     const auto box = [](const render::GLState &s) {
       return std::to_string(s.scissor[0]) + "," + std::to_string(s.scissor[1]) + "," +
              std::to_string(s.scissor[2]) + "," + std::to_string(s.scissor[3]);
@@ -128,23 +114,17 @@ inline CHyprColor argb(Hyprlang::INT raw, double alphaMul = 1.0) {
   return CHyprColor(r, g, b, a * std::clamp(alphaMul, 0.0, 1.0));
 }
 
-// Hyprland asserts on a non-positive box in every immediate-mode render entry point,
-// and that assert is a crash inside the compositor -- the whole session goes, it is
-// not a no-op:
-//   OpenGL.cpp:1071  renderRect (via renderRectWithDamageInternal)
-//   OpenGL.cpp:2163  renderBorder
-//   OpenGL.cpp:2341  renderRoundedShadow
-// pxb() rounds, so a box under half a pixel becomes zero even while non-empty.
-//
-// ONE predicate, in the shared header, instead of a guard per call site. strip_view
-// had its own and it tested `width < 0`, which hands a zero-sized box straight to the
-// assert the helper exists to prevent; the flight's shadow had no guard at all and
-// cost a session on 2026-10-10 (crash report 45823).
+// Hyprland asserts on a non-positive box in every immediate-mode render entry point, and that
+// assert is a crash inside the compositor -- the session goes, it is not a no-op:
+//   OpenGL.cpp:1071 renderRect   OpenGL.cpp:2163 renderBorder   OpenGL.cpp:2341 shadow
+// pxb() rounds, so a box under half a pixel becomes zero even while non-empty. ONE predicate
+// here rather than a guard per call site: strip_view's own tested `width < 0`, handing a
+// zero box straight to the assert the helper exists to prevent, and the flight's shadow had
+// no guard at all and cost a session on 2026-10-10.
 inline bool drawable(const CBox &b) { return b.w > 0 && b.h > 0; }
 inline bool drawable(const LRect &r, double s) { return drawable(pxb(r, s)); }
 
-// Logs instead of dropping silently: "why is there no rect here" is unanswerable
-// after the fact without the numbers.
+// Logs instead of dropping silently: after the fact the numbers are gone.
 inline void safeRenderRect(const char *tag, const CBox &b, const CHyprColor &col,
                            Render::GL::CHyprOpenGLImpl::SRectRenderData opts) {
   if (!drawable(b)) {
@@ -156,18 +136,11 @@ inline void safeRenderRect(const char *tag, const CBox &b, const CHyprColor &col
   Render::GL::g_pHyprOpenGL->renderRect(b, col, opts);
 }
 
-// STROKE, never a filled rect grown by borderSize
-//
-// renderBorder scissors to each region it draws and NEVER clears it afterwards
-// (OpenGL.cpp:2233-2239) -- renderRect ends in scissor(nullptr) (OpenGL.cpp:1144
-// region block) and renderBorder does not. So the last ring drawn in a pass leaves the
-// scissor at its own box, and everything the compositor draws next is clipped to it. The
-// fence found this with the value in hand: scissor=0,0,1366,768 -> 785,41,167,94, which
-// is a strip card's box.
-//
-// Restored through the API, never raw GL, for the reason backdrop.cpp already writes down:
-// a raw glEnable puts GL back on while Hyprland's cap cache still says off, and the next
-// scissor(nullptr) then early-returns (OpenGL.cpp:2620) and clips the rest of the frame.
+// STROKE, never a filled rect grown by borderSize. renderBorder scissors to each region and
+// NEVER clears it (OpenGL.cpp:2233-2239) while renderRect ends in scissor(nullptr), so the
+// last ring drawn leaves its own scissor and clips everything composited after it.
+// Restored through the API, never raw GL: a raw glEnable puts GL back on while Hyprland's cap
+// cache still says off, and the next scissor(nullptr) early-returns (OpenGL.cpp:2620).
 inline void restoreScissorAfterBorder() {
   Render::GL::g_pHyprOpenGL->scissor(nullptr);
 }

@@ -7,12 +7,9 @@
 
 namespace gloview::model {
 
-// The cards in the main area, which one is focused, what the cursor is over.
-//
-// Writes go through named intents -- armEntry, settleEntry, park, pinNatural --
-// plus tileAt() for the one caller that computes per tile. There is no
-// vector-issuing accessor: recency ordering once went wrong by sorting this array
-// inside a layout pass, and handing out the container is what allowed it.
+// The cards in the main area, which one is focused, what the cursor is over. Writes go through
+// named intents plus tileAt(). There is no vector-issuing accessor: recency ordering once
+// went wrong by sorting this array inside a layout pass.
 class Scene {
   public:
     [[nodiscard]] const std::vector<Tile> &tiles() const { return m_tiles; }
@@ -85,11 +82,8 @@ void swapTiles(size_t a, size_t b) {
   const LRect &a = m_tiles[i].natural, &b = m_tiles[i].target;
   return a.x == b.x && a.y == b.y && a.w == b.w && a.h == b.h;
 }
-    // Which card slot carries this subject, or -1. A caller swapping two needs the index to
-    // say WHICH cards to exchange, not just that the two exchanged.
-    //
-    // A SUBJECT, not a window: a model cannot resolve a window -- it owns none -- and asking
-    // it to would put the source inside the value being described.
+    // Or -1. A caller swapping two needs the index to say WHICH cards, not just that they
+    // exchanged. A SUBJECT rather than a window: a model owns none and cannot resolve one.
     [[nodiscard]] int tileIndexOf(SubjectRef subj) const {
   for (std::size_t i = 0; i < m_tiles.size(); ++i)
     if (m_tiles[i].subj == subj)
@@ -127,20 +121,11 @@ void swapTiles(size_t a, size_t b) {
     }
     void select(int i) { m_selected = i; }
 
-    // The one answer to "which tile is focused", for paint AND input alike.
-    //
-    // The array can hold tiles while nothing is selected: the overview opened on an empty
-    // workspace (no tiles, select(-1)), the user switched to all-workspaces, and the
-    // rebuild produced tiles without re-selecting. layoutTiles already answered "none ->
-    // tile 0" for that case and drew it centred, so the user had a focused-looking card on
-    // screen while every input path asked selected(), read -1, and acted on nothing --
-    // which is why Enter did nothing at all and the exit fell through to a bare close.
-    // The window on the card the user can SEE centred, or null.
-    //
-    // focused(), not selected(): the deck can hold tiles while nothing is selected -- an
-    // empty workspace switched to all-workspaces rebuilds into tiles without re-selecting.
-    // Asking the raw index got -1 there, so Enter activated nothing and the exit became a
-    // bare close. Three readers asked this the same way before it had a name.
+    // The one answer to "which tile is focused", for paint and input alike, or null. Not
+    // selected(): the deck can hold tiles while nothing is selected -- an empty workspace
+    // switched to all-workspaces rebuilds into tiles without re-selecting, and layoutTiles
+    // then draws tile 0 centred. Asking the raw index got -1 there, so Enter activated
+    // nothing and the exit fell through to a bare close.
     [[nodiscard]] SubjectRef focusedSubject() const {
       const int f = focused();
       return f >= 0 ? m_tiles[static_cast<std::size_t>(f)].subj : SubjectRef{};
