@@ -99,9 +99,8 @@ public:
   void renderPulses(bool strip) const;
   void renderTiles() const;
   void renderCarousel() const;
-  // Not defined in carousel_view.cpp: fourteen files ask this and only clocks, build,
-  // lifecycle, mouse and keys have any business knowing where the carousel draws. It is a
-  // read of the run's mode and nothing else, so it lives with the mode.
+  // Not in carousel_view.cpp: it is a read of the run's mode and nothing else, so it lives
+  // with the mode.
   [[nodiscard]] bool carouselMode() const { return m_view.run(); }
   void relayoutCarousel();
   void renderGhosts() const;
@@ -109,9 +108,8 @@ public:
   void renderDragWindow() const;
   void renderCursorOnTop() const;
 
-  // The pump, asked three ways: arm it now (ensureAnimPump), re-check from inside its own
-  // callback (rearmanim), and just repaint (damage). Same reasoning as damage() above --
-  // all three are the frame pump, none of them is the run's lifecycle.
+  // The pump, asked three ways: arm now, re-check from inside its own callback, or just
+  // repaint. All three are the frame pump, none is the run's lifecycle.
   void rearmanim() const { m_pump.ensure(animBusy(), m_monitor.lock()); }
   void ensureAnimPump() { m_pump.ensure(animBusy(), m_monitor.lock()); }
 
@@ -125,9 +123,7 @@ public:
   void onMouseMove();
   void updateHover();
   void onKey(const IKeyboard::SKeyEvent &e, bool &cancel);
-  // IWindowHost, the inbound port. Overview answers the one question the window source
-  // cannot answer for itself -- whether a window belongs -- by delegating to tileBelongs.
-  // monitor() is already an inline accessor above; it is this port's other half.
+  // IWindowHost's inbound port: the one question the window source cannot answer itself.
   [[nodiscard]] bool belongs(const PHLWINDOW &w) const override;
 
   // Reads what the browser side has written and re-decides the matching. Called when a run
@@ -138,19 +134,11 @@ public:
   bool shouldHideWindow(const PHLWINDOW &w, const PHLMONITOR &m) const;
   [[nodiscard]] bool isTileWindow(const PHLWINDOW &w) const;
 
-  // The three lifecycle questions, delegated. They used to be three free booleans and each
-  // one is still three booleans' worth of truth, so a reader could not tell which question
-  // any given site was asking.
-  //
-  //   active()       visible -- the compositor should be painting the overlay. Parked is
-  //                  NOT active: nothing is drawn yet.
-  //   openedOrParked() owns the screen -- parked counts, because the windows must lose
-  //                  focus on the first parked frame, not when the overlay appears. Every
-  //                  caller that tested m_active right after open() must test this instead,
-  //                  or it reads a waiting open as a failed one -- that is what silently
-  //                  disarmed alt+tab.
-  //   opening()      the entry animation is playing. Not the same axis: replayReflow and
-  //                  switchToWorkspace set it on an overlay that is already on screen.
+  // The three lifecycle questions, delegated. active() is visible; openedOrParked() is
+  // ownership of the screen, parked included, because the windows must lose focus on the
+  // first parked frame rather than when the overlay appears -- a caller testing active()
+  // right after open() reads a waiting open as a failed one, which is how alt+tab got
+  // silently disarmed. opening() is a third axis, not a refinement of the other two.
   [[nodiscard]] bool active() const { return m_life.active(); }
   [[nodiscard]] bool openedOrParked() const { return m_life.ownsScreen(); }
   [[nodiscard]] bool opening() const { return m_life.opening(); }
@@ -167,8 +155,8 @@ public:
   [[nodiscard]] SP<Render::ITexture> backdropSourceTexture() const {
     return m_backdrop.composite();
   }
-  // True when the blur cache must be recomputed. Separate from having a texture:
-  // a stale cache still holds the last blur, which is what the entry path falls back to.
+  // Separate from having a texture: a stale cache still holds the last blur, which the
+  // entry path falls back to.
   [[nodiscard]] bool backdropBlurStale() const {
     return m_backdrop.blurStale();
   }
@@ -184,69 +172,44 @@ private:
   clock::Placement m_place;
   mutable render::FramePump m_pump;
 
-  // Who owns the screen, and whether the entry animation is playing.
-  //
-  // Six booleans used to be this, and the two facts that decide whether the overlay paints
-  // at all lived in their write pattern rather than anywhere checkable: m_active and
-  // m_pendingOpen are ONE axis (open parks, primeBackdrop promotes, close clears both),
-  // while m_opening is not on it -- replayReflow and switchToWorkspace set it on an overlay
-  // already on screen, which is why nine sites spell `m_active && m_opening`.
-  //
-  // Parked is the state that is neither visible nor closed: nothing is drawn, but the
-  // windows already lost focus. Painting late beats painting black -- the frame the
-  // overview is first visible had no backdrop of its own, and the wallpaper texture is
-  // mid-recreation right then.
+  // Who owns the screen, and whether the entry animation is playing. Six booleans used to be
+  // this and the facts that decide whether the overlay paints lived in their write pattern.
+  // Parked is neither visible nor closed: nothing is drawn, the windows already lost focus.
+  // Painting late beats painting black -- the first visible frame has no backdrop of its own
+  // while the wallpaper texture is mid-recreation.
   model::Lifecycle m_life;
   model::Recency m_recency;
   PHLWINDOWREF m_lastFocus;
-  // UNUSED. Never assigned -- only reset, in close() and deactivate(). The comment that used
-  // to sit here claimed it held "the compositor's focus when the overlay opened, so hovering
-  // a card cannot change what a passthrough bind acts on". No such snapshot exists:
-  // input/keys.cpp reads Desktop::focusState()->window() live, and nothing else stores it.
-  //
-  // The property it described is probably true anyway, for a different reason: hover is
-  // model-only (Scene::hover never touches the compositor) and open() drops focus from the
-  // windows. That is a fact about the code, not about this field. Left in place rather than
-  // deleted because the intent may still be wanted -- implementing it would mean deciding
-  // what a passthrough bind should act on while the overview is up, which is a product
-  // question, not a refactor.
+  // UNUSED: never assigned, only reset in close() and deactivate(). A comment here once
+  // claimed it held the compositor's focus so a passthrough bind could not be redirected by
+  // hover; no such snapshot exists -- keys.cpp reads focusState()->window() live. The property
+  // holds anyway because hover is model-only and open() drops window focus. Kept because what
+  // a passthrough bind should act on while the overview is up is a product question.
   PHLWINDOWREF m_focusOutside;
-  // A step the run must apply BEFORE it resolves its centre, so the opening
-  // motion plays for the target window instead of landing on one and swapping to
-  // another at the end. Consumed by layoutTiles, never by a key path.
+  // Applied BEFORE the run resolves its centre, so the opening motion plays for the target
+  // window instead of landing on one and swapping at the end.
   int m_pendingStep = 0;
   void syncRecency();
   void pruneRecency();
   model::Scene m_scene;
-  // The window source, behind the boundary. It holds a reference to this object as its
-  // host, so the two must not outlive each other -- they are members of the same class.
+  // Holds a reference to this object as its host; both are members, so neither outlives.
   model::WindowsContentSource m_windows{*this};
-  // The browser side, read in rather than dialled: a file under XDG_RUNTIME_DIR that
-  // whatever carries the extension writes. No socket, no thread, no JSON in this process
-  // (AGENTS.md 1) -- and the plugin cannot tell which one wrote it, so the transport above it
-  // stays a separate deliverable that does not touch the compositor.
+  // The browser side, read in rather than dialled: a file under XDG_RUNTIME_DIR. No socket,
+  // no thread, no JSON in this process (AGENTS.md 1). Which extension wrote it is unknown,
+  // so the transport above it stays a separate deliverable.
   model::TabsContentSource m_tabs;
-  // Which window carries which browser's tabs. Rebuilt per run, because it is made of titles
-  // and a title is only true of the run it was read in.
+  // Rebuilt per run: it is made of titles, and a title is only true of the run it was read in.
   model::BrowserLinks m_links;
-  // The window behind a tile, or null for a tab and for a window that has gone.
-  //
-  // Here and not on Tile: a tile is a value with no route to its owner, and a SubjectRef
-  // carries no refcount, so resolving one means asking the source that holds the
-  // ownership. One place answers it, so there is no second place that could disagree.
+  // The window behind a tile, or null for a tab and for a window that has gone. Here and not
+  // on Tile: a tile is a value with no route to its owner, so resolution belongs to the source
+  // that holds the ownership and only there.
   PHLWINDOW tileWindow(const model::Tile &t) const { return m_windows.windowOf(t.subj); }
 
-  // What a card IS, resolved in one place, with named answers.
-  //
-  // Thirty-three call sites used to ask `tileWindow(t)` for themselves and branch on the
-  // result, and they did not agree: drawTile skipped a null window, pushOut yielded to it,
-  // the caption was gated on it, the border was not, captureCurrentBoxes dropped it and
-  // startTileGlide matched nullptr against nullptr and called it found. A subject kind that
-  // has no window was then a bug hunt rather than a one-line change -- every site had to be
-  // found, and each one's intent had to be guessed.
-  //
-  // Three named answers are the whole mechanism. A fourth kind changes this function and the
-  // sites keep reading; a site that needs to know something else asks here, not the source.
+  // What a card IS, resolved in one place, with named answers. Thirty-three call sites used
+  // to branch on `tileWindow(t)` for themselves and disagreed: drawTile skipped a null
+  // window, pushOut yielded to it, the caption was gated on it, the border was not. A subject
+  // kind with no window was then a bug hunt, not a one-line change. A fourth kind changes
+  // this function and the sites keep reading.
   struct Card {
     PHLWINDOW window = {};        // empty for anything that is not a window
     bool      paintsOwnContent = false; // draws a picture of itself
@@ -292,14 +255,13 @@ private:
 
   int m_newCardId = 0;
   bool m_newCardAnim = false;
-  // The card group's scroll offset, its endpoints and its range. Four doubles that had to
-  // agree on [0, max] and did not have anything making them: the endpoints were clamped by
-  // the animateStripTo() caller and the current position by nothing at all.
+  // Offset, endpoints and range: four doubles that had to agree on [0, max] with nothing
+  // enforcing it.
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
   bool animBusy() const;
-  // Clocks that outlive the master: the pump must name every clock or the next one
-  // added never arms it.
+  // Clocks outliving the master: the pump must name every clock, or the next one added
+  // never arms.
   bool secondaryAnimsActive() const {
     return m_place.clocks.anyRunning(anim::cfg(entryLeaf()).ms, anim::cfg(ghostLeaf()).ms,
                                anim::cfg(anim::Id::StripStep).ms);
@@ -323,12 +285,10 @@ private:
   double entryFade(size_t i) const;
   // How far the close has run, 0 -> 1. Every exit fraction reads it through this.
   double exitT() const;
-  // Will this tile's window actually be on screen when the overlay leaves? Only then is
-  // its natural box a destination rather than a rectangle on a workspace that is not
-  // coming. See anim::tileExit.
-  // The one place a Placement::Frame is built. Three call sites were each assembling the
-  // same six values, and one of them passed `true` for goesHome because the rule lived on
-  // the coordinator and it had no way to reach it -- a stub that reads as an answer.
+  // Only then is the natural box a destination rather than a rectangle on a workspace that
+  // is not coming. See anim::tileExit.
+  // The one place a Placement::Frame is built: three sites assembled the same six values and
+  // one passed `true` for goesHome, a stub that reads as an answer.
   [[nodiscard]] clock::Placement::Frame frame() const;
   // Clear the three pieces of state that make the compositor skip a window that is not on
   // the active workspace: the workspace's alpha, the window's fullscreen alpha, and each
@@ -351,31 +311,19 @@ private:
   [[nodiscard]] bool hasStripThumb(const PHLWINDOW &w) const;
   // Where a window's strip thumbnail sits right now, empty if it has none.
   [[nodiscard]] LRect stripThumbRect(const PHLWINDOW &w) const;
-  // Is this window flying on THIS surface? The grid asks false, the strip true, and each
-  // one only stands down for its own flight -- a shared predicate made the strip's
-  // thumbnail disappear while the card flew.
+  // Per surface: each stands down only for its own flight. A shared predicate made the
+  // strip's thumbnail disappear while the card flew.
   [[nodiscard]] bool swapfxActive(const PHLWINDOW &w, bool strip) const;
-  // The same question for a subject rather than a window, which is what a tile carries. Two
-  // predicates answering one thing from two sides is the arrangement that lets a tab quietly
-  // skip every effect that a window gets.
+  // Two predicates answering one question from two sides, so a tab can skip every effect.
   [[nodiscard]] bool swapfxActiveSubject(model::SubjectRef s, bool strip) const {
     return m_fx.swapActive(s, strip);
   }
 
-  // What the browser side left for this subject: a screenshot if it managed one, otherwise the
-  // tab's icon, otherwise nothing. Both paths are exact -- built from ids already in hand --
-  // so "nothing there" is an answer, never a guess.
-  // A tab's art is its icon, and nothing else.
-  //
-  // The browser side CANNOT produce a picture of one tab. captureVisibleTab photographs the
-  // visible window, so what lands in previews/<id>.png is the whole browser -- chrome, sidebar,
-  // and every OTHER tab's thumbnail. Drawing it put a picture of the browser on each of the
-  // browser's own tab cards, thirteen times, which reads as a carousel of windows wearing tab
-  // captions. It is a window screenshot filed under a tab's name; there is no crop that fixes
-  // it without hardcoding one browser's sidebar geometry.
-  //
-  // So a tab card is its icon or its caption. That is the honest state, and it is the state the
-  // whole feature ran in before <all_urls> was granted.
+  // A tab's art is its icon, and nothing else. The browser side cannot picture ONE tab:
+  // captureVisibleTab photographs the visible window, so previews/<id>.png is the whole
+  // browser -- chrome, sidebar, every other tab's thumbnail. Drawing it put a picture of the
+  // browser on each of its own tab cards, thirteen times. No crop fixes that without
+  // hardcoding one browser's sidebar geometry, so a tab card is its icon or its caption.
   SP<Render::ITexture> tabArt(const model::Tile &t) const {
     if (!cardOf(t).isTab())
       return nullptr;
