@@ -1,17 +1,10 @@
 #pragma once
 
-// A PNG on disk becomes a texture.
-//
-// NOT g_pHyprRenderer->loadAsset(). That resolves its argument against Hyprland's own asset
-// directories (`<assetdir>/hypr/` + the name, Renderer.cpp:1477), so a runtime path can never
-// be loaded through it. cairo reads the file and Hyprland's renderer takes the surface from
-// there -- which is why this needs no new dependency: cairo is already linked into this
-// plugin (ldd build/gloview.so).
-//
-// Split in two: readPngSurface() in png_read.hpp touches nothing but the filesystem, so a
-// check can exercise it with no compositor; this is the one line that needs a GPU. One
-// function would make the interesting half -- what happens when the file is missing,
-// truncated, or not a PNG -- untestable, and those are the cases that actually happen.
+// A PNG on disk becomes a texture. NOT g_pHyprRenderer->loadAsset(): that resolves against
+// Hyprland's asset dirs (`<assetdir>/hypr/` + name, Renderer.cpp:1477), so a runtime path can
+// never go through it. cairo reads the file and the renderer takes the surface -- no new
+// dependency, cairo is already linked in. This is the one line that needs a GPU; the read
+// lives in png_read.hpp so a check can exercise the file cases with no compositor.
 
 #include "png_read.hpp"
 
@@ -21,9 +14,8 @@
 
 namespace gloview::pixel {
 
-// The image as a texture, or nullptr. Null when the file could not be read AND when there is
-// no renderer: a plugin that outlives its GL context must not reach through a null pointer on
-// its way to a texture.
+// The image as a texture, or nullptr on an unreadable file and on a missing renderer: a
+// plugin outliving its GL context must not chase a null pointer.
 [[nodiscard]] SP<Render::ITexture> loadPng(const std::string &path);
 
 } // namespace gloview::pixel

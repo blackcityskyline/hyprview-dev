@@ -8,16 +8,9 @@
 
 namespace gloview::render {
 
-// Two ways to make the compositor draw another frame.
-//
-// They are here rather than on Overview because twenty-four files ask for a damage and
-// nine ask for the pump, and neither is the run's lifecycle -- an action, a hit-test and a
-// hover all need a repaint. Owning them here means nothing reaches into the lifecycle to
-// say "redraw".
-//
-// The pump takes ONE boolean, "is there work". It does not know what the work is, which is
-// what keeps it a leaf: the caller already knows, and passing the question along instead of
-// the answer is how the answer ends up needing the caller back.
+// Two ways to make the compositor draw another frame, kept out of Overview so nothing reaches
+// into the lifecycle to say "redraw". The pump takes ONE boolean, "is there work", and stays a
+// leaf because the caller already knows what the work is.
 class FramePump {
   public:
     FramePump() = default;
@@ -28,20 +21,15 @@ class FramePump {
 
     void damage(const PHLMONITOR &m) const;
 
-    // Arms the repeating timer while `busy`, disarms it otherwise. Idempotent: calling it
-    // with an unchanged `busy` does nothing.
+    // Arms the timer while `busy`, disarms otherwise. Idempotent.
     void ensure(bool busy, const PHLMONITOR &m);
 
-    // Cancels AND removes the timer from the event loop, leaving the last shared pointer
-    // alone. This is what teardown wants: the timer must never fire again against a
-    // destroyed owner.
-    //
-    // Safe to call from anywhere, including from inside the timer's own callback:
-    // CEventLoopManager::onTimerFire iterates a COPY of its timer list, so removing from
-    // the real one does not disturb the walk.
+    // Cancels AND removes the timer, leaving the last shared pointer alone: the timer must
+    // never fire against a destroyed owner. Safe from inside its own callback --
+    // CEventLoopManager::onTimerFire walks a COPY of its timer list.
     void stop();
 
-    // The stall guard reads this; see clock::Clocks' compensates a hole in the frame stream.
+    // The stall guard reads this, compensating for a hole in the frame stream.
     [[nodiscard]] std::uint64_t tick() const { return m_tick; }
     void tickFrame() { ++m_tick; }
 
