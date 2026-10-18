@@ -24,10 +24,10 @@ using Render::GL::g_pHyprOpenGL;
 namespace gloview {
 
 namespace {
-// Down-right of the pointer, so the drop zones stay visible under the preview.
-// Functions, not constants read once: a value initialised from the config at namespace
-// scope runs before PLUGIN_INIT registers it, and the static init order across
-// translation units is undefined -- that took the whole compositor down at startup.
+// Down-right of the pointer, so the drop zones stay visible under the preview. Functions
+// rather than constants read once: a value initialised from config at namespace scope runs
+// before PLUGIN_INIT registers it, and cross-TU static init order is undefined -- that took
+// the compositor down at startup.
 double dragOffsetX() { return cfg::look.drag_offset_x; }
 double dragOffsetY() { return cfg::look.drag_offset_y; }
 double dragScale() {
@@ -131,14 +131,11 @@ void Overview::renderDragWindow() const {
                    roundPow);
 }
 
-// Brightness tracks how close the CURSOR is (m_killGlow, a smoothstepped
-// distance), so it guides the drop rather than switching on once you are on it.
-// Where the kill zone sits: a full-width band at the screen edge OPPOSITE the strip,
-// so the strip and the zone are never in the same place. Empty when disabled -- an
-// empty rect contains nothing and never closes a window.
-//
-// This is geometry, not lifecycle, so it lives here beside the one thing that draws it
-// rather than in session.cpp next to open()/close().
+// Brightness tracks how close the CURSOR is (m_killGlow, a smoothstepped distance), so it
+// guides the drop rather than switching on once you are on it. The zone sits at the screen
+// edge OPPOSITE the strip, so the two are never in the same place; empty when disabled, and
+// an empty rect contains nothing and never closes a window. Geometry, not lifecycle, so it
+// lives beside the one thing that draws it.
 LRect Overview::killZoneRect() const {
   const auto m = m_monitor.lock();
   if (!m)
@@ -150,9 +147,8 @@ LRect Overview::killZoneRect() const {
   return LRect{0.0, atTop ? 0.0 : m->m_size.y - kH, m->m_size.x, kH};
 }
 
-// Full brightness inside the zone, nothing by kill_zone_falloff px away,
-// smoothstepped between. A distance, not a bool: a zone blank until the cursor
-// crosses it says nothing while the user is still aiming it.
+// Full brightness inside the zone, nothing by kill_zone_falloff px away. A distance rather
+// than a bool: a zone blank until the cursor crosses it says nothing while aiming.
 double Overview::killZoneGlow(double lx, double ly) const {
   return render::killZoneGlow(killZoneRect(), lx, ly, cfg::behavior.kill_zone_falloff);
 }
@@ -245,9 +241,8 @@ void Overview::renderPulses(bool strip) const {
 
 void Overview::drawPulseRing(const CBox &boxPx, int round, float roundPow,
                              const CHyprColor &col, double p) const {
-  // The curve comes from the pulse animation; the reach past the tile edge is its own
-  // shape parameter. Both were literals, so pulse_curve and this amplitude were two halves of
-  // one animation configured from different places.
+  // The curve comes from the pulse animation and the reach past the tile edge is its own shape
+  // parameter. Both were literals -- two halves of one animation configured from different places.
   const double k  = curves::eval(anim::cfg(anim::Id::Pulse).curve, p) *
                   anim::param(anim::Param::PulseScale);
   const double cx = boxPx.x + boxPx.w / 2.0, cy = boxPx.y + boxPx.h / 2.0;
@@ -258,14 +253,13 @@ void Overview::drawPulseRing(const CBox &boxPx, int round, float roundPow,
                roundPow);
 }
 
-// Flying windows, lerped to the CURRENT slot box (which may itself be gliding).
-// Slots are suppressed while the flight is live, take over invisibly at t=1.
-// Every place this window is drawn ON THIS SURFACE. The all-workspaces view shows it
-// twice at once, and the two are not the same gesture: the one the user dragged leaves
-// the cursor, the other slides from where it already was. Both flights exist, tagged,
-// and each painter stands down only for its own.
+// Flying windows, lerped to the CURRENT slot box (itself possibly gliding); slots are
+// suppressed while the flight is live and take over invisibly at t=1.
 //
-// One resolver for both the painter and the trace: a trace that resolved the target
+// Every place this window is drawn ON THIS SURFACE. The all-workspaces view shows it twice at
+// once and the two are not the same gesture -- the one the user dragged leaves the cursor, the
+// other slides from where it already was. Both flights exist, tagged, and each painter stands
+// down only for its own. One resolver for both painter and trace: a trace resolving the target
 // differently from the draw would report a motion that never happened.
 std::vector<LRect> Overview::swapDests(const PHLWINDOW &w, bool strip) const {
   std::vector<LRect> out;
@@ -310,21 +304,16 @@ void Overview::renderSwapFX() const {
     for (const LRect &to : dests) {
     double bx = 0, by = 0, bw = 0, bh = 0;
     float alpha = 1.0F;
-    // No ring here. This branch used to draw one, ungated and on its own clock
-    // (t < 0.6, alpha 0.9, radius clamped from the ANIMATING box), while renderPulses
-    // drew a second one for the same window on the same frame. Two consequences, both
-    // reported from the running plugin: a ring showed up with pulse switched off, and
-    // its corner radius tightened for the whole flight -- clampRound reads min(w,h) of a
-    // box shrinking from a grid card to a strip thumbnail -- while the content's radius
-    // never moved, so the frame visibly slid off the card it was framing. The pulse
-    // owns rings: it is gated by pulse_enabled, it has PulseScale, and it measures the
-    // tile's real box, which is not what is animating.
+    // No ring here. This branch used to draw one, ungated, while renderPulses drew a second
+    // for the same window on the same frame: a ring showed up with pulse switched off, and its
+    // corner radius tightened for the whole flight (clampRound reads min(w,h) of a box
+    // shrinking from a grid card to a strip thumbnail) while the content's radius never moved,
+    // so the frame visibly slid off the card it was framing. The pulse owns rings.
 
-    // One travel, two shapes. `Slide` on the horizontal axis lerps every edge; `Slide` on the
-    // vertical axis arcs the card up and down instead, which is what "slidevert" has
-    // always meant in a swap and is NOT a slide on Y -- the name said it was, the code
-    // never did. The arc carries the landing the drop asks for, so it stays hardcoded
-    // with speed as its only knob rather than becoming a fourth style.
+    // One travel, two shapes. `Slide` on the horizontal axis lerps every edge; on the vertical
+    // it arcs the card up and down, which is what "slidevert" has always meant in a swap and is
+    // NOT a slide on Y. The arc carries the landing the drop asks for, so it stays hardcoded
+    // with speed as its only knob.
     if (fx.style.travel == anim::Travel::Slide &&
         fx.style.axis == anim::Axis::Vertical) {
       const double LIFT = cfg::look.swap_lift;
@@ -370,13 +359,10 @@ void Overview::renderSwapFX() const {
       bh = lerp(fx.from.h, to.h, p);
     }
 
-    // A flight now draws at EVERY surface the window occupies, and those surfaces are
-    // not the same size: a grid card is hundreds of pixels, a strip thumbnail is a few
-    // tens, and a cross-surface flight lerps between them. A box that shrinks past a
-    // pixel on the way is not worth a shadow, and renderRoundedShadow asserts on it --
-    // which is a Hyprland RASSERT inside the compositor, i.e. the whole session goes.
-    // Before the second destination existed this was unreachable in practice: the only
-    // destination was a tile.
+    // A flight draws at EVERY surface the window occupies and those differ in size by two
+    // orders of magnitude, so a cross-surface flight lerps between them. A box shrinking past a
+    // pixel on the way is not worth a shadow, and renderRoundedShadow ASSERTS on it -- a
+    // Hyprland RASSERT inside the compositor, so the whole session goes.
     const LRect box{bx, by, bw, bh};
     const CBox px = pxb(box, s);
     const int lr = clampRound(round, bw, bh); // logical: dropShadow scales it

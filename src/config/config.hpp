@@ -19,14 +19,11 @@
 
 namespace gloview::cfg {
 
-// Runtime overrides, keyed by the registered config key ("plugin:gloview:layout").
-//
-// There is no other way in: hl.config only accepts the nested form and a
-// CConfigValue exposes no setter a plugin can reach -- the write path belongs to
-// ConfigManager. Every getter consults this first, so a key set here is what the
-// running frame reads, while a key NOT set still reads live config as before.
-//
-// Empty map = no behaviour change. Clear with an empty value.
+// Runtime overrides, keyed by the registered config key ("plugin:gloview:layout"). There is no
+// other way in: hl.config only accepts the nested form and a CConfigValue exposes no setter a
+// plugin can reach -- the write path belongs to ConfigManager. Every getter consults this
+// first, so a key set here is what the running frame reads and one not set still reads live
+// config. Empty map = no behaviour change; an empty value clears.
 namespace override {
 inline std::unordered_map<std::string, std::string> values;
 
@@ -39,9 +36,8 @@ inline const std::string *find(const char *key) {
 inline void set(const char *key, const std::string &v) { values[key] = v; }
 inline bool clear(const char *key) { return values.erase(key) > 0; }
 
-// Every registered key, filled during registerAll. The override map cannot answer
-// "is this a config key?" -- it is the thing being written to, so on the first set it
-// is empty and every key looks unknown.
+// Every registered key, filled during registerAll. The override map cannot answer "is this a
+// config key?": it is the thing being written to, so on the first set every key looks unknown.
 inline std::unordered_map<std::string, char> known;
 inline bool isConfigKey(const char *key) {
   return key && known.find(key) != known.end();
@@ -138,9 +134,9 @@ struct strip {
   Int margin;
   Int gap;
   Int card_round;
-  // Geometry that was literal in the strip code: the label strip under a card, how far a
-  // card widens to fit its label, how much of the strip's thickness the slide-out covers,
-  // and the hard ceiling on offset as a fraction of the cross axis.
+  // Geometry that was literal in the strip code: the label strip under a card, how far a card
+  // widens to fit its label, the slide-out's share of the strip's thickness, and the ceiling on
+  // offset as a fraction of the cross axis.
   Float label_band;
   Float label_extra;
   Float slide_frac;
@@ -150,9 +146,8 @@ struct strip {
   Str empty_mode;
   Int all_card;
   Int wallpaper;
-  // Percent. The band's OWN alpha comes from here and nowhere else -- strip_band_color
-  // supplies RGB only. Two sources of alpha made its density depend on which string was
-  // configured, and how it read depended on what was behind it.
+  // Percent. The band's OWN alpha comes from here and nowhere else; strip_band_color supplies
+  // RGB only. Two sources of alpha made its density depend on which string was configured.
   Int band_opacity;
 };
 
@@ -174,8 +169,7 @@ struct look {
   Float drag_offset_y;
   Float swap_lift;
   // Tile chrome geometry that was literal in tile_view.cpp: shadow blur at rest and lifted,
-  // shadow alpha multiplier, title-pill padding and the gaps around it, and how much of the
-  // close button the glyph fills.
+  // the shadow alpha multiplier, title-pill padding and gaps, the close glyph's fill.
   Float shadow_radius;
   Float shadow_radius_lift;
   Float shadow_alpha;
@@ -184,24 +178,21 @@ struct look {
   Int title_font_size;
   // "bottom" hangs the whole caption off the card's lower edge, "top" off its upper one.
   Str title_position;
-  // Corner radius in px. Negative = a capsule (half the height), which is what the caption
-  // has always been; 0 = square; anything between rounds that far. Capped at half the
-  // shorter side, past which the shape turns inside out.
+  // Corner radius in px. Negative = a capsule (half the height), which is what the caption has
+  // always been; 0 = square. Capped at half the shorter side, past which it turns inside out.
   Float title_round;
   Float title_gap;
   Float title_margin;
-  // The carousel's "n / total" is its own pill under the caption, not a stem on it: two
-  // translucent shapes cannot share a silhouette without either a gap or a density step
-  // along the join, and neither reads as one piece. Separate knobs, so it can be sized,
-  // spaced and coloured on its own terms.
+  // The carousel's "n / total" is its own pill under the caption, not a stem: two translucent
+  // shapes cannot share a silhouette without a gap or a density step along the join, so it has
+  // separate knobs for size, spacing and colour.
   Float counter_pad_x;
   Float counter_pad_y;
   Int counter_font_size;
   Float counter_round; // negative = capsule, as the caption's
   // "bottom" puts the counter under the title pill, "top" over it. Empty = follow
-  // title_position, so a caption above the card also puts the counter above the title. Only
-  // the order inside the caption; where the caption hangs off the card is title_position's
-  // business.
+  // title_position. Only the order INSIDE the caption; where the caption hangs is
+  // title_position's business.
   Str counter_position;
   Float counter_gap;
   Float counter_margin;
@@ -293,10 +284,9 @@ struct behavior {
   Int switch_on_new_workspace;
   Int show_all_workspaces;
   Int show_special;
-  // Which things the main area shows: one card per window, one per browser tab, or the
-  // window plus its tabs. A tab is only known once the browser extension has reported it;
-  // until then every window falls back to being shown as a window, so the overview never
-  // loses one. See model/entries.hpp -- that fallback is a rule, and it is checked.
+  // Which things the main area shows: one card per window, one per browser tab, or the window
+  // plus its tabs. Until the extension reports, every window falls back to being shown as a
+  // window, so the overview never loses one (model/entries.hpp, checked).
   Str tile_mode;
   Int alttab_advances; // the entry is aimed at the next window
   Int hold_lift_ms;

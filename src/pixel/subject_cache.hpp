@@ -1,20 +1,15 @@
 #pragma once
 
-// Cached pictures of subjects: a tab's screenshot, a tab's icon.
+// Cached pictures of subjects: a tab's screenshot, a tab's icon. A window caches its texture
+// under its address and PixelCache keeps the OWNER beside it because an address gets reused
+// (AGENTS.md 2.9). A tab has neither: what it has is the connection that issued its id, which
+// plays the same role -- so the epoch in the key is the owner, and an entry loaded under one
+// generation is never handed out under another.
 //
-// A window caches its own texture under its address, and PixelCache keeps the OWNER beside
-// it because an address gets reused (AGENTS.md 2.9). A tab has neither an address nor an
-// owner. What it has is the connection that issued its id, and that plays exactly the same
-// role -- so the epoch in the key is the owner, and an entry loaded under one generation is
-// never handed out under another.
-//
-// Templated on the stored type, like PixelCache's own label entries already are. That is not
-// generality for its own sake: ITexture lives behind hyprland/ and AGENTS.md 2.8 forbids a
-// check from compiling against hyprland/, so a non-template cache would put its staleness
-// rule -- the whole point of it -- out of reach of any check.
-//
-// find() returns a pointer rather than a value so that "absent" is representable for any
-// stored type without inventing a null for it. Callers ask one question and get one answer.
+// Templated on the stored type, like PixelCache's label entries already are: ITexture lives
+// behind hyprland/ and AGENTS.md 2.8 forbids a check from compiling against it, so a
+// non-template cache would put its staleness rule out of reach of any check. find() returns a
+// pointer so "absent" is representable for any stored type without inventing a null.
 
 #include <cstdint>
 #include <unordered_map>

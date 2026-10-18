@@ -9,13 +9,11 @@
 
 namespace gloview::view {
 
-// Which view is on screen, which way it is moving, the monitor-to-preview
-// transform, and what layoutTiles last resolved.
-//
-// The resolved layout lives here because the renderer must ask what was produced,
-// never the config: free-arrange, the all/one flip and the carousel switch each
-// override what `layout` says. Keeping it with the selection it was resolved for
-// makes that one question of one object; it was four fields compared by hand.
+// Which view is on screen, which way it is moving, the monitor-to-preview transform, and what
+// layoutTiles last resolved. The resolved layout lives here because the renderer must ask what
+// was PRODUCED, never the config: free-arrange, the all/one flip and the carousel switch each
+// override what `layout` says. Kept with the selection it was resolved for, so one question
+// answers about one object instead of four fields compared by hand.
 class State {
   public:
     [[nodiscard]] bool desktop() const { return m_desktop; }
@@ -24,37 +22,29 @@ class State {
     [[nodiscard]] int allOverride() const { return m_allOverride; }
     void setAllOverride(int v) { m_allOverride = v; }
 
-    // Whether the run is showing every workspace, which is a question about the run's mode
-    // and not about the config: an override the user set for this run outranks the key, and
-    // -1 is the only value that means "no override".
-    //
-    // Six files ask this, and they were all reaching into the coordinator for a two-term
-    // expression of the same precedence rule.
+        // Whether the run shows every workspace -- a question about the run's mode, not the config:
+        // an override the user set for this run outranks the key, and -1 is the only "no override".
+        // Six files asked it by reaching into the coordinator for the same two-term precedence.
     [[nodiscard]] bool allWorkspaces(bool configured) const {
       return m_allOverride < 0 ? configured : m_allOverride != 0;
     }
 
     [[nodiscard]] bool run() const { return m_run; }
     void setRun(bool on) { m_run = on; }
-    // The width of the CENTRED card, which is the reference every other card's chrome is
-    // measured against. The run's cards shrink in steps with distance, and a caption that
-    // does not shrink with its card is the same size on a card half the width -- which is
-    // what a second and third card from the centre showed, and what the outermost cards of a
-    // five-card run showed worst. Written once per layout, read at paint: one writer, and it
-    // is a fact about the layout rather than about any one card.
+        // The width of the CENTRED card, the reference every other card's chrome is measured
+        // against. The run's cards shrink in steps with distance, so a caption that does not
+        // follow is the same size on a card half the width -- worst on the outermost card of a
+        // five-card run. Written once per layout, read at paint.
     void        setCardRefW(double w) { m_cardRefW = w > 0.0 ? w : 0.0; }
     [[nodiscard]] double cardRefW() const { return m_cardRefW; }
 
     [[nodiscard]] bool carouselOn() const { return m_carouselOn; }
     void setCarouselOn(bool on) { m_carouselOn = on; }
 
-    // Which subjects this run is showing: windows, tabs, or both. Resolved once when the run
-    // opens and kept here for the rest of it, exactly like m_engine, and for the same reason --
-    // a run that changed its mind halfway through would be laying out two vocabularies at
-    // once, which is worse than being wrong about either of them consistently.
-    //
-    // The config is read at the point of resolution, never cached in the field above it
-    // (AGENTS.md 2.16), so a live config change lands on the NEXT run rather than never.
+        // Which subjects this run shows: windows, tabs, or both. Resolved once when the run opens,
+        // like m_engine, because a run that changed its mind halfway through would lay out two
+        // vocabularies at once. Config is read at the point of resolution and never cached in the
+        // field above (AGENTS.md 2.16), so a live change lands on the NEXT run rather than never.
     [[nodiscard]] model::Domain domain() const { return m_domain; }
     void setDomain(model::Domain d) { m_domain = d; }
 
@@ -79,18 +69,15 @@ class State {
     [[nodiscard]] const CarouselLayout &carousel() const { return m_carousel; }
     [[nodiscard]] int carouselFor() const { return m_carouselFor; }
 
-    // slot[k] = the card index that card slot k shows. The renderer needs this too,
-    // so it belongs with the geometry it was resolved with: card k is NOT tile k,
-    // and a renderer assuming otherwise draws the wrong window in every slot.
+        // slot[k] = the card index slot k shows. The renderer needs it with the geometry it was
+        // resolved with: card k is NOT tile k, and assuming otherwise draws the wrong window.
     [[nodiscard]] const std::vector<std::size_t> &slot() const { return m_slot; }
 
 
-    // The tile the carousel's k-th slot holds, or -1.
-    //
-    // The carousel orders tiles by DEPTH, not index, so stepping selection has to go
-    // through the slot: the next card on screen is not the next index. Returns -1 when the
-    // slot is stale -- it is a cache that outlives a shrink of the tile array -- and a
-    // caller that gets -1 falls back rather than selecting an unrelated tile.
+        // The tile the carousel's k-th slot holds, or -1. The carousel orders tiles by DEPTH, not
+        // index, so stepping selection has to go through the slot. -1 marks a stale slot (it is a
+        // cache that outlives a shrink of the tile array), and a caller falling back rather than
+        // selecting an unrelated tile is the point.
     [[nodiscard]] int tileInSlot(std::size_t k) const {
       return k < m_slot.size() ? static_cast<int>(m_slot[k]) : -1;
     }
@@ -102,17 +89,12 @@ class State {
       return -1;
     }
 
-    // Hand card k_a's tile to card k_b and the other way round.
-    //
-    // Scene::swapTiles exchanges two tiles' TARGETS, which is what makes the exchange
-    // move. But a tile's depth is not its own: the carousel reads it as
-    // cards[slotOf(tile)].depth, and slotOf is the inverse of slot. Swap the targets
-    // alone and every tile keeps the card it used to occupy -- so the card that just
-    // travelled to the periphery still says depth 0, the one sitting in the middle says
-    // depth 1, and the run paints the periphery over its own centre.
-    //
-    // Swapping the slot entries travels with the geometry: a tile is now drawn from the
-    // card whose box it was given.
+        // Hand card k_a's tile to card k_b and the other way round. Scene::swapTiles exchanges two
+        // tiles' TARGETS, which is what makes the exchange move, but a tile's depth is not its own:
+        // the carousel reads it as cards[slotOf(tile)].depth. Swap the targets alone and every tile
+        // keeps the card it used to occupy, so the card that travelled to the periphery still says
+        // depth 0 and the run paints the periphery over its own centre. Swapping the slot entries
+        // travels with the geometry.
     void swapSlots(std::size_t a, std::size_t b) {
       const auto pos = [this](std::size_t tile) {
         for (std::size_t k = 0; k < m_slot.size(); ++k)

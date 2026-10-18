@@ -1,20 +1,14 @@
 #pragma once
 
-// Tabs as subjects. The second implementation of IContentSource, and the one that made the
-// interface worth marking virtual: with only Windows, `virtual` was a promise about a second
-// implementation that did not exist.
+// Tabs as subjects, the second implementation of IContentSource -- the one that made
+// `virtual` mean something. It is PURE: not one Hyprland type appears here, because a tab has
+// no window, no surface, no workspace, and that is what the boundary is for -- so ctest checks
+// it without a compositor.
 //
-// It is PURE. Not one Hyprland type appears here, and none can: a tab has no window, no
-// surface, no workspace. That is not an accident of the current stage -- it is what the
-// boundary is for, and it means this file is checked by ctest without a compositor, exactly
-// like the interface it implements.
-//
-// What it cannot do yet, and says so rather than faking: activate, close and moveTo are
-// remote operations. For a window they are compositor calls; for a tab they are messages to
-// the browser, and no such channel exists yet. They answer false, which the interface
-// defines as "it did not happen", and the caller treats that as "do not animate towards
-// something that is gone" -- the correct behaviour for a verb with no transport, and far
-// better than a tab that appears to close and does not.
+// What it cannot do yet it says rather than fakes: activate, close and moveTo are messages to
+// the browser and no such channel exists. They answer false, the interface's word for "it did
+// not happen", so the caller does not animate towards a subject that did not respond -- better
+// than a tab that appears to close and does not.
 
 #include <cstdint>
 #include <optional>
@@ -30,13 +24,10 @@ namespace gloview::model {
 
 class TabsContentSource final : public IContentSource {
   public:
-    // Replaces everything with one snapshot. Wholesale, never merged: see parseTabs().
-    //
-    // Returns whether the snapshot was ACCEPTED, which is the one thing a caller has to be
-    // able to know. A rejected snapshot leaves the previous one in place rather than
-    // emptying the source, because "the file was half-written" and "this browser has no
-    // tabs" must not reach the screen as the same thing -- one flickers the whole grid, the
-    // other is a fact about the browser.
+    // Replaces everything with one snapshot, wholesale, never merged. Returns whether it was
+    // ACCEPTED: a rejected one leaves the previous in place rather than emptying the source,
+    // because "the file was half-written" and "this browser has no tabs" must not reach the
+    // screen as the same thing -- one flickers the whole grid.
     bool adopt(TabSnapshot snap) {
       // Rebuilt, never merged, exactly as parseTabs() replaces rather than merges.
       if (snap.generation == 0)
@@ -46,13 +37,10 @@ class TabsContentSource final : public IContentSource {
       for (const auto &[browserWindow, reported] : snap.windows)
           for (const auto &[tabId, info] : reported.tabs) {
             const std::uint64_t id = static_cast<std::uint64_t>(tabId);
-            // Assigned, not inserted. A tab id repeated inside one connection is corrupt
-            // input and parseTabs() does not refuse it, so this has to pick something; the
-            // file lists tabs in order, which makes the LAST report the more recent one, and
-            // picking the first would answer with a tab the browser has already replaced.
-            // Note what this does NOT do: deduplicate. enumerate() still reports both, because
-            // that is what the file says, and quietly collapsing them here would make the
-            // grid disagree with the snapshot for no stated reason.
+            // Assigned, not inserted: a repeated tab id inside one connection is corrupt input
+            // and parseTabs() does not refuse it, so the LAST report wins -- the file lists tabs
+            // in order and the first would answer with a tab the browser already replaced. This
+            // does NOT deduplicate: enumerate() reports both because that is what the file says.
             windowsByTab_[id] = browserWindow;
             titles_[id]       = std::string{info.title};
           }
@@ -62,19 +50,15 @@ class TabsContentSource final : public IContentSource {
 
     [[nodiscard]] std::uint32_t generation() const { return m_snap.generation; }
 
-    // The snapshot as parsed, for the questions knownFor()/tabIdsFor() do not answer. The
-    // only one today is which tab of a browser window is active, and a second accessor's
-    // existence would be a second place that could disagree about the same snapshot.
+    // The snapshot as parsed, for the questions the other two do not answer -- today only
+    // which tab of a browser window is active.
     [[nodiscard]] const TabSnapshot &snapshot() const { return m_snap; }
     [[nodiscard]] bool empty() const { return m_snap.windows.empty(); }
 
-    // One subject per tab, in the order the browser reported them.
-    //
-    // NOT const, for the same reason as WindowsContentSource::enumerate(): it is a read of
-    // the current world that callers must not be able to cache across a reconnect, where
-    // every id is being reused. There is no ownership to refresh here, but the contract is
-    // one contract and a source that quietly differed on the signature would make every
-    // caller write a dynamic_cast.
+    // One subject per tab, in the order reported. NOT const, for the same reason as
+    // WindowsContentSource::enumerate(): it is a read of the current world that callers must
+    // not be able to cache across a reconnect, where every id is being reused. There is no
+    // ownership to refresh here, but the contract is one contract.
     [[nodiscard]] std::vector<SubjectRef> enumerate() override {
         std::vector<SubjectRef> out;
         std::size_t total = 0;
@@ -83,11 +67,10 @@ class TabsContentSource final : public IContentSource {
         out.reserve(total);
         for (const auto &[browserWindow, reported] : m_snap.windows)
             for (const auto &[tabId, info] : reported.tabs)
-                // The tab id is the subject. It is unique browser-wide in both Gecko and
-                // Chromium, and the epoch is the connection that issued it -- so "tab 41"
-                // from last week's browser and "tab 41" from this one are different subjects,
-                // which is the whole reason an id alone would have been an ABA bug waiting
-                // to happen.
+                // The tab id is the subject, unique browser-wide in both Gecko and Chromium;
+                // the epoch is the connection that issued it, so "tab 41" from last week's
+                // browser and "tab 41" from this one are different subjects. An id alone would
+                // have been an ABA bug waiting to happen.
                 out.push_back(
                     SubjectRef{static_cast<std::uint64_t>(tabId), m_snap.generation});
         return out;
@@ -110,23 +93,18 @@ class TabsContentSource final : public IContentSource {
         return it == titles_.end() ? std::string{} : it->second;
     }
 
-    // Always true, and the answer is not a formality: WindowsContentSource::isTab() answers
-    // false by construction, and the two differing is what lets a caller ask "which domain"
-    // once instead of holding a flag and hoping it tracks.
+    // Always true, and not a formality: WindowsContentSource::isTab() answers false by
+    // construction, so the two differing is what lets a caller ask "which domain" once.
     [[nodiscard]] bool isTab(SubjectRef s) const override {
         return s.epoch != 0 && s.epoch == m_snap.generation;
     }
 
-    // Whether anything has been reported for this browser window, and its tab ids.
-    //
-    // Split from ReportedTabs on purpose: that type's titles are string_views into the parsed
-    // text, which dies with the call that produced it, so handing it back to a caller would be
-    // a dangling view dressed as a return value. The two facts a caller actually needs --
-    // heard from or not, and which ids -- survive that, and nothing else is asked for here.
-    //
-    // "Heard from" is not "has tabs". A browser that has not reported yet and one that
-    // reported none both show up here, distinguishable, and the difference is the whole
-    // fallback rule (see entriesFor).
+    // Whether anything has been reported for this browser window, and its tab ids. Split from
+    // ReportedTabs on purpose: its titles are string_views into the parsed text, which dies
+    // with the call that produced it, so handing it back would be a dangling view dressed as a
+    // return value. "Heard from" is not "has tabs" -- a browser that has not reported and one
+    // that reported none both show up here, distinguishably, which is the fallback rule
+    // (entriesFor).
     [[nodiscard]] bool knownFor(std::uint64_t browserWindow) const {
         const auto it = m_snap.windows.find(browserWindow);
         return it != m_snap.windows.end() && it->second.known;
@@ -143,10 +121,9 @@ class TabsContentSource final : public IContentSource {
         return ids;
     }
 
-    // --- no transport yet ------------------------------------------------------------------------
-    // Each of these is a message to the browser, and there is no channel to the browser yet.
-    // False is the interface's own word for "it did not happen", so the caller already knows
-    // what to do with this: do not animate towards a subject that did not respond.
+    // --- no transport yet --------------------------------------------------------------------
+    // Each is a message to the browser and there is no channel to it yet. False is the
+    // interface's word for "it did not happen".
     bool activate(SubjectRef) override { return false; }
     bool close(SubjectRef) override { return false; }
     bool moveTo(SubjectRef, GroupRef) override { return false; }
@@ -170,9 +147,8 @@ class TabsContentSource final : public IContentSource {
     }
 
     TabSnapshot m_snap;
-    // Flattened on adopt(), because the two questions above are per-subject and the snapshot
-    // is nested. Rebuilding them per query would be a walk per tile per frame to answer a
-    // question that changed only when the file did.
+    // Flattened on adopt(): the two questions above are per-subject while the snapshot is
+    // nested, and rebuilding per query would be a walk per tile per frame.
     std::unordered_map<std::uint64_t, std::uint64_t> windowsByTab_;
     std::unordered_map<std::uint64_t, std::string> titles_; // tab id -> title
 };

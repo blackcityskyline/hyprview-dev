@@ -7,23 +7,14 @@
 
 namespace gloview::model {
 
-// Identity of one thing the overview shows: a window, or a tab inside one.
-//
-// The epoch is not decoration and neither is the width of id. Both exist because a bare
-// integer is reused.
-//
-// A window is identified by its address, and this project already made the rule about that:
-// never key a map by a raw pointer, because a dead window's address becomes the next one's
-// (AGENTS.md 2.9). A tab id from the browser is the same hazard with a different source --
-// close tab 41, and tab 41 exists again a moment later pointing at a different page.
-//
-// So an id is only meaningful together with the epoch it was issued under. The source bumps
-// the epoch on every fresh connection and every resynchronisation; a SubjectRef carrying an
-// older epoch names a subject that no longer exists, and it fails the equality rather than
-// silently matching whatever took the number.
-//
-// Default-constructed is Window0@0, which is the live compositor window and the only
-// subject that has no source of truth behind it.
+// Identity of one thing the overview shows: a window, or a tab inside one. Neither the epoch
+// nor the width of id is decoration -- both exist because a bare integer is reused. A window
+// is identified by its address (never key a map by a raw pointer, AGENTS.md 2.9) and a browser
+// tab id is the same hazard from another source: close tab 41 and tab 41 exists again a moment
+// later on another page. An id is only meaningful with the epoch it was issued under; the
+// source bumps it on every fresh connection and resynchronisation, so a SubjectRef with an
+// older epoch fails equality rather than silently matching whoever took the number.
+// Default-constructed is Window0@0, the live compositor window.
 struct SubjectRef {
     std::uint64_t id     = 0;
     std::uint32_t epoch = 0;
@@ -31,11 +22,9 @@ struct SubjectRef {
     bool operator==(const SubjectRef &) const = default;
 };
 
-// Where a subject lives: a workspace for a window, a browser window for a tab.
-//
-// Same shape and same reason. A tab's group is not a workspace -- Hyprland knows nothing
-// about tabs -- so it is carried by the same value type rather than by a Hyprland handle
-// that only means something in one of the two domains.
+// Where a subject lives: a workspace for a window, a browser window for a tab. A tab's group
+// is not a workspace -- Hyprland knows nothing about tabs -- so it is the same value type
+// rather than a handle that only means something in one of the two domains.
 struct GroupRef {
     std::uint64_t id     = 0;
     std::uint32_t epoch = 0;
@@ -43,9 +32,8 @@ struct GroupRef {
     bool operator==(const GroupRef &) const = default;
 };
 
-// Which of the three the user asked for. Resolved once per open or once per dispatch, read
-// everywhere that creates or asks about a subject -- the same pattern view::State already
-// uses for its Engine axis.
+// Which of the three the user asked for. Resolved once per open or dispatch and read
+// everywhere a subject is created or asked about, as view::State does for its Engine axis.
 enum class Domain : int {
     // One subject per window. What the plugin always did.
     Windows,
@@ -63,10 +51,10 @@ enum class Domain : int {
     return d != Domain::Windows;
 }
 
-// A mode parsed from config. Anything unrecognised is Windows -- the mode that was always
-// there, so a typo cannot quietly turn the overview into something else. This used to exist
-// as a second enum with the same three values and its own predicates, one file over; two
-// spellings of one question is how "which mode is this" gets answered two ways.
+// A mode parsed from config. Anything unrecognised is Windows, the mode that was always there,
+// so a typo cannot quietly turn the overview into something else. It used to be a second enum
+// with the same three values one file over -- two spellings of one question get answered two
+// ways.
 [[nodiscard]] constexpr Domain parseDomain(std::string_view s) {
     if (s == "tabs")
         return Domain::Tabs;
@@ -81,13 +69,9 @@ enum class Domain : int {
 
 } // namespace gloview::model
 
-// std::hash, because the whole point of SubjectRef is to be a map key and a defaulted
-// operator== does not give you one.
-//
-// Folding the epoch in is for spread, not for correctness: a hash that used only id would
-// still be a valid hash -- equal subjects would still hash equal, and unordered_map resolves
-// the collision with operator==. Two subjects in the same bucket cost a comparison, nothing
-// more.
+// std::hash: SubjectRef's whole point is to be a map key and a defaulted operator== does not
+// give one. Folding the epoch in is for spread, not correctness -- a hash using only id stays
+// valid, and unordered_map resolves collisions with operator==.
 template <>
 struct std::hash<gloview::model::SubjectRef> {
     std::size_t operator()(const gloview::model::SubjectRef &r) const noexcept {

@@ -26,11 +26,10 @@ namespace gloview {
 bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
   if (!active())
     return false;
-  // Hyprland reports a wheel axis in 120ths of a degree, so ONE notch is 120 -- measured,
-  // not assumed. Reading deltaDiscrete as a notch count made a single click 120 clicks, and
-  // 120 steps round a carousel of any size lands on the card it started from: the wheel did
-  // nothing at all, on either run, and no trace of why. The divisor is applied to BOTH arms,
-  // since a continuous axis from a touchpad is in the same unit.
+  // Hyprland reports a wheel axis in 120ths of a degree, so ONE notch is 120. Reading
+  // deltaDiscrete as a notch count made a single click 120 clicks, and 120 steps round a
+  // carousel of any size lands on the card it started from: the wheel did nothing at all, with
+  // no trace of why. Divisor on BOTH arms, since a touchpad's continuous axis is the unit too.
   constexpr double kDegreesPerNotch = 120.0;
   const double notches = e.deltaDiscrete != 0
                              ? static_cast<double>(e.deltaDiscrete) / kDegreesPerNotch
@@ -45,11 +44,10 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
     overStrip = band.contains(lx, ly);
   }
 
-  // Vertical only. A touchpad has two axes and only one of them means "the next thing":
-  // up and down page the run, a sideways swipe is the gesture for turning a page or moving a
-  // pane and taking the carousel with it read the run as scrolling left and right too, so
-  // both axes moved the selection. Over the strip both axes still scroll the strip -- that is
-  // a horizontal thing by nature and it is fenced off below, not here.
+  // Vertical only. A touchpad has two axes and only one of them means "the next thing": a
+  // sideways swipe is the gesture for turning a page or moving a pane, and taking the carousel
+  // with it moved the selection on both axes. Over the strip both axes still scroll -- that is
+  // horizontal by nature and fenced off below, not here.
   const bool vertical = e.axis == WL_POINTER_AXIS_VERTICAL_SCROLL;
 
   // The run pages on the wheel: notches * carousel_scroll_speed = cards moved. Its
@@ -63,10 +61,9 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
     const int whole = static_cast<int>(std::trunc(m_scrollAccum));
     if (whole != 0) {
       m_scrollAccum -= static_cast<double>(whole);
-      // The same call the left and right keys make. The wheel is another way of asking for
-      // the next card, not another gesture: routing it through stepAltTab() made it the
-      // alt-tab advance, which carries its own seeding, its own slot remap and its own
-      // open-if-closed, and none of that is what a wheel notch means on an open overlay.
+      // The same call the left and right keys make. The wheel is another way of asking for the
+      // next card, not another gesture: stepAltTab() carries its own seeding, slot remap and
+      // open-if-closed, none of which is what a wheel notch means on an open overlay.
       moveSelection(whole, 0);
     }
     return true;
@@ -118,14 +115,11 @@ void Overview::onMouseMove() {
   if (m_cursor.hasHardwareCursor(m)) {
     updateHover();
     // The hardware cursor is on its own plane, but the plane still has to be told where the
-    // cursor is for THIS frame. Nothing else will: Hyprland's cursor render runs inside its
-    // own pass, and this branch returned before any damage was issued at all -- so on our
-    // frames the plane kept whatever position it last had. Move the mouse and the overview
-    // covers it: focus follows, the cursor does not show. Periodically, because it depends
-    // on whether the stale plane position happened to survive.
-    //
-    // damageCursor() and not our own union box: the union is what a SOFTWARE copy needs
-    // erased and redrawn, and the hardware plane carries no such history.
+    // cursor is for THIS frame: Hyprland's cursor render runs inside its own pass and this
+    // branch returned before any damage was issued, so the plane kept whatever position it last
+    // had -- focus follows, the cursor does not show. Periodically, because whether the stale
+    // position survived is luck. damageCursor() rather than our union box: the union is what a
+    // SOFTWARE copy needs erased and redrawn, and the hardware plane carries no such history.
     if (active() && Pointer::mgr())
       Pointer::mgr()->damageCursor(m);
     return;
@@ -133,10 +127,9 @@ void Overview::onMouseMove() {
   const CBox unionBox = m_cursor.moveDamage(m);
   updateHover();
   // Named, because this is the other half of the cursor's visibility and it fails SILENTLY:
-  // renderOnTop draws the texture regardless of damage, so a frame where the damage never
-  // got issued clips the cursor away while the mouse keeps moving and focus keeps following.
-  // The pair of records -- CURSOR|mode=draw with no matching CURSORMV|damage -- is that bug,
-  // and neither half identifies it alone.
+  // renderOnTop draws the texture regardless of damage, so a frame whose damage never got
+  // issued clips the cursor away while the mouse keeps moving. CURSOR|mode=draw with no
+  // matching CURSORMV|damage is that bug, and neither half identifies it alone.
   const bool dmg = active() && unionBox.w > 0 && unionBox.h > 0;
   debug::trace::emitState(
       std::string("CURSORMV|at=") + (active() ? "open" : "closed") +
@@ -239,16 +232,12 @@ void Overview::updateHover() {
     }
     const auto m = m_monitor.lock();
     if (m) {
-      // A selection move is not a two-tile repaint. The focused tile changes its ring,
-      // its content radius and its exemption from the entry ladder, and the run rebuilds
-      // every slot around it -- so the pixels that changed are not confined to the tiles
-      // the pointer crossed. Damaging only those two left the rest of the frame holding
-      // the previous one's image, which is the reported symptom exactly: a card that
-      // flickers as the pointer crosses its border, and a slice of a DIFFERENT card
-      // showing up on the one being hovered.
-      //
-      // Cost is one extra full-monitor repaint on a boundary crossing, which is a
-      // fraction of a frame. Cheaper than guessing which tiles the move touched.
+      // A selection move is not a two-tile repaint: the focused tile changes its ring, its
+      // content radius and its exemption from the entry ladder, and the run rebuilds every slot
+      // around it. Damaging only the two crossed tiles left the rest of the frame holding the
+      // previous image -- a card flickering as the pointer crosses its border, and a slice of a
+      // DIFFERENT card showing up on the hovered one. Cost is one extra full-monitor repaint on
+      // a boundary crossing, a fraction of a frame, cheaper than guessing which tiles moved.
       if (oldSel != m_scene.selected()) {
         damage();
         return;
@@ -425,10 +414,9 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         }
       if (cardIdx >= 0) {
         // Any strip card is a drop target, not just a Ws one. "+" is Plus, so matching only
-        // Kind::Ws left cardIdx at -1 and skipped the whole block below -- INCLUDING
-        // dropOnStripCard -- and the tile always flew back (measured: branch=Tile->flyback
-        // with dropOnStripCard never entered). A press on "+" is a click, but a DRAG that
-        // ends there starts elsewhere and never goes through the press handler.
+        // Kind::Ws left cardIdx at -1 and skipped the block below INCLUDING dropOnStripCard:
+        // the tile always flew back. A press on "+" is a click, but a DRAG that ends there
+        // starts elsewhere and never goes through the press handler.
         const bool wsCard = m_strip[cardIdx].kind == model::StripItem::Kind::Ws;
         debug::trace::dragBranch("Tile->stripCard",
                                  "rmb=" + std::to_string(rmb) + "|kind=" +
@@ -725,10 +713,10 @@ void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
   if (w) {
     if (const auto ws = w->m_workspace;
         ws && (showAllWorkspaces() || ws != m_workspace.lock())) {
-      // Nothing is rebuilt here. focusAndClose runs DURING the close and
-      // layoutTiles() recomputes m_view.run(), so with m_view.allOverride() already 0 the deck
-      // stopped being a carousel before close() read it — every card flew to its
-      // own box, all the same fullscreen rectangle, and met in one point.
+      // Nothing is rebuilt here. focusAndClose runs DURING the close and layoutTiles()
+      // recomputes m_view.run(), so with allOverride() already 0 the deck stopped being a
+      // carousel before close() read it: every card flew to the same fullscreen rectangle and
+      // met in one point.
       m_view.setAllOverride( 0);
       m_workspace = ws;
       m_scene.clearHover();

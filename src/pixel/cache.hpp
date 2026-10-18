@@ -19,33 +19,29 @@ class IFramebuffer;
 
 namespace gloview::pixel {
 
-// Entries with no object behind them still need a key. They live in a map of their
-// own and are never swept, so any distinct integer works; naming the slots keeps a
-// call site from passing a bare literal that reads like a window address.
+// Entries with no object behind them still need a key. They live in a map of their own and are
+// never swept, so any distinct integer works; naming the slots keeps a call site from passing a
+// literal that reads like a window address.
 enum Slot : int { All = -2, CarouselCount = -1 };
 
-// Captions, the close glyph, entry snapshots.
+// Captions, the close glyph, entry snapshots. The KEYING POLICY is the whole job: a caption is
+// asked for whole and cut to the card, so sharing a slot measures one texture and draws the
+// other.
 //
-// The KEYING POLICY is the whole job: a caption is asked for whole and cut to the
-// card, and sharing a slot measures one texture and draws the other.
-//
-// Entries are owned by what they describe. A caption or snapshot keyed by a raw
-// address outlives the object at it whenever the scene is not rebuilt in between:
-// Hyprland recycles addresses, so the next window to land on a closed window's
-// address inherits its texture -- in snapshot mode, its contents. Storing a weak
-// reference beside the key removes that by construction: once the object dies the
-// reference expires and the lookup misses, with no sweep anywhere to forget to run.
-// Entries with no object behind them (the strip's "All" card, the carousel counter)
-// have nothing to die and live in m_fixed for the length of the session.
+// Entries are owned by what they describe. Keyed by a raw address, a caption outlives its
+// object whenever the scene is not rebuilt in between -- Hyprland recycles addresses, so the
+// next window to land on a closed one's address inherits its texture, in snapshot mode its
+// contents. A weak reference beside the key removes that by construction: the object dies, the
+// reference expires, the lookup misses, and there is no sweep to forget to run. Entries with no
+// object behind them live in m_fixed for the session.
 class PixelCache {
   public:
     struct LabelEntry {
       std::string text;
       int maxW = 0;
       int size = 0;
-      // Colour and size belong to the key, not just the string: the config is live
-      // (hl.config), and a caption baked in the old colour keeps being drawn after
-      // the user changes it. Same defect the carousel counter had.
+            // Colour and size belong to the key, not just the string: config is live, so a caption
+            // baked in the old colour keeps being drawn after the user changes it.
       CHyprColor col;
       SP<Render::ITexture> tex;
 
@@ -55,25 +51,18 @@ class PixelCache {
       }
     };
 
-    // maxW <= 0 = untruncated. renderText clips rather than ellipsizes, so a wide
-    // title is shortened here and re-rendered to fit.
-    // A null window means one of the fixed slots, which are never swept.
+        // maxW <= 0 = untruncated; renderText clips rather than ellipsizes, so a wide title is
+        // shortened here and re-rendered to fit. A null window means a fixed slot, never swept.
     SP<Render::ITexture> windowLabel(const PHLWINDOW &win, const std::string &text,
                                      const CHyprColor &col, int size, int maxW = 0);
-    // A label for a subject rather than a window. Same rendering and the same truncation as
-    // windowLabel() -- deliberately the same code path, because two label caches would be two
-    // places to disagree about how a title is drawn.
-    //
-    // A tab has no window to own the entry, so the SubjectCache's epoch is the owner: an entry
-    // made under one connection is dropped when the next one arrives, which is the same rule
-    // the picture cache follows and for the same reason.
-    // A picture for a subject, whichever of the two files the browser side left for it: a
-    // screenshot first, then an icon, then nothing. The paths are the caller's because the
-    // browser side is its business and this cache's is not to know where files come from.
-    //
-    // Nothing found is NOT cached. A file that is not there yet is the ordinary state of a
-    // directory the browser is writing, and caching the miss would keep drawing an empty card
-    // for the rest of the connection.
+        // A label for a subject rather than a window, deliberately on the SAME code path as
+        // windowLabel() -- two label caches would be two places to disagree about how a title is
+        // drawn. A tab has no window to own the entry, so the SubjectCache's epoch is the owner:
+        // an entry made under one connection is dropped when the next arrives.
+        // A picture for a subject: screenshot first, then icon, then nothing. The paths are the
+        // caller's because where files come from is not this cache's business. Nothing found is
+        // NOT cached -- a file not there yet is ordinary for a directory the browser is writing,
+        // and caching the miss would draw an empty card for the rest of the connection.
     SP<Render::ITexture> putPicture(const model::SubjectRef &s,
                                    const std::string &screenshotPath,
                                    const std::string &iconPath);
@@ -113,9 +102,8 @@ class PixelCache {
       if (!key)
         return nullptr;
       auto &slot = map[key];
-      // The address is in use again, so the entry sitting there may belong to whoever
-      // was here last. An expired reference is the only proof that it is stale --
-      // the pointers compare equal, which is the entire problem.
+            // The address is in use again, so the entry there may belong to whoever was here last.
+            // An expired reference is the only proof it is stale -- the pointers compare equal.
       if (slot.owner.expired())
         slot = {};
       slot.owner = owner;
@@ -134,9 +122,8 @@ class PixelCache {
                                               const CHyprColor &col, int size,
                                               int maxW);
 
-    // Label entries that own what they describe. The weak reference is the entry's
-    // ticket out: when it expires, the next lookup through the same address drops
-    // the stale entry instead of handing it to a new occupant.
+        // Label entries that own what they describe: the weak reference is the entry's ticket out --
+        // it expires, the next lookup at that address drops the stale entry.
     struct WinLabel {
       PHLWINDOWREF owner;
       LabelEntry entry;
@@ -152,9 +139,8 @@ class PixelCache {
 
     std::unordered_map<Desktop::View::CWindow *, WinLabel> m_winLabels;
     std::unordered_map<CWorkspace *, WsLabel> m_wsLabels;
-    // Never swept, but kept apart on purpose: a workspace id is an int64 and the
-    // special ones are negative, so sharing a map with Slot would let a workspace
-    // land on a slot's key.
+        // Never swept, but kept apart on purpose: workspace ids are int64 and the special ones are
+        // negative, so sharing Slot's map would let a workspace land on a slot's key.
     std::unordered_map<Slot, LabelEntry> m_slotLabels;
     std::unordered_map<WORKSPACEID, LabelEntry> m_virtualLabels;
     std::unordered_map<Desktop::View::CWindow *, WinSnapshot> m_snapshots;

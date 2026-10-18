@@ -113,23 +113,17 @@ inline constexpr const char *const kEnterStyles[] = {"slide", "slidevert", "fade
 }
 
 // What a card does on its way from A to B. Unknown names resolve to Slide, the kRows default
-// and the value the README documents; before, a typo matched no branch and took pop's path
-// by accident of branch order.
+// and the value the README documents. It used to be two enums with the same four members under
+// different names, and the duplication had already cost a dead key: `fade` was in both
+// vocabularies and NEITHER branch drew it. A name in a list no branch honours is worse than an
+// absent one, because it reads as a setting.
 //
-// It was two enums with the same four members under different names -- WsStyle{Slide,
-// SlideVert, Fade, Pop} for a workspace enter and SwapStyle{Horizontal, SlideVert, Fade,
-// Pop} for a swap -- and the duplication had already cost a dead key: `fade` was in both
-// vocabularies and NEITHER branch drew it. ws_enter_style = fade slid when a slide
-// direction existed and popped when it did not. A name in a list that no branch honours
-// is worse than an absent one, because it reads as a setting.
-//
-// Spring is deliberately NOT a member. It is not a duration -- it is stiffness and
-// damping, and it has no end -- so it cannot live in the same `_ms` scale as the other
-// three without lying about what it is. docs/ROADMAP.md carries it as future work.
+// Spring is deliberately NOT a member: it is stiffness and damping with no end, so it cannot
+// live in the same `_ms` scale without lying about what it is (docs/ROADMAP.md).
 enum class Travel : int { Slide, Pop, Fade };
 
-// Which way a Slide travels. `slidevert` and `horizontal` are the MANUAL spellings: they
-// name an axis, not a travel, which is why they read as a style and are not one.
+// Which way a Slide travels. `slidevert` and `horizontal` are the MANUAL spellings -- they name
+// an axis, not a travel, which is why they read as a style and are not one.
 enum class Axis : int { Horizontal, Vertical };
 
 struct Move {
@@ -144,9 +138,9 @@ struct Move {
   friend constexpr bool operator==(const Move &, const Move &) = default;
 };
 
-// `slidevert` and `horizontal` are the SHORT spellings of slide-vertical and
-// slide-horizontal, and both keep working: they are in existing configs. `slide-vertical`
-// is the canonical one and is what moveName emits, so a trace record parses back.
+// Short spellings of slide-vertical and slide-horizontal, both kept because they are in
+// existing configs. `slide-vertical` is canonical and what moveName emits, so a trace record
+// parses back.
 [[nodiscard]] constexpr Move parseMove(std::string_view s) {
   if (s == "fade")
     return Move{Travel::Fade, Axis::Horizontal};
@@ -156,14 +150,13 @@ struct Move {
   return Move{Travel::Slide, vert ? Axis::Vertical : Axis::Horizontal};
 }
 
-// The canonical spellings: what parseMove emits and moveName reads back. The aliases above
-// resolve into these, which is what keeps a user's config working without keeping two
-// names for one thing.
+// The canonical spellings: what parseMove emits and moveName reads back. Aliases above resolve
+// into these, so a user's config keeps working without two names for one thing.
 inline constexpr const char *const kMoveNames[] = {"slide-horizontal", "slide-vertical",
                                                    "fade", "pop"};
 
-// For the trace line and for the round-trip check: the enum has to be able to say its own
-// name, or "every declared name parses" is not checkable.
+// For the trace line and the round-trip check: the enum has to name itself, or "every declared
+// name parses" is not checkable.
 [[nodiscard]] constexpr const char *travelName(Travel t) {
   return t == Travel::Fade ? "fade" : t == Travel::Pop ? "pop" : "slide";
 }
@@ -172,43 +165,31 @@ inline constexpr const char *const kMoveNames[] = {"slide-horizontal", "slide-ve
   return a == Axis::Vertical ? "vertical" : "horizontal";
 }
 
-// What a trace record says about a move, in a spelling parseMove reads back.
-//
-// The axis is only spelled out for a Slide, where it is half the decision. A dash, not a
-// space or a slash: the grammar is key=value with no spaces and '|' as the field
-// separator. Round-tripping through parseMove is the point -- a record nobody can feed
-// back in is a record nobody can query.
+// What a trace record says about a move, in a spelling parseMove reads back. The axis is only
+// spelled for a Slide, where it is half the decision. A dash rather than a space or slash:
+// the grammar is key=value with no spaces and '|' as separator. Round-tripping through
+// parseMove is the point -- a record nobody can feed back in is nobody's query.
 [[nodiscard]] inline std::string moveName(const Move &m) {
   return m.slides() ? std::string(travelName(m.travel)) + "-" + axisName(m.axis)
                     : std::string(travelName(m.travel));
 }
 
-// The entry stagger, as pure arithmetic.
-//
-// staggered() in clocks.cpp reads the spread from anim::param() and is therefore not
-// reachable from a test; this is the part under test, with the spread handed in. spread
-// is capped at 1 inside, so a caller passing 5 gets a staircase, not a negative
-// denominator -- see the test.
-//
-// n <= 1 returns base: a single tile cannot be staggered against anything, and the
-// staggered tile is exempt from the ladder by construction (clocks.cpp), so this is the
-// path every one-tile workspace takes on every switch.
+// The entry stagger, as pure arithmetic. staggered() in clocks.cpp reads the spread from
+// anim::param() and is unreachable from a test, so this is the part under test with the spread
+// handed in and capped at 1 inside. n <= 1 returns base: a single tile cannot be staggered
+// against anything, and the staggered tile is exempt from the ladder by construction
+// (clocks.cpp).
 [[nodiscard]] double stagger(double base, int i, int n, double spread);
 
-// Which leaf drives the master clock, and whether the backdrop rides it.
+// Which leaf drives the master clock, and whether the backdrop rides it. These two decisions
+// were written out three times in clocks.cpp -- eased(), animDuration() and blurAlpha() each
+// re-derived them from m_opening and m_view.jumpMode, and nothing checked they agreed; they
+// did once drift, which is what jump_in/jump_out being separate leaves prevents.
 //
-// These two decisions were written out three times in clocks.cpp -- eased(),
-// animDuration() and blurAlpha() each re-derived them from m_opening and m_view.jumpMode,
-// and nothing checked that the three agreed. They did once drift, which is what
-// jump_in/jump_out being separate leaves now exists to prevent.
-//
-// jumpMode means the overview was closed by a digit key rather than by its own dismiss,
-// so it needs a different exit: the window keeps flying, and the clock that carries the
-// close has to keep carrying it.
-//
-// The backdrop rule is the one from AGENTS.md: with windows present it never fades on the
-// way out (their own blur covers it), and on an empty workspace there is nothing to cover,
-// so it does.
+// jumpMode means the overview was closed by a digit key, so the window keeps flying and the
+// clock carrying the close has to keep carrying it. The backdrop rule is AGENTS.md's: with
+// windows present it never fades on the way out, and on an empty workspace there is nothing to
+// cover so it does.
 enum class MasterLeaf : std::uint8_t { Open, Close, JumpOut };
 
 [[nodiscard]] constexpr MasterLeaf masterLeaf(bool jumpMode, bool opening) {
@@ -217,29 +198,23 @@ enum class MasterLeaf : std::uint8_t { Open, Close, JumpOut };
   return opening ? MasterLeaf::Open : MasterLeaf::Close;
 }
 
-// true = the backdrop fades with the clock; false = it holds at full and the real
-// windows' own blur covers the exit.
+// true = the backdrop fades with the clock; false = it holds at full while the real windows'
+// own blur covers the exit.
 [[nodiscard]] constexpr bool backdropFades(bool opening, bool landingEmpty) {
   return opening || landingEmpty;
 }
 
-// What the toggle key means, and where a card goes when the overlay leaves.
-//
-// Both decisions used to be implicit and both went wrong the same way: the overview was
-// opened on an empty workspace, switched to all-workspaces (which builds tiles from other
-// workspaces), and then Escape, Enter and the toggle bind all ended in the same
-// Overview::close(). Every one of them spent the whole exit flying a card toward the tile
-// box the window would have had if we had committed to it, and then dropped it in a single
-// frame, because the workspace we landed on held nothing. The user had been shown a window
-// manager tiling motion for a window that was never going to be there.
-//
-// Toggle therefore means "take me to what I am looking at" while the overview is up, and
-// only opens when it is down. Enter already meant that; the toggle did not, and having two
-// keys for one intent and a third that silently matched neither was the bug.
+// What the toggle key means, and where a card goes when the overlay leaves. Both were
+// implicit and went wrong the same way: opened on an empty workspace, switched to
+// all-workspaces, then Escape, Enter and the toggle all ended in Overview::close(), and each
+// spent the exit flying a card toward a tile box on a workspace that held nothing, dropping it
+// in one frame -- a tiling motion for a window that was never going to be there. Toggle
+// therefore means "take me to what I am looking at" while the overview is up and only opens
+// when it is down; Enter already meant that.
 enum class DismissIntent : std::uint8_t { Open, Cancel, Commit };
 
-// haveFocusableTile is false on an empty workspace. Committing nothing is cancelling, and
-// saying so here keeps it from becoming an activateSelection() that quietly closes.
+// False on an empty workspace. Committing nothing is cancelling, and saying so here keeps it
+// from becoming an activateSelection() that quietly closes.
 [[nodiscard]] constexpr DismissIntent toggleIntent(bool overviewOpen,
                                                   bool haveFocusableTile) {
   if (!overviewOpen)
@@ -247,36 +222,31 @@ enum class DismissIntent : std::uint8_t { Open, Cancel, Commit };
   return haveFocusableTile ? DismissIntent::Commit : DismissIntent::Cancel;
 }
 
-// Home = the window belongs to the workspace this close lands on, so its natural box is
-// where it is genuinely going and the flight is seamless.
-// InPlace = it does not. The natural box is then a rectangle on a workspace that is not
-// coming, and animating toward it is the lie above.
+// Home = the window belongs to the workspace this close lands on, so its natural box is where
+// it is genuinely going. InPlace = it does not, and animating toward a rectangle on a
+// workspace that is not coming is the lie above.
 enum class TileExit : std::uint8_t { Home, InPlace };
 
 [[nodiscard]] constexpr TileExit tileExit(bool windowOnLandingWs) {
   return windowOnLandingWs ? TileExit::Home : TileExit::InPlace;
 }
 
-// THE deck's hide motion, and the one rule that says who plays it.
+// THE deck's hide motion, and the one rule that says who plays it. The carousel has always
+// shrunk every non-centred card toward its own centre as the close ran out; a grid never had
+// it, which was the whole of the bug -- cancelling out of an all-workspaces deck whose windows
+// live on other workspaces left the grid with nothing to play.
 //
-// The carousel has always shrunk every card that was not the centred one toward its own
-// centre while the close ran out -- that is what the rest of the deck does when a window
-// is committed to. A grid never had it, which is the whole of the bug: cancelling out of
-// an all-workspaces deck whose windows live on other workspaces left the grid with nothing
-// to play, so the cards sat there and were dropped.
-//
-// The rule is one predicate so both layouts ask it. A card hides when it cannot land
-// (nothing is being committed, or its window is not on the workspace we land on) or when
-// it is not the focused card in the carousel. It lands only when both are false -- which
-// is exactly the one card being committed to, in the one layout that can do it.
+// One predicate so both layouts ask it: a card hides when it cannot land (nothing is being
+// committed, or its window is not on the workspace we land on) or when it is not the focused
+// card in the carousel. It lands only when both are false -- exactly the one card being
+// committed to, in the one layout that can do it.
 [[nodiscard]] constexpr bool cardHides(int carouselDepth, bool canLand) {
   return !canLand || carouselDepth != 0;
 }
 
 // shrink toward the card's own centre. out runs 0 -> 1 across the close; collapse is the
-// fraction of it the shrink occupies, so it finishes early and the card is gone while the
-// backdrop is still holding. collapse <= 0 would divide by zero and produce a NaN box,
-// which the compositor then draws.
+// fraction of it the shrink occupies, so it finishes early while the backdrop still holds.
+// collapse <= 0 would divide by zero and produce a NaN box, which the compositor draws.
 [[nodiscard]] constexpr double hideShrink(double out, double collapse) {
   const double c = collapse > 1e-6 ? collapse : 1e-6;
   const double k = 1.0 - out / c;

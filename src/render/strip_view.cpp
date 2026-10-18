@@ -33,11 +33,10 @@ void Overview::renderStrip() const {
   if (!m || m_strip.empty())
     return;
   const double e = eased();
-  // A windowed exit holds the overlay PAST the animation, waiting for Hyprland to rebuild
-  // its blur, and m_place.progress.raw() is already 1e-6 by then. Gating on e alone stopped drawing
-  // the whole strip while the overlay was still up: measured e=0.000 with active=1, so
-  // the band vanished in one frame. While the overlay is still holding, the strip keeps
-  // being drawn at full strength -- it is still on screen.
+  // A windowed exit holds the overlay PAST the animation, waiting for Hyprland to rebuild its
+  // blur, and m_place.progress.raw() is already 1e-6 by then. Gating on e alone stopped drawing
+  // the whole strip while the overlay was still up (measured e=0.000 with active=1), so the
+  // band vanished in one frame. While holding, the strip keeps being drawn at full strength.
   const double stripE = blurAlpha();
   if (stripE <= 0.01)
     return;
@@ -46,31 +45,21 @@ void Overview::renderStrip() const {
   const float roundPow     = cfg::look.preview_round_power;
 
 
-  // Never blur-sample currentFB here: a solitary fullscreen window bypasses
-  // shouldRenderWindow and would leak into the band.
-  // smoothstep, not e: e is the raw easeout, which is front-loaded enough that it went
-  // 0.03 -> 0.33 between two frames, and a band at 0.141 alpha therefore covered its whole
-  // range in four -- one frame, perceptually, while everything it sits behind arrived on
-  // its own slower curves. Same duration, softer attack: the band no longer outruns its
-  // contents, and it is still one gesture with them rather than a second one.
-  // Written out rather than curves::eval("easeinout", ...): that call returns garbage on
-  // its FIRST invocation (measured bandE=6.727 for e=0.025, where the curve is 6.25e-5).
-  // m_place.progress.raw(), NOT e: a shaped curve is directional. Front loaded on the way in (the
-  // numbers above), and slow-then-collapsing on the way out, where the alpha fell
-  // 0.96 -> 0.20 in a couple of frames and the paint read as switched off. m_place.progress.raw() is
-  // elapsed/duration by construction -- linear in time, symmetric both ways -- so the band
-  // fades evenly in and evenly out, which is what "the paint vanishes in one frame" is not.
-  // eased(), NOT blurAlpha(): blurAlpha() branches on m_landingEmpty and pins itself to
-  // 1.0 while a windowed exit is held, then snaps to eased() the moment the hold ends --
-  // the band's opacity changed in one frame, to exactly the empty-workspace value. The
-  // band is chrome, not backdrop: it follows the animation and knows nothing about
-  // windows, so its opacity is the same number on every workspace in every state.
-  // On the way OUT the band fades on exitT() -- the same number the cards leave on, which is
-  // what "the band and the cards go together" means. stripE was used on both sides of that,
-  // and on a close it is pinned to 1.0: blurAlpha() holds itself up while a windowed exit is
-  // waited on, and the landing workspace of an all-workspaces run usually HAS windows, so the
-  // branch that pins it was the one that ran. The band then sat at full alpha for the whole
-  // exit while the cards were already gone -- the desync.
+    // Never blur-sample currentFB here: a solitary fullscreen window bypasses
+    // shouldRenderWindow and would leak into the band.
+    // smoothstep, not e: e is front-loaded enough to go 0.03 -> 0.33 between two frames, so a
+    // band at 0.141 alpha covered its whole range in four -- one frame, perceptually -- while
+    // everything it sits behind arrived on its own slower curves.
+    // Written out rather than curves::eval("easeinout", ...): that call returns garbage on its
+    // FIRST invocation (bandE=6.727 for e=0.025, where the curve is 6.25e-5).
+    // m_place.progress.raw(), NOT e: a shaped curve is directional, front-loaded in and
+    // slow-then-collapsing out. progress.raw() is elapsed/duration, so it fades evenly both ways.
+    // eased(), NOT blurAlpha(): blurAlpha() pins itself to 1.0 while a windowed exit is held and
+    // snaps back the moment it ends, moving the band's opacity in one frame. The band is chrome,
+    // not backdrop, so its opacity is the same number on every workspace in every state. On the
+    // way OUT it fades on exitT(), the same number the cards leave on. stripE was used on both
+    // sides, and on a close it is pinned to 1.0 by blurAlpha() while the landing workspace of an
+    // all-workspaces run usually HAS windows, so the band sat at full alpha for the whole exit.
   const double bandE = opening() ? stripE : exitT();
   auto bandCol       = cfg::colors.strip_band.get(bandE);
   // strip_band_opacity is the single source of the band's alpha; the colour string's own
@@ -78,18 +67,12 @@ void Overview::renderStrip() const {
   // screen depending on whether a blurred or a sharp backdrop is behind it, which is the
   // instability this removes.
   bandCol.a = std::clamp(cfg::strip.band_opacity.get() / 100.0, 0.0, 1.0) * bandE;
-  // STRIPBAND: alpha, offset and the two rects it was derived from, in one line. The band was
-  // reported as blinking for a single frame on focus, with the band reading as darker or more
-  // transparent, and offset and alpha are two different causes that look identical from
-  // outside -- a card that grows into the band pushes it, and anything that moves stripE takes
-  // the alpha with it.
 
   const LRect bandR  = stripBand();
   const Vector2D slide = stripOffset(e);
-  // STRIPBAND: offset, alpha, and the rect it was derived from, in one line. The band was
-  // reported as blinking for a single frame on focus, reading as darker or more transparent,
-  // and offset and alpha are two different causes that look identical from outside: a card that
-  // grows into the band pushes it, and anything that moves bandE takes the alpha with it.
+  // STRIPBAND: offset, alpha and the rect it was derived from. The band was reported blinking
+  // for one frame on focus, and offset and alpha are two causes identical from outside: a card
+  // growing into the band pushes it, and anything moving bandE takes the alpha with it.
   debug::trace::ring("strip_band", LRect{slide.x, slide.y, bandCol.a, bandE}, 0, bandE);
   debug::trace::ring("strip_band_rect", stripBand(), 0, bandE);
   safeRenderRect("band", pxb(CBox(bandR.x + slide.x, bandR.y + slide.y, bandR.w, bandR.h), s),
@@ -164,11 +147,10 @@ void Overview::renderStrip() const {
           safeRenderRect("all", pxb(CBox(gx + col * (cw + cg), gy + r * (ch + cg), cw, ch), s),
                    allCol, {.round = pxr(2, s)});
     } else {
-      // Wallpaper under the windows too, not just on empty cards. The condition used
-      // to be it.wins.empty(), so a card with a floating window showed flat card colour
-      // everywhere the window did not cover -- and a 300x300 window on a 1366x768 screen
-      // covers about 2% of the card, which read as "no wallpaper at all". The window
-      // paints over it, so this only fills what the windows leave bare.
+      // Wallpaper under the windows too, not just on empty cards. The condition used to be
+      // it.wins.empty(), so a card with a floating window showed flat card colour everywhere the
+      // window did not cover -- a 300x300 window on a 1366x768 screen is 2% of the card, which
+      // read as "no wallpaper at all". The window paints over it, so this fills what is left.
       if (cfg::strip.wallpaper != 0) {
         SP<Render::ITexture> tex = backdropSourceTexture();
         if (tex && tex->ok()) {
@@ -285,10 +267,8 @@ void Overview::renderStripWindows() const {
       if (swapfxActive(w, true))
         continue;
       const LRect slot = stripWinSlotRect(it, card, j);
-      // A slot smaller than a pixel cannot carry content, and renderWindowLive drops
-      // it on exactly that check -- so a stashed or floating window would leave no
-      // trace at all. Written per slot: the answer to "why is there no window here" is
-      // this number, and without it the question is unanswerable after the fact.
+      // A slot smaller than a pixel cannot carry content and renderWindowLive drops it on
+      // exactly that check, so a stashed or floating window would leave no trace at all.
       if (slot.w < 1.0 || slot.h < 1.0)
         debug::dbg("strip slot dropped: card " + std::to_string(i) + " slot " +
                    std::to_string(j) + " rel=" + std::to_string(it.wins[j].rel.w) +
@@ -300,9 +280,8 @@ void Overview::renderStripWindows() const {
       const CBox slotPx = pxb(slot, scale);
       const CBox cardPx = pxb(card, scale);
       if (slot.w >= 1.0 && slot.h >= 1.0 && it.ws && it.ws->m_isSpecialWorkspace)
-        // Collected, sized, and about to be handed to renderWindowLive -- which drops it
-        // again on destPx.w/h if the pixel box rounds to nothing. Only special cards:
-        // this prints once per card per frame and would bury everything else.
+        // About to be handed to renderWindowLive, which drops it again if the pixel box rounds
+        // to nothing. Only special cards: once per card per frame, it would bury everything.
         debug::dbg("strip special slot: " + std::to_string(slotPx.w) + "x" +
                    std::to_string(slotPx.h) + "px of " + std::to_string(slot.w) + "x" +
                    std::to_string(slot.h) + " card=" + std::to_string(card.w) + "x" +

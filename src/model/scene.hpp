@@ -41,26 +41,14 @@ class Scene {
       m_tiles[i].natural = at;
       m_tiles[i].parked = true;
     }
-    // Two windows swapped places: exchange which tile carries which window.
-//
-// Not a reordering for its own sake -- a swap Hyprland cannot express is invisible.
-// switchTargets exchanges two layout TARGETS, but when both windows already sit at the
-// same geometry (one behind the other, both tiled full) there is nothing for it to
-// move: goal() returns the same box for both before and after, the rebuild produces
-// the same layout from the same inputs, and the cards change place with nothing
-// travelling between the places.
-//
-// The overlay lays cards out by INDEX, so trading the two TARGETS is what makes the
-// exchange visible. Each window keeps its own natural -- the box startTileGlide
-// captured for it by window identity, i.e. where it actually was -- and is handed the
-// other's card slot, so it flies from where it was to where the other one was.
-//
-// Trading the whole tiles instead would be a no-op here: natural == target for both
-// (the rebuild reproduced the same layout), so exchanging the pairs exchanges identical
-// boxes and nothing moves.
-//
-// When the geometry DOES differ the two agree: Hyprland moves the windows for real, and
-// the next rebuild puts each window where this swap already drew it.
+        // Exchange which tile carries which window. A swap Hyprland cannot express is invisible:
+    // switchTargets exchanges two layout TARGETS, but two windows already at one geometry give
+    // goal() the same box before and after, so the rebuild reproduces the layout and nothing
+    // travels. The overlay lays cards out by INDEX, so trading the two TARGETS is what makes the
+    // exchange visible: each window keeps the natural startTileGlide captured for it and is
+    // handed the other's card slot. Trading the whole tiles instead would be a no-op --
+    // natural == target for both. When the geometry does differ the two agree, because the next
+    // rebuild puts each window where this swap already drew it.
 void swapTiles(size_t a, size_t b) {
   if (a >= m_tiles.size() || b >= m_tiles.size() || a == b)
     return;

@@ -45,9 +45,8 @@ static std::array<Row, static_cast<std::size_t>(Id::Count)> kRows = {{
 {"jump_out", {}, {}, {}, {}, {}, 220, "easeout", false, ""},
 {"swap_main", {}, {}, {}, {}, {}, 320, "easeinout", false, ""},
 {"swap_partner", {}, {}, {}, {}, {}, 320, "easeinout", false, ""},
-  // One animation per ACTION, not one per feeling. These three shared "drag" while meaning
-  // a landing, a fly-between-slots and a raise; config could not tell them apart, and a
-  // single _speed therefore moved all three at once.
+  // One animation per ACTION, not per feeling. These three shared "drag" while meaning a
+  // landing, a fly-between-slots and a raise, so one _speed moved all three at once.
 {"drop", {}, {}, {}, {}, {}, 400, "easeout", false, ""},
 {"swap_fly", {}, {}, {}, {}, {}, 400, "easeout", false, ""},
 {"lift", {}, {}, {}, {}, {}, 400, "easeout", false, ""},
@@ -99,11 +98,10 @@ Cfg cfg(const char *n) {
 
   Inputs in;
   const std::string k = r->name;
-  // `.v` is the HANDLE, so it answers "was this registered"; the handle itself converts
-  // to its VALUE, which is why both of these once read the number -- animations_enabled=0
-  // made the master switch report ENABLED, and pulse_enabled=0 made a disabled leaf
-  // report enabled, so the pulse drew its ring from a config that had switched it off.
-  // switchOn() keeps the two questions apart and is pinned by anim_resolve_check.
+  // `.v` is the HANDLE, so it answers "was this registered"; the handle itself converts to its
+  // VALUE, which is why both once read the number: animations_enabled=0 reported ENABLED and
+  // pulse_enabled=0 made a disabled leaf report enabled, so the pulse drew its ring from a
+  // config that had switched it off. switchOn() keeps them apart (anim_resolve_check).
   in.globalEnabled = switchOn(static_cast<bool>(g_globallyEnabled.v), g_globallyEnabled);
   in.enabled       = switchOn(static_cast<bool>(r->enabled.v), r->enabled.get());
   in.hasMs         = static_cast<bool>(r->ms.v);
@@ -113,11 +111,10 @@ Cfg cfg(const char *n) {
   in.rule          = ruleFor(r->name);
 
   // An explicit command beats a config-file rule, and the rule is what the user's
-  // `gloview.animation({leaf=..., speed=...})` installs. resolve() applies the rule
-  // last, so setting in.speed alone is not enough -- a rule carrying speed=1.2 kept
-  // dividing a requested 320 down to 266 and the matrix could not test a duration.
-  // The rule is therefore copied with the overridden fields cleared: everything the
-  // command did not touch keeps the user's rule, and what it did touch is absolute.
+  // `gloview.animation({leaf=..., speed=...})` installs. resolve() applies the rule LAST, so
+  // setting in.speed alone is not enough -- a rule carrying speed=1.2 kept dividing a
+  // requested 320 down to 266 and the matrix could not test a duration. The rule is copied
+  // with the overridden fields cleared: untouched fields keep the user's rule.
   Rule adjusted = in.rule ? *in.rule : Rule{};
   if (in.rule)
     in.rule = &adjusted;
@@ -143,9 +140,8 @@ Cfg cfg(const char *n) {
 }
 
 std::string style(const char *n) {
-  // grid_swap_style / strip_swap_style / jump_style are NOT rows -- there is no
-  // "grid_swap" in kRows -- and go through their own accessors. Reached by name here
-  // only so a Lua caller asking style("grid_swap_style") gets the same answer.
+  // Not rows -- there is no "grid_swap" in kRows -- so they go through their own accessors.
+  // Reached by name here only so a Lua caller asking style("grid_swap_style") agrees.
   if (std::string(n) == "grid_swap_style")
     return gridSwapStyle();
   if (std::string(n) == "strip_swap_style")
@@ -173,14 +169,11 @@ double param(Param p) {
   return resolveParam(static_cast<bool>(h.v), h.get(), kParamDefaults[i]);
 }
 
-// By value, not by reference: Str::get() returns std::string by value, so the ternary
-// produces a temporary and a const& return would dangle. gridSwapStyle/stripSwapStyle
-// had the same shape and no callers at all -- style() reaches those directly -- so they
-// are gone rather than fixed.
-// The three style keys that are not rows. Each reads its own handle and defers to an
-// explicit command override -- the harness found the omission the hard way: every
-// style except the default came back as horizontal, because these accessors bypassed
-// style() and so bypassed the override with it.
+// By value, not by reference: Str::get() returns std::string by value, so the ternary produces
+// a temporary and a const& return would dangle. The three style keys that are not rows each
+// read their own handle and defer to an explicit command override -- the harness found that
+// omission the hard way: every style except the default came back as horizontal, because these
+// accessors bypassed style() and so bypassed the override with it.
 static std::string keyedStyle(const char *key, cfg::Str &h, const std::string &fallback) {
   if (const char *o = overridden(key))
     return o;
@@ -197,26 +190,19 @@ std::string stripSwapStyle() {
   return keyedStyle("strip_swap_style", g_stripSwapStyle, s_stripSwap);
 }
 
-// Runtime tuning by key name: "<leaf>_ms", "<leaf>_speed", "<leaf>_curve",
-// "<leaf>_enabled", plus the two swap styles.
-//
-// There is a layer here because the plugin has no other way to be told: hl.config
-// rejects every `plugin:gloview:` key at runtime, and hyprctl keyword refuses
-// outright under the Lua parser. A CConfigValue exposes no setter either -- the write
-// path belongs to ConfigManager, which plugins cannot reach. So the override is ours,
-// consulted BEFORE the config value and empty unless a command set it.
-//
-// Deliberately not a shadow copy of the config: cfg()/style() still read the config
-// every frame, and only an explicitly-set key is diverted. A reload clears it.
+// Runtime tuning by key name: "<leaf>_ms" / "_speed" / "_curve" / "_enabled", plus the swap
+// styles. There is a layer here because the plugin has no other way to be told: hl.config
+// rejects every `plugin:gloview:` key at runtime, hyprctl keyword refuses outright under the
+// Lua parser, and a CConfigValue exposes no setter -- the write path belongs to ConfigManager.
+// So the override is ours, consulted BEFORE the config value and empty unless a command set
+// it. Deliberately not a shadow copy: cfg()/style() still read config every frame and only an
+// explicitly-set key is diverted. A reload clears it.
 
 bool setTuning(const std::string &rawKey, const std::string &value) {
-  // Three namespaces, tried in order, and anim keys are stored by their SHORT name --
-  // cfg() looks them up as "<leaf>_ms", so a full-key spelling here would silently
-  // write something nothing ever reads.
-  //
-  // A bare name is expanded to the plugin key space first, so "layout" and
-  // "plugin:gloview:layout" are the same command; hl.config speaks in full keys and a
-  // harness copying one out of a log should not have to strip it.
+  // Three namespaces, tried in order. Anim keys are stored by their SHORT name -- cfg() looks
+  // them up as "<leaf>_ms" -- so a full-key spelling here would silently write something
+  // nothing reads. A bare name is expanded to the plugin key space first, so "layout" and
+  // "plugin:gloview:layout" are the same command and a harness can copy a full key from a log.
   const std::string full = rawKey.rfind("plugin:", 0) == 0
                                ? rawKey
                                : ("plugin:gloview:" + rawKey);
@@ -225,11 +211,9 @@ bool setTuning(const std::string &rawKey, const std::string &value) {
                                ? full.substr(kPrefix)
                                : rawKey;
 
-  // A bare pair of quotes means CLEAR, not a zero: the tokenizer splits on spaces only,
-  // so `set open_ms ""` arrives as two literal quote characters. Stored as-is they reach
-  // num() as 0 and every animation silently becomes one frame long, while the erasing
-  // branch below sat unreachable from the command -- the command rejects a two-token call
-  // before setTuning is even entered.
+  // A bare pair of quotes means CLEAR, not a zero: the tokenizer splits on spaces only, so
+  // `set open_ms ""` arrives as two literal quote characters. Stored as-is they reach num() as
+  // 0 and every animation becomes one frame long.
   const std::string_view v = stripQuotes(value);
   const bool clearing = v.empty();
   if (leaf == "grid_swap_style" || leaf == "strip_swap_style" ||
@@ -248,12 +232,10 @@ bool setTuning(const std::string &rawKey, const std::string &value) {
   const auto suffix = leaf.rfind('_');
   if (suffix == std::string::npos || !find(leaf.substr(0, suffix).c_str()))
     return false;
-  // `_style` joins the list because every row that HAS a style reads one, and until now
-  // only the three names above could be written -- so `set ws_enter_style pop` answered
-  // "unknown key" while style("ws_enter") sat there reading a key nothing could produce.
-  // The grid_swap_style shape again, one level down: a documented key no command reaches.
-  // Guarded on hasStyle, or this would accept `_style` for a row that has none and
-  // style() would still return {} for it.
+  // `_style` joins the list because every row that HAS a style reads one, and until now only
+  // the three names above could be written: `set ws_enter_style pop` answered "unknown key"
+  // while style("ws_enter") read a key nothing could produce. Guarded on hasStyle, or this
+  // would accept `_style` for a row that has none and style() would still return {}.
   if (leaf.compare(suffix, 6, "_style") == 0) {
     const Row *r = find(leaf.substr(0, suffix).c_str());
     if (!r || !r->hasStyle)

@@ -1,22 +1,15 @@
 #pragma once
 
-// The drag FSM, as a type that owns its state.
+// The drag FSM, as a type that owns its state. It was a 14-field struct with public members,
+// written in one file and read from seven, and nothing said which fields a press kind may have:
+// Press::Tile with idx == -1, Press::StripWin with winIdx == -1, a stale grab offset carried
+// across a reset -- all compile, all render as something.
 //
-// It was a 14-field struct with public members, written in one place (input/mouse.cpp)
-// and read from seven. Every reader could also have been a writer, and nothing said which
-// fields a given press kind is allowed to have: a Press::Tile with idx == -1, a
-// Press::StripWin with winIdx == -1, a stale grab offset carried across a reset -- all
-// compile, all render as something. The FSM shape was in the type system nowhere.
-//
-// So the fields are private and the only way in is a transition. Each one sets the whole
-// press in one place, which is what makes the pairing facts below structural instead of
-// remembered: there is no way to set press = Tile without setting the idx that goes with
-// it, because beginTile() is the only call that reaches that state.
-//
-// Templated on the window handle so the FSM has no hyprland/ include and can be unit
-// tested; drag.hpp is what tests/drag_check.cpp includes. model::Drag is the
-// instantiation the plugin uses. PHLWINDOWREF is a WP<CWindow>, so WinRef only has to
-// be assignable and default-constructible here -- lock() is the reader's business.
+// So the fields are private and the only way in is a transition, each setting the whole press in
+// one place: there is no way to set press = Tile without the idx that goes with it, because
+// beginTile() is the only call that reaches that state. Templated on the window handle so the
+// FSM has no hyprland/ include and drag_check.cpp can unit-test it; model::Drag is the
+// instantiation the plugin uses, and WinRef only needs to be assignable here.
 
 #include <chrono>
 #include <string>
@@ -28,14 +21,14 @@ namespace gloview::model {
 
 template <typename WinRef> class DragT {
 public:
-  // What the pointer went down on. Consumed is "the press was ours to handle and was",
-  // which is why it exists alongside Empty rather than replacing it: a press that the
-  // overview swallowed and a press that hit nothing lead to different code on release.
+    // What the pointer went down on. Consumed is "the press was ours and was handled", which is
+    // why it sits alongside Empty rather than replacing it: swallowed and hit-nothing lead to
+    // different code on release.
   enum class Press : int { Tile, StripWin, Empty, Consumed };
 
-  // --- transitions: the only writes ------------------------------------------------
-  // begin* is a complete press: it sets press and every field that press owns, so no
-  // field can survive from the drag before it.
+    // --- transitions: the only writes ------------------------------------------------
+    // begin* is a complete press: it sets press and every field that press owns, so none can
+    // survive from the drag before it.
 
   // A press that armed on a grid card. grab is the pointer's offset inside the card, so
   // the card keeps its point under the cursor while it travels.
@@ -97,14 +90,13 @@ public:
 
   void setLifted(bool on) { m_lifted = on; }
 
-  // Back to a virgin drag. Every call site used to write `m_drag = {}` inline, which is
-  // the one operation that must clear everything -- it is what stops a previous drag's
-  // grab offset or fromBox from being read by the next one.
+    // Back to a virgin drag. Call sites used to write `m_drag = {}` inline; it must clear
+    // everything, or the next drag reads the previous one's grab offset or fromBox.
   void clear() { *this = DragT{}; }
 
-  // --- queries ----------------------------------------------------------------------
-  // idx() and winIdx() are -1 unless armed, and that is now a property of construction
-  // rather than of call-site discipline.
+    // --- queries ----------------------------------------------------------------------
+    // idx() and winIdx() are -1 unless armed, as a property of construction rather than of
+    // call-site discipline.
   [[nodiscard]] Press press() const { return m_press; }
   [[nodiscard]] bool armed() const {
     return m_press == Press::Tile || m_press == Press::StripWin;
@@ -133,10 +125,8 @@ public:
     return dx * dx + dy * dy;
   }
 
-  // One line of state: key=value, pipe-separated, no spaces in any value. Same shape as
-  // the ANIM| records in debug/log.hpp, so `grep '^DRAG|'` and `grep '^ANIM|'` can be
-  // read with the same parser, and a harness does not have to know which subsystem a
-  // line came from before it can split it.
+    // One line of state: key=value, pipe-separated, no spaces in a value. Same shape as ANIM| in
+    // debug/log.hpp, so one parser reads both without knowing which subsystem a line came from.
   [[nodiscard]] std::string describe() const {
     std::string s = "press=";
     // A switch, not an array indexed by the enum: the two were written separately once and

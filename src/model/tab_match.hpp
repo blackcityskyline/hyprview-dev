@@ -1,28 +1,17 @@
 #pragma once
 
-// Which Hyprland window is which browser window.
+// Which Hyprland window is which browser window. The two sides cannot name each other: the
+// extension knows browser.windows ids and tab titles, the plugin knows CWindow and its title,
+// and no id crosses in either direction. What both have is the active tab's title -- a browser
+// window's title IS its active tab's title, in Gecko and Chromium alike.
 //
-// The two sides cannot name each other. The extension knows `browser.windows` ids and tab
-// titles; the plugin knows CWindow and its title; neither has the other's vocabulary and
-// there is no id crossing between them in either direction.
-//
-// The one thing both have is the active tab's title: a browser window's title IS its active
-// tab's title, and that is true in Gecko and Chromium alike. So the match is by title, and
-// everything about it is built around being wrong safely:
-//
-//   - Exact, not fuzzy. A prefix or a substring match would be guessing, and a browser
-//     window guessed into the wrong window is a set of tabs filed under the wrong program.
-//     If the title does not match exactly, the match simply does not happen.
-//   - One-to-one. A window hosts one browser window. Two browser windows claiming the same
-//     Hyprland window is not a match, it is a conflict.
-//   - Ambiguous means unmatched. Two Hyprland windows with the same title -- two inboxes,
-//     two terminals -- and nothing says which is which, so NEITHER is matched. Guessing
-//     here would file one browser's tabs under the other's window, which is the one failure
-//     the user cannot detect by looking.
-//
-// Unmatched is a supported outcome, not a failure: the window then contributes nothing in
-// Tabs mode, exactly as a window nobody has heard from does (see ReportedTabs::known). The whole
-// point of that mode's fallback is that the ambiguous case degrades into the ordinary one.
+// The rules are built around being wrong safely. EXACT, not fuzzy: a prefix match would be
+// guessing, and a browser window guessed into the wrong window is a set of tabs filed under the
+// wrong program. ONE-TO-ONE: two browser windows claiming the same Hyprland window is not a
+// match, it is a conflict. AMBIGUOUS means unmatched: two windows with the same title, and
+// neither is matched, because guessing there is the one failure a user cannot detect by
+// looking. Unmatched is a supported outcome -- the window then contributes nothing in Tabs
+// mode, exactly as a window nobody has heard from does (ReportedTabs::known).
 
 #include "tab_feed.hpp"
 
@@ -37,21 +26,19 @@ namespace gloview::model {
 struct HostWindow {
     // Opaque identity of the compositor window; the caller resolves it.
     std::uint64_t id = 0;
-    // The OS process it belongs to. This is the match, and a title was not: a browser appends
-    // its own name to a window's title, so what the compositor holds and what the extension
-    // reports are different strings by construction. See TabSnapshot::pids.
+    // The OS process it belongs to -- the match, where a title was not. A browser appends its
+    // own name to a window's title, so the two sides hold different strings by construction.
+    // See TabSnapshot::pids.
     std::uint64_t pid = 0;
 };
 
-// Browser window id -> index into `hosts`, for those that matched.
+// Browser window id -> index into `hosts`, for those that matched. `pids` is keyed by browser
+// window id and a window absent from it has no process and matches nothing.
 //
-// `pids` is keyed by browser window id: the OS process that window belongs to. A window absent
-// from it has no process and matches nothing.
-//
-// Two windows of one browser share a process, so "is this host the right browser?" is not a
-// question with one answer -- it is a set. That is the whole shape of this function now, and
-// it is why matching by title had to go: two windows of the same browser differ in title and
-// agree in process, the opposite of what the old rule assumed.
+// Two windows of one browser share a process, so "is this host the right browser?" is a SET,
+// not a single answer -- that is the whole shape of this function, and why matching by title
+// had to go: two windows of one browser differ in title and agree in process, the opposite of
+// what the old rule assumed.
 [[nodiscard]] inline std::unordered_map<std::uint64_t, std::size_t> matchBrowserWindows(
     const std::vector<HostWindow> &hosts,
     const std::unordered_map<std::uint64_t, std::uint64_t> &pids) {
@@ -76,15 +63,11 @@ struct HostWindow {
     return out;
 }
 
-// The match, kept. A map from a compositor window to the browser window whose tabs it shows.
-//
-// This is a type rather than a bare map because it has a lifetime: it is built when a run
-// opens and dropped when it ends, and "dropped" is the part that has to be right. Holding
-// it for the life of the plugin would mean a process that matched during one run still
-// deciding which browser a window belongs to during the next.
-//
-// Both directions, because both get asked and answering one by scanning for the other is a
-// second place that could disagree with the first.
+// A map from a compositor window to the browser window whose tabs it shows. A type rather than
+// a bare map because it has a lifetime: built when a run opens, dropped when it ends, and
+// "dropped" is the part that has to be right -- holding it for the life of the plugin would
+// let a process that matched during one run decide the next. Both directions, because
+// answering one by scanning for the other is a second place that could disagree.
 class BrowserLinks {
   public:
     void rebuild(const std::vector<HostWindow> &hosts,

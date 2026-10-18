@@ -68,9 +68,9 @@ LRect Overview::tileBox(size_t i, const LRect &slot) const {
     return slot;
   double aspect = slot.w / std::max(1.0, slot.h);
   if (i < m_scene.tiles().size()) {
-    // The window's own proportions, when there is one. A tab takes the slot's aspect, which is
-    // what it did before any of this: a tab has no geometry of its own and a card squeezed to a
-    // made-up ratio would be worse than one that simply fills the slot it was given.
+    // The window's own proportions when there is one; a tab takes the slot's aspect, which is what
+    // it did before: a tab has no geometry of its own and a made-up ratio would be worse than
+    // filling the slot it was given.
     if (const auto w = tileWindow(m_scene.tiles()[i])) {
       const auto s = w->sizeAnimation()->goal();
       if (s.x > 0 && s.y > 0)
@@ -93,9 +93,9 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
   if (!m || i >= m_scene.tiles().size())
     return;
   const auto &t = m_scene.tiles()[i];
-  // A tab has no window, and this was where it ended. The card chrome above -- frost, ring,
-  // shadow, pill -- is drawn from geometry alone and applies to a tab exactly as to a window;
-  // only the CONTENT needs a window, and that is the one thing branched further down.
+  // A tab has no window, and this was where it ended. The chrome above -- frost, ring, shadow,
+  // pill -- is drawn from geometry alone and applies to a tab exactly as to a window; only the
+  // CONTENT needs one, branched further down.
   const auto w = tileWindow(t);
   const auto card = cardOf(t);
   const bool tab = card.isTab();
@@ -130,11 +130,10 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
              static_cast<float>(e * cfg::look.shadow_alpha * f), round, roundPow);
 
   if (look.frame) {
-    // A window's card is its content, so with show_border off it is a picture and needs no
-    // edge. A tab's card is the frosted desktop, which IS the background: no edge and it is
-    // not a card at all, it is a caption floating in space. show_border is the user's economy
-    // and it still holds for windows; a card with nothing in it gets its outline regardless,
-    // because the outline is the only thing that makes it a card.
+    // A window's card is its content, so with show_border off it is a picture and needs no edge. A
+    // tab's card is the frosted desktop, which IS the background -- without an edge it is a caption
+    // floating in space. show_border is the user's economy and still holds for windows; a card with
+    // nothing in it gets its outline regardless, because the outline is what makes it a card.
     if (cfg::look.show_border != 0 || tab) {
       strokeRing(box, s, cfg::colors.border.get(e * f), cfg::look.border_size,
                  round, roundPow);
@@ -147,13 +146,12 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                  ringW, round, roundPow);
   }
 
-  // Transition frost: the cached blur at CONSTANT alpha (fading it leaks
-  // C*e*(1-e) of the sharp desktop) plus the dim rect at the GLOBAL alpha e.
+  // Transition frost: the cached blur at CONSTANT alpha (fading it leaks C*e*(1-e) of the sharp
+  // desktop) plus the dim rect at the GLOBAL alpha e.
   //
-  // A tab needs it ALWAYS. A window's card background is the window's own content, so once the
-  // transition is over there is nothing left to draw and skipping the frost is free. A tab has
-  // no window: its card is this frost or it is nothing at all, and 13 cards of a browser with
-  // no screenshots yet came out as 13 holes in the grid. Not a special case -- it is the same
+  // A tab needs it ALWAYS. A window's card background is its own content, so after the
+  // transition skipping the frost is free; a tab's card is this frost or it is nothing at all,
+  // and 13 cards of a browser with no screenshots came out as 13 holes in the grid. The same
   // backdrop, held for a subject whose content does not exist yet.
   const double apNow = entryNow(t, static_cast<int>(i));
   if (tab || (opening() && (e < 0.999 || apNow < 0.999))) {
@@ -182,14 +180,12 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     }
   }
   if (tab) {
-    // What the browser side left: a screenshot, an icon, or nothing. Nothing is not a special
-    // case -- the frost above already drew the card, so a tab with no art yet is a card with
-    // its caption and no picture, which is the honest state of a browser that has not got
-    // round to writing one.
+    // What the browser side left: a screenshot, an icon, or nothing. Not a special case -- the
+    // frost above already drew the card, so a tab with no art yet is a card with its caption.
     if (const auto tex = tabArt(t))
-      // round/roundingPower are not decoration here. renderWindowLive() takes them, so a window
-      // card's content is clipped to the card's corners; a tab card's content was square inside
-      // a rounded frost and the mismatch showed at every corner of every card.
+      // round/roundingPower are not decoration: renderWindowLive() takes them and clips a window
+      // card's content to the card's corners. A tab card was square inside a rounded frost and the
+      // mismatch showed at every corner.
       g_pHyprOpenGL->renderTexture(tex, pxb(box, s),
                                    {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
   } else {
@@ -202,25 +198,22 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
                               {.round = pxr(round, s), .roundingPower = roundPow});
 
-  // A window's card is its own content, so one caption at a time is enough. A tab has no
-  // content: the title IS the card, and an uncaptioned tab card is the frosted desktop it
-  // sits on -- correctly placed, correctly sized, invisible. The run showed five cards and
-  // one of them was real.
+  // A window's card is its own content, so one caption at a time is enough. A tab has none: the
+  // title IS the card, and an uncaptioned tab card is the frosted desktop it sits on --
+  // correctly placed, correctly sized, invisible.
   if ((framed || selected || tab) && !look.lift) {
-    // The caption was captured to the card's own width, so the pill measures the
-    // texture it draws — not the uncut entry it used to.
-    //
-    // The pill shows WHATEVER there is: the title, or the carousel's n / total, or both.
-    // Gating it on a title used to hide the counter outright on a window with no caption,
-    // which is the one card where the position is least obvious and most wanted.
+    // The caption was captured to the card's own width, so the pill measures the texture it draws,
+    // not the uncut entry it used to. It shows WHATEVER there is: the title, the carousel's
+    // n / total, or both -- gating on a title used to hide the counter on a window with no
+    // caption, the one card where the position is least obvious and most wanted.
     const bool hasLabel = t.label && t.label->m_size.x > 0;
     const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
     auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
     const bool hasCounter = countTex && countTex->m_size.x > 0;
     debug::trace::ring("title_card", box, pxr(round, s), e * f);
     if (hasLabel || hasCounter) {
-    // Each pill is sized off the texture it draws plus ITS OWN padding, so the two can be
-    // set independently; the counter's size comes from the run it counts, not from the title.
+    // Sized off the texture plus ITS OWN padding, so the two can be set independently: the
+    // counter's size comes from the run it counts, not from the title.
     const double lw   = hasLabel ? t.label->m_size.x : 0.0;
     const double lh   = hasLabel ? t.label->m_size.y : 0.0;
     const double countW = hasCounter ? countTex->m_size.x : 0.0;
@@ -263,8 +256,8 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const LRect counter{render::insetWithin(m->m_size.x / 2.0 - cW / 2.0, cW, m->m_size.x, 6.0),
                         counterY, cW, counterH};
     const Vector2D push = pushOut(pill);
-    // A shoved caption leaves by POPPING, over a quarter of its own width, and also on the
-    // card's exit clock -- the rule and both of its reasons live in captionRemains().
+    // A shoved caption leaves by POPPING over a quarter of its own width, and also on the card's
+    // exit clock -- the rule and both reasons live in captionRemains().
     const double shove = std::hypot(push.x, push.y);
     const double pop = render::captionRemains(shove, pw, ph, exitT(), opening());
     const double cf = e * f;
@@ -334,8 +327,8 @@ void Overview::renderTiles() const {
   const auto m = m_monitor.lock();
   if (!m)
     return;
-  // GL_BLEND left off by a previous pass writes the ✕ glyph's transparent padding
-  // through as opaque black; restore the exact func.
+  // GL_BLEND left off by a previous pass writes the ✕ glyph's transparent padding through as
+  // opaque black; restore the exact func.
   const bool wantButtons = tileCloseButtons();
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -353,9 +346,8 @@ void Overview::renderTiles() const {
     if (static_cast<int>(i) == dragIdx)
       continue; // the dragged tile floats over the strip; drawn later
     const auto &t = m_scene.tiles()[i];
-    // A tab has no window, and this used to be where it ended: `!w` was true for every tab,
-    // so a tabs run drew nothing at all -- and drew it silently, because "no window" is also
-    // what a window that has gone looks like, and the two were not told apart.
+    // A tab has no window, and this used to be where it ended: `!w` was true for every tab, so a
+    // tabs run drew nothing -- silently, because "no window" is also what a gone window looks like.
     if (cardOf(t).isTab()) {
       if (swapfxActiveSubject(t.subj, false))
         continue;
@@ -397,9 +389,9 @@ void Overview::renderGhosts() const {
                     g.box.w * k, g.box.h * k};
     LRect slidBox = box;
     float gAlpha = static_cast<float>((1.0 - eOut) * 0.85);
-    // Same three branches as the entry, and the same order: a slide moves the box, a fade
-  // leaves it alone and lets gAlpha below do the work, and a pop scales it. Checking a
-  // style by equality against each member is what let `fade` reach none of them.
+    // Same three branches as the entry, in the same order: a slide moves the box, a fade leaves it
+    // for gAlpha, a pop scales it. Checking a style by equality against each member is what let
+    // `fade` reach none of them.
   if (m_place.recipes.exitStyle.travel == anim::Travel::Slide && m_view.wsSlideDir() != 0) {
     if (m_place.recipes.exitStyle.axis == anim::Axis::Horizontal)
       slidBox.x -= static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * eOut;

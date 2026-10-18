@@ -9,10 +9,9 @@
 
 namespace gloview {
 
-// Every clock here is pure linear progress; shaping lives in curves.cpp and
-// durations are re-read from config on every call.
-// The ladder spread is the user's, capped at 1: Stagger is the ceiling,
-// StaggerPerTile grows it with the tile count and must not push past it.
+// Every clock here is pure linear progress; shaping lives in curves.cpp and durations are
+// re-read from config every call. The ladder spread is capped at 1: Stagger is the ceiling and
+// StaggerPerTile grows it with the tile count without pushing past.
 double staggered(double base, int i, int n) {
   return anim::stagger(base, i, n,
                        std::min(anim::param(anim::Param::Stagger),
@@ -39,30 +38,27 @@ anim::Id Overview::glideLeaf() const {
   return carouselMode() ? anim::Id::CarouselStep : anim::Id::Glide;
 }
 
-// How far the close has run, 0 -> 1. m_place.progress.raw() runs DOWN on a close (1 open -> 0 closed);
-// read forwards it looks exactly like no animation. Every exit fraction reads it here so
-// the shrink, the fade and the clock cannot disagree about where the close is.
+// How far the close has run, 0 -> 1. progress.raw() runs DOWN on a close, and read forwards it
+// looks exactly like no animation. Every exit fraction reads it here so the shrink, the fade
+// and the clock cannot disagree about where the close is.
 double Overview::exitT() const { return m_place.progress.exit(opening()); }
 
 // WINDOWED exit: hold the backdrop until our own tiles are done AND Hyprland has spent the
-// forced full frames close() asked for -- those are the frames it rebuilds its blur in.
-// Asking when the windows reached their goal geometry does NOT work: in the plain
-// open/close the real windows never move (the plugin draws previews and hides them), so
-// that test is true on frame 0 and holds nothing.
+// forced full frames close() asked for -- those are the frames it rebuilds its blur in. Asking
+// whether the windows reached their goal does NOT work: in a plain open/close the real windows
+// never move (the plugin draws previews and hides them), so that test is true on frame 0.
 bool Overview::backdropSettled() const {
   const auto m = m_monitor.lock();
   return m_place.clocks.tiles.done(animDuration()) && (!m || m->m_forceFullFrames <= 0);
 }
 
-// The backdrop is part of the SAME gesture as the tiles, the strip and the chrome: it
-// rides the open/close animation itself. That is the whole fix for the queued feel --
-// separate clocks made the strip arrive first and then the backdrop set about arriving,
-// with nothing joining them up. The gap a private clock was introduced for is handled by
-// the BASE, not by a timeline: with windows present the base is the blurred cache, so the
-// screen is blurred on frame 0 and the ramp has nothing to reveal anyway.
-//
-// WINDOWED exit is the one exception: the backdrop must stay until Hyprland has rebuilt
-// its blur. Fading out before that is what exposed a sharp desktop mid-flight.
+// The backdrop is part of the SAME gesture as the tiles, the strip and the chrome: it rides the
+// open/close animation itself, which is the whole fix for the queued feel -- separate clocks
+// made the strip arrive first and the backdrop follow with nothing joining them. The gap a
+// private clock existed for is handled by the BASE: with windows present it is the blurred
+// cache, so the screen is blurred on frame 0. WINDOWED exit is the one exception -- the
+// backdrop must stay until Hyprland has rebuilt its blur, and fading before that exposed a
+// sharp desktop mid-flight.
 double Overview::blurAlpha() const {
   if (!anim::backdropFades(opening(), m_landingEmpty))
     return 1.0;
@@ -87,9 +83,8 @@ double Overview::entryNow(const model::Tile &t, int i) const {
   return m_place.entryNow(t, i, m_scene);
 }
 
-// The one call into Placement for "where is tile i". Everything Placement needs that it
-// cannot know -- the monitor it is laid out in, and whether this tile has somewhere to
-// land -- arrives in the frame, because a clock cannot answer either on its own.
+// The one call into Placement for "where is tile i". What Placement cannot know -- the monitor
+// and whether this tile has somewhere to land -- arrives in the frame.
 clock::Placement::Frame Overview::frame() const {
   const auto m = m_monitor.lock();
   const PHLWORKSPACE land = m_workspace.lock();
@@ -104,9 +99,8 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
 }
 
 void Overview::updateAnimation() {
-  // Placement::resolve, NOT recipes.resolve: this is also where the frame's eased()
-  // and master duration are computed. Calling the recipe resolver here leaves them
-  // at zero for the whole frame -- an overlay that draws everything at alpha 0.
+    // Placement::resolve, NOT recipes.resolve: this also computes the frame's eased() and master
+    // duration. Calling the recipe resolver leaves them at zero all frame -- alpha 0 everywhere.
   m_place.resolve(m_view, opening(), carouselMode());
 
   const double dur = animDuration();
@@ -207,17 +201,15 @@ void Overview::updateAnimation() {
     m_newCardAnim = false;
     m_newCardId = 0;
   }
-  // NEVER zero m_place.progress.raw(): a transparent frame before deactivate() flashes.
-  // Clamp as soon as the flight ends, NOT together with the deactivate: the exit ramp
-  // outlives the close animation, and at exactly 0 the overlay paints nothing, Hyprland
-  // has no damage to serve, and the ramp runs on with no frames to show it (measured:
-  // 769ms of ticks with no render).
+    // NEVER zero progress.raw(): a transparent frame before deactivate() flashes. Clamp as soon
+    // as the flight ends, NOT together with the deactivate -- the exit ramp outlives the close
+    // animation, and at exactly 0 the overlay paints nothing, Hyprland has no damage to serve,
+    // and the ramp runs on with no frames to show it (measured: 769ms of ticks, no render).
   if (!opening() && t >= 1.0 && m_place.progress.raw() <= 0.0)
     m_place.progress.firstFrame();
-  // The overlay outlives the close animation by exactly the windowed-exit hold: that is
-  // what keeps the backdrop covering the screen until Hyprland's own blur has taken over
-  // on the windows that have just landed. Lingering past that would leave a transparent
-  // overlay over a sharp desktop, which is the gap all over again.
+    // The overlay outlives the close animation by exactly the windowed-exit hold, which is what
+    // keeps the backdrop covering the screen until Hyprland's own blur has taken over. Lingering
+    // past it would leave a transparent overlay over a sharp desktop.
   if (!opening() && t >= 1.0 && m_place.clocks.tiles.done(dur) && backdropSettled()) {
     m_life.requestDeactivate();
     debug::trace::life("requestDeactivate", m_life.describe());
@@ -248,9 +240,9 @@ void Overview::animateStripTo(double from, double to) {
     return;
   }
   debug::trace::scroll("glide", m_scroll.describe());
-  // A glide already in flight retargets from where the group actually is, not from the
-  // caller's `from`: that value is the previous TARGET on the rebuild path and the current
-  // position on the wheel path, and neither is what should be left behind.
+    // A glide in flight retargets from where the group actually is, not from the caller's `from`:
+    // that is the previous TARGET on the rebuild path and the current position on the wheel path,
+    // and neither is what should be left behind.
   if (!m_place.clocks.strip.done(st.ms))
     m_scroll.beginGlide(m_scroll.current(), m_scroll.target());
   m_place.clocks.strip.begin();

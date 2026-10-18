@@ -126,19 +126,18 @@ public:
   // IWindowHost's inbound port: the one question the window source cannot answer itself.
   [[nodiscard]] bool belongs(const PHLWINDOW &w) const override;
 
-  // Reads what the browser side has written and re-decides the matching. Called when a run
-  // opens, never per frame: the file changes when the browser does, and re-reading it per
-  // frame would be a syscall per tile per frame to learn nothing new.
+    // Reads what the browser side wrote and re-decides the matching. Called when a run opens,
+    // never per frame: the file changes when the browser does, and re-reading it per frame would
+    // be a syscall per tile per frame to learn nothing new.
   void loadTabs();
 
   bool shouldHideWindow(const PHLWINDOW &w, const PHLMONITOR &m) const;
   [[nodiscard]] bool isTileWindow(const PHLWINDOW &w) const;
 
-  // The three lifecycle questions, delegated. active() is visible; openedOrParked() is
-  // ownership of the screen, parked included, because the windows must lose focus on the
-  // first parked frame rather than when the overlay appears -- a caller testing active()
-  // right after open() reads a waiting open as a failed one, which is how alt+tab got
-  // silently disarmed. opening() is a third axis, not a refinement of the other two.
+    // The three lifecycle questions, delegated. active() is visible; openedOrParked() is ownership
+    // of the screen, parked included, because the windows must lose focus on the first parked
+    // frame -- a caller testing active() right after open() reads a waiting open as a failed one,
+    // which is how alt+tab got silently disarmed. opening() is a third axis, not a refinement.
   [[nodiscard]] bool active() const { return m_life.active(); }
   [[nodiscard]] bool openedOrParked() const { return m_life.ownsScreen(); }
   [[nodiscard]] bool opening() const { return m_life.opening(); }
@@ -148,10 +147,9 @@ public:
   [[nodiscard]] SP<Render::ITexture> backdropBlurTexture() const {
     return m_backdrop.blurTexture();
   }
-  // The composited (unblurred) backdrop, for anything that draws under the windows --
-  // strip cards fill the gaps their windows leave with it. Reads the composite's own
-  // state rather than reaching into its framebuffer: whether there IS a composite is
-  // backdrop.cpp's decision, not the caller's.
+    // The composited (unblurred) backdrop, for anything that draws under the windows -- strip
+    // cards fill the gaps their windows leave with it. Reads the composite's own state rather
+    // than its framebuffer: whether there IS a composite is backdrop.cpp's decision.
   [[nodiscard]] SP<Render::ITexture> backdropSourceTexture() const {
     return m_backdrop.composite();
   }
@@ -172,19 +170,17 @@ private:
   clock::Placement m_place;
   mutable render::FramePump m_pump;
 
-  // Who owns the screen, and whether the entry animation is playing. Six booleans used to be
-  // this and the facts that decide whether the overlay paints lived in their write pattern.
-  // Parked is neither visible nor closed: nothing is drawn, the windows already lost focus.
-  // Painting late beats painting black -- the first visible frame has no backdrop of its own
-  // while the wallpaper texture is mid-recreation.
+    // Who owns the screen, and whether the entry animation is playing. Parked is neither visible
+    // nor closed: nothing is drawn, the windows already lost focus. Painting late beats painting
+    // black -- the first visible frame has no backdrop while the wallpaper texture is
+    // mid-recreation.
   model::Lifecycle m_life;
   model::Recency m_recency;
   PHLWINDOWREF m_lastFocus;
-  // UNUSED: never assigned, only reset in close() and deactivate(). A comment here once
-  // claimed it held the compositor's focus so a passthrough bind could not be redirected by
-  // hover; no such snapshot exists -- keys.cpp reads focusState()->window() live. The property
-  // holds anyway because hover is model-only and open() drops window focus. Kept because what
-  // a passthrough bind should act on while the overview is up is a product question.
+    // UNUSED: never assigned, only reset in close() and deactivate(). A comment here once claimed
+    // it held the compositor's focus for a passthrough bind; no such snapshot exists -- keys.cpp
+    // reads focusState()->window() live. Kept because what a passthrough bind should act on while
+    // the overview is up is a product question.
   PHLWINDOWREF m_focusOutside;
   // Applied BEFORE the run resolves its centre, so the opening motion plays for the target
   // window instead of landing on one and swapping at the end.
@@ -194,9 +190,8 @@ private:
   model::Scene m_scene;
   // Holds a reference to this object as its host; both are members, so neither outlives.
   model::WindowsContentSource m_windows{*this};
-  // The browser side, read in rather than dialled: a file under XDG_RUNTIME_DIR. No socket,
-  // no thread, no JSON in this process (AGENTS.md 1). Which extension wrote it is unknown,
-  // so the transport above it stays a separate deliverable.
+    // The browser side, read in rather than dialled: a file under XDG_RUNTIME_DIR. No socket, no
+    // thread, no JSON in this process (AGENTS.md 1).
   model::TabsContentSource m_tabs;
   // Rebuilt per run: it is made of titles, and a title is only true of the run it was read in.
   model::BrowserLinks m_links;
@@ -205,11 +200,10 @@ private:
   // that holds the ownership and only there.
   PHLWINDOW tileWindow(const model::Tile &t) const { return m_windows.windowOf(t.subj); }
 
-  // What a card IS, resolved in one place, with named answers. Thirty-three call sites used
-  // to branch on `tileWindow(t)` for themselves and disagreed: drawTile skipped a null
-  // window, pushOut yielded to it, the caption was gated on it, the border was not. A subject
-  // kind with no window was then a bug hunt, not a one-line change. A fourth kind changes
-  // this function and the sites keep reading.
+    // What a card IS, resolved in one place, with named answers. Thirty-three call sites used to
+    // branch on `tileWindow(t)` for themselves and disagreed: drawTile skipped a null window,
+    // pushOut yielded to it, the caption was gated on it, the border was not. A fourth kind
+    // changes this function and the sites keep reading.
   struct Card {
     PHLWINDOW window = {};        // empty for anything that is not a window
     bool      paintsOwnContent = false; // draws a picture of itself
@@ -223,17 +217,16 @@ private:
     return Card{w, static_cast<bool>(w), static_cast<bool>(w)};
   }
 
-  // The directory the browser side writes into. One place, because the feed, the screenshots
-  // and the icons all live under it and a second spelling of the root is a second place for
-  // them to disagree -- which is exactly the bug that left the feed at a doubled path for a
-  // commit.
+    // The directory the browser side writes into, in one place: the feed, the screenshots and the
+    // icons all live under it, and a second spelling of the root is a second place to disagree --
+    // the bug that left the feed at a doubled path for a commit.
   static std::string browserSideFile(const std::string &leaf) {
     const char *rt = std::getenv("XDG_RUNTIME_DIR");
     return (rt && *rt ? std::string(rt) : std::string("/tmp")) + "/gloview" + leaf;
   }
-  // The identity of a window the caller already holds. The inverse of tileWindow(), and on
-  // the same side of the boundary: a caller that has a window asks here rather than casting
-  // an address into a SubjectRef in three places.
+    // The identity of a window the caller already holds. The inverse of tileWindow(), same side
+    // of the boundary: a caller that has a window asks here rather than casting an address into
+    // a SubjectRef in three places.
   [[nodiscard]] static model::SubjectRef subjectOf(const PHLWINDOW &w) {
     return w ? model::SubjectRef{reinterpret_cast<std::uintptr_t>(w.get()), 0}
              : model::SubjectRef{};
