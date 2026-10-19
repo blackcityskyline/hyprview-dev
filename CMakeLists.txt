@@ -392,6 +392,14 @@ add_test(NAME render_geometry
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/render_geometry_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/render_geometry_check && ${CMAKE_CURRENT_BINARY_DIR}/render_geometry_check")
 
+# The caption's own decision: where the pills land, which edge the band thickens,
+# how far the caption leaves a card that reached it. Six fixes landed inline in
+# drawTile, where the only observer was the screen; here the same header decides
+# it, with no GL and no Hyprland.
+add_test(NAME caption_geometry
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/caption_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/caption_check && ${CMAKE_CURRENT_BINARY_DIR}/caption_check")
+
 # The GL state fence's comparison. Reading live GL needs a context, so that half lives in
 # gl_util.hpp and runs inside the pass; the comparison is POD arithmetic, split into
 # state_fence.hpp precisely so it compiles here with no GL header at all.

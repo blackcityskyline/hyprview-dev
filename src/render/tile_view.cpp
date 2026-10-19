@@ -183,96 +183,75 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
     auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
     const bool hasCounter = countTex && countTex->m_size.x > 0;
-    debug::trace::ring("title_card", box, pxr(round, s), e * f);
-    if (hasLabel || hasCounter) {
-    const double lw   = hasLabel ? t.label->m_size.x : 0.0;
-    const double lh   = hasLabel ? t.label->m_size.y : 0.0;
-    const double countW = hasCounter ? countTex->m_size.x : 0.0;
-    const double countH = hasCounter ? countTex->m_size.y : 0.0;
-    const double padX = cfg::look.title_pad_x, padY = cfg::look.title_pad_y;
-    const double cPadX = cfg::look.counter_pad_x, cPadY = cfg::look.counter_pad_y;
-    const double textW = hasLabel ? lw : countW;
-    const double textH = hasLabel ? lh : countH;
-    const double kCard = render::cardScale(box.w, m_view.cardRefW());
-    const double kFit  = std::min(kCard, render::pillScale(box.w, std::max<double>(cfg::grid.gap, 1.0),
-                                                           textW + 2 * (hasLabel ? padX : cPadX)));
-    const double pw   = (textW + 2 * (hasLabel ? padX : cPadX)) * kFit;
-    const double ph   = (textH + 2 * (hasLabel ? padY : cPadY)) * kFit;
-    const double sPadX = (hasLabel ? padX : cPadX) * kFit;
-    const double sPadY = (hasLabel ? padY : cPadY) * kFit;
-    const double sTextW = textW * kFit;
-    const double sTextH = textH * kFit;
-    const double cGap = hasLabel ? cfg::look.counter_gap : 0.0;
-    const double counterH = hasLabel && hasCounter ? countH + 2 * cPadY : 0.0;
-    const double stackGap = counterH > 0.0 ? cGap : 0.0;
-    const double margin = hasLabel ? cfg::look.title_margin : cfg::look.counter_margin;
-    const double px = render::insetWithin(box.cx() - pw / 2.0, pw, m->m_size.x, 6.0);
+    const render::CaptionSizes sizes{
+        hasLabel ? t.label->m_size.x : 0.0, hasLabel ? t.label->m_size.y : 0.0,
+        hasCounter ? countTex->m_size.x : 0.0, hasCounter ? countTex->m_size.y : 0.0,
+        hasLabel, hasCounter};
     const bool titleBelow = cfg::look.title_position.get() != "top";
     const std::string cpos = cfg::look.counter_position.get();
-    const bool counterBelow = cpos.empty() ? titleBelow : cpos != "top";
-    const bool sameEdge = counterH <= 0.0 || counterBelow == titleBelow;
-    const auto bandR = stripBand();
-    const bool bandOnTop = bandR.y < m->m_size.y * 0.5;
-    const double marginTop    = margin + (bandOnTop ? bandR.h : 0.0);
-    const double marginBottom = margin + (bandOnTop ? 0.0 : bandR.h);
-    const render::CaptionPills pos =
-        render::captionPills(box.y, box.h, ph, counterH, cfg::look.title_gap, stackGap,
-                             titleBelow, m->m_size.y, titleBelow ? marginBottom : marginTop);
-    const double counterY =
-        sameEdge ? pos.counterY
-                 : render::captionPillY(box.y, box.h, counterH, cfg::look.title_gap,
-                                        counterBelow, m->m_size.y, cfg::look.counter_margin);
-    const LRect pill{px, pos.titleY, pw, ph};
-    const double cW = countW + 2 * cPadX;
-    const LRect counter{render::insetWithin(m->m_size.x / 2.0 - cW / 2.0, cW, m->m_size.x, 6.0),
-                        counterY, cW, counterH};
-    const Vector2D push = pushOut(pill);
-    const double shove = std::hypot(push.x, push.y);
-    const double pop = render::captionRemains(shove, pw, ph, exitT(), opening());
-    const double cf = e * f;
-    const Vector2D cPush = pushOut(counter);
-    debug::trace::ring("title_pill", pill,
-                       pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), cf);
-    LRect drawn = render::scaledAboutCentre(pill, pop);
-    drawn.x += push.x;
-    drawn.y += push.y;
-    debug::trace::ring("counter_pill", counter, 0, cf);
-    debug::trace::ring("caption_push", LRect{push.x, push.y, cPush.x, cPush.y}, 0, e * f);
-    const double ux = pill.x + push.x;
-    const double uy = pill.y + push.y;
-    if (counterH > 0.0) {
-      LRect cAt = render::scaledAboutCentre(counter, pop);
-      cAt.x += cPush.x;
-      cAt.y += cPush.y;
-      safeRenderRect("tile", pxb(CBox(cAt.x, cAt.y, cAt.w, cAt.h), s),
-                              cfg::colors.counter_pill.get(cf),
-                              {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
-                               .roundingPower = roundPow});
-      g_pHyprOpenGL->renderTexture(
-          countTex,
-          pxb(LRect{cAt.x + (cAt.w - countW * pop) / 2.0, cAt.y + (cAt.h - countH * pop) / 2.0,
-                    countW * pop, countH * pop}, s),
-          {.a = static_cast<float>(cf)});
-    }
-    debug::trace::ring("title_pill_drawn", drawn,
-                       pxr(render::pillRadius(cfg::look.title_round, drawn.w, drawn.h), s),
-                       cf);
-    safeRenderRect("tile", pxb(CBox(drawn.x, drawn.y, drawn.w, drawn.h), s),
-                              cfg::colors.title_pill.get(cf),
-                              {.round = pxr(render::pillRadius(cfg::look.title_round, drawn.w,
-                                                                drawn.h), s),
-                               .roundingPower = roundPow});
-    if (hasLabel)
-      g_pHyprOpenGL->renderTexture(t.label,
-                                   pxb(CBox(drawn.x + sPadX * pop, drawn.y + sPadY * pop,
-                                            sTextW * pop, sTextH * pop), s),
-                                   {.a = static_cast<float>(cf)});
-    else
-      g_pHyprOpenGL->renderTexture(
-          countTex,
-          pxb(LRect{ux + (pw - countW * kFit) / 2.0, uy + cPadY * kFit, countW * kFit,
-                    countH * kFit}, s),
-          {.a = static_cast<float>(cf)});
+    const render::CaptionStyle style{
+        cfg::look.title_pad_x, cfg::look.title_pad_y,
+        cfg::look.counter_pad_x, cfg::look.counter_pad_y,
+        cfg::look.title_gap, cfg::look.counter_gap,
+        cfg::look.title_margin, cfg::look.counter_margin,
+        m_view.cardRefW(), std::max<double>(cfg::grid.gap, 1.0),
+        titleBelow, cpos.empty() ? titleBelow : cpos != "top"};
+    const auto lay = render::captionLayout(box, stripBand(), m->m_size.x, m->m_size.y, sizes,
+                                           style);
+    if (lay.pill.w > 0.0) {
+      const LRect pill = lay.pill;
+      const Vector2D push = pushOut(pill);
+      const double pop = render::captionRemains(std::hypot(push.x, push.y), pill.w, pill.h,
+                                                exitT(), opening());
+      const double cf = e * f;
+      LRect drawn = render::scaledAboutCentre(pill, pop);
+      drawn.x += push.x;
+      drawn.y += push.y;
+      Vector2D cPush{};
+      LRect cAt{};
+      if (lay.counter.h > 0.0) {
+        cPush = pushOut(lay.counter);
+        cAt = render::scaledAboutCentre(lay.counter, pop);
+        cAt.x += cPush.x;
+        cAt.y += cPush.y;
+      }
+      debug::trace::ring("title_pill", pill,
+                         pxr(render::pillRadius(cfg::look.title_round, pill.w, pill.h), s), cf);
+      debug::trace::ring("counter_pill", lay.counter, 0, cf);
+      debug::trace::ring("caption_push", LRect{push.x, push.y, cPush.x, cPush.y}, 0, cf);
+      debug::trace::ring("title_pill_drawn", drawn,
+                         pxr(render::pillRadius(cfg::look.title_round, drawn.w, drawn.h), s), cf);
+      if (cAt.h > 0.0) {
+        safeRenderRect("tile", pxb(CBox(cAt.x, cAt.y, cAt.w, cAt.h), s),
+                               cfg::colors.counter_pill.get(cf),
+                               {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
+                                .roundingPower = roundPow});
+        g_pHyprOpenGL->renderTexture(
+            countTex,
+            pxb(LRect{cAt.x + (cAt.w - sizes.countW * pop) / 2.0,
+                      cAt.y + (cAt.h - sizes.countH * pop) / 2.0,
+                      sizes.countW * pop, sizes.countH * pop}, s),
+            {.a = static_cast<float>(cf)});
+      }
+      safeRenderRect("tile", pxb(CBox(drawn.x, drawn.y, drawn.w, drawn.h), s),
+                               cfg::colors.title_pill.get(cf),
+                               {.round = pxr(render::pillRadius(cfg::look.title_round, drawn.w,
+                                                                 drawn.h), s),
+                                .roundingPower = roundPow});
+      if (hasLabel)
+        g_pHyprOpenGL->renderTexture(
+            t.label,
+            pxb(CBox(drawn.x + style.padX * lay.kFit * pop,
+                     drawn.y + style.padY * lay.kFit * pop,
+                     sizes.textW * lay.kFit * pop, sizes.textH * lay.kFit * pop), s),
+            {.a = static_cast<float>(cf)});
+      else
+        g_pHyprOpenGL->renderTexture(
+            countTex,
+            pxb(LRect{pill.x + push.x + style.cPadX * lay.kFit,
+                      pill.y + push.y + style.cPadY * lay.kFit,
+                      sizes.countW * lay.kFit, sizes.countH * lay.kFit}, s),
+            {.a = static_cast<float>(cf)});
     }
   }
 

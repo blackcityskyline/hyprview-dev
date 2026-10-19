@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cmath>
+#include <span>
 #include <string>
 
 #include "../layout.hpp"
@@ -240,6 +241,156 @@ struct Escape {
   const double cx = r.x + r.w / 2.0, cy = r.y + r.h / 2.0;
   const double w = r.w * k, h = r.h * k;
   return LRect{cx - w / 2.0, cy - h / 2.0, w, h};
+}
+
+// One answer per caption: where the pills land, and what decides it.
+struct CaptionSizes {
+  double textW = 0.0, textH = 0.0;
+  double countW = 0.0, countH = 0.0;
+  bool hasLabel = false;
+  bool hasCounter = false;
+};
+
+struct CaptionStyle {
+  double padX = 0.0, padY = 0.0;
+  double cPadX = 0.0, cPadY = 0.0;
+  double cardGap = 0.0;
+  double stackGap = 0.0;
+  double margin = 0.0;
+  double cMargin = 0.0;
+  double cardRefW = 0.0; // the centred card, the one scale 1.0 belongs to
+  double gridGapMin = 1.0;
+  bool below = true;        // title hangs off the card's bottom edge
+  bool counterBelow = true; // counter hangs off the card's bottom edge
+};
+
+struct CaptionLayout {
+  LRect pill;     // pre-push, pre-collapse
+  LRect counter;  // pre-push, pre-collapse; h == 0 when there is no counter
+  double kFit = 1.0;
+};
+
+[[nodiscard]] inline CaptionLayout captionLayout(const LRect &box, const LRect &band,
+                                                 double screenW, double screenH,
+                                                 const CaptionSizes &s,
+                                                 const CaptionStyle &st) {
+  // Nothing to label: nothing to draw, not an empty pill with padding around it.
+  if (!s.hasLabel && !s.hasCounter)
+    return CaptionLayout{};
+  const double textW = s.hasLabel ? s.textW : s.countW;
+  const double textH = s.hasLabel ? s.textH : s.countH;
+  const double padX  = s.hasLabel ? st.padX  : st.cPadX;
+  const double padY  = s.hasLabel ? st.padY  : st.cPadY;
+  const double counterH = s.hasLabel && s.hasCounter ? s.countH + 2 * st.cPadY : 0.0;
+
+  const double kCard = cardScale(box.w, st.cardRefW);
+  const double kFit  = std::min(kCard, pillScale(box.w, st.gridGapMin, textW + 2 * padX));
+  const double pw = (textW + 2 * padX) * kFit;
+  const double ph = (textH + 2 * padY) * kFit;
+
+  const double stackGap = counterH > 0.0 ? st.stackGap : 0.0;
+  const double margin   = s.hasLabel ? st.margin : st.cMargin;
+
+  // The band is part of the edge margin: on its edge it thickens it, elsewhere not.
+  const bool bandOnTop = band.y < screenH * 0.5;
+  const double marginTop    = margin + (bandOnTop ? band.h : 0.0);
+  const double marginBottom = margin + (bandOnTop ? 0.0 : band.h);
+  const bool sameEdge = counterH <= 0.0 || st.counterBelow == st.below;
+
+  const double cW = s.countW + 2 * st.cPadX;
+  CaptionLayout lay;
+  lay.kFit = kFit;
+  lay.pill = LRect{insetWithin(box.cx() - pw / 2.0, pw, screenW, 6.0), 0.0, pw, ph};
+  lay.counter = LRect{insetWithin(screenW / 2.0 - cW / 2.0, cW, screenW, 6.0), 0.0, cW, counterH};
+  if (counterH <= 0.0) {
+    lay.pill.y = captionPillY(box.y, box.h, ph, st.cardGap, st.below, screenH,
+                              st.below ? marginBottom : marginTop);
+    return lay;
+  }
+  if (sameEdge) {
+    const CaptionPills pos =
+        captionPills(box.y, box.h, ph, counterH, st.cardGap, stackGap, st.below, screenH,
+                     st.below ? marginBottom : marginTop);
+    lay.pill.y = pos.titleY;
+    lay.counter.y = pos.counterY;
+  } else {
+    lay.pill.y = captionPillY(box.y, box.h, ph, st.cardGap, st.below, screenH,
+                              st.below ? marginBottom : marginTop);
+    lay.counter.y = captionPillY(box.y, box.h, counterH, st.cardGap, st.counterBelow, screenH,
+                                 st.cMargin);
+  }
+  return lay;
+}
+
+// The escape push: out from under every cover, by the deepest overlap.
+[[nodiscard]] inline LVec2 pushOut(const LRect &r, const std::span<const LRect> &covers) {
+  double best = 0.0;
+  LVec2 dir{0.0, 0.0};
+  for (const auto &b : covers) {
+    const double ox = std::min(b.x + b.w, r.x + r.w) - std::max(b.x, r.x);
+    const double oy = std::min(b.y + b.h, r.y + r.h) - std::max(b.y, r.y);
+    if (ox <= 0.0 || oy <= 0.0)
+      continue;
+
+    // SWALLOWED: no cheaper axis to leave by -- eject toward the nearest edge instead.
+    LVec2 d{0.0, 0.0};
+    double depth = 0.0;
+    if (ox >= r.w && oy >= r.h) {
+      double near = r.x - b.x;
+      d = LVec2{-1.0, 0.0};
+      if (b.x + b.w - (r.x + r.w) < near) {
+        near = b.x + b.w - (r.x + r.w);
+        d = LVec2{1.0, 0.0};
+      }
+      if (r.y - b.y < near) {
+        near = r.y - b.y;
+        d = LVec2{0.0, -1.0};
+      }
+      if (b.y + b.h - (r.y + r.h) < near) {
+        near = b.y + b.h - (r.y + r.h);
+        d = LVec2{0.0, 1.0};
+      }
+      depth = near;
+    } else {
+      const Escape esc = escapeFrom(r, b, ox, oy);
+      depth = esc.depth;
+      d = LVec2{esc.dx, esc.dy};
+    }
+    if (depth > best) {
+      best = depth;
+      dir = d;
+    }
+  }
+  if (best <= 0.0)
+    return {};
+  return LVec2{dir.x * best, dir.y * best};
+}
+
+// How far the strip assembly leaves the band's edge: the deepest card penetration,
+// along the anchor axis only. The caller applies it to band AND cards together.
+[[nodiscard]] inline LVec2 stripPush(const LRect &band, Anchor a,
+                                     const std::span<const LRect> &covers) {
+  double deepest = 0.0;
+  for (const auto &b : covers) {
+    double pen = 0.0;
+    switch (a) {
+      case Anchor::Bottom: pen = (b.y + b.h) - band.y; break;
+      case Anchor::Top:    pen = (band.y + band.h) - b.y; break;
+      case Anchor::Left:   pen = (band.x + band.w) - b.x; break;
+      case Anchor::Right:  pen = (b.x + b.w) - band.x; break;
+    }
+    deepest = std::max(deepest, pen);
+  }
+  if (deepest <= 0.0)
+    return {};
+  const double d = deepest;
+  switch (a) {
+    case Anchor::Bottom: return LVec2{0.0, d};
+    case Anchor::Top:    return LVec2{0.0, -d};
+    case Anchor::Left:   return LVec2{-d, 0.0};
+    case Anchor::Right:  return LVec2{d, 0.0};
+    default:             return LVec2{0.0, 0.0};
+  }
 }
 
 } // namespace hyprview::render

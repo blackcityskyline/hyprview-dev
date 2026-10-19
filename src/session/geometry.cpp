@@ -79,7 +79,7 @@ Vector2D Overview::stripOffset(double e) const {
 }
 
 Vector2D Overview::stripPush(const LRect &band) const {
-  double deepest = 0.0;
+  std::vector<LRect> covers;
   const auto &tiles = m_scene.tiles();
   for (size_t i = 0; i < tiles.size(); ++i) {
     const LRect b = currentBox(tiles[i], static_cast<int>(i));
@@ -88,31 +88,14 @@ Vector2D Overview::stripPush(const LRect &band) const {
     // Shove clear of whatever would COVER it; same rule as pushOut(), answered by cardOf().
     if (!cardOf(tiles[i]).coversChrome)
       continue;
-    double pen = 0.0;
-    switch (stripAnchor()) {
-    case Anchor::Bottom: pen = (b.y + b.h) - band.y; break;
-    case Anchor::Top:    pen = (band.y + band.h) - b.y; break;
-    case Anchor::Left:   pen = (band.x + band.w) - b.x; break;
-    case Anchor::Right:  pen = (b.x + b.w) - band.x; break;
-    }
-    deepest = std::max(deepest, pen);
+    covers.push_back(b);
   }
-  if (deepest <= 0.0)
-    return {};
-  // Uncapped: the depth is bounded by the tile, and pushing past the screen edge is intended.
-  const double d = deepest;
-  switch (stripAnchor()) {
-  case Anchor::Bottom: return Vector2D{0.0, d};
-  case Anchor::Top:    return Vector2D{0.0, -d};
-  case Anchor::Left:   return Vector2D{-d, 0.0};
-  case Anchor::Right:  return Vector2D{d, 0.0};
-  }
-  return {};
+  const LVec2 v = render::stripPush(band, stripAnchor(), covers);
+  return Vector2D{v.x, v.y};
 }
 
 Vector2D Overview::pushOut(const LRect &r) const {
-  double best = 0.0;
-  Vector2D dir{0.0, 0.0};
+  std::vector<LRect> covers;
   const auto &tiles = m_scene.tiles();
   for (size_t i = 0; i < tiles.size(); ++i) {
     const LRect b = currentBox(tiles[i], static_cast<int>(i));
@@ -121,43 +104,10 @@ Vector2D Overview::pushOut(const LRect &r) const {
     // Same rule as stripPush(): a tab's card covers nothing and must not displace chrome.
     if (!cardOf(tiles[i]).coversChrome)
       continue;
-    const double ox = std::min(b.x + b.w, r.x + r.w) - std::max(b.x, r.x);
-    const double oy = std::min(b.y + b.h, r.y + r.h) - std::max(b.y, r.y);
-    if (ox <= 0.0 || oy <= 0.0)
-      continue;
-
-    // SWALLOWED: no cheaper axis to leave by -- eject toward the nearest edge instead.
-    Vector2D d{0.0, 0.0};
-    double depth = 0.0;
-    if (ox >= r.w && oy >= r.h) {
-      double near = r.x - b.x;
-      d = Vector2D{-1.0, 0.0};
-      if (b.x + b.w - (r.x + r.w) < near) {
-        near = b.x + b.w - (r.x + r.w);
-        d = Vector2D{1.0, 0.0};
-      }
-      if (r.y - b.y < near) {
-        near = r.y - b.y;
-        d = Vector2D{0.0, -1.0};
-      }
-      if (b.y + b.h - (r.y + r.h) < near) {
-        near = b.y + b.h - (r.y + r.h);
-        d = Vector2D{0.0, 1.0};
-      }
-      depth = near;
-    } else {
-      const render::Escape esc = render::escapeFrom(r, b, ox, oy);
-      depth = esc.depth;
-      d = Vector2D{esc.dx, esc.dy};
-    }
-    if (depth > best) {
-      best = depth;
-      dir = d;
-    }
+    covers.push_back(b);
   }
-  if (best <= 0.0)
-    return {};
-  return Vector2D{dir.x * best, dir.y * best};
+  const LVec2 v = render::pushOut(r, covers);
+  return Vector2D{v.x, v.y};
 }
 
 bool Overview::blurEnabled() const { return blurStrength() > 0.0F; }
