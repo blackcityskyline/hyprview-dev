@@ -16,9 +16,9 @@
 
 #include "../src/anim_types.hpp"
 
-using gloview::anim::backdropFades;
-using gloview::anim::masterLeaf;
-using gloview::anim::MasterLeaf;
+using hyprview::anim::backdropFades;
+using hyprview::anim::masterLeaf;
+using hyprview::anim::MasterLeaf;
 
 int main() {
   // --- the leaf ------------------------------------------------------------------

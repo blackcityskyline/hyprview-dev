@@ -17,17 +17,17 @@ TC-50  TC-60  TC-62  TC-63  TC-64  TC-70
 которой не было. `TC-50` — единственный кейс, где провал стоит сессии, поэтому он
 быстрый: дешёвый тест дорогого сбоя.
 
-**Обозначения.** `cmd(X)` — это `hyprctl eval 'hl.plugin.gloview.cmd("X")'`.
-Лог — `/tmp/gloview.log`.
+**Обозначения.** `cmd(X)` — это `hyprctl eval 'hl.plugin.hyprview.cmd("X")'`.
+Лог — `/tmp/hyprview.log`.
 
 **Подготовка (один раз за сессию):**
 
 ```bash
-cmake --build build -j$(nproc)      # судить по дате build/gloview.so, не по выводу
+cmake --build build -j$(nproc)      # судить по дате build/hyprview.so, не по выводу
 cmake --build build --target reload # без этого дальше бессмысленно
 ```
 
-Затем в Lua-конфиге: `hl.config({plugin={gloview={debug_trace=1}}})`
+Затем в Lua-конфиге: `hl.config({plugin={hyprview={debug_trace=1}}})`
 Без этого в логе не будет записей `LIFE|`/`DRAG|`/`SCROLL|`/`ANIM|`/`SWAP|`, и кейсы
 на них дадут SKIP, а не результат.
 
@@ -227,7 +227,7 @@ union-бокс считался вместе с пустым отростком 
 Ключи плоские, без секции: `cmd("set layout columns")` → `CMD|ok`, раскладка сменилась.
 Провал: как выше.
 > Не `set grid layout ...`. Поле называется `grid.layout`, но регистрируется как
-> `plugin:gloview:layout` (config.cpp:196) — `setTuning` ищет по плоскому имени.
+> `plugin:hyprview:layout` (config.cpp:196) — `setTuning` ищет по плоскому имени.
 
 **TC-62 ·часто· `set` на цветовой ключ**
 `cmd("set backdrop_color 73070a10")` → `CMD|ok`, цвет применился.
@@ -292,7 +292,7 @@ union-бокс считался вместе с пустым отростком 
 
 1. `ls -t ~/.cache/hyprland/hyprlandCrashReport*.txt | head -1` — **до** догадок.
 2. Имя функции в отчёте может быть выдуманным: после hot-reload символизатор резолвит
-   адрес по старой сборке. Сверять `nm -DC build/gloview.so`.
+   адрес по старой сборке. Сверять `nm -DC build/hyprview.so`.
 3. `tail -100 /run/user/$(id -u)/hypr/$(ls -t /run/user/$(id -u)/hypr | head -1)/hyprland.log`
 4. **Не** запускать `hyprctl --verify-config` — роняет композитор и подсовывает чужие дампы.
 5. Не делать `rm -rf /run/user/$(id -u)/hypr/*` — уносит логи живых сессий.

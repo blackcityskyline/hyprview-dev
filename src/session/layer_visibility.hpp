@@ -10,7 +10,7 @@
 
 #include "layer_names.hpp"
 
-namespace gloview::session {
+namespace hyprview::session {
 
 // hide() and restore() are a PAIR: hide alone leaves the taskbar invisible for the rest of the session,
 // and only the saved alphas can put it back -- hence the destructor restores.

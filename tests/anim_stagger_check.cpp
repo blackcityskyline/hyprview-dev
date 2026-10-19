@@ -20,7 +20,7 @@
 
 #include "../src/anim_types.hpp"
 
-using gloview::anim::stagger;
+using hyprview::anim::stagger;
 
 namespace {
 

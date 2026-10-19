@@ -60,12 +60,12 @@ class CGradientValueData; // general:col.active_border's real type
 class CFunctionHook;
 class CEventLoopTimer;
 
-namespace gloview {
+namespace hyprview {
 
 class Overview : public model::IWindowHost {
 public:
   explicit Overview(HANDLE handle);
-  // Automation seam for gloview:cmd: "" on success, a reason otherwise.
+  // Automation seam for hyprview:cmd: "" on success, a reason otherwise.
   std::string runCommand(const std::string &args);
   ~Overview();
 
@@ -188,7 +188,7 @@ private:
 
   static std::string browserSideFile(const std::string &leaf) {
     const char *rt = std::getenv("XDG_RUNTIME_DIR");
-    return (rt && *rt ? std::string(rt) : std::string("/tmp")) + "/gloview" + leaf;
+    return (rt && *rt ? std::string(rt) : std::string("/tmp")) + "/hyprview" + leaf;
   }
   [[nodiscard]] static model::SubjectRef subjectOf(const PHLWINDOW &w) {
     return w ? model::SubjectRef{reinterpret_cast<std::uintptr_t>(w.get()), 0}
@@ -384,4 +384,4 @@ private:
 
 }
 
-inline gloview::Overview *g_overview = nullptr;
+inline hyprview::Overview *g_overview = nullptr;

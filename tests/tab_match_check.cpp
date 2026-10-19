@@ -17,9 +17,9 @@
 
 #include "../src/model/tab_match.hpp"
 
-using gloview::model::BrowserLinks;
-using gloview::model::HostWindow;
-using gloview::model::matchBrowserWindows;
+using hyprview::model::BrowserLinks;
+using hyprview::model::HostWindow;
+using hyprview::model::matchBrowserWindows;
 
 namespace {
 

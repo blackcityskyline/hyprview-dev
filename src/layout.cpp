@@ -5,7 +5,7 @@
 #include <cstring>
 #include <numeric>
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 
@@ -255,4 +255,4 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     return L;
 }
 
-} // namespace gloview
+} // namespace hyprview

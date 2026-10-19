@@ -24,7 +24,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 model::StripItem *Overview::homeStripCardFor(const PHLWINDOW &w) {
   if (!w)
@@ -325,8 +325,8 @@ std::string Overview::runCommand(const std::string &args) {
   if (tok[0] == "trace") {
     struct stat st;
     std::string out = "TRACE|gate=" + std::to_string(cfg::debug.trace) +
-                      "|logs=" + std::to_string(cfg::debug.logs) + "|path=/tmp/gloview.log";
-    if (::stat("/tmp/gloview.log", &st) == 0)
+                      "|logs=" + std::to_string(cfg::debug.logs) + "|path=/tmp/hyprview.log";
+    if (::stat("/tmp/hyprview.log", &st) == 0)
       out += "|bytes=" + std::to_string(static_cast<long long>(st.st_size));
     for (const char *f : {"anim", "drag", "life", "scroll", "swap"}) {
       const int bit = strcmp(f, "anim") == 0     ? debug::trace::fam::kAnim
@@ -851,4 +851,4 @@ void Overview::closeWorkspaceWindows(const model::StripItem &it) {
   debug::dbg("middle-click workspace: closed " + std::to_string(n) + " window(s)");
 }
 
-} // namespace gloview
+} // namespace hyprview

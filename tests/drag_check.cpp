@@ -20,8 +20,8 @@
 
 #include "../src/model/drag.hpp"
 
-using gloview::LRect;
-using gloview::model::DragT;
+using hyprview::LRect;
+using hyprview::model::DragT;
 
 // A stand-in for PHLWINDOWREF: assignable, default-constructible, comparable. The FSM
 // never locks it -- every caller that wants the window does that itself -- so the test

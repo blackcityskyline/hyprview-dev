@@ -1,4 +1,4 @@
-# GloView — Roadmap
+# HyprView — Roadmap
 
 ## Работает сейчас
 

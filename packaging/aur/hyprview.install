@@ -1,0 +1,36 @@
+_reminder() {
+    cat <<'EOF'
+
+==================================================
+  hyprview installed
+==================================================
+  Plugin:  /usr/lib/hyprview.so
+
+  Load it from ~/.config/hypr/hyprland.conf:
+      plugin = /usr/lib/hyprview.so
+
+  Or at runtime:
+      hyprctl plugin load /usr/lib/hyprview.so
+
+  Toggle the overview:
+      hyprctl hyprview
+  Bind it, e.g.:
+    hl.bind("SUPER + TAB", hl.plugin.hyprview.toggle)
+    hl.bind("SUPER + SHIFT + TAB", hl.plugin.hyprview.desktop)
+    hl.bind("SUPER + CTRL + TAB", hl.plugin.hyprview.allworkspaces)
+    or
+    bind = SUPER, TAB, hyprview:toggle
+    bind = SUPER SHIFT, TAB, hyprview:desktop
+    bind = SUPER CTRL, TAB, hyprview:allworkspaces
+
+==================================================
+EOF
+}
+
+post_install() {
+    _reminder
+}
+
+post_upgrade() {
+    _reminder
+}

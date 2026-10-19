@@ -10,7 +10,7 @@
 using CBox = Hyprutils::Math::CBox;
 struct CHyprColor;
 
-namespace gloview {
+namespace hyprview {
 
 // HW plane: above framebuffer, no trails
 class CCursorModule {

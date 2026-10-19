@@ -17,8 +17,8 @@
 #include "../src/layout.hpp"
 #include "../src/view/state.hpp"
 
-using gloview::Engine;
-using gloview::view::State;
+using hyprview::Engine;
+using hyprview::view::State;
 
 // The slot is written by resolve() and nothing else -- it is part of the geometry it was
 // resolved with, so there is deliberately no setSlot(). These go through resolve.

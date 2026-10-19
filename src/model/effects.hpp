@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // The scene is REBUILT; these are appended to and pruned.
 class Effects {
@@ -75,4 +75,4 @@ class Effects {
     std::vector<PHLWORKSPACEREF> m_newWorkspaces;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

@@ -1,4 +1,4 @@
-# GloView tabs
+# HyprView tabs
 
 Our own browser extension, one implementation for every Gecko and Chromium browser.
 
@@ -39,7 +39,7 @@ A compositor window carries the same pid as its browser, so the match is exact.
 2. Put `path` in the native messaging manifest to the **absolute** path of `bridge/mediator.py`,
    and set `allowed_extensions` to the extension's id:
    - Chromium MV3: the `key` from the installed extension's page, base64, on one line
-   - Gecko: `gloview@localhost`
+   - Gecko: `hyprview@localhost`
 3. Make the mediator executable: `chmod +x bridge/mediator.py`
 4. Load it as an unpacked / temporary extension:
    - `chrome://extensions` → developer mode → load unpacked

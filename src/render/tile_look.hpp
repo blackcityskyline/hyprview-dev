@@ -2,7 +2,7 @@
 
 #include "../layout.hpp"
 
-namespace gloview {
+namespace hyprview {
 
 struct TileLook {
   LRect box;
@@ -15,4 +15,4 @@ struct TileLook {
   double tone = 0.0;
 };
 
-} // namespace gloview
+} // namespace hyprview

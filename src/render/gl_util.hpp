@@ -15,7 +15,7 @@
 #include "../layout.hpp"
 #include "state_fence.hpp"
 
-namespace gloview {
+namespace hyprview {
 
 // round(): pixman truncates the border's scissor
 inline CBox pxb(const CBox &b, double s) {

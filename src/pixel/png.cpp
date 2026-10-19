@@ -2,7 +2,7 @@
 
 #include <hyprland/src/render/Renderer.hpp>
 
-namespace gloview::pixel {
+namespace hyprview::pixel {
 
 SP<Render::ITexture> loadPng(const std::string &path) {
     if (!g_pHyprRenderer)
@@ -16,4 +16,4 @@ SP<Render::ITexture> loadPng(const std::string &path) {
     return tex;
 }
 
-} // namespace gloview::pixel
+} // namespace hyprview::pixel

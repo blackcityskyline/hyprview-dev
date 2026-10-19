@@ -17,7 +17,7 @@
 #include "../layout.hpp"
 
 
-namespace gloview::cfg {
+namespace hyprview::cfg {
 
 // Runtime overrides, keyed by the registered config key: hl.config accepts only the nested
 // form and CConfigValue has no setter, so every getter consults this first. Empty clears.

@@ -66,7 +66,7 @@ TABS = [
 
 
 def main():
-    root = tempfile.mkdtemp(prefix="gloview_mediator_")
+    root = tempfile.mkdtemp(prefix="hyprview_mediator_")
     proc = start(root)
     try:
         # --- a report -----------------------------------------------------------------------
@@ -215,8 +215,8 @@ def main():
         os.makedirs(out, exist_ok=True)
         proc3 = subprocess.Popen(
             [sys.executable, MEDIATOR,
-             os.path.expanduser("~/.mozilla/native-messaging-hosts/gloview_mediator.json"),
-             "gloview@localhost", "--dir", out],
+             os.path.expanduser("~/.mozilla/native-messaging-hosts/hyprview_mediator.json"),
+             "hyprview@localhost", "--dir", out],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         try:
             body = json.dumps({"name": "report",

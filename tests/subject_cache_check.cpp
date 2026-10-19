@@ -11,8 +11,8 @@
 
 #include "../src/pixel/subject_cache.hpp"
 
-using gloview::model::SubjectRef;
-using gloview::pixel::SubjectCache;
+using hyprview::model::SubjectRef;
+using hyprview::pixel::SubjectCache;
 
 namespace {
 

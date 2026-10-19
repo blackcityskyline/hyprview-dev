@@ -1,7 +1,7 @@
 #pragma once
 
 // How far the run is open: 0 closed, 1 fully open; transitions named so no site invents a meaning.
-namespace gloview::clock {
+namespace hyprview::clock {
 
 class Progress {
   public:
@@ -27,4 +27,4 @@ class Progress {
     double m_v = 0.0;
 };
 
-} // namespace gloview::clock
+} // namespace hyprview::clock

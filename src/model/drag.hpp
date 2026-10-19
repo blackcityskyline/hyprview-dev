@@ -10,7 +10,7 @@
 
 #include "../layout.hpp"
 
-namespace gloview::model {
+namespace hyprview::model {
 
 template <typename WinRef> class DragT {
 public:
@@ -137,4 +137,4 @@ private:
   LRect    m_fromBox{};
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

@@ -6,9 +6,9 @@
 
 #include <string>
 
-namespace gloview::pixel {
+namespace hyprview::pixel {
 
 // nullptr for no file, not-a-PNG, truncated or unreadable alike; caller destroys with cairo_surface_destroy().
 [[nodiscard]] cairo_surface_t *readPngSurface(const std::string &path);
 
-} // namespace gloview::pixel
+} // namespace hyprview::pixel

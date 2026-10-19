@@ -8,7 +8,7 @@
 
 #include "../config/config.hpp"
 
-namespace gloview::debug {
+namespace hyprview::debug {
 
 namespace {
 
@@ -21,15 +21,15 @@ constexpr int kCheckEvery = 2048;
 
 FILE *openRotated() {
   for (int i = kKeep; i >= 1; --i) {
-    const std::string from = i == 1 ? "/tmp/gloview.log" : "/tmp/gloview.log." + std::to_string(i - 1);
-    if (::rename(from.c_str(), ("/tmp/gloview.log." + std::to_string(i)).c_str()) != 0 && i == 1)
+    const std::string from = i == 1 ? "/tmp/hyprview.log" : "/tmp/hyprview.log." + std::to_string(i - 1);
+    if (::rename(from.c_str(), ("/tmp/hyprview.log." + std::to_string(i)).c_str()) != 0 && i == 1)
       return nullptr;
   }
-  return fopen("/tmp/gloview.log", "w");
+  return fopen("/tmp/hyprview.log", "w");
 }
 
 FILE *openSink() {
-  FILE *f = fopen("/tmp/gloview.log", "a");
+  FILE *f = fopen("/tmp/hyprview.log", "a");
   if (!f)
     return nullptr;
   if (fseek(f, 0, SEEK_END) == 0 && ftell(f) > kMaxBytes) {
@@ -101,7 +101,7 @@ void dbg(const std::string &msg) {
   else if (bootstrap <= 0 || --bootstrap < 0)
     return;
   if (Log::logger)
-    Log::logger->log(Log::INFO, "[gloview] {}", msg);
+    Log::logger->log(Log::INFO, "[hyprview] {}", msg);
   // The same handle emit() uses: two append handles on one path would interleave.
   static bool banner = false;
   FILE *f = sink();
@@ -216,4 +216,4 @@ void scroll(const char *event, const std::string &state) {
 
 } // namespace trace
 
-} // namespace gloview::debug
+} // namespace hyprview::debug

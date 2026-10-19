@@ -4,7 +4,7 @@
 #include <chrono>
 #include <string>
 
-namespace gloview::anim {
+namespace hyprview::anim {
 
 // begin() resets `last`; a stall guard re-anchors at `last`, never at the current raw.
 struct Tween {

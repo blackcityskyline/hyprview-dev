@@ -7,7 +7,7 @@
 #include "../debug/log.hpp"
 #include "curves.hpp"
 
-namespace gloview::clock {
+namespace hyprview::clock {
 
 namespace {
 
@@ -151,4 +151,4 @@ void Placement::resolve(const view::State &view, bool opening, bool carousel) {
   m_eased    = curves::eval(anim::cfg(id).curve, progress.raw());
 }
 
-} // namespace gloview::clock
+} // namespace hyprview::clock

@@ -20,7 +20,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 
 bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
@@ -672,4 +672,4 @@ void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
 
 void Overview::cancelPendingClick() { m_click.cancel(); }
 
-} // namespace gloview
+} // namespace hyprview

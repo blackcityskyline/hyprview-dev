@@ -9,7 +9,7 @@
 
 // Pure geometry, monitor-local LOGICAL px: no GL, no Hyprland, no config reads (AGENTS.md 2.15).
 
-namespace gloview::render {
+namespace hyprview::render {
 
 enum class Corner {
     TopRight,
@@ -242,4 +242,4 @@ struct Escape {
   return LRect{cx - w / 2.0, cy - h / 2.0, w, h};
 }
 
-} // namespace gloview::render
+} // namespace hyprview::render

@@ -11,7 +11,7 @@ extern "C" {
 #include <lua.h>
 }
 
-namespace gloview::curves {
+namespace hyprview::curves {
 
 namespace {
 
@@ -73,7 +73,7 @@ std::unordered_map<std::string, int> g_lua;
 std::unordered_set<std::string> g_warned;
 void warnOnce(const std::string &id, const std::string &what) {
   if (g_warned.insert(id).second)
-    Log::logger->log(Log::WARN, "[gloview] curve '{}' {}: falling back to easeout",
+    Log::logger->log(Log::WARN, "[hyprview] curve '{}' {}: falling back to easeout",
                      id, what);
 }
 

@@ -11,7 +11,7 @@
 #include "../layout.hpp"
 #include "progress.hpp"
 
-namespace gloview::clock {
+namespace hyprview::clock {
 
 // Owns the clocks, the run's Progress and the resolved recipes, so two callers cannot disagree.
 class Placement {
@@ -79,4 +79,4 @@ class Placement {
   anim::Recipes recipes;
 };
 
-} // namespace gloview::clock
+} // namespace hyprview::clock

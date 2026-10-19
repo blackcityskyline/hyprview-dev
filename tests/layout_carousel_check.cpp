@@ -29,7 +29,7 @@
 #include <cstdio>
 #include <vector>
 
-using namespace gloview;
+using namespace hyprview;
 
 namespace {
 

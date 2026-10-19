@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The load seam: gloview.so is dlopen'd INTO the Hyprland binary, so every symbol it
+# The load seam: hyprview.so is dlopen'd INTO the Hyprland binary, so every symbol it
 # imports must already exist there. A single missing one kills the plugin before
 # PLUGIN_INIT runs -- which looks like a silent config error, not a link error, and
 # cost a full day once (mangled Lua C API: _Z14luaL_checktypeP9lua_Stateii).
@@ -10,7 +10,7 @@
 # 77 = skip (no Hyprland installed). Nothing else should ever be special-cased.
 set -uo pipefail
 
-SO="${1:-build/gloview.so}"
+SO="${1:-build/hyprview.so}"
 HYPR="${2:-/usr/bin/Hyprland}"
 
 if [ ! -f "$SO" ]; then
@@ -37,7 +37,7 @@ nm -D --defined-only "$HYPR" | awk '$2 ~ /^[TWVRDBGi]$/ { print $3 }' | sort -u 
 missing=$(comm -23 "$needs" "$exports")
 
 if [ -n "$missing" ]; then
-  echo "FAIL: $(echo "$missing" | wc -l) symbol(s) gloview.so imports but Hyprland does not export."
+  echo "FAIL: $(echo "$missing" | wc -l) symbol(s) hyprview.so imports but Hyprland does not export."
   echo "      dlopen will fail on these, before PLUGIN_INIT, and it will read as a"
   echo "      config error rather than a link error:"
   echo "$missing" | sed 's/^/        /'

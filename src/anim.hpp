@@ -18,7 +18,7 @@
 // Nothing substitutes a default for an animation that is not there: an unknown or unbound id
 // resolves to Cfg{on=false}, so the motion does not happen rather than happening at some
 // duration nobody asked for.
-namespace gloview::anim {
+namespace hyprview::anim {
 
 enum class Id : std::uint8_t {
   Open, Close, Glide, Appear, Card, Pulse, StripStep,
@@ -58,4 +58,4 @@ bool setTuning(const std::string &key, const std::string &value);
 int  luaSetRule(lua_State *L);
 void registerAll(HANDLE handle);
 
-} // namespace gloview::anim
+} // namespace hyprview::anim

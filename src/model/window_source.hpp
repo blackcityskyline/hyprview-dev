@@ -6,7 +6,7 @@
 #include "content_source.hpp"
 #include "window_host.hpp"
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // A window IS its address and the epoch is always 0, so a tabs SubjectRef would have to carry
 // an id that happens to be a valid pointer to be mistaken for one.
@@ -39,4 +39,4 @@ class WindowsContentSource final : public IContentSource {
     std::vector<SP<Desktop::View::CWindow>> m_alive;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

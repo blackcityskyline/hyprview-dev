@@ -23,9 +23,9 @@
 
 #include "../src/model/content_source.hpp"
 
-using gloview::model::GroupRef;
-using gloview::model::IContentSource;
-using gloview::model::SubjectRef;
+using hyprview::model::GroupRef;
+using hyprview::model::IContentSource;
+using hyprview::model::SubjectRef;
 
 namespace {
 

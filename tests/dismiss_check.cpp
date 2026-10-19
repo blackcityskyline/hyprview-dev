@@ -25,12 +25,12 @@
 
 #include "../src/anim_types.hpp"
 
-using gloview::anim::cardHides;
-using gloview::anim::DismissIntent;
-using gloview::anim::hideShrink;
-using gloview::anim::TileExit;
-using gloview::anim::tileExit;
-using gloview::anim::toggleIntent;
+using hyprview::anim::cardHides;
+using hyprview::anim::DismissIntent;
+using hyprview::anim::hideShrink;
+using hyprview::anim::TileExit;
+using hyprview::anim::tileExit;
+using hyprview::anim::toggleIntent;
 
 namespace {
 

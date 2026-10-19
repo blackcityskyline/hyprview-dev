@@ -2,13 +2,13 @@
   "manifest_version": 2,
   "browser_specific_settings": {
     "gecko": {
-      "id": "gloview@localhost",
+      "id": "hyprview@localhost",
       "strict_min_version": "121.0"
     }
   },
-  "name": "GloView tabs",
+  "name": "HyprView tabs",
   "version": "1.1.0",
-  "description": "Reports open tabs to the GloView compositor plugin.",
+  "description": "Reports open tabs to the HyprView compositor plugin.",
   "permissions": ["tabs", "nativeMessaging", "activeTab"],
   "optional_permissions": ["<all_urls>"],
   "background": {

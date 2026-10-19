@@ -1,6 +1,6 @@
 #include "clock.hpp"
 
-namespace gloview::clock {
+namespace hyprview::clock {
 
 bool Clocks::anyRunning(double rebuildEntryMs, double rebuildGhostMs,
                         double stripMs) const {
@@ -8,4 +8,4 @@ bool Clocks::anyRunning(double rebuildEntryMs, double rebuildGhostMs,
          !strip.done(stripMs);
 }
 
-} // namespace gloview::clock
+} // namespace hyprview::clock

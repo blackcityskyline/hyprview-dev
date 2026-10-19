@@ -30,7 +30,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 void dropFocusFromWindows() {
@@ -512,7 +512,7 @@ void Overview::updateSnapshots() {
     if (W <= 0 || H <= 0)
       return;
 
-    auto fb = g_pHyprRenderer->createFB("gloview snapshot");
+    auto fb = g_pHyprRenderer->createFB("hyprview snapshot");
     if (!fb)
       return;
     fb->alloc(W, H);

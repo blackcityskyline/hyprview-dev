@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace gloview::input {
+namespace hyprview::input {
 
 inline constexpr uint32_t kModShift = 1U << 0;
 inline constexpr uint32_t kModCtrl  = 1U << 2;
@@ -188,4 +188,4 @@ inline bool comboMatches(int keycode, uint32_t heldMods, std::string token) {
   return -1;
 }
 
-} // namespace gloview::input
+} // namespace hyprview::input

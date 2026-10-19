@@ -17,7 +17,7 @@ class ITexture;
 class IFramebuffer;
 } // namespace Render
 
-namespace gloview::pixel {
+namespace hyprview::pixel {
 
 // Entries with no object behind them live in a map of their own and are never swept.
 enum Slot : int { All = -2, CarouselCount = -1 };
@@ -124,4 +124,4 @@ class PixelCache {
     std::string m_glyphIcon;
 };
 
-} // namespace gloview
+} // namespace hyprview

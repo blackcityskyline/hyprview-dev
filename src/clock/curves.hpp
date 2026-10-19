@@ -4,7 +4,7 @@
 
 struct lua_State;
 
-namespace gloview::curves {
+namespace hyprview::curves {
 
 using NativeFn = double (*)(double);
 
@@ -14,4 +14,4 @@ int luaRegister(lua_State *L);
 
 double eval(std::string_view id, double t);
 
-} // namespace gloview::curves
+} // namespace hyprview::curves

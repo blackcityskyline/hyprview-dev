@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 void Recency::promote(const void *window) {
   if (!window)
@@ -41,4 +41,4 @@ void Recency::forgetDead(const std::vector<const void *> &live) {
   });
 }
 
-} // namespace gloview::model
+} // namespace hyprview::model

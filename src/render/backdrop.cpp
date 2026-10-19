@@ -18,7 +18,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace render {
 
@@ -33,7 +33,7 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
     return fb && fb->isAllocated() && fb->m_size == size;
   };
   if (!m_srcFB)
-    m_srcFB = g_pHyprRenderer->createFB("gloview backdrop");
+    m_srcFB = g_pHyprRenderer->createFB("hyprview backdrop");
   if (!fit(m_srcFB)) {
     m_srcFB->alloc(W, H);
     m_drawn = false;
@@ -69,7 +69,7 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
 
   // The source changed: rebuild into SCRATCH and let its CONTENT decide -- mid-recreation reads black.
   if (!m_scratchFB)
-    m_scratchFB = g_pHyprRenderer->createFB("gloview backdrop scratch");
+    m_scratchFB = g_pHyprRenderer->createFB("hyprview backdrop scratch");
   if (!fit(m_scratchFB))
     m_scratchFB->alloc(W, H);
   if (!fit(m_scratchFB))
@@ -201,7 +201,7 @@ void Backdrop::render(const BackdropFrame &f) const {
     bool cachedUsable = false;
     unsigned char q[4] = {0, 0, 0, 0};
     if (!m_probeFB)
-      m_probeFB = g_pHyprRenderer->createFB("gloview cache probe");
+      m_probeFB = g_pHyprRenderer->createFB("hyprview cache probe");
     if (cachedTex && cachedTex->ok() && m_probeFB) {
       if (!m_probeFB->isAllocated())
         m_probeFB->alloc(1, 1);
@@ -285,7 +285,7 @@ void Backdrop::render(const BackdropFrame &f) const {
   if (!m_blur.valid || !m_blur.fb || !m_blur.fb->isAllocated() ||
       m_blur.fb->m_size != Vector2D(W, H)) {
     if (!m_blur.fb)
-      m_blur.fb = g_pHyprRenderer->createFB("gloview blur");
+      m_blur.fb = g_pHyprRenderer->createFB("hyprview blur");
     if (!m_blur.fb->isAllocated() || m_blur.fb->m_size != Vector2D(W, H))
       m_blur.fb->alloc(W, H);
 
@@ -398,4 +398,4 @@ void Overview::primeBackdrop() {
   promote();
   damage();
 }
-} // namespace gloview
+} // namespace hyprview

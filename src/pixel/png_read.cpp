@@ -1,6 +1,6 @@
 #include "png_read.hpp"
 
-namespace gloview::pixel {
+namespace hyprview::pixel {
 
 cairo_surface_t *readPngSurface(const std::string &path) {
     auto *surf = cairo_image_surface_create_from_png(path.c_str());
@@ -14,4 +14,4 @@ cairo_surface_t *readPngSurface(const std::string &path) {
     return surf;
 }
 
-} // namespace gloview::pixel
+} // namespace hyprview::pixel

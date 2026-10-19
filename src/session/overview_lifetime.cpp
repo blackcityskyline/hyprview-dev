@@ -2,7 +2,7 @@
 #include "../overview.hpp"
 #include "hooks.hpp"
 
-namespace gloview {
+namespace hyprview {
 
 Overview::Overview(HANDLE handle) : m_handle(handle) {}
 

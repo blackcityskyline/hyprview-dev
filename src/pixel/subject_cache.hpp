@@ -10,7 +10,7 @@
 
 #include "../model/subject.hpp"
 
-namespace gloview::pixel {
+namespace hyprview::pixel {
 
 template <class Tex> class SubjectCache {
   public:
@@ -60,4 +60,4 @@ template <class Tex> class SubjectCache {
     std::uint32_t m_generation = 0;
 };
 
-} // namespace gloview::pixel
+} // namespace hyprview::pixel

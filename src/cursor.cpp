@@ -7,7 +7,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 void CCursorModule::onOpen(PHLMONITOR monitor) {
     resetCursorBox();

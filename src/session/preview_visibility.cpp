@@ -29,7 +29,7 @@
 #include <hyprland/src/render/pass/TexPassElement.hpp>
 #include <hyprland/src/state/MonitorState.hpp>
 
-namespace gloview {
+namespace hyprview {
 
 namespace session {
 

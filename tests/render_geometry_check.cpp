@@ -26,20 +26,20 @@
 
 #include "../src/render/geometry.hpp"
 
-using gloview::LRect;
-using gloview::render::closeButtonRect;
-using gloview::render::cardScale;
-using gloview::render::captionRemains;
-using gloview::render::escapeFrom;
-using gloview::render::scaledAboutCentre;
-using gloview::render::pillScale;
-using gloview::render::Corner;
-using gloview::render::dragVisualBox;
-using gloview::render::insetWithin;
-using gloview::render::killZoneGlow;
-using gloview::render::pillRadius;
-using gloview::render::captionPills;
-using gloview::render::captionPillY;
+using hyprview::LRect;
+using hyprview::render::closeButtonRect;
+using hyprview::render::cardScale;
+using hyprview::render::captionRemains;
+using hyprview::render::escapeFrom;
+using hyprview::render::scaledAboutCentre;
+using hyprview::render::pillScale;
+using hyprview::render::Corner;
+using hyprview::render::dragVisualBox;
+using hyprview::render::insetWithin;
+using hyprview::render::killZoneGlow;
+using hyprview::render::pillRadius;
+using hyprview::render::captionPills;
+using hyprview::render::captionPillY;
 
 namespace {
 
@@ -395,13 +395,13 @@ int main() {
   // cfg:: at the point of use; they are here because a band that lands on the wrong edge is
   // a wrong ANSWER, not a wrong drawing.
   {
-    using gloview::render::Anchor;
-    using gloview::render::isHorizontal;
-    using gloview::render::parseAnchor;
-    using gloview::render::stripBand;
-    using gloview::render::stripOffset;
-    using gloview::render::stripSlide;
-    using gloview::render::stripThickness;
+    using hyprview::render::Anchor;
+    using hyprview::render::isHorizontal;
+    using hyprview::render::parseAnchor;
+    using hyprview::render::stripBand;
+    using hyprview::render::stripOffset;
+    using hyprview::render::stripSlide;
+    using hyprview::render::stripThickness;
 
     assert(parseAnchor("bottom", "") == Anchor::Bottom);
     assert(parseAnchor("left", "") == Anchor::Left);
@@ -446,10 +446,10 @@ int main() {
 
     // The reveal slide: at e == 1 the band is in place, at e == 0 it is off-screen, and
     // the direction is always OFF the anchored edge.
-    for (const auto &[a, want] : {std::pair{Anchor::Top, gloview::LVec2{0.0, -30.0}},
-                                 std::pair{Anchor::Bottom, gloview::LVec2{0.0, 30.0}},
-                                 std::pair{Anchor::Left, gloview::LVec2{-30.0, 0.0}},
-                                 std::pair{Anchor::Right, gloview::LVec2{30.0, 0.0}}}) {
+    for (const auto &[a, want] : {std::pair{Anchor::Top, hyprview::LVec2{0.0, -30.0}},
+                                 std::pair{Anchor::Bottom, hyprview::LVec2{0.0, 30.0}},
+                                 std::pair{Anchor::Left, hyprview::LVec2{-30.0, 0.0}},
+                                 std::pair{Anchor::Right, hyprview::LVec2{30.0, 0.0}}}) {
       const auto half = stripSlide(a, 0.0, 60.0, 0.5);
       near(half.x, want.x, "slide x at e=0");
       near(half.y, want.y, "slide y at e=0");
@@ -467,8 +467,8 @@ int main() {
   
   // One of the two boxes the strip draws and the hit-test must agree on to the pixel.
   {
-    using gloview::render::fitInside;
-    using gloview::render::winSlotRect;
+    using hyprview::render::fitInside;
+    using hyprview::render::winSlotRect;
     const auto card = LRect{100, 40, 167, 94};
 
 
@@ -488,7 +488,7 @@ int main() {
 
   // fitInside: the largest box of a given aspect that fits, centred.
   {
-    using gloview::render::fitInside;
+    using hyprview::render::fitInside;
     const auto outer = LRect{0, 0, 200, 100};
     sameRect(fitInside(outer, 2.0), outer, "a matching aspect gets the outer box");
     // Narrower than the outer (2.0): the width is the limit, so it narrows -- pillarboxed
@@ -510,7 +510,7 @@ int main() {
 
   // firstHit: which of a row of boxes is under the cursor.
   {
-    using gloview::render::firstHit;
+    using hyprview::render::firstHit;
     const LRect row[] = {{0, 0, 100, 100}, {100, 0, 100, 100}, {200, 0, 100, 100}};
 
     want(firstHit(50, 50, row, 3) == 0, true, "a point in the first box");

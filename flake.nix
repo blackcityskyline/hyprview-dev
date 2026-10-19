@@ -1,11 +1,11 @@
 {
-  description = "GloView — a macOS Mission Control-style overview plugin for Hyprland";
+  description = "HyprView — a macOS Mission Control-style overview plugin for Hyprland";
 
   inputs = {
     # Pin a tagged Hyprland release, not `main`: ABI must match the compositor, and main's
     # dep tree is intermittently unbuildable (e.g. a missing pango buildInput in
     # hyprland-guiutils broke it on 2026-06-27). v0.55.4 is the version this was developed +
-    # proven against (`nix build .#gloview` succeeds on real NixOS). Downstream should set
+    # proven against (`nix build .#hyprview` succeeds on real NixOS). Downstream should set
     # `inputs.hyprland.follows` to build the plugin against THEIR exact Hyprland.
     hyprland.url = "github:hyprwm/Hyprland?ref=v0.55.4";
     nixpkgs.follows = "hyprland/nixpkgs";
@@ -32,32 +32,32 @@
       # pkg-config + hyprland + hyprland.buildInputs. We `.override` the whole scope so BOTH
       # the build stdenv and the hyprland buildInput are the EXACT pinned Hyprland (ABI must
       # match the running compositor), not nixpkgs' possibly-skewed hyprland.
-      gloview = (pkgs.hyprlandPlugins.override {hyprland = hyprlandPkg;}).mkHyprlandPlugin {
-        pluginName = "gloview";
+      hyprview = (pkgs.hyprlandPlugins.override {hyprland = hyprlandPkg;}).mkHyprlandPlugin {
+        pluginName = "hyprview";
         version = "0.3.0";
         src = ./.;
 
         nativeBuildInputs = [pkgs.cmake pkgs.pkg-config];
         # Hyprland's own build inputs are propagated by mkHyprlandPlugin; we only add Lua
-        # (for the gloview.* Lua config functions). luajit is what Hyprland links.
+        # (for the hyprview.* Lua config functions). luajit is what Hyprland links.
         buildInputs = [pkgs.luajit];
 
-        # The build emits `gloview.so` (CMake PREFIX ""), but Home Manager's
+        # The build emits `hyprview.so` (CMake PREFIX ""), but Home Manager's
         # `wayland.windowManager.hyprland.plugins = [ pkg ]` looks for `lib<pname>.so`.
         # Symlink it so the idiomatic one-liner install works with no extra config.
         postInstall = ''
-          ln -sf gloview.so "$out/lib/libgloview.so"
+          ln -sf hyprview.so "$out/lib/libhyprview.so"
         '';
 
         meta = {
           description = "macOS Mission Control-style overview for Hyprland";
-          homepage = "https://github.com/fedsfarm/gloview";
+          homepage = "https://github.com/fedsfarm/hyprview";
           license = lib.licenses.gpl3Plus;
           platforms = lib.platforms.linux;
         };
       };
 
-      default = self.packages.${system}.gloview;
+      default = self.packages.${system}.hyprview;
     });
 
     devShells = eachSystem (system: let
@@ -66,7 +66,7 @@
       default = pkgs.mkShell {
         # `nix develop` gives a shell that can configure+build the plugin against the
         # pinned Hyprland (cmake -S . -B build && cmake --build build).
-        inputsFrom = [self.packages.${system}.gloview];
+        inputsFrom = [self.packages.${system}.hyprview];
         packages = [pkgs.clang-tools];
       };
     });

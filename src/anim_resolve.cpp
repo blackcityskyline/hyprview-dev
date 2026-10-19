@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-namespace gloview::anim {
+namespace hyprview::anim {
 
 Cfg resolve(const Inputs &in, int baseMs, const char *curveDefault) {
   Cfg c{};
@@ -47,4 +47,4 @@ double resolveParam(bool hasValue, double value, double fallback) {
   return hasValue ? value : fallback;
 }
 
-} // namespace gloview::anim
+} // namespace hyprview::anim

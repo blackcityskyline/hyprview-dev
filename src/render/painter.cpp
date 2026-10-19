@@ -15,7 +15,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 // Both entry clocks done. Committing before this truncates what the tap was for.
 bool Overview::entrySettled() const {
@@ -43,7 +43,7 @@ public:
   // simplify() + preview geometry can empty it
   bool disableSimplification() override { return true; }
   bool undiscardable() override { return true; }
-  const char *passName() override { return "GloviewPainter"; }
+  const char *passName() override { return "HyprviewPainter"; }
   ePassElementType type() override { return EK_CUSTOM; }
   std::optional<CBox> boundingBox() override {
     const auto m = m_owner ? m_owner->monitor() : nullptr;

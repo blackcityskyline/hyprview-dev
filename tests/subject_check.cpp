@@ -17,11 +17,11 @@
 
 #include "../src/model/subject.hpp"
 
-using gloview::model::Domain;
-using gloview::model::GroupRef;
-using gloview::model::SubjectRef;
-using gloview::model::showsTabs;
-using gloview::model::showsWindows;
+using hyprview::model::Domain;
+using hyprview::model::GroupRef;
+using hyprview::model::SubjectRef;
+using hyprview::model::showsTabs;
+using hyprview::model::showsWindows;
 
 namespace {
 

@@ -6,7 +6,7 @@
 
 #include "../layout.hpp"
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // A subject with no place of its own outside the overlay: a tab is a slot inside a window.
 [[nodiscard]] constexpr LRect noPlace() { return LRect{}; }
@@ -36,4 +36,4 @@ namespace gloview::model {
   return target;
 }
 
-} // namespace gloview::model
+} // namespace hyprview::model

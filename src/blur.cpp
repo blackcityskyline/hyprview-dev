@@ -13,7 +13,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 
@@ -115,7 +115,7 @@ GLuint compileShader(GLenum type, const char* src) {
     if (!ok) {
         char log[1024] = {0};
         glGetShaderInfoLog(sh, sizeof(log) - 1, nullptr, log);
-        Log::logger->log(Log::ERR, "gloview blur: shader compile failed: {}", log);
+        Log::logger->log(Log::ERR, "hyprview blur: shader compile failed: {}", log);
         glDeleteShader(sh);
         return 0;
     }
@@ -141,7 +141,7 @@ GLuint linkProgram(const char* vsSrc, const char* fsSrc) {
     if (!ok) {
         char log[1024] = {0};
         glGetProgramInfoLog(prog, sizeof(log) - 1, nullptr, log);
-        Log::logger->log(Log::ERR, "gloview blur: program link failed: {}", log);
+        Log::logger->log(Log::ERR, "hyprview blur: program link failed: {}", log);
         glDeleteProgram(prog);
         return 0;
     }
@@ -263,9 +263,9 @@ void CBlurFilter::ensureScratch(int w, int h) {
     m_blurH  = bh;
 
     if (!m_fbA)
-        m_fbA = g_pHyprRenderer->createFB("gloview blur A");
+        m_fbA = g_pHyprRenderer->createFB("hyprview blur A");
     if (!m_fbB)
-        m_fbB = g_pHyprRenderer->createFB("gloview blur B");
+        m_fbB = g_pHyprRenderer->createFB("hyprview blur B");
     if (!m_fbA->isAllocated() || m_fbA->m_size != Vector2D(bw, bh))
         m_fbA->alloc(bw, bh);
     if (!m_fbB->isAllocated() || m_fbB->m_size != Vector2D(bw, bh))
@@ -277,7 +277,7 @@ void CBlurFilter::ensureScratch(int w, int h) {
         lw = std::max(1, (lw + 1) / 2);
         lh = std::max(1, (lh + 1) / 2);
         if (!m_downFBs[i])
-            m_downFBs[i] = g_pHyprRenderer->createFB("gloview blur pyramid");
+            m_downFBs[i] = g_pHyprRenderer->createFB("hyprview blur pyramid");
         if (!m_downFBs[i]->isAllocated() || m_downFBs[i]->m_size != Vector2D(lw, lh))
             m_downFBs[i]->alloc(lw, lh);
     }

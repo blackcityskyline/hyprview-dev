@@ -21,7 +21,7 @@ Usage:
     python3 tools/runtime_check.py --setup    # build a scene first (needs M.terminal)
 
 Requires a live Hyprland with the plugin loaded and debug_trace on:
-    hl.config({plugin={gloview={debug_trace=1}}})
+    hl.config({plugin={hyprview={debug_trace=1}}})
 Without the trace the DRAG|/LIFE| groups report SKIP rather than a false pass -- the log
 being empty is not evidence that nothing happened.
 """
@@ -34,7 +34,7 @@ import subprocess
 import sys
 import time
 
-LOG = "/tmp/gloview.log"
+LOG = "/tmp/hyprview.log"
 
 # The same grammar the emitters were documented with: pipe-separated key=value, no spaces in
 # a value. Parsed here rather than grepped so a prose record fails instead of passing.
@@ -76,11 +76,11 @@ def tail_from(offset):
 
 
 def cmd(args, settle=0.30):
-    """One gloview.cmd. hyprctl exits 0 whatever happened, so the log is the only channel."""
+    """One hyprview.cmd. hyprctl exits 0 whatever happened, so the log is the only channel."""
     before = log_size()
     subprocess.run(
         ["hyprctl", "eval",
-         f'gloview.cmd("{args}")'.replace("gloview.", "hl.plugin.gloview.")],
+         f'hyprview.cmd("{args}")'.replace("hyprview.", "hl.plugin.hyprview.")],
         env=ENV, capture_output=True, check=False)
     time.sleep(settle)
     return tail_from(before)
@@ -291,7 +291,7 @@ def strip_scroll_clamps(c):
 def watch(seconds, prompt):
     """Arm the log, tell the human what to do, and read what came out.
 
-    A drag cannot be produced through the seam: `gloview.cmd` sets state, it does not move
+    A drag cannot be produced through the seam: `hyprview.cmd` sets state, it does not move
     the pointer, and the FSM under test is driven by real button events. So this group is
     the one place where the harness asks instead of acts, and SKIPs rather than passes when
     the human does nothing -- silence is not evidence that the path worked.

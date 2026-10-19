@@ -28,11 +28,11 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 static std::string browserSideDir() {
     const char *rt = std::getenv("XDG_RUNTIME_DIR");
-    return (rt && *rt ? std::string(rt) : std::string("/tmp")) + "/gloview";
+    return (rt && *rt ? std::string(rt) : std::string("/tmp")) + "/hyprview";
 }
 
 static std::string tabFeedPath() { return browserSideDir() + "/tabs"; }

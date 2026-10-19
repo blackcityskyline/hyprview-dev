@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "GloView tabs",
+  "name": "HyprView tabs",
   "version": "1.0.0",
-  "description": "Reports open tabs to the GloView compositor plugin.",
+  "description": "Reports open tabs to the HyprView compositor plugin.",
   "permissions": ["tabs", "nativeMessaging", "activeTab"],
   "optional_permissions": ["<all_urls>"],
   "background": {

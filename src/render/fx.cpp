@@ -21,7 +21,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 // Down-right of the pointer, so the drop zones stay visible under the preview. Functions, not

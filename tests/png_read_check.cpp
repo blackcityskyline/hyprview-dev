@@ -15,7 +15,7 @@
 
 #include "../src/pixel/png_read.hpp"
 
-using gloview::pixel::readPngSurface;
+using hyprview::pixel::readPngSurface;
 
 namespace {
 
@@ -29,7 +29,7 @@ void want(bool ok, bool expected, const char *what) {
 }
 
 std::string scratchDir() {
-  char tpl[] = "/tmp/opencode/gloview_png_XXXXXX";
+  char tpl[] = "/tmp/opencode/hyprview_png_XXXXXX";
   return mkdtemp(tpl) ? std::string(tpl) : std::string("/tmp/opencode");
 }
 

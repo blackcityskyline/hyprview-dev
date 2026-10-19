@@ -15,11 +15,11 @@
 
 #include <cstdio>
 
-using namespace gloview;
-using gloview::model::isPlaced;
-using gloview::model::noPlace;
-using gloview::model::outgoingBox;
-using gloview::model::priorSlot;
+using namespace hyprview;
+using hyprview::model::isPlaced;
+using hyprview::model::noPlace;
+using hyprview::model::outgoingBox;
+using hyprview::model::priorSlot;
 
 namespace {
 

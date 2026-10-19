@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The gloview side of brotab: poll its mediators, write the files the plugin reads.
+"""The hyprview side of brotab: poll its mediators, write the files the plugin reads.
 
 brotab already has what a browser half needs -- an extension for every Gecko and Chromium
 browser, a tab list, the active tab, a screenshot, and the verbs -- served over HTTP by a
@@ -19,7 +19,7 @@ with no title in it. A title cannot do it, because a browser appends its own nam
 title, so what the compositor holds and what the browser reports are different strings by
 construction.
 
-Written to, all under --dir (default $XDG_RUNTIME_DIR/gloview):
+Written to, all under --dir (default $XDG_RUNTIME_DIR/hyprview):
 
     tabs                   the feed src/model/tab_feed.hpp parses
     previews/<tabId>.png   the screenshot
@@ -49,7 +49,7 @@ TIMEOUT = 1.0
 
 
 def log(msg):
-    sys.stderr.write("gloview-bridge: %s\n" % msg)
+    sys.stderr.write("hyprview-bridge: %s\n" % msg)
     sys.stderr.flush()
 
 
@@ -234,7 +234,7 @@ def merge_feed(root, incoming):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
-        "--dir", default=os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "gloview")
+        "--dir", default=os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "hyprview")
     )
     ap.add_argument("--once", action="store_true", help="one sweep, then exit")
     ap.add_argument("--generation", type=int, default=1)

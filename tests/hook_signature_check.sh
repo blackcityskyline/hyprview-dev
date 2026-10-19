@@ -9,7 +9,7 @@
 # guess. Run after a Hyprland update, before blaming the config.
 set -uo pipefail
 
-SO="${1:-build/gloview.so}"
+SO="${1:-build/hyprview.so}"
 HYPR="${2:-/usr/bin/Hyprland}"
 SRC="${3:-src/session/session.cpp}"
 

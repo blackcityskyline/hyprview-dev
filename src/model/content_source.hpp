@@ -5,7 +5,7 @@
 
 #include "subject.hpp"
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // Every consumer asks THIS and never reaches for a window handle; the compositor is reached
 // only inside an implementation. No Hyprland and no GL, so ctest can build the seam.
@@ -30,4 +30,4 @@ class IContentSource {
     virtual bool moveTo(SubjectRef s, GroupRef target) = 0;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

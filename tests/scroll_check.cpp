@@ -16,7 +16,7 @@
 
 #include "../src/model/scroll.hpp"
 
-using gloview::model::ScrollState;
+using hyprview::model::ScrollState;
 
 int main() {
   // --- a fresh strip cannot scroll ---------------------------------------------------

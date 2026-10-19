@@ -3,7 +3,7 @@
 #include "anim.hpp"
 
 // resolve() is the ONLY writer; reading config here is the deliberate exception to AGENTS.md 2.16.
-namespace gloview::anim {
+namespace hyprview::anim {
 
 class Recipes {
   public:
@@ -24,4 +24,4 @@ class Recipes {
     }
 };
 
-} // namespace gloview::anim
+} // namespace hyprview::anim

@@ -4,7 +4,7 @@
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/helpers/WLClasses.hpp>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 namespace {
 
@@ -102,4 +102,4 @@ bool WindowsContentSource::moveTo(SubjectRef s, GroupRef target) {
     return true;
 }
 
-} // namespace gloview::model
+} // namespace hyprview::model

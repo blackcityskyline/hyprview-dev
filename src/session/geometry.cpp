@@ -31,7 +31,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 Overview::Anchor Overview::stripAnchor() const {
   return render::parseAnchor(cfg::strip.anchor.get(), cfg::strip.bar_position.get());

@@ -4,7 +4,7 @@
 #include <hyprland/src/helpers/signal/Signal.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
-namespace gloview::session {
+namespace hyprview::session {
 
 // Function hooks are global: left installed after unload, the next shouldRenderWindow runs into
 // freed code. Event listeners die with the object. This type owns both; the destructor removes.

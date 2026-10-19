@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 class Lifecycle {
 public:
@@ -111,4 +111,4 @@ private:
   int  m_parkTicks    = 0;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

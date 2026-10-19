@@ -7,7 +7,7 @@
 #include "../debug/log.hpp"
 #include "../overview.hpp"
 
-namespace gloview {
+namespace hyprview {
 
 double staggered(double base, int i, int n) {
   return anim::stagger(base, i, n,

@@ -6,7 +6,7 @@
 #include "../blur.hpp"
 #include "../config/config.hpp"
 
-namespace gloview::render {
+namespace hyprview::render {
 
 struct BlurCache {
   SP<Render::IFramebuffer> fb;
@@ -77,4 +77,4 @@ class Backdrop {
     mutable CBlurFilter m_blurFilter; // independent of decoration:blur:*
 };
 
-} // namespace gloview::render
+} // namespace hyprview::render

@@ -5,7 +5,7 @@
 #include <functional>
 #include <string_view>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // An id is only meaningful with the epoch it was issued under: a bare integer is reused (close
 // tab 41 and tab 41 exists again), and a window is identified by its address, never by a raw
@@ -55,21 +55,21 @@ enum class Domain : int {
     return d == Domain::Tabs ? "tabs" : d == Domain::Both ? "both" : "windows";
 }
 
-} // namespace gloview::model
+} // namespace hyprview::model
 
 // A defaulted operator== gives no hash. Folding the epoch in is for spread, not correctness:
 // unordered_map resolves collisions with operator==.
 template <>
-struct std::hash<gloview::model::SubjectRef> {
-    std::size_t operator()(const gloview::model::SubjectRef &r) const noexcept {
+struct std::hash<hyprview::model::SubjectRef> {
+    std::size_t operator()(const hyprview::model::SubjectRef &r) const noexcept {
         const auto h = std::hash<std::uint64_t>{};
         return h(r.id) ^ (h(r.epoch) + 0x9e3779b97f4a7c15ULL + (h(r.id) << 6) + (h(r.id) >> 2));
     }
 };
 
 template <>
-struct std::hash<gloview::model::GroupRef> {
-    std::size_t operator()(const gloview::model::GroupRef &r) const noexcept {
+struct std::hash<hyprview::model::GroupRef> {
+    std::size_t operator()(const hyprview::model::GroupRef &r) const noexcept {
         const auto h = std::hash<std::uint64_t>{};
         return h(r.id) ^ (h(r.epoch) + 0x9e3779b97f4a7c15ULL + (h(r.id) << 6) + (h(r.id) >> 2));
     }

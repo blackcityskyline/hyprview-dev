@@ -1,4 +1,4 @@
-// GloView tabs — the browser side. Our own extension, one implementation for every Gecko and
+// HyprView tabs — the browser side. Our own extension, one implementation for every Gecko and
 // Chromium browser.
 //
 // It works on both because it uses only the WebExtensions subset both implement and because it
@@ -23,7 +23,7 @@
 // length, then that many bytes of JSON. No port, no handshake, nothing to scan.
 
 const api = globalThis.browser ?? globalThis.chrome;
-const NATIVE_APP = 'gloview_mediator';
+const NATIVE_APP = 'hyprview_mediator';
 
 let port = null;
 
@@ -40,20 +40,20 @@ function connect() {
     // LOGGED, not swallowed. A bare `return` here is what cost an afternoon: the port never
     // opened, nothing was written, and the console stayed empty -- so every conclusion after
     // that was a guess about a failure whose actual message was thrown away one frame above it.
-    console.error('gloview: connectNative("' + NATIVE_APP + '") failed:', e && e.message ? e.message : e);
+    console.error('hyprview: connectNative("' + NATIVE_APP + '") failed:', e && e.message ? e.message : e);
     return;
   }
-  console.log('gloview: native port opened to ' + NATIVE_APP);
+  console.log('hyprview: native port opened to ' + NATIVE_APP);
   port.onMessage.addListener((reply) => {
     if (reply && reply.ok === false)
-      console.warn('gloview mediator refused:', reply.reason);
+      console.warn('hyprview mediator refused:', reply.reason);
   });
   // The handler is GIVEN the port, and that port carries the reason. Reading only "it
   // disconnected" is what turned this into an afternoon of guessing at manifests: the port
   // opens, Zen refuses the host, and the refusal arrives right here, ignored.
   port.onDisconnect.addListener((dead) => {
     const why = dead && dead.error ? dead.error : '(no reason given)';
-    console.warn('gloview: native port disconnected -- ' + why);
+    console.warn('hyprview: native port disconnected -- ' + why);
     port = null;
     // The mediator is gone when the browser updates, when it crashes, or when it was never
     // installed. Retrying on a fixed short delay hammers a host that is not coming back.
@@ -92,7 +92,7 @@ async function report() {
     try {
       port.postMessage({ name: 'report', tabs: simplify(tabs), active: [] });
     } catch (e) {
-      console.error('gloview: postMessage failed:', e && e.message ? e.message : e);
+      console.error('hyprview: postMessage failed:', e && e.message ? e.message : e);
     }
     return;
   }
@@ -105,7 +105,7 @@ async function report() {
       screenshot: screenshot || undefined,
     });
   } catch (e) {
-    console.error('gloview: postMessage failed:', e && e.message ? e.message : e);
+    console.error('hyprview: postMessage failed:', e && e.message ? e.message : e);
   }
 }
 

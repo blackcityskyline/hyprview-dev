@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace gloview::render {
+namespace hyprview::render {
 
 class FramePump {
   public:
@@ -33,4 +33,4 @@ class FramePump {
     std::uint64_t m_tick = 0;
 };
 
-} // namespace gloview::render
+} // namespace hyprview::render

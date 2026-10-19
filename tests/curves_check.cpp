@@ -20,7 +20,7 @@
 
 #include "../src/clock/curves.hpp"
 
-using gloview::curves::eval;
+using hyprview::curves::eval;
 
 namespace {
 
@@ -41,7 +41,7 @@ struct BezierCase {
 } // namespace
 
 int main() {
-  gloview::curves::registerBuiltins();
+  hyprview::curves::registerBuiltins();
 
   // --- builtins -----------------------------------------------------------------
   for (const char *n : {"linear", "easeout", "easeinout", "back"}) {

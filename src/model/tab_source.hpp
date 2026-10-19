@@ -13,7 +13,7 @@
 #include "subject.hpp"
 #include "tab_feed.hpp"
 
-namespace gloview::model {
+namespace hyprview::model {
 
 class TabsContentSource final : public IContentSource {
   public:
@@ -122,4 +122,4 @@ class TabsContentSource final : public IContentSource {
     std::unordered_map<std::uint64_t, std::string> titles_;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

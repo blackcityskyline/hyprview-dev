@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // A window the plugin can put a browser window into.
 struct HostWindow {
@@ -85,4 +85,4 @@ class BrowserLinks {
     std::unordered_map<std::uint64_t, std::uint64_t> m_byBrowser;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

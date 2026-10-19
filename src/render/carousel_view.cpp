@@ -16,7 +16,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 
@@ -110,4 +110,4 @@ void Overview::renderCarousel() const {
   }
 }
 
-} // namespace gloview
+} // namespace hyprview

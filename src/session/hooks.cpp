@@ -7,7 +7,7 @@
 #include "../debug/log.hpp"
 #include "../overview.hpp"
 
-namespace gloview::session {
+namespace hyprview::session {
 
 namespace {
 
@@ -156,7 +156,7 @@ bool Hooks::install(HANDLE handle, void *self) {
       "CWindow>, Hyprutils::Memory::CSharedPointer<Monitor::CMonitor>)");
   if (!addr) {
     HyprlandAPI::addNotification(
-        m_handle, "[gloview] could not find shouldRenderWindow to hook",
+        m_handle, "[hyprview] could not find shouldRenderWindow to hook",
         CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
     return false;
   }
@@ -165,7 +165,7 @@ bool Hooks::install(HANDLE handle, void *self) {
   if (!m_shouldRenderHook || !m_shouldRenderHook->hook()) {
     HyprlandAPI::addNotification(
         m_handle,
-        "[gloview] failed to hook shouldRenderWindow — is another gloview "
+        "[hyprview] failed to hook shouldRenderWindow — is another hyprview "
         "instance loaded (hyprpm)?",
         CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
     return false;
@@ -183,13 +183,13 @@ bool Hooks::install(HANDLE handle, void *self) {
       m_damageSurfaceOrig = m_damageSurfaceHook->m_original;
     else {
       HyprlandAPI::addNotification(
-          m_handle, "[gloview] failed to hook damageSurface",
+          m_handle, "[hyprview] failed to hook damageSurface",
           CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
       m_damageSurfaceHook = nullptr;
     }
   } else {
     HyprlandAPI::addNotification(
-        m_handle, "[gloview] could not find damageSurface to hook",
+        m_handle, "[hyprview] could not find damageSurface to hook",
         CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
   }
 
@@ -217,7 +217,7 @@ bool Hooks::install(HANDLE handle, void *self) {
     if (!addrFocus) {
       HyprlandAPI::addNotification(
           m_handle,
-          std::string("[gloview] could not find ") + fh.name +
+          std::string("[hyprview] could not find ") + fh.name +
               " to hook — input will reach the windows under the overview",
           CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
       return false;
@@ -226,7 +226,7 @@ bool Hooks::install(HANDLE handle, void *self) {
     if (!*fh.slot || !(*fh.slot)->hook()) {
       *fh.slot = nullptr;
       HyprlandAPI::addNotification(
-          m_handle, std::string("[gloview] failed to hook ") + fh.name,
+          m_handle, std::string("[hyprview] failed to hook ") + fh.name,
           CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
       return false;
     }

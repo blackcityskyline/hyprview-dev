@@ -23,7 +23,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 
@@ -371,4 +371,4 @@ void Overview::renderGhosts() const {
   }
 }
 
-} // namespace gloview
+} // namespace hyprview

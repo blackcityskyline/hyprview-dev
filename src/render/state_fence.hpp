@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace gloview::render {
+namespace hyprview::render {
 
 struct GLState {
   bool blend = false;
@@ -45,4 +45,4 @@ struct GLState {
   return out;
 }
 
-} // namespace gloview::render
+} // namespace hyprview::render

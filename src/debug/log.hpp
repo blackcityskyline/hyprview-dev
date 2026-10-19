@@ -4,7 +4,7 @@
 
 #include "../layout.hpp"
 
-namespace gloview::debug {
+namespace hyprview::debug {
 
 bool enabled();
 
@@ -73,4 +73,4 @@ void scroll(const char *event, const std::string &state);
 
 } // namespace trace
 
-} // namespace gloview::debug
+} // namespace hyprview::debug

@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <string>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 class ScrollState {
 public:
@@ -57,4 +57,4 @@ private:
   double m_from = 0.0, m_target = 0.0, m_current = 0.0;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

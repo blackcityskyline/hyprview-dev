@@ -24,7 +24,7 @@
 
 #include "../src/anim_types.hpp"
 
-using namespace gloview::anim;
+using namespace hyprview::anim;
 
 namespace {
 
@@ -242,7 +242,7 @@ int main(int argc, char **argv) {
   const auto styleCallers = {&clocks, &actions, &overview, &recipes};
   int styleCalls = 0;
   // Both spellings: "anim::style(" outside the namespace and a bare "style(" inside it.
-  // anim_recipes.hpp lives in gloview::anim, where the qualified form would not compile.
+  // anim_recipes.hpp lives in hyprview::anim, where the qualified form would not compile.
   const std::string kQual{"anim::style(\""}, kBare{"style(\""};
   for (const auto *src : styleCallers) {
     for (const auto *needle : {&kQual, &kBare}) {

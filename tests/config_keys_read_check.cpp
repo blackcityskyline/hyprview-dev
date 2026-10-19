@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
       continue;
     Key k;
     k.member = line.substr(amp + 2, comma - amp - 2);
-    const auto at = line.find("\"plugin:gloview:");
+    const auto at = line.find("\"plugin:hyprview:");
     if (at == std::string::npos)
       continue;
     const auto end = line.find('"', at + 16);

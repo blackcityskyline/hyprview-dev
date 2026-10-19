@@ -18,7 +18,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 uint32_t modBitForKeycode(int kc) {
@@ -161,10 +161,10 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   cancel = handled || !passthrough;
 }
 
-static_assert(gloview::input::kModShift == HL_MODIFIER_SHIFT);
-static_assert(gloview::input::kModCtrl == HL_MODIFIER_CTRL);
-static_assert(gloview::input::kModAlt == HL_MODIFIER_ALT);
-static_assert(gloview::input::kModMeta == HL_MODIFIER_META);
+static_assert(hyprview::input::kModShift == HL_MODIFIER_SHIFT);
+static_assert(hyprview::input::kModCtrl == HL_MODIFIER_CTRL);
+static_assert(hyprview::input::kModAlt == HL_MODIFIER_ALT);
+static_assert(hyprview::input::kModMeta == HL_MODIFIER_META);
 
 
 bool Overview::keyMatches(int keycode, uint32_t mods,
@@ -286,4 +286,4 @@ void Overview::activateSelection() {
 }
 
 
-} // namespace gloview
+} // namespace hyprview

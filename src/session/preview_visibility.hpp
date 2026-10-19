@@ -9,7 +9,7 @@
 
 #include "../model/strip.hpp"
 
-namespace gloview::session {
+namespace hyprview::session {
 
 // Makes windows on other workspaces drawable into a preview: the compositor reads three things
 // (ws alpha, fullscreen alpha, surface visibleRegion), and all three say "no" off the active ws.

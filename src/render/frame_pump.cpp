@@ -4,7 +4,7 @@
 
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 
-namespace gloview::render {
+namespace hyprview::render {
 
 namespace {
 // tick BETWEEN frames, not during a commit
@@ -51,4 +51,4 @@ void FramePump::ensure(bool busy, const PHLMONITOR &mon) {
     g_pEventLoopManager->addTimer(m_timer);
 }
 
-} // namespace gloview::render
+} // namespace hyprview::render

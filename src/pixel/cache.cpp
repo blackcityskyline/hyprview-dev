@@ -6,7 +6,7 @@
 
 #include <hyprland/src/render/Renderer.hpp>
 
-namespace gloview::pixel {
+namespace hyprview::pixel {
 
 namespace {
 
@@ -152,4 +152,4 @@ SP<Render::ITexture> PixelCache::snapshot(const PHLWINDOW &win) const {
   return it->second.tex;
 }
 
-} // namespace gloview
+} // namespace hyprview

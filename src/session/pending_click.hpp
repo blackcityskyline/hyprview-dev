@@ -7,7 +7,7 @@
 #include <chrono>
 #include <functional>
 
-namespace gloview::session {
+namespace hyprview::session {
 
 // close_trigger == "doubleclick": the armed timer IS the state -- no flag can disagree with it.
 // Nothing can be pending without an armed callback, so the destructor cancels too.

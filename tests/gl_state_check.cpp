@@ -16,8 +16,8 @@
 
 #include "../src/render/state_fence.hpp"
 
-using gloview::render::GLState;
-using gloview::render::glStateDelta;
+using hyprview::render::GLState;
+using hyprview::render::glStateDelta;
 
 namespace {
 

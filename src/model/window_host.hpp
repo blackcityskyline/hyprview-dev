@@ -3,7 +3,7 @@
 #include <hyprland/src/output/Monitor.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // Which windows belong is the run's rule and changes mid-run: a default here would mean "yes".
 class IWindowHost {
@@ -18,4 +18,4 @@ class IWindowHost {
     [[nodiscard]] virtual PHLMONITOR monitor() const = 0;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

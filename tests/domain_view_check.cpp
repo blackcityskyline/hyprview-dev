@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
 
   // --- 3: registered, bound, documented ---------------------------------------------------------
   {
-    want(cfg.find("plugin:gloview:key_browser") != std::string::npos,
+    want(cfg.find("plugin:hyprview:key_browser") != std::string::npos,
          "key_browser is not registered in config.cpp");
     want(keys.find("cfg::keys.browser.get()") != std::string::npos,
          "key_browser is registered but nothing reads it");

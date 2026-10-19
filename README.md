@@ -1,5 +1,5 @@
-# GloView
-[![license](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/fedsfarm/gloview/blob/main/LICENSE) [![#main:feds.farm](https://escape.feds.farm/feds.png)](https://escape.feds.farm/#main:feds.farm)
+# HyprView
+[![license](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/fedsfarm/hyprview/blob/main/LICENSE) [![#main:feds.farm](https://escape.feds.farm/feds.png)](https://escape.feds.farm/#main:feds.farm)
 
 https://github.com/user-attachments/assets/0a3d812a-eae0-4ca5-8698-7a006e540857
 
@@ -25,7 +25,7 @@ src/
 ├── pixel/                caches: labels, close glyph, entry snapshots
 ├── config/               the typed option schema, grouped by domain; live handles
 ├── view/                 the view-state shared by input and render
-├── debug/                gated log channel (/tmp/gloview.log)
+├── debug/                gated log channel (/tmp/hyprview.log)
 ├── model/                the Model data structures (Tile/StripItem/Drag/...)
 ├── layout.{hpp,cpp}      pure geometry: no Hyprland, no GL (the only ctest domain)
 ├── blur.{hpp,cpp}        self-contained dual-Kawase + gaussian, independent of decoration:blur
@@ -42,26 +42,26 @@ nothing. Whatever sits ON TOP of content draws AFTER it.
 Via hyprpm:
 
 ```sh
-hyprpm add https://github.com/fedsfarm/gloview
-hyprpm enable gloview
+hyprpm add https://github.com/fedsfarm/hyprview
+hyprpm enable hyprview
 ```
 
 ### Arch (AUR)
 
 ```sh
-yay -S gloview
+yay -S hyprview
 ```
 
 ### Nixos
 
 ```nix
-inputs.gloview = { url = "github:fedsfarm/gloview"; inputs.hyprland.follows = "hyprland"; };
+inputs.hyprview = { url = "github:fedsfarm/hyprview"; inputs.hyprland.follows = "hyprland"; };
 ```
 ```nix
 wayland.windowManager.hyprland = {
   enable = true;
-  plugins = [ inputs.gloview.packages.${pkgs.system}.gloview ];
-  settings.bind = [ "SUPER, TAB, gloview:toggle" ];
+  plugins = [ inputs.hyprview.packages.${pkgs.system}.hyprview ];
+  settings.bind = [ "SUPER, TAB, hyprview:toggle" ];
 };
 ```
 
@@ -72,45 +72,45 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
 
-Produces `build/gloview.so`. The ABI must match the running Hyprland exactly —
+Produces `build/hyprview.so`. The ABI must match the running Hyprland exactly —
 build against the same headers, or a version skew gives a `.so` that crashes on
 load. While iterating, `cmake --build build --target reload` rebuilds and
 hot-reloads into the running Hyprland.
 
 ## Usage
 
-Dispatchers: `gloview:toggle`, `gloview:open`, `gloview:close`, `gloview:desktop`,
-`gloview:allworkspaces` (the all-workspaces "expo" view — opens into it if closed),
-`gloview:alttab` / `gloview:alttabback` (alt-tab cycling — see `alt_tab_*` below).
-Or `hyprctl gloview` / `gloviewclose` / `gloviewdesktop` / `gloviewall` / `gloviewalttab` / `gloviewalttabback`
+Dispatchers: `hyprview:toggle`, `hyprview:open`, `hyprview:close`, `hyprview:desktop`,
+`hyprview:allworkspaces` (the all-workspaces "expo" view — opens into it if closed),
+`hyprview:alttab` / `hyprview:alttabback` (alt-tab cycling — see `alt_tab_*` below).
+Or `hyprctl hyprview` / `hyprviewclose` / `hyprviewdesktop` / `hyprviewall` / `hyprviewalttab` / `hyprviewalttabback`
 
-`gloview:toggle` is not a plain close: closed it opens, open with a card focused it
+`hyprview:toggle` is not a plain close: closed it opens, open with a card focused it
 confirms that card (switches to its workspace and focuses it — the same thing Enter does),
-and open with nothing focused it cancels. Use `gloview:close` for an unconditional cancel.
+and open with nothing focused it cancels. Use `hyprview:close` for an unconditional cancel.
 
 Lua:
 
 ```lua
-hl.bind("SUPER + TAB", hl.plugin.gloview.toggle)
-hl.bind("SUPER + SHIFT + TAB", hl.plugin.gloview.desktop)
-hl.bind("SUPER + CTRL + TAB", hl.plugin.gloview.allworkspaces)
+hl.bind("SUPER + TAB", hl.plugin.hyprview.toggle)
+hl.bind("SUPER + SHIFT + TAB", hl.plugin.hyprview.desktop)
+hl.bind("SUPER + CTRL + TAB", hl.plugin.hyprview.allworkspaces)
 ```
 
 ```ini
-bind = SUPER, TAB, gloview:toggle
-bind = SUPER SHIFT, TAB, gloview:desktop
-bind = SUPER CTRL, TAB, gloview:allworkspaces
+bind = SUPER, TAB, hyprview:toggle
+bind = SUPER SHIFT, TAB, hyprview:desktop
+bind = SUPER CTRL, TAB, hyprview:allworkspaces
 ```
 
 ### Alt-Tab
 
-`gloview:alttab` / `gloview:alttabback` are meant to be bound to a single modifier+key
+`hyprview:alttab` / `hyprview:alttabback` are meant to be bound to a single modifier+key
 combo, the same way you'd normally bind a real alt-tab — bind the SAME key you might
-otherwise give `gloview:allworkspaces`:
+otherwise give `hyprview:allworkspaces`:
 
 ```ini
-bind = SUPER, TAB, gloview:alttab
-bind = SUPER SHIFT, TAB, gloview:alttabback
+bind = SUPER, TAB, hyprview:alttab
+bind = SUPER SHIFT, TAB, hyprview:alttabback
 ```
 
 Closed → opens straight into the all-workspaces view with the selection on the first tile.
@@ -122,7 +122,7 @@ by default) so releasing it can commit the selection — see the config table.
 
 ## Config
 
-All keys live under `plugin:gloview:*`. Colors are `0xAARRGGBB` integers.
+All keys live under `plugin:hyprview:*`. Colors are `0xAARRGGBB` integers.
 
 - **`rows`** (default) — macOS-like: previews keep their aspect ratio and are packed into balanced rows, with the row count chosen to make the previews as large as possible. Reads spatially like the real desktop.
 - **`grid`** — uniform cells, one preview centered in each.
@@ -160,7 +160,7 @@ a set of LEAVES — one per ACTION. Every leaf reads four options:
 Motions with selectable TYPES also read a `<thing>_style` key (listed below).
 
 The imperative twin of these keys is the Lua API
-`gloview.animation{ leaf = "...", enabled = bool, speed = n, ms = n, curve = "...", style = "..." }`
+`hyprview.animation{ leaf = "...", enabled = bool, speed = n, ms = n, curve = "...", style = "..." }`
 — whatever it sets wins over the static keys; unset fields fall through.
 
 | Leaf | base ms | default curve | What it drives |
@@ -174,7 +174,7 @@ The imperative twin of these keys is the Lua API
 | `strip_step` | 200 | easeinout | animated strip scroll per workspace step |
 | `ws_enter` | 250 | easeout | incoming tiles' timing on a workspace switch (style: `ws_enter_style`) |
 | `ws_exit` | 250 | easeout | outgoing ghosts on a workspace switch (style: `ws_exit_style`) |
-| `expo_in` | 250 | easeout | one→all spread during the all↔one flip (`gloview:allworkspaces`) |
+| `expo_in` | 250 | easeout | one→all spread during the all↔one flip (`hyprview:allworkspaces`) |
 | `expo_out` | 250 | easeout | all→one collapse during the flip |
 | `jump_in` | 180 | easeout | one→all flip started from the keyboard (`jump_style`) |
 | `jump_out` | 220 | easeout | all→one flip started from the keyboard |
@@ -225,18 +225,18 @@ horizontal axis.
 scaled in on everything else. All three of `slide`, `pop` and `fade` now have a branch.
 
 **Custom curves (Lua).** Register a named curve once (e.g. next to the config
-in `plugins/gloview.lua`) — either as a function or as a cubic bezier:
+in `plugins/hyprview.lua`) — either as a function or as a cubic bezier:
 
 ```lua
 -- function form: receives t in 0..1, returns shaped progress (overshoot OK)
-gloview.curve("snap", function(t) return 1 - (1 - t)^3 end)
+hyprview.curve("snap", function(t) return 1 - (1 - t)^3 end)
 
 -- bezier form (CSS-style control points), both spellings work:
-gloview.curve("fluent_decel", { type = "bezier", points = { {0, 0.2}, {0.4, 1} } })
-gloview.curve("easeOutCubic", { 0.33, 1, 0.68, 1 })
+hyprview.curve("fluent_decel", { type = "bezier", points = { {0, 0.2}, {0.4, 1} } })
+hyprview.curve("easeOutCubic", { 0.33, 1, 0.68, 1 })
 
 -- then use it anywhere:
-gloview.animation({ leaf = "glide", curve = "fluent_decel" })
+hyprview.animation({ leaf = "glide", curve = "fluent_decel" })
 ```
 
 | `preview_round` | int (px) | `12` | Corner radius for every window-shaped preview — main grid tiles AND strip card previews (with their borders/shadows) — clamped down automatically on the smaller strip thumbnails |
@@ -283,11 +283,11 @@ gloview.animation({ leaf = "glide", curve = "fluent_decel" })
 | `key_all_workspaces` | key names | `a` | Toggle the all-workspaces (expo) view; `""` to disable |
 | `key_workspace` | key names | `1,2,3,4,5,6,7,8,9,0` | Key at position N switches DIRECTLY to workspace N+1 (so `0` is always workspace 10) — creates it first if needed, independent of what's currently on the strip |
 | `key_workspace_mode` | `switch` \| `jump` | `switch` | `switch`: a digit changes the displayed workspace and the overview stays open (Ctrl+digit is a no-op) — `jump`: a digit switches AND immediately closes the overview; hold Ctrl+digit for the old stay-open behavior |
-| `alt_tab_modifier` | `alt` \| `ctrl` \| `shift` \| `super` | `alt` | Which modifier's release commits the Alt-Tab selection (match whatever you bound `gloview:alttab` with) |
+| `alt_tab_modifier` | `alt` \| `ctrl` \| `shift` \| `super` | `alt` | Which modifier's release commits the Alt-Tab selection (match whatever you bound `hyprview:alttab` with) |
 | `alt_tab_commit_on_release` | bool (0/1) | `1` | Releasing `alt_tab_modifier` focuses the selection & closes, like a normal alt-tab — off: releasing does nothing, confirm with `key_activate`/click instead |
 | `exit_on_click` | bool (0/1) | `1` | Click on empty space dismisses the overview |
 | `exit_on_switch` | bool (0/1) | `0` | Dismiss when the live workspace changes underneath (e.g. a keybind) |
-| `show_all_workspaces` | bool (0/1) | `0` | Main area shows every window on the monitor (expo), not just the displayed workspace. Toggle live with `gloview:allworkspaces`, the `key_all_workspaces` key, or the strip's "All" card |
+| `show_all_workspaces` | bool (0/1) | `0` | Main area shows every window on the monitor (expo), not just the displayed workspace. Toggle live with `hyprview:allworkspaces`, the `key_all_workspaces` key, or the strip's "All" card |
 | `strip_wallpaper` | bool (0/1) | `1` | Empty workspace cards show a cover-fit wallpaper thumbnail (the same source the backdrop uses) instead of a flat body |
 | `strip_empty_mode` | `show` \| `neighbors` \| `hide` | `show` | `show`: every numeric workspace up to the highest one in use (at least 1-10) gets a strip card, even ones that were never created — `neighbors`: only occupied workspaces plus the displayed one's immediate numeric neighbors (reveals a run of empties one hop at a time as you navigate into it) — `hide`: only occupied workspaces, no empty ones at all. `show`/`neighbors` cards for a workspace that doesn't exist yet are created lazily on click/drop, same as `+` but at that specific number. |
 | `show_special` | bool (0/1) | `0` | Include the special (scratchpad) workspace as a strip card |
@@ -355,9 +355,9 @@ gloview.animation({ leaf = "glide", curve = "fluent_decel" })
 | `hide_overlay_layers` | bool (0/1) | `0` | Fade out Overlay layer surfaces (popups/notifications) while open |
 | `above_namespaces` | string | `""` | Comma/space list of layer namespaces to draw *above* the overview (trailing `*` glob; a namespace containing `aboveoverview` always qualifies) |
 | `preview_mode` | `live` \| `snapshot` | `live` | `live` (default): each tile renders its window's actual surface every frame — video/animations keep running, at the cost of GPU per visible preview — `snapshot`: tiles show a frozen texture captured at open time (no per-frame surface rendering; cheaper GPU, but content is static under the overlay) |
-| `cursor_mode` | `auto` \| `software` | `auto` | `auto` (default): prefers Hyprland's hardware cursor (KMS cursor plane) when the driver exposes one — the cursor plane is composited above the framebuffer, so it stays visible over the dim backdrop with zero framebuffer writes, zero erase cycles, and zero GPU cost per mouse move — `software`: forces gloview to draw the cursor itself, first erasing the previous position with a fully-opaque backdrop-colored rect (use only if you observe stale cursor artifacts with hardware mode) |
-| `debug_logs` | bool (0/1) | `0` | Verbose `[gloview]` logging |
-| `debug_trace` | int mask | `0` | Machine-readable records in `/tmp/gloview.log`, one family per bit: `1` ANIM, `2` DRAG, `4` LIFE, `8` SCROLL, `16` SWAP. `1` alone means all of them. `CMD|`, `TUNING|` and `STATE|` are never masked -- they are how you learn a command did anything at all. Separate from `debug_logs` so a trace run is not drowned by per-frame spam; `cmd("trace")` reports the path, size and which families are on. The file rotates at 8 MB keeping three generations, so `gloview.log.1` is the previous session |
+| `cursor_mode` | `auto` \| `software` | `auto` | `auto` (default): prefers Hyprland's hardware cursor (KMS cursor plane) when the driver exposes one — the cursor plane is composited above the framebuffer, so it stays visible over the dim backdrop with zero framebuffer writes, zero erase cycles, and zero GPU cost per mouse move — `software`: forces hyprview to draw the cursor itself, first erasing the previous position with a fully-opaque backdrop-colored rect (use only if you observe stale cursor artifacts with hardware mode) |
+| `debug_logs` | bool (0/1) | `0` | Verbose `[hyprview]` logging |
+| `debug_trace` | int mask | `0` | Machine-readable records in `/tmp/hyprview.log`, one family per bit: `1` ANIM, `2` DRAG, `4` LIFE, `8` SCROLL, `16` SWAP. `1` alone means all of them. `CMD|`, `TUNING|` and `STATE|` are never masked -- they are how you learn a command did anything at all. Separate from `debug_logs` so a trace run is not drowned by per-frame spam; `cmd("trace")` reports the path, size and which families are on. The file rotates at 8 MB keeping three generations, so `hyprview.log.1` is the previous session |
 
 `top`/`bottom` give a horizontal strip, `left`/`right` a vertical one. `anchor`
 supersedes the older `bar_position` (top/bottom only); set `anchor` and it wins.
@@ -482,7 +482,7 @@ window set. With `carousel = 0` the layout runs untouched in both views.
   rotates the run (all cards glide to their new depths on the usual `glide`
   clock, without the per-tile stagger — it is one band, not a queue).
   - Left/Right step the centered card, circularly; up/down do nothing.
-  - Tab/Shift-Tab, the digit keys and the `gloview:allworkspaces` toggle keep
+  - Tab/Shift-Tab, the digit keys and the `hyprview:allworkspaces` toggle keep
     their normal meaning: **workspaces**, not cards.
   - Alt-Tab still cycles the selection; Enter or a click focuses the selected
     window and dismisses.
@@ -519,7 +519,7 @@ them however you like:
 ### Colors
 
 Every color option takes ONE string: a hex literal in any accepted form, or a
-palette-resolved hex produced Lua-side from your theme module — gloview itself
+palette-resolved hex produced Lua-side from your theme module — hyprview itself
 has zero coupling to any scheme engine:
 
 | Value | Meaning |
@@ -557,7 +557,7 @@ applies the new colors live.
 ```lua
     hl.config({
         plugin = {
-            gloview = {
+            hyprview = {
                 layout         = "rows",
                 gap            = 34,
                 padding        = 80,
@@ -643,7 +643,7 @@ applies the new colors live.
 
 ```ini
 plugin {
-    gloview {
+    hyprview {
         layout = rows
         gap = 34
         padding = 80

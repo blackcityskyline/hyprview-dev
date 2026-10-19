@@ -4,7 +4,7 @@
 #include <hyprland/src/desktop/view/WLSurface.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 
-namespace gloview::session {
+namespace hyprview::session {
 
 LayerVisibility::~LayerVisibility() { restore(); }
 

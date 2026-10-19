@@ -24,7 +24,7 @@
 
 #include "layout.hpp"
 
-using namespace gloview;
+using namespace hyprview;
 
 namespace {
 

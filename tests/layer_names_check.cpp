@@ -29,12 +29,12 @@ void check(bool got, bool want, const char *what) {
 } // namespace
 
 int main() {
-  using gloview::session::isAboveLayer;
+  using hyprview::session::isAboveLayer;
 
   // The implicit entry: every install carries it and the config cannot remove it.
   check(isAboveLayer("aboveoverview", ""), true, "aboveoverview with an empty list");
   check(isAboveLayer("aboveoverview-bar", ""), true, "aboveoverview as a substring");
-  check(isAboveLayer("gloview-overlay", ""), false, "an unrelated namespace");
+  check(isAboveLayer("hyprview-overlay", ""), false, "an unrelated namespace");
 
   // Exact entries, with the separators the config actually gets written with.
   check(isAboveLayer("waybar", "waybar"), true, "a lone entry");

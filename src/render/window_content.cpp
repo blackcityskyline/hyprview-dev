@@ -24,7 +24,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 
@@ -166,4 +166,4 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
       nullptr);
 }
 
-} // namespace gloview
+} // namespace hyprview

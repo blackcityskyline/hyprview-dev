@@ -19,7 +19,7 @@ class ITexture;
 #include "lifecycle.hpp"
 #include "scroll.hpp"
 
-namespace gloview::model {
+namespace hyprview::model {
 
 struct Tile {
   // A subject, not a window handle -- a tab has none. The identity carries no refcount:

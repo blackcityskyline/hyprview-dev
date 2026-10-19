@@ -7,7 +7,7 @@
 #include <span>
 #include <vector>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // What the overview shows FOR ONE WINDOW: the window or a tab inside it (`tabId == -1` = window).
 struct Entry {
@@ -34,4 +34,4 @@ struct Entry {
     return out;
 }
 
-} // namespace gloview::model
+} // namespace hyprview::model

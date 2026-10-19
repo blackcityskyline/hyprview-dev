@@ -18,11 +18,11 @@
 
 #include "../src/model/entries.hpp"
 
-using gloview::model::Entry;
-using gloview::model::Domain;
-using gloview::model::entriesFor;
-using gloview::model::domainName;
-using gloview::model::parseDomain;
+using hyprview::model::Entry;
+using hyprview::model::Domain;
+using hyprview::model::entriesFor;
+using hyprview::model::domainName;
+using hyprview::model::parseDomain;
 
 namespace {
 

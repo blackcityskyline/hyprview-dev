@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""The mediator: the browser half of gloview's tabs, and the only thing that writes.
+"""The mediator: the browser half of hyprview's tabs, and the only thing that writes.
 
 Started by the extension through `runtime.connectNative`, which is what makes this work without
 a binary anywhere. Native messaging is happy with an interpreter and a script; what it will not
@@ -21,7 +21,7 @@ exact guess that puts one browser's tabs under another's window.
 A process id can. This process is started BY the browser, so its parent is the browser, and a
 Hyprland window carries that same pid. Exact, with nothing heuristic about it.
 
-Writes, all under --dir (default $XDG_RUNTIME_DIR/gloview):
+Writes, all under --dir (default $XDG_RUNTIME_DIR/hyprview):
 
     tabs                   the feed src/model/tab_feed.hpp parses
     previews/<tabId>.png   a screenshot of what is on screen
@@ -48,7 +48,7 @@ _LOGFILE = [None]
 # happens to have, which is not the one a shell has: XDG_RUNTIME_DIR may be absent, and then
 # every path derived from it points somewhere nobody looks. A log that can move is a log that
 # is not there.
-DEBUG_LOG = "/tmp/gloview_mediator.log"
+DEBUG_LOG = "/tmp/hyprview_mediator.log"
 
 
 def open_log(directory):
@@ -68,7 +68,7 @@ def open_log(directory):
 
 
 def log(msg):
-    line = "gloview-mediator: %s\n" % msg
+    line = "hyprview-mediator: %s\n" % msg
     # stderr too, in case someone is watching it from the browser's own logs.
     try:
         sys.stderr.write(line)
@@ -265,7 +265,7 @@ def main():
     # whatever we did not ask for, because the caller is the browser and it is not negotiable.
     # Both spellings: --dir=PATH and --dir PATH. Anything we did not ask for is ignored, since
     # the browser's own two arguments are not ours to reject.
-    directory = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "gloview")
+    directory = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "hyprview")
     argv = sys.argv[1:]
     i = 0
     while i < len(argv):

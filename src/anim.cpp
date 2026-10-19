@@ -12,7 +12,7 @@ extern "C" {
 
 #include "debug/log.hpp"
 
-namespace gloview::anim {
+namespace hyprview::anim {
 
 struct Row {
   const char *name;
@@ -179,9 +179,9 @@ bool setTuning(const std::string &rawKey, const std::string &value) {
   // Keys are stored by SHORT name ("<leaf>_ms"); a bare name is expanded first.
   const std::string full = rawKey.rfind("plugin:", 0) == 0
                                ? rawKey
-                               : ("plugin:gloview:" + rawKey);
-  constexpr std::size_t kPrefix = sizeof("plugin:gloview:") - 1;
-  const std::string leaf = full.rfind("plugin:gloview:", 0) == 0
+                               : ("plugin:hyprview:" + rawKey);
+  constexpr std::size_t kPrefix = sizeof("plugin:hyprview:") - 1;
+  const std::string leaf = full.rfind("plugin:hyprview:", 0) == 0
                                ? full.substr(kPrefix)
                                : rawKey;
 
@@ -232,7 +232,7 @@ void registerAll(HANDLE handle) {
   // deque: the keys must outlive registration (CIntValue keeps them as const char*).
   static std::deque<std::string> keys;
   const auto key = [&](const char *stem, const char *suffix) {
-    keys.emplace_back(std::string("plugin:gloview:") + stem + suffix);
+    keys.emplace_back(std::string("plugin:hyprview:") + stem + suffix);
     return keys.back().c_str();
   };
 
@@ -316,4 +316,4 @@ int luaSetRule(::lua_State *L) {
   setRule(leaf, r);
   return 0;
 }
-} // namespace gloview::anim
+} // namespace hyprview::anim

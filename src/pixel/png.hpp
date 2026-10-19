@@ -8,8 +8,8 @@
 
 #include <string>
 
-namespace gloview::pixel {
+namespace hyprview::pixel {
 
 [[nodiscard]] SP<Render::ITexture> loadPng(const std::string &path);
 
-} // namespace gloview::pixel
+} // namespace hyprview::pixel

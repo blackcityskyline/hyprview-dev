@@ -2,7 +2,7 @@
 
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 
-namespace gloview::session {
+namespace hyprview::session {
 
 bool PendingClick::arm(std::chrono::milliseconds ms, const PHLWINDOW &w,
                        const std::function<void(PHLWINDOW)> &onFire) {

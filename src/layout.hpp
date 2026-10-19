@@ -4,7 +4,7 @@
 #include <vector>
 
 // pure geometry, monitor-local LOGICAL px, no Hyprland and no GL
-namespace gloview {
+namespace hyprview {
 
 // Hyprland's Vector2D is not reachable from here: ctest compiles layout.hpp and
 // render/geometry.hpp on their own, with no hyprutils on the include path, and a header

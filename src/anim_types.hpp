@@ -9,7 +9,7 @@
 #include <optional>
 #include <string>
 
-namespace gloview::anim {
+namespace hyprview::anim {
 
 struct Cfg {
   bool        on = false;
@@ -18,7 +18,7 @@ struct Cfg {
   std::string style;
 };
 
-// Imperative override layered over the registered keys (gloview.animation({...})).
+// Imperative override layered over the registered keys (hyprview.animation({...})).
 struct Rule {
   std::optional<bool>        enabled;
   std::optional<double>      speed;
@@ -188,4 +188,4 @@ enum class TileExit : std::uint8_t { Home, InPlace };
   return k < 0.0 ? 0.0 : (k > 1.0 ? 1.0 : k);
 }
 
-} // namespace gloview::anim
+} // namespace hyprview::anim

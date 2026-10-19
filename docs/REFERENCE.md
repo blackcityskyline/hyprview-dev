@@ -1,4 +1,4 @@
-# Справка gloview
+# Справка hyprview
 
 Вынесено из `AGENTS.md`, чтобы то, что читают перед каждой правкой, осталось
 правилами, а не справочником.
@@ -182,7 +182,7 @@ SKIP, хуже отсутствующей.
 
 Файл ротируется **по размеру** (8 МБ), не по старту сессии: обрезать при
 загрузке — значит выбросить ровно тот лог, который нужен, когда что-то сломалось.
-Держится три поколения: `gloview.log.1` — предыдущая сессия.
+Держится три поколения: `hyprview.log.1` — предыдущая сессия.
 
 ## Виды записей
 
@@ -242,7 +242,7 @@ close/open — поэтому **блюр-подпуть**, где save/restore �
 спамом. Включается либо в Lua-конфиге, либо на лету:
 
 ```bash
-hyprctl eval 'hl.plugin.gloview.cmd("set debug_trace 1")'
+hyprctl eval 'hl.plugin.hyprview.cmd("set debug_trace 1")'
 ```
 
 Внимание: **`debug_trace` сбрасывается при каждом reload** — это новый инстанс
@@ -250,7 +250,7 @@ hyprctl eval 'hl.plugin.gloview.cmd("set debug_trace 1")'
 
 ## Где лог
 
-`/tmp/gloview.log`. Единственный канал успеха команды: `hyprctl eval` не печатает
+`/tmp/hyprview.log`. Единственный канал успеха команды: `hyprctl eval` не печатает
 возвращаемое значение, поэтому читать надо `CMD|ok` / `CMD|err`.
 
 ---
@@ -297,11 +297,11 @@ hyprctl eval 'hl.plugin.gloview.cmd("set debug_trace 1")'
 Снизу вверх, последний выигрывает:
 
 ```
-config-значение  →  set (команда)  →  rule из gloview.animation  →  строка kRows
+config-значение  →  set (команда)  →  rule из hyprview.animation  →  строка kRows
 ```
 
 **Rule бьёт config.** `set` перекрывает всё, но `setTuning` при этом гасит
 перекрываемые поля rule — иначе `speed=1.2` из конфига делил бы запрошенные 320.
 
 Ключи пишутся **плоско**: `set layout columns`, а не `set grid layout columns`.
-Поле зовётся `grid.layout`, регистрируется как `plugin:gloview:layout`.
+Поле зовётся `grid.layout`, регистрируется как `plugin:hyprview:layout`.

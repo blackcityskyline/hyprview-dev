@@ -10,7 +10,7 @@
 #include <cstdlib>
 #include <vector>
 
-using gloview::model::Recency;
+using hyprview::model::Recency;
 
 namespace {
 

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(gloview VERSION "0.3.0" LANGUAGES CXX)
+project(hyprview VERSION "0.3.0" LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,7 +25,7 @@ pkg_check_modules(GLES REQUIRED glesv2)
 # (Debian/Nix), or `luajit` (what Hyprland itself links). Take the first that exists.
 pkg_search_module(LUA REQUIRED lua lua5.4 lua-5.4 lua54 luajit)
 
-add_library(gloview SHARED
+add_library(hyprview SHARED
   src/main.cpp
   src/session/hooks.cpp
   src/session/geometry.cpp
@@ -63,19 +63,19 @@ add_library(gloview SHARED
   src/render/strip_view.cpp
   src/render/fx.cpp
 )
-set_target_properties(gloview PROPERTIES PREFIX "")  # produce gloview.so, not libgloview.so
+set_target_properties(hyprview PROPERTIES PREFIX "")  # produce hyprview.so, not libhyprview.so
 
-target_include_directories(gloview PRIVATE ${HYPR_DEPS_INCLUDE_DIRS} ${LUA_INCLUDE_DIRS} ${GLES_INCLUDE_DIRS})
+target_include_directories(hyprview PRIVATE ${HYPR_DEPS_INCLUDE_DIRS} ${LUA_INCLUDE_DIRS} ${GLES_INCLUDE_DIRS})
 foreach(inc ${HYPR_DEPS_INCLUDE_DIRS})
   if(EXISTS "${inc}/hyprland/src")
-    target_include_directories(gloview PRIVATE "${inc}/hyprland/src")
+    target_include_directories(hyprview PRIVATE "${inc}/hyprland/src")
   endif()
 endforeach()
 
-target_link_directories(gloview PRIVATE ${HYPR_DEPS_LIBRARY_DIRS} ${LUA_LIBRARY_DIRS} ${GLES_LIBRARY_DIRS})
-target_link_libraries(gloview PRIVATE ${HYPR_DEPS_LIBRARIES} ${LUA_LIBRARIES} ${GLES_LIBRARIES})
+target_link_directories(hyprview PRIVATE ${HYPR_DEPS_LIBRARY_DIRS} ${LUA_LIBRARY_DIRS} ${GLES_LIBRARY_DIRS})
+target_link_libraries(hyprview PRIVATE ${HYPR_DEPS_LIBRARIES} ${LUA_LIBRARIES} ${GLES_LIBRARIES})
 
-install(TARGETS gloview LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS hyprview LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 # Dev hot-reload (official same-path unload;load):  cmake --build build --target reload
 # This is the upstream-documented dev reload (Hyprland wiki, Plugins/Development):
@@ -86,7 +86,7 @@ install(TARGETS gloview LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 # handle) -> a silent stale reload. With the flag, dlclose truly unmaps and the same path
 # re-mmaps the fresh build. (If you ever load a pre-flag binary, that image sticks NODELETE
 # for the life of the Hyprland process and poisons its path until you restart Hyprland once.)
-# `hyprctl gloviewunload` (Overview::hardClose) first does a synchronous, animation-free
+# `hyprctl hyprviewunload` (Overview::hardClose) first does a synchronous, animation-free
 # teardown + cancels the recapture timer so the unload can't free plugin-owned render/timer
 # state while Hyprland still references it (-> SEGV / 150% IPC-dead spin); the 0.15s settle
 # lets one plugin-free frame flush the render pass. A plugin crash kills the whole session —
@@ -405,7 +405,7 @@ add_test(NAME gl_state
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/gl_state_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/gl_state_check && ${CMAKE_CURRENT_BINARY_DIR}/gl_state_check")
          add_test(NAME load_seam
          COMMAND bash ${CMAKE_SOURCE_DIR}/tests/load_seam_check.sh
-                 $<TARGET_FILE:gloview> ${HYPRLAND_BIN}
+                 $<TARGET_FILE:hyprview> ${HYPRLAND_BIN}
          SKIP_RETURN_CODE 77)
 
 # Hook signatures against the running compositor's exports. A mismatch makes
@@ -413,21 +413,21 @@ add_test(NAME gl_state
 # swallows that, so the symptom reads as "my config did not take".
 add_test(NAME hook_signatures
          COMMAND bash ${CMAKE_SOURCE_DIR}/tests/hook_signature_check.sh
-                 $<TARGET_FILE:gloview> ${HYPRLAND_BIN}
+                 $<TARGET_FILE:hyprview> ${HYPRLAND_BIN}
                  ${CMAKE_SOURCE_DIR}/src/session/hooks.cpp
          SKIP_RETURN_CODE 77)
 
 add_custom_target(reload
-  COMMAND bash -c "hyprctl gloviewunload || true"
+  COMMAND bash -c "hyprctl hyprviewunload || true"
   COMMAND ${CMAKE_COMMAND} -E sleep 0.15
-  COMMAND bash -c "hyprctl plugin unload $<TARGET_FILE:gloview> || true"
+  COMMAND bash -c "hyprctl plugin unload $<TARGET_FILE:hyprview> || true"
   # Also drop a hyprpm-installed copy: it autoloads at session start and already holds the
   # shouldRenderWindow hooks, so loading the build path next to it fails to hook (two
   # instances can't trampoline the same prologue). No-op when not installed/loaded.
   # ($ENV{USER} resolves at configure time — a literal $USER gets mangled by the Makefile.)
-  COMMAND bash -c "hyprctl plugin unload /var/cache/hyprpm/$ENV{USER}/gloview/gloview.so || true"
-  COMMAND hyprctl plugin load $<TARGET_FILE:gloview>
-  DEPENDS gloview
+  COMMAND bash -c "hyprctl plugin unload /var/cache/hyprpm/$ENV{USER}/hyprview/hyprview.so || true"
+  COMMAND hyprctl plugin load $<TARGET_FILE:hyprview>
+  DEPENDS hyprview
   USES_TERMINAL
-  COMMENT "Hot-reloading gloview into the running Hyprland"
+  COMMENT "Hot-reloading hyprview into the running Hyprland"
 )

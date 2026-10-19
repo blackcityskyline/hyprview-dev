@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace gloview::session {
+namespace hyprview::session {
 
 [[nodiscard]] inline bool isSpace(char c) {
     return std::isspace(static_cast<unsigned char>(c)) != 0;

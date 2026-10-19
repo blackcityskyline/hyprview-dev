@@ -13,12 +13,12 @@
 #include "../src/model/content_source.hpp"
 #include "../src/model/tab_source.hpp"
 
-using gloview::model::GroupRef;
-using gloview::model::IContentSource;
-using gloview::model::SubjectRef;
-using gloview::model::TabSnapshot;
-using gloview::model::TabsContentSource;
-using gloview::model::parseTabs;
+using hyprview::model::GroupRef;
+using hyprview::model::IContentSource;
+using hyprview::model::SubjectRef;
+using hyprview::model::TabSnapshot;
+using hyprview::model::TabsContentSource;
+using hyprview::model::parseTabs;
 
 namespace {
 

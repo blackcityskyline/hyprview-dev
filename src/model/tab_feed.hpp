@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 struct TabInfo {
     std::string_view title;
@@ -132,4 +132,4 @@ struct TabSnapshot {
     return out;
 }
 
-} // namespace gloview::model
+} // namespace hyprview::model

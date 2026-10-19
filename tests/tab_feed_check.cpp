@@ -12,9 +12,9 @@
 
 #include "../src/model/tab_feed.hpp"
 
-using gloview::model::TabInfo;
-using gloview::model::TabSnapshot;
-using gloview::model::parseTabs;
+using hyprview::model::TabInfo;
+using hyprview::model::TabSnapshot;
+using hyprview::model::parseTabs;
 
 namespace {
 

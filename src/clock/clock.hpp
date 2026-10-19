@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace gloview::clock {
+namespace hyprview::clock {
 
 class Clock {
   public:
@@ -43,4 +43,4 @@ class Clocks {
                                   double stripMs) const;
 };
 
-} // namespace gloview::clock
+} // namespace hyprview::clock

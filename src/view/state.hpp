@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-namespace gloview::view {
+namespace hyprview::view {
 
 // Which view is on screen, its direction, the transform, and what layoutTiles last resolved.
 class State {
@@ -120,4 +120,4 @@ class State {
     int m_carouselFor = -1;
 };
 
-} // namespace gloview::view
+} // namespace hyprview::view

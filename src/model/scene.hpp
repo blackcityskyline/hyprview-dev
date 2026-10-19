@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // The cards in the main area, which one is focused, what the cursor is over. Writes go
 // through named intents plus tileAt(); there is no vector-issuing accessor, because recency
@@ -119,4 +119,4 @@ void swapTiles(size_t a, size_t b) {
     int m_hoveredStrip = -1;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

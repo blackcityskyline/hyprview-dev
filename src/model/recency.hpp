@@ -4,7 +4,7 @@
 #include <deque>
 #include <vector>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // Recency order over windows, most recent first: the run, the strip and alt-tab all want it,
 // and a private copy per consumer would diverge. Pure -- addresses in, indices out.
@@ -26,4 +26,4 @@ class Recency {
     std::deque<const void *> m_front;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

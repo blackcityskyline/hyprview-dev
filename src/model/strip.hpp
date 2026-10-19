@@ -6,7 +6,7 @@
 
 #include "model.hpp"
 
-namespace gloview::model {
+namespace hyprview::model {
 
 // The workspace strip: one card per workspace, plus the optional leading "All" card. Rebuilt
 // from scratch by buildStrip() and read as a snapshot by the painters, so construction is not
@@ -53,4 +53,4 @@ class Strip {
     std::vector<StripItem> m_items;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model
