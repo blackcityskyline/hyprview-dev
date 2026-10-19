@@ -5,6 +5,7 @@
 #include <cmath>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "../anim_types.hpp"
 #include "../layout.hpp"
@@ -487,6 +488,40 @@ struct WindowFit {
   fit.scale = scale;
   fit.translate = LVec2{destCx / scale - winCx, destCy / scale - winCy};
   return fit;
+}
+
+// The run's dim: the focused card is clear, the next one takes the near tone, and
+// every step past it is the far tone tapered.
+[[nodiscard]] inline double carouselTone(int depth, double nearTone, double farTone,
+                                         double taper) {
+  if (depth <= 0)
+    return 0.0;
+  const double base = depth == 1 ? nearTone : farTone;
+  return base * std::pow(taper, static_cast<double>(depth - 1));
+}
+
+// The run paints far -> near by DEPTH, and the cards the run does not show paint
+// first, behind everything. The focused card and its ring end up on top.
+struct CarouselCardRef {
+  int tile = 0;
+  int depth = 3;
+  bool visible = false;
+};
+
+[[nodiscard]] inline std::vector<int> carouselPaintOrder(
+    const std::span<const CarouselCardRef> &cards) {
+  std::vector<CarouselCardRef> sorted(cards.begin(), cards.end());
+  std::stable_sort(sorted.begin(), sorted.end(),
+                   [](const CarouselCardRef &a, const CarouselCardRef &b) {
+                     if (a.visible != b.visible)
+                       return !a.visible;
+                     return a.depth > b.depth;
+                   });
+  std::vector<int> paint;
+  paint.reserve(sorted.size());
+  for (const auto &c : sorted)
+    paint.push_back(c.tile);
+  return paint;
 }
 
 // The kill zone sits at the screen edge OPPOSITE the strip.

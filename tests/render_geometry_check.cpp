@@ -441,6 +441,36 @@ static void theWindowMapsIntoItsTile() {
   std::puts("the window fit: one to one, contained, over-covered, and nothing at all");
 }
 
+// The run paints far -> near, so the focused card and its ring end up on top, and
+// the cards the run does not show paint behind everything.
+static void theRunPaintsFarBeforeNear() {
+  using hyprview::render::carouselPaintOrder;
+  using hyprview::render::carouselTone;
+  using hyprview::render::CarouselCardRef;
+
+  const std::vector<CarouselCardRef> cards{
+      {0, 0, true},  // the focused card
+      {1, 1, true},  // its neighbour
+      {2, 2, true},  // the far one
+      {3, 3, false}, // not on the run
+  };
+  const auto paint = carouselPaintOrder(cards);
+  want(paint.size(), 4u, "every card is in the order");
+  want(paint.front() == 3, true, "a card the run does not show paints first");
+  want(paint.back() == 0, true, "the focused card paints last");
+  // Far before near among the visible ones.
+  want(paint[1] == 2, true, "the far card paints before the near one");
+  want(paint[2] == 1, true, "the near card paints before the focused one");
+
+  // The dim: clear at the centre, the near tone at one step, the far tone tapered
+  // beyond it.
+  near(carouselTone(0, 0.125, 0.25, 0.8), 0.0, "the focused card is clear");
+  near(carouselTone(1, 0.125, 0.25, 0.8), 0.125, "the neighbour takes the near tone");
+  near(carouselTone(2, 0.125, 0.25, 0.8), 0.25 * 0.8, "the far card takes the far tone");
+  near(carouselTone(3, 0.125, 0.25, 0.8), 0.25 * 0.8 * 0.8, "and every step past it tapers");
+  std::puts("the run: far before near, and the dim that goes with the depth");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -786,6 +816,7 @@ int main() {
   theFlightHasFourKinds();
   theKillZoneIsOppositeTheStrip();
   theWindowMapsIntoItsTile();
+  theRunPaintsFarBeforeNear();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

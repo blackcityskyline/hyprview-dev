@@ -51,21 +51,19 @@ void Overview::renderCarousel() const {
     return;
 
   // Paint order is far -> near by DEPTH: slot k is m_view.slot()[k], the array order is untouched.
-  std::vector<int> paint;
-  paint.reserve(m_scene.size());
-  for (size_t i = 0; i < m_scene.size(); ++i)
-    paint.push_back(static_cast<int>(i));
-  std::stable_sort(paint.begin(), paint.end(), [this](int a, int b) {
-    const auto kOf = [&](const int tile) {
-      const int k = m_view.slotOf(static_cast<std::size_t>(tile));
-      return static_cast<std::size_t>(k < 0 ? 0 : k);
-    };
-    const auto &ca = m_view.carousel().cards[kOf(a)];
-    const auto &cb = m_view.carousel().cards[kOf(b)];
-    if (ca.visible != cb.visible)
-      return !ca.visible;
-    return ca.depth > cb.depth;
-  });
+  std::vector<render::CarouselCardRef> refs;
+  refs.reserve(m_scene.size());
+  for (size_t i = 0; i < m_scene.size(); ++i) {
+    const int k = m_view.slotOf(i);
+    render::CarouselCardRef ref;
+    ref.tile = static_cast<int>(i);
+    if (k >= 0 && static_cast<std::size_t>(k) < m_view.carousel().cards.size()) {
+      ref.depth = m_view.carousel().cards[static_cast<std::size_t>(k)].depth;
+      ref.visible = m_view.carousel().cards[static_cast<std::size_t>(k)].visible;
+    }
+    refs.push_back(ref);
+  }
+  const auto paint = render::carouselPaintOrder(refs);
 
   for (const int i : paint) {
     const int k = m_view.slotOf(static_cast<std::size_t>(i));
@@ -98,11 +96,7 @@ void Overview::renderCarousel() const {
     look.round = clampRound(cfg::look.preview_round, look.box.w, look.box.h);
     look.frame = card.depth == 0;         // only the centred card is framed
     look.contain = true;
-    look.tone =
-        card.depth > 0
-            ? (card.depth == 1 ? nearTone() : farTone()) *
-                  std::pow(depthTaper(), static_cast<double>(card.depth - 1))
-            : 0.0;
+    look.tone = render::carouselTone(card.depth, nearTone(), farTone(), depthTaper());
     look.button = tileCloseButtons();
     // The counter is drawn with the centred card's pill and pushed with it: one owner, one push.
     look.counter = card.depth == 0;
