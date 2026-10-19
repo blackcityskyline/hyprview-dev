@@ -1,5 +1,11 @@
-// Comment weight, capped by AGENTS.md 10.3: 8% of comment+code, ratcheted at the value the
-// tree last held, so a fifth version of one rule alongside the other four turns this red.
+// Comment weight, capped by AGENTS.md 10.3: 8% of comment+code, and a ratchet on how many
+// comment lines the tree may hold.
+//
+// The ratchet is an ABSOLUTE count, not a share. A share punishes every refactor that
+// removes code, and the removal is the point: moving a hundred lines of drawing into a
+// pure function raises the share with no comment added, and the check then red on a change
+// that made the tree smaller. An absolute budget asks the question that matters -- did any
+// comment get written -- and the share stays the ceiling.
 //
 // What counts as a comment: full-line // and /* */ blocks, and a trailing // on a line of
 // code. Blank lines are counted on neither side: padding is not weight.
@@ -16,11 +22,11 @@
 
 namespace {
 
-// Comment lines as a share of comment + code, per file, for the whole of src/. Not a per-file
+// The wall is a share of comment + code, per file, for the whole of src/. Not a per-file
 // wall: a header that states a rule the code cannot express may be heavier than one that only
-// declares things.
-constexpr double kBaselinePct = 7.1;
-constexpr double kTargetPct   = 8.0;
+// declares things. The ratchet is the absolute number of comment lines the tree may hold.
+constexpr double kTargetPct      = 8.0;
+constexpr int    kCommentBudget  = 873;
 
 struct Weight {
   int comments = 0;
@@ -103,9 +109,9 @@ int main(int argc, char **argv) {
   std::sort(per.begin(), per.end(),
             [&](const auto &a, const auto &b) { return pctOf(a.second) > pctOf(b.second); });
 
-  if (pct > kBaselinePct + 0.05) {
-    std::fprintf(stderr, "  comment weight %.1f%%, baseline %.1f%% (+%.1f)\n", pct, kBaselinePct,
-                 pct - kBaselinePct);
+  if (all.comments > kCommentBudget || pct > kTargetPct + 0.05) {
+    std::fprintf(stderr, "  comment weight %.1f%% (wall %.1f%%), %d comment lines (budget %d)\n",
+                 pct, kTargetPct, all.comments, kCommentBudget);
     for (const auto &[name, w] : per) {
       const double p = pctOf(w);
       if (p >= 90.0)
@@ -113,11 +119,12 @@ int main(int argc, char **argv) {
     }
     std::fprintf(stderr,
                  "  comments are where five versions of one rule live side by side, each\n"
-                 "  written for the bug of its day. A rule that changed leaves one comment.\n");
+                 "  written for the bug of its day. A rule that changed leaves one comment.\n"
+                 "  A refactor that removes code does not have to delete a word.\n");
     return 1;
   }
 
-  std::printf("comment weight %.1f%% of %d lines (baseline %.1f%%, target %.1f%%)\n", pct, total,
-              kBaselinePct, kTargetPct);
+  std::printf("comment weight %.1f%% of %d lines (wall %.1f%%, budget %d comment lines)\n", pct,
+              total, kTargetPct, kCommentBudget);
   return 0;
 }
