@@ -201,6 +201,63 @@ static void pillFitsCard() {
   want(pillScale(692.0, 12.0, 0.0) == 1.0, true, "no pill is not a division by zero");
 }
 
+// The strip's own decisions: the band's alpha, the label's box, the two glyphs and
+// the wallpaper crop. They were arithmetic at the draw site, where a change of one
+// number moved a shape and nothing said so.
+static void theStripDecidesItsOwnShapes() {
+  using hyprview::render::allGlyph;
+  using hyprview::render::coverFitUV;
+  using hyprview::render::plusGlyph;
+  using hyprview::render::stripBandAlpha;
+  using hyprview::render::stripLabelBox;
+
+  // One source for the band's alpha: the knob, scaled by the band's clock. The
+  // colour string carries no alpha of its own.
+  near(stripBandAlpha(70.0, 1.0), 0.7, "the knob is the band's alpha");
+  near(stripBandAlpha(70.0, 0.5), 0.35, "and the band's clock scales it");
+  near(stripBandAlpha(150.0, 1.0), 1.0, "a knob over 100 is clamped");
+  near(stripBandAlpha(-10.0, 1.0), 0.0, "a negative knob is no alpha");
+
+  // The label lives in the band ABOVE the card, and is shrunk to fit the card
+  // plus the extra the knob allows.
+  const LRect card{100.0, 200.0, 300.0, 100.0};
+  const auto fits = stripLabelBox(card, 200.0, 20.0, 26.0, 24.0);
+  sameRect(fits, LRect{150.0, 177.0, 200.0, 20.0}, "a label that fits keeps its size");
+  const auto wide = stripLabelBox(card, 400.0, 20.0, 26.0, 24.0);
+  near(wide.w, 324.0, "a wide label is shrunk to the card plus the extra");
+  near(wide.h, 20.0 * (324.0 / 400.0), "and it keeps its proportions");
+  want(wide.cx(), card.cx(), "and it stays centred on the card");
+
+  // The "+" is a cross in the middle of the card, and a card too small for it
+  // gets nothing rather than a speck.
+  const auto plus = plusGlyph(card);
+  want(plus.drawable, true, "a card with room gets the cross");
+  near(plus.horizontal.cy(), card.cy(), "the cross is centred");
+  near(plus.vertical.cx(), card.cx(), "the cross is centred");
+  near(plus.horizontal.w, 34.0, "the arm is a third of the short side");
+  want(plusGlyph(LRect{0.0, 0.0, 1.0, 1.0}).drawable, false, "a speck is not a cross");
+
+  // The "All" glyph is a 2x2 grid, symmetric and inside the card.
+  const auto all = allGlyph(card);
+  want(all.cells[0].x != all.cells[1].x, true, "two columns");
+  want(all.cells[0].y != all.cells[2].y, true, "two rows");
+  for (const auto &c : all.cells)
+    want(card.contains(c.cx(), c.cy()), true, "every cell is inside the card");
+
+  // The wallpaper is cover-fit: the crop is on the texture's own axis, and the
+  // other axis is used whole.
+  const auto uv = coverFitUV(300.0, 100.0, 1920.0, 1080.0);
+  near(uv.u0, 0.0, "the wide axis is used whole");
+  near(uv.u1, 1.0, "the wide axis is used whole");
+  want(uv.v0 > 0.0 && uv.v1 < 1.0, true, "the tall axis is cropped");
+  near(uv.v0, 1.0 - uv.v1, "and the crop is centred");
+  const auto tallCard = coverFitUV(100.0, 300.0, 1920.0, 1080.0);
+  near(tallCard.v0, 0.0, "a card taller than the texture uses the tall axis whole");
+  near(tallCard.v1, 1.0, "a card taller than the texture uses the tall axis whole");
+  want(tallCard.u0 > 0.0 && tallCard.u1 < 1.0, true, "and the wide axis is cropped");
+  std::puts("the strip: band alpha, label box, two glyphs, and the wallpaper crop");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -542,6 +599,7 @@ int main() {
   bothPillsShareOneRect();
   pillFitsCard();
   captionFollowsItsCard();
+  theStripDecidesItsOwnShapes();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

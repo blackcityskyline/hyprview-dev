@@ -366,6 +366,87 @@ struct CaptionLayout {
   return LVec2{dir.x * best, dir.y * best};
 }
 
+// The band's alpha has ONE source: the knob is the band, and the band's own clock
+// scales it. The colour string's alpha is not a second source.
+[[nodiscard]] inline double stripBandAlpha(double opacityPct, double bandE) {
+  return std::clamp(opacityPct / 100.0, 0.0, 1.0) * bandE;
+}
+
+// The label's box: in the band ABOVE the card, shrunk to what the card plus the
+// extra allows. The band's space for it is reserved in buildStrip().
+[[nodiscard]] inline LRect stripLabelBox(const LRect &card, double labelW, double labelH,
+                                          double labelBand, double labelExtra) {
+  const double maxW = card.w + labelExtra;
+  double w = labelW, h = labelH;
+  if (w > maxW && w > 0.0) {
+    const double k = maxW / w;
+    w *= k;
+    h *= k;
+  }
+  return LRect{card.cx() - w / 2.0, card.y - labelBand + (labelBand - h) / 2.0, w, h};
+}
+
+// The "+" glyph: a cross in the middle of the card.
+struct PlusGlyph {
+  LRect horizontal;
+  LRect vertical;
+  bool drawable = false;
+};
+
+[[nodiscard]] inline PlusGlyph plusGlyph(const LRect &card) {
+  const double t = std::max(2.0, card.h * 0.04);
+  const double L = std::min(card.w, card.h) * 0.34;
+  const double cx = card.cx(), cy = card.cy();
+  PlusGlyph g;
+  g.drawable = L > 0.5;
+  g.horizontal = LRect{cx - L / 2.0, cy - t / 2.0, L, t};
+  g.vertical = LRect{cx - t / 2.0, cy - L / 2.0, t, L};
+  return g;
+}
+
+// The "All" glyph: a 2x2 grid of squares in the middle of the card.
+struct AllGlyph {
+  LRect cells[4];
+};
+
+[[nodiscard]] inline AllGlyph allGlyph(const LRect &card) {
+  const double pad = std::min(card.w, card.h) * 0.26;
+  const double gw = card.w - 2 * pad, gh = card.h - 2 * pad;
+  const double cg = std::max(2.0, std::min(card.w, card.h) * 0.07);
+  const double cw = std::max(2.0, (gw - cg) / 2.0);
+  const double ch = std::max(2.0, (gh - cg) / 2.0);
+  const double gx = card.x + pad, gy = card.y + pad;
+  AllGlyph g;
+  int k = 0;
+  for (int r = 0; r < 2; ++r)
+    for (int col = 0; col < 2; ++col)
+      g.cells[k++] = LRect{gx + col * (cw + cg), gy + r * (ch + cg), cw, ch};
+  return g;
+}
+
+// The wallpaper crop: cover-fit, so the card shows the image whole and never
+// stretched. The crop is on the texture's own axis.
+struct CoverUV {
+  double u0 = 0.0, v0 = 0.0, u1 = 1.0, v1 = 1.0;
+};
+
+[[nodiscard]] inline CoverUV coverFitUV(double cardW, double cardH, double texW,
+                                        double texH) {
+  CoverUV uv;
+  const double cardRatio = cardW / std::max(1.0, cardH);
+  const double texRatio = texW / std::max(1.0, texH);
+  if (cardRatio > texRatio) {
+    const double f = texRatio / cardRatio;
+    uv.v0 = (1.0 - f) / 2.0;
+    uv.v1 = (1.0 + f) / 2.0;
+  } else {
+    const double f = cardRatio / texRatio;
+    uv.u0 = (1.0 - f) / 2.0;
+    uv.u1 = (1.0 + f) / 2.0;
+  }
+  return uv;
+}
+
 // How far the strip assembly leaves the band's edge: the deepest card penetration,
 // along the anchor axis only. The caller applies it to band AND cards together.
 [[nodiscard]] inline LVec2 stripPush(const LRect &band, Anchor a,

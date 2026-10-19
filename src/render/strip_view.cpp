@@ -45,9 +45,8 @@ void Overview::renderStrip() const {
     // Chrome, not backdrop: blurAlpha() is pinned to 1.0 on a close, so the way out fades on
     // exitT(), the same number the cards leave on.
   const double bandE = opening() ? stripE : exitT();
-  auto bandCol       = cfg::colors.strip_band.get(bandE);
-  // strip_band_opacity is the single source of the band's alpha; the colour string's alpha is ignored.
-  bandCol.a = std::clamp(cfg::strip.band_opacity.get() / 100.0, 0.0, 1.0) * bandE;
+  auto bandCol = cfg::colors.strip_band.get(bandE);
+  bandCol.a = render::stripBandAlpha(cfg::strip.band_opacity.get(), bandE);
 
   const LRect bandR  = stripBand();
   const Vector2D slide = stripOffset(e);
@@ -77,12 +76,8 @@ void Overview::renderStrip() const {
     const bool hover = static_cast<int>(i) == m_scene.hoveredStrip();
     LRect card = stripCardAt(i);
     if (m_newCardAnim && it.id == m_newCardId &&
-        it.kind != model::StripItem::Kind::Plus && it.kind != model::StripItem::Kind::All) {
-      const double f = newCardScale();
-      const double cx = card.cx(), cy = card.cy();
-      card = LRect{cx - card.w * f / 2.0, cy - card.h * f / 2.0, card.w * f,
-                   card.h * f};
-    }
+        it.kind != model::StripItem::Kind::Plus && it.kind != model::StripItem::Kind::All)
+      card = render::scaledAboutCentre(card, newCardScale());
     const CBox c = box(card);
 
     const bool actLike =
@@ -102,47 +97,27 @@ void Overview::renderStrip() const {
              {.round = pxr(cardRound, s), .roundingPower = roundPow});
 
     if (it.kind == model::StripItem::Kind::Plus) {
-      const double t = std::max(2.0, card.h * 0.04);
-      const double L = std::min(card.w, card.h) * 0.34;
-      const double cx = card.cx(), cy = card.cy();
-      if (L > 0.5) {
-        safeRenderRect("plusH", pxb(CBox(cx - L / 2, cy - t / 2, L, t), s), plusCol,
-                 {.round = pxr(t / 2, s)});
-        safeRenderRect("plusV", pxb(CBox(cx - t / 2, cy - L / 2, t, L), s), plusCol,
-                 {.round = pxr(t / 2, s)});
+      const auto glyph = render::plusGlyph(card);
+      if (glyph.drawable) {
+        safeRenderRect("plusH", pxb(box(glyph.horizontal), s), plusCol,
+                 {.round = pxr(glyph.horizontal.h / 2, s)});
+        safeRenderRect("plusV", pxb(box(glyph.vertical), s), plusCol,
+                 {.round = pxr(glyph.vertical.w / 2, s)});
       } else
         debug::dbg("plus glyph skipped: card " + std::to_string(card.w) + "x" +
                    std::to_string(card.h) + " at " + std::to_string(card.x) +
                    "," + std::to_string(card.y));
     } else if (it.kind == model::StripItem::Kind::All) {
-      const double pad = std::min(card.w, card.h) * 0.26;
-      const double gw = card.w - 2 * pad, gh = card.h - 2 * pad;
-      const double cg = std::max(2.0, std::min(card.w, card.h) * 0.07);
-      const double cw = std::max(2.0, (gw - cg) / 2.0),
-                   ch = std::max(2.0, (gh - cg) / 2.0);
-      const double gx = card.x + pad, gy = card.y + pad;
-      for (int r = 0; r < 2; ++r)
-        for (int col = 0; col < 2; ++col)
-          safeRenderRect("all", pxb(CBox(gx + col * (cw + cg), gy + r * (ch + cg), cw, ch), s),
-                   allCol, {.round = pxr(2, s)});
+      const auto glyph = render::allGlyph(card);
+      for (const auto &cell : glyph.cells)
+        safeRenderRect("all", pxb(box(cell), s), allCol, {.round = pxr(2, s)});
     } else {
       if (cfg::strip.wallpaper != 0) {
         SP<Render::ITexture> tex = backdropSourceTexture();
         if (tex && tex->ok()) {
           const double texW = std::max(1.0, static_cast<double>(tex->m_size.x));
           const double texH = std::max(1.0, static_cast<double>(tex->m_size.y));
-          const double cardRatio = card.w / std::max(1.0, card.h);
-          const double texRatio  = texW / texH;
-          double u0 = 0.0, v0 = 0.0, u1 = 1.0, v1 = 1.0;
-          if (cardRatio > texRatio) {
-            const double f = texRatio / cardRatio;
-            v0 = (1.0 - f) / 2.0;
-            v1 = (1.0 + f) / 2.0;
-          } else {
-            const double f = cardRatio / texRatio;
-            u0 = (1.0 - f) / 2.0;
-            u1 = (1.0 + f) / 2.0;
-          }
+          const auto uv = render::coverFitUV(card.w, card.h, texW, texH);
           CTexPassElement::SRenderData td{};
           td.tex           = tex;
           td.box           = pxb(c, s);
@@ -152,8 +127,8 @@ void Overview::renderStrip() const {
           td.allowCustomUV = true;
           auto &uvTL = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
           auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
-          uvTL = Vector2D{u0, v0};
-          uvBR = Vector2D{u1, v1};
+          uvTL = Vector2D{uv.u0, uv.v0};
+          uvBR = Vector2D{uv.u1, uv.v1};
           g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
           uvTL = Vector2D{-1.0, -1.0};
           uvBR = Vector2D{-1.0, -1.0};
@@ -187,21 +162,11 @@ void Overview::renderStrip() const {
     }
 
     if (it.label && it.label->m_size.x > 0) {
-      double lw = it.label->m_size.x;
-      double lh = it.label->m_size.y;
-      const double maxLw = card.w + cfg::strip.label_extra;
-      if (lw > maxLw) {
-        const double k = maxLw / lw;
-        lw *= k;
-        lh *= k;
-      }
-      const double labelBand = cfg::strip.label_band;
-      const double lx = card.cx() - lw / 2.0;
-      const double ly = card.y - labelBand + (labelBand - lh) / 2.0;
+      const LRect lb = render::stripLabelBox(card, it.label->m_size.x, it.label->m_size.y,
+                                              cfg::strip.label_band, cfg::strip.label_extra);
       const float la =
           it.active ? static_cast<float>(e) : static_cast<float>(e) * 0.75F;
-      g_pHyprOpenGL->renderTexture(it.label, pxb(CBox(lx, ly, lw, lh), s),
-                                   {.a = la});
+      g_pHyprOpenGL->renderTexture(it.label, pxb(box(lb), s), {.a = la});
     }
   }
 }
