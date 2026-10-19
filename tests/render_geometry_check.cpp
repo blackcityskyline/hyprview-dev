@@ -555,6 +555,26 @@ static void theWallpaperCoversTheMonitor() {
   std::puts("the wallpaper: cover-fit, the black check, and what counts as animation");
 }
 
+// What the backdrop puts under the tiles. With the blur on, the sharp source is not
+// an answer: a transparent window shows whatever is behind it, and a sharp copy of
+// the desktop under the tiles is the one-frame flash of the desktop.
+static void theBackdropNeverShowsTheSharpDesktopUnderBlur() {
+  using hyprview::render::backdropBase;
+  using hyprview::render::BackdropBase;
+
+  want(backdropBase(true, true) == BackdropBase::Blur, true, "a usable blur is the base");
+  want(backdropBase(true, false) == BackdropBase::OpaqueDim, true,
+       "and without one the dim covers the screen");
+  want(backdropBase(true, false) != BackdropBase::Source, true,
+       "the sharp source is never the base while the blur is on");
+  // With the blur off the sharp source IS the backdrop: that is what was asked for.
+  want(backdropBase(false, false) == BackdropBase::Source, true,
+       "with the blur off the sharp source is the backdrop");
+  want(backdropBase(false, true) == BackdropBase::Source, true,
+       "and it stays the backdrop even when a blur happens to be around");
+  std::puts("the backdrop base: the blur or the dim, never the sharp source under blur");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -903,6 +923,7 @@ int main() {
   theRunPaintsFarBeforeNear();
   aClickOnTheRunLandsOnTheFront();
   theWallpaperCoversTheMonitor();
+  theBackdropNeverShowsTheSharpDesktopUnderBlur();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

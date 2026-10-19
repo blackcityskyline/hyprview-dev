@@ -583,6 +583,16 @@ struct CoverFit {
 // a static wallpaper is not.
 inline constexpr int kSourceAnimatedStreak = 4;
 
+// What the backdrop puts UNDER the tiles (AGENTS.md 2.28): with the blur on, the
+// sharp source is not an answer.
+enum class BackdropBase { Blur, OpaqueDim, Source };
+
+[[nodiscard]] inline BackdropBase backdropBase(bool blurEnabled, bool blurUsable) {
+  if (!blurEnabled)
+    return BackdropBase::Source;
+  return blurUsable ? BackdropBase::Blur : BackdropBase::OpaqueDim;
+}
+
 // The kill zone sits at the screen edge OPPOSITE the strip: the edge the strip is
 // not on, so a dragged window never has to cross the strip to reach it.
 [[nodiscard]] inline LRect killZoneRect(Anchor strip, double screenW, double screenH,

@@ -61,9 +61,15 @@ class Backdrop {
 
     [[nodiscard]] SP<Render::ITexture> frameSource(const BackdropFrame &f) const;
 
+    // The blur, computed if the recipe or the source moved (AGENTS.md 2.28).
+    [[nodiscard]] bool ensureBlur(const BackdropFrame &f) const;
+
     void render(const BackdropFrame &f) const;
 
   private:
+    // The blur into the cache, when the key moved. False when there is no blur to
+    // have: no source, or the filter said no.
+    [[nodiscard]] bool computeBlur(const BackdropFrame &f, const SP<Render::ITexture> &src) const;
 
     mutable BlurCache m_blur;
     mutable SP<Render::IFramebuffer> m_srcFB, m_scratchFB, m_probeFB;

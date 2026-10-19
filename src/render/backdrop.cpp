@@ -161,6 +161,60 @@ SP<Render::ITexture> Backdrop::frameSource(const BackdropFrame &f) const {
   return tex;
 }
 
+bool Backdrop::computeBlur(const BackdropFrame &f, const SP<Render::ITexture> &src) const {
+  const int W = f.mon->m_pixelSize.x, H = f.mon->m_pixelSize.y;
+  const void *srcId = src ? src.get() : nullptr;
+  const int   cPasses  = f.passes;
+  const int   cSize    = f.sizePx;
+  const int   cRes     = f.resolution;
+  const float cStrength = f.strength;
+  if (!m_blur.matches(srcId, cPasses, cSize, cRes, cStrength))
+    m_blur.invalidate();
+  m_blur.srcId     = srcId;
+  m_blur.passes    = cPasses;
+  m_blur.sizePx    = cSize;
+  m_blur.resolution = cRes;
+  m_blur.strength  = cStrength;
+
+  if (!m_blur.valid || !m_blur.fb || !m_blur.fb->isAllocated() ||
+      m_blur.fb->m_size != Vector2D(W, H)) {
+    if (!m_blur.fb)
+      m_blur.fb = g_pHyprRenderer->createFB("hyprview blur");
+    if (!m_blur.fb->isAllocated() || m_blur.fb->m_size != Vector2D(W, H))
+      m_blur.fb->alloc(W, H);
+
+    const auto oldProjType = g_pHyprRenderer->m_renderData.projectionType;
+    const auto oldFbSize   = g_pHyprRenderer->m_renderData.fbSize;
+    g_pHyprRenderer->m_renderData.fbSize = Vector2D(W, H);
+    g_pHyprRenderer->setProjectionType(Render::RPT_EXPORT);
+
+    m_blurFilter.prepare(cPasses, static_cast<float>(cSize), cRes, cStrength);
+    const bool ok = src && m_blurFilter.render(src, m_blur.fb, W, H);
+
+    g_pHyprRenderer->m_renderData.fbSize = oldFbSize;
+    g_pHyprRenderer->setProjectionType(oldProjType);
+    const auto PMON = g_pHyprRenderer->m_renderData.pMonitor;
+    g_pHyprOpenGL->setViewport(0, 0, PMON ? (int)PMON->m_pixelSize.x : W,
+                               PMON ? (int)PMON->m_pixelSize.y : H);
+
+    if (!ok) {
+      m_blur.valid = false;
+      return false;
+    }
+    m_blur.valid = true;
+  }
+  return true;
+}
+
+bool Backdrop::ensureBlur(const BackdropFrame &f) const {
+  if (!f.blurEnabled || !f.mon)
+    return false;
+  const auto src = frameSource(f);
+  if (!src)
+    return false;
+  return computeBlur(f, src);
+}
+
 void Backdrop::render(const BackdropFrame &f) const {
   const auto &m = f.mon;
   if (!m || !g_pHyprRenderer || !g_pHyprOpenGL)
@@ -225,17 +279,19 @@ void Backdrop::render(const BackdropFrame &f) const {
       baseIsBlur = true;
       g_pHyprOpenGL->renderTexture(cachedTex, fullPx, {.a = baseA});
     } else {
-      const auto comp = frameSource(f);
-
-      if (comp && comp->ok()) {
-        g_pHyprOpenGL->renderTexture(comp, fullPx, {.a = baseA});
-} else if (m_blur.fb && m_blur.fb->isAllocated()) {
-        // The stale blur FB holds the previous, correct backdrop; an outdated frame beats a black
-        // one. Painting a probe called black at baseA==1 buries the FB (the entry blackout).
-        const auto stale = m_blur.fb->getTexture();
-        if (stale && stale->ok() && cachedUsable) {
-          baseIsBlur = true;
-          g_pHyprOpenGL->renderTexture(stale, fullPx, {.a = baseA});
+      // The base is decided by ONE rule (AGENTS.md 2.28): with the blur on, the
+      // sharp source is not a base.
+      switch (backdropBase(f.blurEnabled, false)) {
+        case BackdropBase::Blur:
+          break;
+        case BackdropBase::OpaqueDim:
+          safeRenderRect("backdrop", fullPx, CHyprColor(baseCol.r, baseCol.g, baseCol.b, 1.0F), {});
+          break;
+        case BackdropBase::Source: {
+          const auto comp = frameSource(f);
+          if (comp && comp->ok())
+            g_pHyprOpenGL->renderTexture(comp, fullPx, {.a = baseA});
+          break;
         }
       }
     }
@@ -258,48 +314,11 @@ void Backdrop::render(const BackdropFrame &f) const {
   if (!src || k <= 0.0F)
     return;
 
-  const void *srcId = src ? src.get() : nullptr;
-  const int   cPasses  = f.passes;
-  const int   cSize    = f.sizePx;
-  const int   cRes     = f.resolution;
-  const float cStrength = f.strength;
-  if (!m_blur.matches(srcId, cPasses, cSize, cRes, cStrength))
-    m_blur.invalidate();
-  m_blur.srcId     = srcId;
-  m_blur.passes    = cPasses;
-  m_blur.sizePx    = cSize;
-  m_blur.resolution = cRes;
-  m_blur.strength  = cStrength;
-
-  if (!m_blur.valid || !m_blur.fb || !m_blur.fb->isAllocated() ||
-      m_blur.fb->m_size != Vector2D(W, H)) {
-    if (!m_blur.fb)
-      m_blur.fb = g_pHyprRenderer->createFB("hyprview blur");
-    if (!m_blur.fb->isAllocated() || m_blur.fb->m_size != Vector2D(W, H))
-      m_blur.fb->alloc(W, H);
-
-    const auto oldProjType = g_pHyprRenderer->m_renderData.projectionType;
-    const auto oldFbSize   = g_pHyprRenderer->m_renderData.fbSize;
-    g_pHyprRenderer->m_renderData.fbSize = Vector2D(W, H);
-    g_pHyprRenderer->setProjectionType(Render::RPT_EXPORT);
-
-    m_blurFilter.prepare(cPasses, static_cast<float>(cSize), cRes, cStrength);
-    const bool ok = src && m_blurFilter.render(src, m_blur.fb, W, H);
-
-    g_pHyprRenderer->m_renderData.fbSize = oldFbSize;
-    g_pHyprRenderer->setProjectionType(oldProjType);
-    const auto PMON = g_pHyprRenderer->m_renderData.pMonitor;
-    g_pHyprOpenGL->setViewport(0, 0, PMON ? (int)PMON->m_pixelSize.x : W,
-                               PMON ? (int)PMON->m_pixelSize.y : H);
-
-    if (!ok) {
-      // Never leave currentFB exposed: it can hold a solitary fullscreen window.
-      m_blur.valid = false;
-      debug::dbg("backdrop FALLBACK: blur unavailable / no source");
-      safeRenderRect("backdrop", fullPx, argb(baseCol, dimK), {});
-      return;
-    }
-    m_blur.valid = true;
+  if (!computeBlur(f, src)) {
+    // Never leave currentFB exposed: it can hold a solitary fullscreen window.
+    debug::dbg("backdrop FALLBACK: blur unavailable / no source");
+    safeRenderRect("backdrop", fullPx, argb(baseCol, dimK), {});
+    return;
   }
 
   const auto tex = m_blur.fb ? m_blur.fb->getTexture() : nullptr;
@@ -334,10 +353,13 @@ void Backdrop::render(const BackdropFrame &f) const {
 
 // The owner reads the config here, every frame, and hands the backdrop a plain recipe:
 // nothing below reaches back out for it (AGENTS.md 2.15, 2.16).
+render::BackdropFrame Overview::backdropFrame() const {
+  return {m_monitor.lock(), eased(), blurAlpha(), cfg::blur.backdrop.get(), opening(),
+          blurEnabled(), blurPasses(), blurSize(), blurResolution(), blurStrength()};
+}
+
 void Overview::renderBackdrop() const {
-  m_backdrop.render({m_monitor.lock(), eased(), blurAlpha(),
-                     cfg::blur.backdrop.get(), opening(), blurEnabled(),
-                     blurPasses(), blurSize(), blurResolution(), blurStrength()});
+  m_backdrop.render(backdropFrame());
 }
 
 // Parked-open frames: promote the moment a non-black composite exists (two frames is the budget).
@@ -374,7 +396,10 @@ void Overview::primeBackdrop() {
     damage();
     return;
   }
-  const auto comp = m_backdrop.frameSource({m});
+  const auto frame = backdropFrame();
+  const auto comp = m_backdrop.frameSource(frame);
+  // The blur is primed too: the first VISIBLE frame must find one ready.
+  (void)m_backdrop.ensureBlur(frame);
 
   const bool ready = comp && comp->ok();
   if (!m_life.parkTick(ready)) {

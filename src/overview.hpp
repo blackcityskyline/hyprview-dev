@@ -86,6 +86,7 @@ public:
   void renderStage(eRenderStage stage);
   void paint();
 
+  render::BackdropFrame backdropFrame() const;
   void renderBackdrop() const;
   void primeBackdrop();
 
