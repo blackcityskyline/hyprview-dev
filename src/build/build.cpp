@@ -595,23 +595,22 @@ Overview::captureCurrentBoxes(PHLWINDOW exclude) const {
 // oldBoxes = the shown boxes (pre-rebuild); empty = fresh naturals, so a plain open starts from the real boxes.
 void Overview::startTileGlide(
     const std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes) {
+  // The start boxes come from ONE pure function, asked for EVERY tile (AGENTS.md 2.29).
+  std::vector<model::TileStart> tiles;
+  tiles.reserve(m_scene.size());
+  for (size_t i = 0; i < m_scene.size(); ++i) {
+    const auto &t = m_scene.tiles()[i];
+    tiles.push_back(model::TileStart{t.subj, t.natural, t.target, cardOf(t).hasWindow()});
+  }
+  const auto starts = model::startBoxes(oldBoxes, tiles, m_view.run());
   bool newcomers = false;
+  for (size_t i = 0; i < m_scene.size(); ++i) {
+    auto &t = m_scene.tileAt(i);
+    t.natural = starts[i].natural;
+    t.landed = starts[i].landed;
+    newcomers |= starts[i].landed < 1.0;
+  }
   if (!oldBoxes.empty()) {
-    for (size_t i = 0; i < m_scene.size(); ++i) {
-      auto &t = m_scene.tileAt(i);
-      // Start box from model::outgoingBox(); the capture is authoritative for the slot.
-      const LRect *drawn = nullptr;
-      for (const auto &[oldSubj, oldBox] : oldBoxes)
-        if (oldSubj == t.subj) { drawn = &oldBox; break; }
-      const bool onRun = m_view.run();
-      const LRect ownPlace = t.natural;
-      t.natural = model::outgoingBox(cardOf(t).hasWindow(), onRun,
-                                     /*revealed=*/oldBoxes.empty(),
-                                     drawn ? *drawn : model::noPlace(), ownPlace,
-                                     t.target);
-      t.landed = drawn ? 1.0 : 0.0;
-      newcomers |= drawn == nullptr;
-    }
     // every removed tile fades out where it was, never vanishes one frame
     m_fx.clearGhosts();
     for (const auto &[oldSubj, oldBox] : oldBoxes) {
@@ -621,8 +620,7 @@ void Overview::startTileGlide(
       if (!kept)
         m_fx.addGhost(model::Ghost{oldSubj, oldBox});
     }
-  } else
-    m_scene.settleEntry();
+  }
   m_place.clocks.tiles.begin();
   debug::trace::animStart("glide", "glide", "", m_place.recipes.glide.ms, m_place.recipes.glide.curve.c_str());
   m_place.clocks.tileMs    = m_place.recipes.glide.ms;

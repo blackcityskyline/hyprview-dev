@@ -20,10 +20,20 @@ using hyprview::model::isPlaced;
 using hyprview::model::noPlace;
 using hyprview::model::outgoingBox;
 using hyprview::model::priorSlot;
+using hyprview::model::startBoxes;
+using hyprview::model::SubjectRef;
+using hyprview::model::TileStart;
 
 namespace {
 
 int failures = 0;
+
+void want(double got, double want, const char *what) {
+  if (got == want)
+    return;
+  std::printf("FAIL %s\n  got  %g\n  want %g\n", what, got, want);
+  ++failures;
+}
 
 void expect(const char *what, const LRect &got, const LRect &want) {
   if (got.w == want.w && got.h == want.h && got.x == want.x && got.y == want.y)
@@ -146,6 +156,38 @@ void nothingGrowsOutOfTheCorner() {
     std::printf("FAIL exhaustive sweep covered %d of 64\n", checked), ++failures;
 }
 
+// 7. The start boxes of a whole rebuilt deck. The rules above are per card; this is the
+// call the compositor makes, and it was where the empty capture went wrong: the loop that
+// asks the model was SKIPPED when the capture was empty, so the cards kept their desktop
+// boxes. A window joining an empty workspace then flew in from full screen and shrank into
+// its slot, while the same switch between two non-empty workspaces was clean.
+void aCardJoiningAnEmptySceneStartsAtItsSlot() {
+  const SubjectRef kept{1, 0};
+  const SubjectRef joining{2, 0};
+
+  // The previous workspace was EMPTY: nothing was on screen, and the cards that arrive
+  // are joining a scene that is.
+  const std::vector<TileStart> tiles{
+      {joining, kDesktop, kSlot, true},
+  };
+  const auto fresh = startBoxes({}, tiles, /*onRun=*/false);
+  expect("a card joining an empty scene starts at its slot, not at its desktop box",
+         fresh.at(0).natural, kSlot);
+  want(fresh.at(0).landed, 0.0, "and it enters");
+
+  // The previous scene had cards: one of them stays where it was, the other joins.
+  const std::vector<TileStart> mixed{
+      {kept, kDesktop, kNext, true},
+      {joining, kDesktop, kSlot, true},
+  };
+  const std::vector<std::pair<SubjectRef, LRect>> oldBoxes{{kept, kLeft}};
+  const auto rebuilt = startBoxes(oldBoxes, mixed, /*onRun=*/false);
+  expect("a card that was on screen starts where it was", rebuilt.at(0).natural, kLeft);
+  want(rebuilt.at(0).landed, 1.0, "and it is already there");
+  expect("the card that joins starts at its slot", rebuilt.at(1).natural, kSlot);
+  want(rebuilt.at(1).landed, 0.0, "and it enters");
+}
+
 } // namespace
 
 int main() {
@@ -156,6 +198,7 @@ int main() {
   aJoiningCardStartsAtItsSlot();
   naturalIsEvidenceForAWindowAndNotForATab();
   nothingGrowsOutOfTheCorner();
+  aCardJoiningAnEmptySceneStartsAtItsSlot();
 
   if (failures) {
     std::printf("origin_check: %d failure(s)\n", failures);

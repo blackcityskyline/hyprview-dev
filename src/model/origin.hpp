@@ -5,6 +5,10 @@
 // at its slot, anything else at its target. Pure arithmetic over boxes, so ctest reaches it.
 
 #include "../layout.hpp"
+#include "subject.hpp"
+
+#include <utility>
+#include <vector>
 
 namespace hyprview::model {
 
@@ -34,6 +38,40 @@ namespace hyprview::model {
   if (revealed && hasOwnPlace && isPlaced(ownPlace))
     return ownPlace;
   return target;
+}
+
+// Where every tile of a rebuilt deck starts (AGENTS.md 2.29): a card that WAS on
+// screen starts where it was, a card that joins a shown scene starts at its slot.
+struct TileStart {
+  SubjectRef subj;
+  LRect ownPlace = {};
+  LRect target = {};
+  bool hasWindow = false;
+};
+
+struct StartBox {
+  LRect natural;
+  double landed = 1.0;
+};
+
+[[nodiscard]] inline std::vector<StartBox> startBoxes(
+    const std::vector<std::pair<SubjectRef, LRect>> &oldBoxes,
+    const std::vector<TileStart> &tiles, bool onRun) {
+  std::vector<StartBox> out;
+  out.reserve(tiles.size());
+  for (const auto &t : tiles) {
+    const LRect *drawn = nullptr;
+    for (const auto &[oldSubj, oldBox] : oldBoxes)
+      if (oldSubj == t.subj) {
+        drawn = &oldBox;
+        break;
+      }
+    out.push_back(StartBox{
+        outgoingBox(t.hasWindow, onRun, /*revealed=*/oldBoxes.empty(),
+                    drawn ? *drawn : noPlace(), t.ownPlace, t.target),
+        drawn ? 1.0 : 0.0});
+  }
+  return out;
 }
 
 } // namespace hyprview::model
