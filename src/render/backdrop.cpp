@@ -277,11 +277,16 @@ void Backdrop::render(const BackdropFrame &f) const {
     }
     if (cachedUsable) {
       baseIsBlur = true;
+      debug::dbg("backdrop base=blur|blurOn=" + std::to_string(f.blurEnabled ? 1 : 0));
       g_pHyprOpenGL->renderTexture(cachedTex, fullPx, {.a = baseA});
     } else {
       // The base is decided by ONE rule (AGENTS.md 2.28): with the blur on, the
       // sharp source is not a base.
-      switch (backdropBase(f.blurEnabled, false)) {
+      const auto base = backdropBase(f.blurEnabled, false);
+      debug::dbg(std::string("backdrop base=") +
+                 (base == BackdropBase::OpaqueDim ? "dim" : "source") +
+                 "|blurOn=" + std::to_string(f.blurEnabled ? 1 : 0));
+      switch (base) {
         case BackdropBase::Blur:
           break;
         case BackdropBase::OpaqueDim:
