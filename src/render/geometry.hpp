@@ -583,11 +583,48 @@ struct CoverFit {
 // a static wallpaper is not.
 inline constexpr int kSourceAnimatedStreak = 4;
 
-// The kill zone sits at the screen edge OPPOSITE the strip.
+// The kill zone sits at the screen edge OPPOSITE the strip: the edge the strip is
+// not on, so a dragged window never has to cross the strip to reach it.
 [[nodiscard]] inline LRect killZoneRect(Anchor strip, double screenW, double screenH,
                                         double thickness) {
-  const bool atTop = strip == Anchor::Bottom;
-  return LRect{0.0, atTop ? 0.0 : screenH - thickness, screenW, thickness};
+  switch (strip) {
+    case Anchor::Bottom: return LRect{0.0, 0.0, screenW, thickness};
+    case Anchor::Top:    return LRect{0.0, screenH - thickness, screenW, thickness};
+    case Anchor::Left:   return LRect{screenW - thickness, 0.0, thickness, screenH};
+    case Anchor::Right:  return LRect{0.0, 0.0, thickness, screenH};
+  }
+  return LRect{0.0, 0.0, screenW, thickness};
+}
+
+// The zone's glow: one line per step from the screen edge inward, fading. A
+// horizontal band glows along rows, a vertical band along columns.
+struct KillRampStep {
+  LRect line;
+  double alpha = 0.0; // before the cursor's own glow multiplies it
+};
+
+[[nodiscard]] inline std::vector<KillRampStep> killZoneRamp(const LRect &zone, double screenW,
+                                                             double screenH, int reach) {
+  std::vector<KillRampStep> ramp;
+  if (reach <= 0)
+    return ramp;
+  ramp.reserve(static_cast<std::size_t>(reach));
+  const bool horizontal = zone.w >= zone.h;
+  const bool fromLow    = horizontal ? (zone.y + zone.h <= screenH / 2.0)
+                                      : (zone.x + zone.w <= screenW / 2.0);
+  for (int d = 0; d < reach; ++d) {
+    const double f = static_cast<double>(d) / reach;
+    KillRampStep step;
+    step.alpha = std::pow(1.0 - f, 2.5) * 0.4675;
+    if (horizontal)
+      step.line = fromLow ? LRect{0.0, zone.y + d, zone.w, 1.0}
+                          : LRect{0.0, zone.y + zone.h - 1 - d, zone.w, 1.0};
+    else
+      step.line = fromLow ? LRect{zone.x + d, 0.0, 1.0, zone.h}
+                          : LRect{zone.x + zone.w - 1 - d, 0.0, 1.0, zone.h};
+    ramp.push_back(step);
+  }
+  return ramp;
 }
 
 // The flight of a swap: four kinds, one answer each. A swap on the vertical axis

@@ -354,15 +354,37 @@ static void theFlightHasFourKinds() {
   std::puts("the flight: slide, vertical arc, fade, pop");
 }
 
-// The kill zone sits at the screen edge opposite the strip.
+// The kill zone sits at the screen edge opposite the strip, on every edge: a
+// dragged window never has to cross the strip to reach it.
 static void theKillZoneIsOppositeTheStrip() {
   using hyprview::render::Anchor;
+  using hyprview::render::killZoneRamp;
   using hyprview::render::killZoneRect;
   const auto top = killZoneRect(Anchor::Bottom, 1920.0, 1080.0, 120.0);
   sameRect(top, LRect{0.0, 0.0, 1920.0, 120.0}, "a bottom strip leaves the zone at the top");
   const auto bottom = killZoneRect(Anchor::Top, 1920.0, 1080.0, 120.0);
   sameRect(bottom, LRect{0.0, 960.0, 1920.0, 120.0}, "a top strip leaves the zone at the bottom");
-  std::puts("the kill zone: opposite the strip");
+  const auto right = killZoneRect(Anchor::Left, 1920.0, 1080.0, 120.0);
+  sameRect(right, LRect{1800.0, 0.0, 120.0, 1080.0}, "a left strip leaves the zone at the right");
+  const auto left = killZoneRect(Anchor::Right, 1920.0, 1080.0, 120.0);
+  sameRect(left, LRect{0.0, 0.0, 120.0, 1080.0}, "a right strip leaves the zone at the left");
+
+  // The glow runs inward from the screen edge: rows for a horizontal band,
+  // columns for a vertical one.
+  const auto ramp = killZoneRamp(top, 1920.0, 1080.0, 8);
+  want(ramp.size() == 8u, true, "one line per step");
+  near(ramp.front().line.y, 0.0, "the top band starts at the screen edge");
+  near(ramp.front().line.h, 1.0, "one row at a time");
+  near(ramp.front().line.w, 1920.0, "across the band");
+  near(ramp.back().line.y, 7.0, "and steps inward");
+  want(ramp.front().alpha > ramp.back().alpha, true, "the glow fades inward");
+
+  const auto sideRamp = killZoneRamp(right, 1920.0, 1080.0, 8);
+  near(sideRamp.front().line.x, 1919.0, "the right band starts at the screen edge");
+  near(sideRamp.front().line.w, 1.0, "one column at a time");
+  near(sideRamp.front().line.h, 1080.0, "down the band");
+  near(sideRamp.back().line.x, 1912.0, "and steps inward");
+  std::puts("the kill zone: opposite the strip on every edge, and the glow that follows it");
 }
 
 // How a window's surface maps into its tile: one scale, one translation. It was

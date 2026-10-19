@@ -227,7 +227,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `counter_pad_y` | float | `5.0` | vertical padding inside the counter pill |
 | `counter_gap` | float | `8.0` | vertical gap between the caption pill and the counter pill |
 | `counter_margin` | float | `6.0` | screen-edge margin kept for the counter pill |
-| `kill_zone` | int | `1` | closing a window by dragging it to the screen edge; `0` makes the edge a no-op |
+| `kill_zone` | int | `1` | closing a window by dragging it to the screen edge OPPOSITE the strip; `0` makes the edge a no-op |
 | `kill_zone_size` | float | `40` | thickness of that edge zone, px |
 | `kill_zone_falloff` | float | `150` | how far from the zone its glow reaches, px |
 | `kill_zone_reach` | int (px) | `160` | how far from the screen edge the drop target reaches |

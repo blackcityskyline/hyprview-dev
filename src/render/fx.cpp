@@ -151,16 +151,13 @@ void Overview::renderKillZone() const {
   const double s    = m->m_scale;
   const double glow = m_killGlow;
   const auto   col  = cfg::colors.select_border.get(eased());
-  const bool zoneAtTop = stripAnchor() == Anchor::Bottom;
   // ONE falloff from the SCREEN edge: two ramps put a step where they meet.
   const int kReach = cfg::behavior.kill_zone_reach;
-  for (int d = 0; d < kReach; ++d) {
-    const double f = static_cast<double>(d) / kReach;
-    const double a = std::pow(1.0 - f, 2.5) * 0.4675 * glow;
+  for (const auto &step : render::killZoneRamp(z, m->m_size.x, m->m_size.y, kReach)) {
+    const double a = step.alpha * glow;
     if (a < 0.004)
       continue;
-    const double y = zoneAtTop ? z.y + d : z.y + z.h - 1 - d;
-    safeRenderRect("fx", pxb(LRect{0.0, y, z.w, 1.0}, s), argb(col, a), {});
+    safeRenderRect("fx", pxb(step.line, s), argb(col, a), {});
   }
 }
 
