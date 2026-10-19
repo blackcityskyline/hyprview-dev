@@ -162,19 +162,15 @@ void Overview::renderStage(eRenderStage stage) {
       buildStrip();
       layoutTiles();
       startTileGlide(shown);
-      // startTileGlide marks every window it could match against the previous scene as
-      // already present (landed = 1), which is right for a reflow and wrong here: on a
-      // workspace switch the whole tile set is new content, and leaving a window unanimated
-      // is what made this path look different from the plugin's own Tab switch, which sets
-      // landed = 0 on everything. Same slide, same style key, whichever bind got here.
+      // startTileGlide marks matched windows as already present (landed = 1), right for a
+      // reflow and wrong here: on a workspace switch the whole tile set is new content, so
+      // arm it like the plugin's own Tab switch and leave every window animated.
       m_scene.armEntry();
       m_place.clocks.rebuild.begin();
       debug::trace::animStart("entry", "entry", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
-      // Arm the slide AFTER the rebuild clock starts. updateAnimation clears wsSlideDir
-      // whenever both entry clocks already read done, and on a hop from an empty
-      // workspace the previous frame's clocks are done -- so a direction armed earlier
-      // in this same frame was wiped before anything painted, which is why dir read 0 in
-      // the log for exactly this case and the tiles fell to the scale-in.
+      // Arm the slide AFTER the rebuild clock starts: updateAnimation clears wsSlideDir
+      // whenever both entry clocks already read done, and on a hop from an empty workspace
+      // the previous frame's clocks are done, so an earlier arm is wiped before paint.
       if (const auto prev = m_workspace.lock())
         m_view.setWsSlideDir( m->m_activeWorkspace->m_id > prev->m_id ? 1 : -1);
       ensureAnimPump();
@@ -222,8 +218,7 @@ void Overview::paint() {
   }
   // Bracketed, not sampled per site. Whatever this pass leaves enabled is not ours to fix
   // -- Hyprland sets it up for the next one -- but a pass that leaves it DIFFERENT from how
-  // it found it is a defect that shows up one render later, in someone else's draw call,
-  // which is why both of the ones found so far went uncredited for so long.
+  // it found it is a defect that shows up one render later, in someone else's draw call.
   const render::GLState glEnter = readGLState();
   glStateFence("paint");
   renderBackdrop();

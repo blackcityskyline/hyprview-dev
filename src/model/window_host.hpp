@@ -6,11 +6,11 @@
 namespace gloview::model {
 
 // What the window source asks the run to enumerate. The inbound half of IContentSource's
-// outbound half, and separate because the two callers differ: a tabs source owns the tab list
-// the extension sent and needs nothing from the run; which windows belong is the run's rule and
-// it changes mid-run. Shared, the tabs source would return a default meaning "yes" -- the
-// failure this boundary exists to prevent. Narrow: the verbs are not here, an implementation
-// closes and moves windows with Hyprland calls alone.
+// outbound half, and separate because the two callers differ: a tabs source needs nothing from
+// the run; which windows belong is the run's rule and it changes mid-run. Shared, the tabs
+// source would return a default meaning "yes" -- the failure this boundary exists to prevent.
+// Narrow: the verbs are not here, an implementation closes and moves windows with Hyprland
+// calls alone.
 class IWindowHost {
   public:
     virtual ~IWindowHost() = default;

@@ -1,8 +1,7 @@
 #pragma once
 
-// Parsing what the browser side told us about its tabs -- only this: reading the file is three
-// lines of std::ifstream, while what a snapshot MEANS is the part worth testing and needs no
-// compositor, socket or extension.
+// Parsing what the browser side told us about its tabs -- only this: what a snapshot MEANS
+// is the part worth testing and needs no compositor, socket or extension.
 //
 // Line-oriented, no quoting, because the plugin has no JSON dependency and is not acquiring
 // one (AGENTS.md 1). A title is the rest of the line, which is all a caption wants:
@@ -12,9 +11,9 @@
 //   t <window> <tab> <active> <title...>
 //
 // <generation> is the connection's identity and is what makes tab ids safe: ids are reused
-// (close tab 41, tab 41 exists again a moment later on another page), so an id is only
-// meaningful under the generation that issued it -- the same ABA hazard as a window address
-// (AGENTS.md 2.9). A snapshot replaces the previous wholesale: no diffing, no merging.
+// (close tab 41, tab 41 exists again a moment later), so an id is only meaningful under the
+// generation that issued it -- the same ABA hazard as a window address (AGENTS.md 2.9).
+// A snapshot replaces the previous wholesale: no diffing, no merging.
 
 #include <cstdint>
 #include <optional>
@@ -45,8 +44,7 @@ struct TabSnapshot {
     // browser window id -> the OS process its window belongs to: what a browser window is
     // matched to a compositor window BY. A pid rather than a title, because a browser appends
     // its own name to a window's title ("(page) - YouTube -- Zen Browser") so the two sides
-    // hold different strings by construction. Two windows of one browser share a pid, a window
-    // of another never does. Absent from this map means no pid and no match.
+    // hold different strings by construction. Absent from this map means no pid and no match.
     std::unordered_map<std::uint64_t, std::uint64_t> pids;
     // Window id -> its tabs, in report order. Absent means NOT heard from, which must never be
     // collapsed into "has no tabs".
@@ -60,7 +58,7 @@ struct TabSnapshot {
 // One bare non-negative decimal integer at `pos`. False for a sign, letters, an empty field,
 // junk glued on and anything that would overflow -- each means writer and reader disagree
 // about the format, and picking what "looks right" is how a tab ends up filed under the wrong
-// window, or a corrupt generation wraps onto one already seen.
+// window.
 [[nodiscard]] inline bool number(std::string_view line, std::size_t &pos,
                                  std::uint64_t &out) {
     while (pos < line.size() && line[pos] == ' ')

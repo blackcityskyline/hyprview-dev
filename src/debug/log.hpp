@@ -11,8 +11,7 @@ bool enabled();
 void dbg(const std::string &msg);
 
 // Machine-readable records, one per line, gated by `debug_trace` rather than `debug_logs`.
-// key=value fields, no spaces, no '|'; `seq` pairs begin/end and is unique per process.
-// Parseable by tools/anim_matrix.py, which is why the format must not drift.
+// key=value, no spaces, no '|'; `seq` pairs begin/end -- parsed by tools/anim_matrix.py.
 namespace trace {
 
 // `debug_trace` is a mask: 0 off, 1 everything, else a bit test. The control channel
@@ -34,7 +33,6 @@ inline constexpr int kAll = 0x7FFFFFFF;
   return gate != 0 && (gate == 1 || (gate & bit) != 0);
 }
 
-// `debug_trace == 1` selects everything, so this doubles as "trace is on".
 bool on(int bit);
 
 bool enabled();
@@ -64,24 +62,21 @@ inline void drag(const char *event, const std::string &state) {
 }
 
 // Emitted from the transitions themselves, so a caller reaching the same state by another
-// route cannot forget it -- that was exactly this subsystem's failure.
+// route cannot forget it.
 inline void life(const char *event, const std::string &state) {
   record("LIFE", event, state);
 }
 
-// Which branch a release took: `name` first, `extra` in the same key=value grammar.
-//
-// Non-flight animations (entry, glide, master clock) get the same leading grammar as ANIM|
-// without win/surface/boxes, which only a flight has. An animation applied but never
-// recorded is indistinguishable from one that did not run -- scan_anim_coverage requires
-// every m_clocks.*.begin() beside one of these or on an exemption list with a reason.
+// Non-flight animations (entry, glide, master clock) get ANIM|'s grammar without win/
+// surface/boxes; applied-but-unrecorded is indistinguishable from not run (scan_anim_coverage).
 void animStart(const char *op, const char *leaf, const char *style, double ms,
                const char *curve);
 
-// Which ring was drawn, where, how round, how opaque. Thirteen ring sites share a frame and
-// two share a tile; `kind` is the site's own word, so the record names the code, not the look.
+// Which ring was drawn, where, how round, how opaque. Ring sites share a frame and tiles;
+// `kind` is the site's own word, so the record names the code, not the look.
 void ring(const char *kind, const LRect &box, int radiusPx, double alpha);
 
+// Which branch a release took: `name` first, `extra` in the same key=value grammar.
 void dragBranch(const char *name, const std::string &extra = {});
 
 // Per EVENT, not per frame: advance() runs every tick while a glide is in flight.

@@ -1,15 +1,10 @@
 #pragma once
 
-// Key-combo parsing: "shift+tab, super+q" against a pressed keycode and a modifier mask.
-//
-// No Hyprland and no config reads. The modifier bits are declared here rather than pulled
-// from Hyprland's eKeyboardModifiers so this compiles under ctest; keys.cpp static_asserts
-// them against the real enum, so a Hyprland change that moved a bit fails the build here
-// instead of silently rejecting every combo using it.
-//
-// The rule this file exists to hold: EXTRA held modifiers fail the match. A bare "tab"
-// must not swallow shift+tab, or the user's own toggle bind stops firing. That is one line
-// at the end of comboMatches and it is the reason this is not `heldMods == need`.
+// Key-combo parsing: "shift+tab, super+q" against a keycode and modifier mask.
+// No Hyprland types: bits declared here, static_asserted in keys.cpp, so a moved
+// bit fails the build instead of silently rejecting every combo using it.
+// Rule: EXTRA held modifiers fail the match -- a bare "tab" must not swallow
+// shift+tab. That is the trailing `(heldMods & STRICTMODS & ~need) == 0`.
 
 #include <algorithm>
 #include <cctype>
@@ -149,8 +144,6 @@ inline uint32_t modNameToBit(std::string t) {
   return 0;
 }
 
-// Extra held modifiers fail the match: a bare "tab" must not swallow
-// shift+tab or the user's own toggle bind.
 inline bool comboMatches(int keycode, uint32_t heldMods, std::string token) {
   constexpr uint32_t STRICTMODS =
       kModShift | kModCtrl | kModAlt | kModMeta;
@@ -187,8 +180,7 @@ inline bool comboMatches(int keycode, uint32_t heldMods, std::string token) {
   return false;
 }
 
-// Which token matched, or -1. A multi-position bind needs to know WHICH position, which is
-// why this is not keyMatches returning bool.
+// Which token matched, or -1; a multi-position bind needs WHICH position.
 [[nodiscard]] inline int keyIndex(int keycode, uint32_t heldMods,
                                   const std::string &combo) {
   int idx = 0;

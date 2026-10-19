@@ -26,10 +26,7 @@ namespace gloview {
 bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
   if (!active())
     return false;
-  // Hyprland reports a wheel axis in 120ths of a degree, so ONE notch is 120. Reading
-  // deltaDiscrete as a notch count made a single click 120 clicks, and 120 steps round a
-  // carousel of any size lands on the card it started from: the wheel did nothing at all, with
-  // no trace of why. Divisor on BOTH arms, since a touchpad's continuous axis is the unit too.
+  // Hyprland reports wheel axis in 120ths: ONE notch is 120. Divisor on both arms.
   constexpr double kDegreesPerNotch = 120.0;
   const double notches = e.deltaDiscrete != 0
                              ? static_cast<double>(e.deltaDiscrete) / kDegreesPerNotch
@@ -44,34 +41,26 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
     overStrip = band.contains(lx, ly);
   }
 
-  // Vertical only. A touchpad has two axes and only one of them means "the next thing": a
-  // sideways swipe is the gesture for turning a page or moving a pane, and taking the carousel
-  // with it moved the selection on both axes. Over the strip both axes still scroll -- that is
-  // horizontal by nature and fenced off below, not here.
+  // Vertical only for the run; the strip handles both axes, fenced off below.
   const bool vertical = e.axis == WL_POINTER_AXIS_VERTICAL_SCROLL;
 
-  // The run pages on the wheel: notches * carousel_scroll_speed = cards moved. Its
-  // own switch, not scroll_switches_workspace, which is about WORKSPACES.
+  // Carousel uses carousel_scroll_speed, its own switch -- scroll_switches_workspace
+  // is about workspaces.
   if (!overStrip && vertical && carouselMode()) {
     const double speed =
         std::clamp(static_cast<double>(cfg::carousel.scroll_speed), 0.05, 20.0);
     const double cards = notches * speed;
-    // Below one card per notch the leftover is carried, so a slow setting moves.
     m_scrollAccum += cards;
     const int whole = static_cast<int>(std::trunc(m_scrollAccum));
     if (whole != 0) {
       m_scrollAccum -= static_cast<double>(whole);
-      // The same call the left and right keys make. The wheel is another way of asking for the
-      // next card, not another gesture: stepAltTab() carries its own seeding, slot remap and
-      // open-if-closed, none of which is what a wheel notch means on an open overlay.
+      // moveSelection, not stepAltTab(): the wheel asks for the next card, not an alt-tab.
       moveSelection(whole, 0);
     }
     return true;
   }
 
-  // Same fence as the run: a sideways swipe must not reach the workspace switch either, or it
-  // lands there the moment the carousel is off and the wheel did something the user did not
-  // ask for in a place they were not looking at.
+  // Same fence: a sideways swipe must not reach the workspace switch.
   if (!overStrip && vertical &&
       cfg::behavior.scroll_switches_workspace != 0) {
     if (notches != 0.0)
@@ -91,14 +80,13 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
 }
 
 void Overview::onMouseMove() {
-  // Damage only the cursor's old+new boxes, never the whole monitor.
   const auto m = m_monitor.lock();
   if (!m || !Pointer::mgr()) {
     updateHover();
     return;
   }
-  // The closing zone's glow. BEFORE the hardware-cursor return below, which leaves
-  // it untouched and kept the zone dark for anyone with a hardware cursor.
+  // Kill-zone glow: BEFORE the hardware-cursor return below, which would leave
+  // the zone dark for a hardware cursor.
   {
     double g = 0.0;
     if (active() && (draggedTile() >= 0 ||
@@ -114,22 +102,16 @@ void Overview::onMouseMove() {
   }
   if (m_cursor.hasHardwareCursor(m)) {
     updateHover();
-    // The hardware cursor is on its own plane, but the plane still has to be told where the
-    // cursor is for THIS frame: Hyprland's cursor render runs inside its own pass and this
-    // branch returned before any damage was issued, so the plane kept whatever position it last
-    // had -- focus follows, the cursor does not show. Periodically, because whether the stale
-    // position survived is luck. damageCursor() rather than our union box: the union is what a
-    // SOFTWARE copy needs erased and redrawn, and the hardware plane carries no such history.
+    // damageCursor() for THIS frame: this branch returns before any damage is
+    // issued; the union box is what a software copy needs erased, not the plane.
     if (active() && Pointer::mgr())
       Pointer::mgr()->damageCursor(m);
     return;
   }
   const CBox unionBox = m_cursor.moveDamage(m);
   updateHover();
-  // Named, because this is the other half of the cursor's visibility and it fails SILENTLY:
-  // renderOnTop draws the texture regardless of damage, so a frame whose damage never got
-  // issued clips the cursor away while the mouse keeps moving. CURSOR|mode=draw with no
-  // matching CURSORMV|damage is that bug, and neither half identifies it alone.
+  // Named because it fails silently: CURSOR|mode=draw with no matching
+  // CURSORMV|damage clips the cursor away while the mouse keeps moving.
   const bool dmg = active() && unionBox.w > 0 && unionBox.h > 0;
   debug::trace::emitState(
       std::string("CURSORMV|at=") + (active() ? "open" : "closed") +
@@ -164,14 +146,12 @@ int Overview::tileAt(double lx, double ly) const {
     }
     return best;
   }
-  // One frame for the whole scan, not one per tile: the boxes are what moves the answer,
-  // not the bindings.
+  // One frame for the whole scan, not one per tile.
   const auto f = frame();
   std::vector<LRect> boxes;
   boxes.reserve(m_scene.tiles().size());
   for (std::size_t i = 0; i < m_scene.tiles().size(); ++i)
-    // The index is not decoration: box() staggers by it, so passing 0 for every tile would
-    // land them all on one card's timing.
+    // box() staggers by index: passing 0 for every tile lands them on one card's timing.
     boxes.push_back(m_place.box(m_scene.tiles()[i], static_cast<int>(i), f));
   return render::firstHit(lx, ly, boxes.data(), boxes.size());
 }
@@ -183,8 +163,7 @@ int Overview::stripItemAt(double lx, double ly) const {
   return -1;
 }
 
-// A press that never travelled is a click, not a drag: drop the lift so the card
-// lands back down. Both release paths need this.
+// A press that never travelled is a click: drop the lift so the card lands back down.
 void Overview::dropLiftIfNotMoved() {
   if (m_drag.lifted() && m_drag.travelSq() < 64.0) {
     m_drag.setLifted(false);
@@ -232,12 +211,8 @@ void Overview::updateHover() {
     }
     const auto m = m_monitor.lock();
     if (m) {
-      // A selection move is not a two-tile repaint: the focused tile changes its ring, its
-      // content radius and its exemption from the entry ladder, and the run rebuilds every slot
-      // around it. Damaging only the two crossed tiles left the rest of the frame holding the
-      // previous image -- a card flickering as the pointer crosses its border, and a slice of a
-      // DIFFERENT card showing up on the hovered one. Cost is one extra full-monitor repaint on
-      // a boundary crossing, a fraction of a frame, cheaper than guessing which tiles moved.
+      // A selection move is not a two-tile repaint: the run rebuilds every slot,
+      // so damage everything or a card flickers at its border.
       if (oldSel != m_scene.selected()) {
         damage();
         return;
@@ -385,7 +360,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
     return true; // middle was fully handled on press
 
   switch (m_drag.press()) {
-  case model::Drag::Press::Consumed: { // handled on press
+  case model::Drag::Press::Consumed: {
     debug::trace::drag("release", m_drag.describe());
     m_drag.clear();
     m_killGlow = 0.0;
@@ -413,10 +388,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           break;
         }
       if (cardIdx >= 0) {
-        // Any strip card is a drop target, not just a Ws one. "+" is Plus, so matching only
-        // Kind::Ws left cardIdx at -1 and skipped the block below INCLUDING dropOnStripCard:
-        // the tile always flew back. A press on "+" is a click, but a DRAG that ends there
-        // starts elsewhere and never goes through the press handler.
+        // Any strip card is a drop target, not just a Ws one: a drag that ends
+        // on "+" never went through the press handler.
         const bool wsCard = m_strip[cardIdx].kind == model::StripItem::Kind::Ws;
         debug::trace::dragBranch("Tile->stripCard",
                                  "rmb=" + std::to_string(rmb) + "|kind=" +
@@ -446,8 +419,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           }
           return true;
         }
-        // LMB on any card, rmb on a non-Ws one: dropOnStripCard creates the workspace for
-        // "+" (dropOnWorkspace already handles Kind::Plus) and moves the window in.
+        // LMB on any card, rmb on a non-Ws one: dropOnStripCard creates the "+"
+        // workspace and moves the window in.
         if (dropOnStripCard(w, lx, ly, -1)) {
           kickPulse(subjectOf(w));
           landAfterSwap(w, m_lastDragBox, m_lastDragBox, m_lastDragBox,
@@ -457,12 +430,11 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         }
         // A drop that resolved to nothing still flies back: fall through to the checks below.
       }
-      // The closing zone wins over everything else: a card dropped on it closes,
-      // whether the run is a carousel or a plain layout.
+      // The closing zone wins over everything else, carousel or plain.
       if (w && killZoneRect().contains(lx, ly)) {
         debug::trace::dragBranch("Tile->killZone");
-        // Hand the centre to whatever lands in the closed window's place. By
-        // index: the tile is being rebuilt and its neighbour shifts into this slot.
+        // Hand the centre to whatever lands in the closed window's place, by
+        // index: the rebuild shifts the neighbour into this slot.
         if (press == m_scene.selected() && m_scene.tiles().size() > 1) {
           m_scene.select(static_cast<int>(press % (m_scene.tiles().size() - 1)));
           m_scene.select(std::clamp(m_scene.selected(), 0,
@@ -493,14 +465,12 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             std::max(0.0, cfg::grid.gap / 2.0);
         if (best >= 0 && bestDist2 <= tol * tol) {
           debug::trace::dragBranch("Tile->gridSwap");
-          // The release point, not the slot it was picked up from: the card has to land
-          // from under the cursor.
+          // The release point, not the pickup slot: the card lands from under the cursor.
           swapTiles(press, best, m_lastDragBox);
           return true;
         }
       }
-      // Desktop mode parks the preview; the box lives on the Tile so
-      // rebuilds keep it.
+      // Desktop mode parks the preview; the box lives on the Tile so rebuilds keep it.
       if (m_view.desktop() && w) {
         debug::trace::dragBranch("Tile->desktopPark");
         const LRect cur =
@@ -512,8 +482,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         return true;
       }
       debug::trace::dragBranch("Tile->flyback");
-      // Its own glide source: captureCurrentBoxes excludes it, so startTileGlide
-      // called it a newcomer and it faded in while a swap FX flew a second copy.
+      // Own glide source: captureCurrentBoxes excludes the dragged window,
+      // so startTileGlide would call it a newcomer and fade it in.
       if (w)
         oldBoxes.emplace_back(subjectOf(w), m_lastDragBox);
       replayReflow(oldBoxes);
@@ -522,8 +492,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       return true;
     }
     m_drag.clear();
-    // The run comes to the card you clicked; only the FOCUSED card commits.
-    // Setting m_scene.selected() is enough — relayoutCarousel glides the run around it.
+    // Only the focused card commits; setting selected() is enough -- relayoutCarousel
+    // glides the run around it.
     if (carouselMode() && press >= 0 && press < static_cast<int>(m_scene.tiles().size()) &&
         press != m_scene.selected()) {
       debug::trace::dragBranch("Tile->carouselFocus", "idx=" + std::to_string(press));
@@ -537,8 +507,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         closeTileWindow(press);
         return true;
       }
-      // The first click waits. Whether it is still pending IS whether the timer is armed:
-      // there is no separate flag that could disagree with it.
+      // The armed timer IS whether the click is pending: no separate flag to disagree.
       m_click.arm(dblclickWindow(), w, [this](const PHLWINDOW pw) {
         if (active())
           focusAndClose(pw, Desktop::FOCUS_REASON_CLICK);
@@ -563,7 +532,6 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
     m_drag.clear();
     if (lifted) {
       if (w) {
-        // Slot hit swaps tiling slots for RMB or a same-workspace partner.
         for (size_t i = 0; i < m_strip.size(); ++i) {
           const auto &it = m_strip[i];
           if (it.kind != model::StripItem::Kind::Ws)
@@ -713,10 +681,8 @@ void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
   if (w) {
     if (const auto ws = w->m_workspace;
         ws && (showAllWorkspaces() || ws != m_workspace.lock())) {
-      // Nothing is rebuilt here. focusAndClose runs DURING the close and layoutTiles()
-      // recomputes m_view.run(), so with allOverride() already 0 the deck stopped being a
-      // carousel before close() read it: every card flew to the same fullscreen rectangle and
-      // met in one point.
+      // Set before close(): focusAndClose runs DURING close and layoutTiles
+      // recomputes run(), so this must land before close() reads the deck.
       m_view.setAllOverride( 0);
       m_workspace = ws;
       m_scene.clearHover();

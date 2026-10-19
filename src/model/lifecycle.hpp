@@ -1,13 +1,10 @@
 #pragma once
 
-// Who owns the screen, and whether the entry animation is running. Six booleans used to carry
-// this, five files wrote them and nine read them, and two facts that decide whether the overlay
-// paints at all were spread across the writes: m_active and m_pendingOpen are one axis
-// (open() sets one and clears the other, primeBackdrop flips them, close() clears both), while
-// m_opening is NOT that axis -- three reflow sites set it on an overlay already on screen, so
-// nine sites spell `m_active && m_opening` instead of asking one thing. Ownership is a 3-value
-// state, the entry animation a flag beside it. Neither is Hyprland-bound, so a test can reach
-// the header, which is the only reason the invariants are checked rather than remembered.
+// Who owns the screen, and whether the entry animation is running. Ownership is a 3-value
+// state, the entry animation a flag beside it -- m_opening is NOT on the ownership axis,
+// which is why sites ask `openingNow()` instead of combining two flags. Neither is
+// Hyprland-bound, so a test can reach the header, which is the only reason the invariants
+// are checked rather than remembered.
 
 #include <string>
 
@@ -67,9 +64,7 @@ public:
 
   // Ask for the overlay to go away. The wait is the point: deactivating mid-frame skips the
   // final painted frame and the screen shows one transparent frame (AGENTS.md rule 9).
-  // Refuses when nothing is on screen -- the one caller already guards it that way, so the
-  // refusal changes no behaviour and turns "the guard chain happens to be right" into a fact
-  // of the type.
+  // Refuses when nothing is on screen, so the caller's guard is a fact of the type.
   bool requestDeactivate() {
     if (m_own == Own::Closed)
       return false;
@@ -111,8 +106,7 @@ public:
   [[nodiscard]] int parkTicks() const { return m_parkTicks; }
 
   // The `active && opening` pair nine sites spelled out. Not redundant: the reflow paths have
-  // opening without a fresh open, so the conjunction is a real question and one name keeps the
-  // answer consistent.
+  // opening without a fresh open, so the conjunction is a real question.
   [[nodiscard]] bool openingNow() const { return m_own == Own::Screen && m_opening; }
 
   // One pipe-separated key=value line, same grammar as ANIM| and DRAG|. parkTicks is only

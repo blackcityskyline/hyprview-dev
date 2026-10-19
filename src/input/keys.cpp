@@ -58,7 +58,7 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   const bool passthrough = cfg::behavior.passthrough_keys != 0;
 
   if (e.state != WL_KEYBOARD_KEY_STATE_PRESSED) {
-    // The modifier coming up is swallowed either way — letting it through fires the
+    // The modifier release is swallowed either way: letting it through fires the
     // user's own SUPER binding and tears the state down before the run settles.
     if (m_altTabbing && modBitForKeycode(e.keycode) == altTabModBit()) {
       m_altTabbing = false;
@@ -139,8 +139,7 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
       if (m) {
         if (const auto target = m_workspace.lock();
             target && target != m->m_activeWorkspace) {
-          // internal=true is not the lever (it stopped a fullscreen window on
-          // the target from rendering); keep it false and warp the slide away below.
+          // internal=false, not true; warp the slide away below instead.
           const auto oldWs = m->m_activeWorkspace; // capture BEFORE the switch
           m->changeWorkspace(target, false, true, false);
           if (oldWs && oldWs != target) {
@@ -165,9 +164,7 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   cancel = handled || !passthrough;
 }
 
-// The bits key_combo.hpp declares for itself must be the bits Hyprland puts in the event.
-// A move here would make every combo using that modifier stop matching, and it would look
-// like a config error.
+// key_combo.hpp's bits must match Hyprland's, or every combo using that modifier stops matching.
 static_assert(gloview::input::kModShift == HL_MODIFIER_SHIFT);
 static_assert(gloview::input::kModCtrl == HL_MODIFIER_CTRL);
 static_assert(gloview::input::kModAlt == HL_MODIFIER_ALT);
@@ -192,8 +189,7 @@ void Overview::moveSelection(int dx, int dy) {
     damage();
     return;
   }
-  // Carousel: dx is a circular index step, dy is unused; relayoutCarousel()
-  // reacts to m_scene.selected().
+  // Carousel: dx is a circular index step, dy unused; relayoutCarousel reacts to selected().
   if (carouselMode()) {
     if (dx != 0) {
       m_scene.stepSelection(dx);
@@ -229,32 +225,21 @@ void Overview::moveSelection(int dx, int dy) {
   }
 }
 
-// Steps through the order the user SEES. In the run that is the slot order, not the
-// scene's array order: the cards are laid out most-recently-used first, so stepping
-// the array index would move the selection to a window that is not the next card on
-// screen. A grid has no slot order and keeps the array order it is drawn in.
+// Steps the order the user SEES: slot order in the run, array order in the grid --
+// the run is laid out MRU-first, so array order is not on-screen order.
 void Overview::stepAltTab(int dir) {
   const std::size_t n = m_scene.size();
   if (n == 0)
     return;
 
-  // Which cards are on the run right now. A card that joins or leaves it between one step
-  // and the next has no slot to glide from or to: off-stage its box is empty, so handing it a
-  // target made it grow out of the top left corner of the monitor, and its caption came with
-  // it and got clamped up into the strip band. The caption is what read as the strip
-  // jumping. Taken before anything below changes a target.
+    // Which cards are on the run now, taken before anything below: a card that
+    // joins or leaves has no slot to glide from or to.
   std::vector<char> wasOnRun(n, 0);
   for (std::size_t i = 0; i < n; ++i)
     wasOnRun[i] = m_scene.tiles()[i].target.w >= 1.0 ? 1 : 0;
 
-  // Freeze each card at the slot it holds RIGHT NOW, before any target below is rewritten --
-  // after that the question has no answer. The rule is model::priorSlot(): a window's natural
-  // already IS its prior slot, and a tab's is not, because the build seeded it with the browser
-  // window's box. Off the run the grid has no slots and every card is already where it belongs,
-  // so there is nothing to freeze.
-  //
-  // Read through outgoingBox() rather than spelled out, because the spelling was the bug: it
-  // said "tabs only" and applied it by asking isTab() -- the boolean the rule exists to hide.
+    // Freeze each card at its current slot BEFORE any target below is rewritten:
+    // priorSlot() says a window's natural IS its prior slot, a tab's is not.
   if (m_view.run())
     for (std::size_t i = 0; i < n; ++i) {
       const auto &t = m_scene.tiles()[i];
@@ -275,9 +260,8 @@ void Overview::stepAltTab(int dir) {
       const int count = static_cast<int>(n);
       const int nxt = ((cur + dir) % count + count) % count;
       m_scene.select(m_view.tileInSlot(static_cast<std::size_t>(nxt)));
-      // The run's geometry is built FROM the selection: computeCarousel() takes the selected
-      // slot and decides what is centred and what is off-run. Selecting without relaying out
-      // leaves the previous step's cards standing while the slot map has already moved on.
+      // The run's geometry is built FROM the selection: selecting without
+      // relaying out leaves the previous step's cards standing.
       layoutTiles();
       pinRunEdges(wasOnRun);
       damage();
@@ -292,14 +276,8 @@ void Overview::stepAltTab(int dir) {
   damage();
 }
 
-// The cards that changed between the two sides of the run have no slot between them. A card
-// that just JOINED has never held one, so its only place is the slot it is taking; a card that
-// just LEFT holds the slot it had, which the run keeps on screen until it fades. A card that
-// stayed keeps sliding from the slot it left to the slot it took.
-//
-// No kind test here. The rule reads the same for every subject and decides the kind itself,
-// which is the point: the tabs-only spelling is what left a new subject to repeat the
-// question and get it wrong.
+// A JOINED card's only place is the slot it is taking; a LEFT one holds its
+// slot until it fades. No kind test: the rule reads the same for every subject.
 void Overview::pinRunEdges(const std::vector<char> &wasOnRun) {
   for (std::size_t i = 0; i < m_scene.size(); ++i) {
     const auto &t = m_scene.tiles()[i];

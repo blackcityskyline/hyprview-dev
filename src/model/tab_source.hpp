@@ -2,13 +2,11 @@
 
 // Tabs as subjects, the second implementation of IContentSource -- the one that made
 // `virtual` mean something. It is PURE: not one Hyprland type appears here, because a tab has
-// no window, no surface, no workspace, and that is what the boundary is for -- so ctest checks
-// it without a compositor.
+// no window, no surface, no workspace, so ctest checks it without a compositor.
 //
 // What it cannot do yet it says rather than fakes: activate, close and moveTo are messages to
 // the browser and no such channel exists. They answer false, the interface's word for "it did
-// not happen", so the caller does not animate towards a subject that did not respond -- better
-// than a tab that appears to close and does not.
+// not happen", so the caller does not animate towards a subject that did not respond.
 
 #include <cstdint>
 #include <optional>
@@ -38,9 +36,9 @@ class TabsContentSource final : public IContentSource {
           for (const auto &[tabId, info] : reported.tabs) {
             const std::uint64_t id = static_cast<std::uint64_t>(tabId);
             // Assigned, not inserted: a repeated tab id inside one connection is corrupt input
-            // and parseTabs() does not refuse it, so the LAST report wins -- the file lists tabs
-            // in order and the first would answer with a tab the browser already replaced. This
-            // does NOT deduplicate: enumerate() reports both because that is what the file says.
+            // and parseTabs() does not refuse it, so the LAST report wins -- the first would
+            // answer with a tab the browser already replaced. This does NOT deduplicate:
+            // enumerate() reports both because that is what the file says.
             windowsByTab_[id] = browserWindow;
             titles_[id]       = std::string{info.title};
           }
@@ -56,9 +54,9 @@ class TabsContentSource final : public IContentSource {
     [[nodiscard]] bool empty() const { return m_snap.windows.empty(); }
 
     // One subject per tab, in the order reported. NOT const, for the same reason as
-    // WindowsContentSource::enumerate(): it is a read of the current world that callers must
-    // not be able to cache across a reconnect, where every id is being reused. There is no
-    // ownership to refresh here, but the contract is one contract.
+    // WindowsContentSource::enumerate(): callers must not cache it across a reconnect, where
+    // every id is being reused. There is no ownership to refresh here, but the contract is
+    // one contract.
     [[nodiscard]] std::vector<SubjectRef> enumerate() override {
         std::vector<SubjectRef> out;
         std::size_t total = 0;
@@ -69,8 +67,7 @@ class TabsContentSource final : public IContentSource {
             for (const auto &[tabId, info] : reported.tabs)
                 // The tab id is the subject, unique browser-wide in both Gecko and Chromium;
                 // the epoch is the connection that issued it, so "tab 41" from last week's
-                // browser and "tab 41" from this one are different subjects. An id alone would
-                // have been an ABA bug waiting to happen.
+                // browser and "tab 41" from this one are different subjects.
                 out.push_back(
                     SubjectRef{static_cast<std::uint64_t>(tabId), m_snap.generation});
         return out;
@@ -101,10 +98,9 @@ class TabsContentSource final : public IContentSource {
 
     // Whether anything has been reported for this browser window, and its tab ids. Split from
     // ReportedTabs on purpose: its titles are string_views into the parsed text, which dies
-    // with the call that produced it, so handing it back would be a dangling view dressed as a
-    // return value. "Heard from" is not "has tabs" -- a browser that has not reported and one
-    // that reported none both show up here, distinguishably, which is the fallback rule
-    // (entriesFor).
+    // with the call that produced it. "Heard from" is not "has tabs" -- a browser that has not
+    // reported and one that reported none both show up here, distinguishably, which is the
+    // fallback rule (entriesFor).
     [[nodiscard]] bool knownFor(std::uint64_t browserWindow) const {
         const auto it = m_snap.windows.find(browserWindow);
         return it != m_snap.windows.end() && it->second.known;

@@ -55,7 +55,6 @@ std::vector<LRect> layoutRows(const std::vector<LRect>& w, const LRect& area, co
     if (n == 0)
         return {};
 
-    // Spatial reading order.
     std::vector<int> order(n);
     std::iota(order.begin(), order.end(), 0);
     std::sort(order.begin(), order.end(), [&](int a, int b) {
@@ -121,12 +120,8 @@ std::vector<LRect> layoutGrid(const std::vector<LRect>& w, const LRect& area, co
         return {};
     const int    cols  = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n)))));
     const int    rows  = std::max(1, static_cast<int>(std::ceil(static_cast<double>(n) / cols)));
-    // The cell cannot be allowed to go negative, and nothing upstream stops it: inset()
-    // only guarantees the area is at least a pixel, so once the gaps between more than
-    // one column outgrow that area, (area.w - (cols - 1) * gap) is below zero and every
-    // scale derived from it is too. A negative box is what the compositor's render
-    // entry points assert on, so this floor is the difference between a missing tile
-    // and the session. layoutRows floors its scale for the same reason.
+    // Floor the cell: (area.w - (cols-1)*gap) can go negative and the compositor's
+    // render entry points assert on a negative box. layoutRows floors for the same reason.
     const double cellW = std::max(1.0, (area.w - (cols - 1) * cfg.gap) / cols);
     const double cellH = std::max(1.0, (area.h - (rows - 1) * cfg.gap) / rows);
 
@@ -189,15 +184,9 @@ Engine parseEngine(const char* s) {
     return Engine::Rows;
 }
 
-// ONE standard box for every card, the size a fullscreen window occupies, so the
-// run's geometry cannot depend on which window is centred — only its content
-// differs. A smaller window is fitted whole inside it, undeformed, which also keeps
-// the content's corner arcs off the ring.
-//
-// Cards are laid out from the FOCUSED one, overlapping, centred in the usable rect
-// — which already carries the strip's band in the padding, so that is the centre of
-// the free space and it moves with the strip. Nothing is anchored to the run's own
-// extent: with an even card count the run is not symmetric.
+// One standard box per card: geometry cannot depend on which window is centred.
+// Cards lay out from the focused one, centred in the usable rect (padding carries
+// the strip band); nothing anchors to the run's own extent, asymmetric when even.
 CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
                                const CarouselMetrics& mt) {
     CarouselLayout L;
@@ -235,8 +224,7 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     };
     const auto wAt = [&](int depth) { return boxW * sizeAt(depth); };
     const auto pitchAt = [&](int depth) { return wAt(depth) * mt.pitchK; };
-    // Symmetric extent: the wider side decides, so even counts still fit.
-    // The outermost step for every slot over-measures, only conservatively.
+    // Symmetric extent: the wider side decides so even counts fit.
     const int reach = std::max(leftSlots, rightSlots);
     const double stripW =
         wAt(0) + (pitchAt(reach) + wAt(reach) * 0.5) * static_cast<double>(reach) * 2.0;
@@ -249,9 +237,8 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     const double k =
         std::min({1.0, availW / std::max(1.0, stripW),
                   availH / std::max(1.0, stripH)}) * mt.scale;
-    // It may NOT push the FOCUSED CARD past the screen: a ladder absorbs the zoom because
-    // neighbours shrink it, a lone card has none, and at zoom 2 it came out twice the
-    // monitor wide — over the strip band and off both edges.
+    // It may NOT push the focused card past the screen: a lone card has no
+    // neighbours to absorb the zoom the way a ladder does.
     const double kCard =
         std::min(k, std::min(screen.w / boxW, screen.h / stripH));
 
@@ -269,7 +256,6 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
         CarouselLayout::Card& c = L.cards[static_cast<size_t>(idx)];
         c.visible = true;
         c.depth = std::abs(slot);
-        // Each card centred on its own slot's position, at its depth's size.
         c.w = boxW * sizeAt(std::abs(slot)) * kCard;
         c.h = boxH * sizeAt(std::abs(slot)) * kCard;
         // x reads c.w, so it has to come after it.

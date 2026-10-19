@@ -14,9 +14,8 @@ bool PendingClick::arm(std::chrono::milliseconds ms, const PHLWINDOW &w,
       ms,
       [this, onFire](SP<CEventLoopTimer>, void *) {
         const auto pw = m_win.lock();
-        // Disarm BEFORE the callback. The callback can close a window, which can tear the
-        // owner down, which destroys this -- so nothing here may touch a member after
-        // onFire returns, and nothing may leave the timer armed across it.
+        // Disarm BEFORE the callback: it can close a window, tear the owner down and destroy
+        // this, so nothing here may touch a member after onFire or leave the timer armed.
         cancel();
         if (pw)
           onFire(pw);

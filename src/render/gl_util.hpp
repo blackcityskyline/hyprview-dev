@@ -41,12 +41,9 @@ inline int clampRound(int round, double w, double h) {
 
 // --- GL state fence ---------------------------------------------------------------------
 //
-// The half of GL discipline nothing covered: that the state we change is put back.
-// scan_draw_sites catches a raw draw call outside the helpers, the static half; two real
-// defects (backdrop leaving blend enabled, blur calling raw glDisable) were found by reading
-// code instead. A mock proves which functions were called, not what the driver ended in, so
-// read it back: glGet is observation, not substitution. Cost is a pipeline sync, hence every
-// call is behind debug_trace and paint brackets itself twice rather than at every site.
+// The half of GL discipline nothing covered: that the state we change is put back. A mock
+// proves which functions were called, not what the driver ended in, so state is read back --
+// a pipeline sync, hence behind debug_trace and bracketed by paint twice, not every site.
 
 // Needs a current context. A reader outside a pass sees whatever the last left; the delta is
 // read against a fence taken inside the same frame, which is the point.

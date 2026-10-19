@@ -1,17 +1,12 @@
 #pragma once
 
-// Which Hyprland window is which browser window. The two sides cannot name each other: the
-// extension knows browser.windows ids and tab titles, the plugin knows CWindow and its title,
-// and no id crosses in either direction. What both have is the active tab's title -- a browser
-// window's title IS its active tab's title, in Gecko and Chromium alike.
+// Which Hyprland window is which browser window. The two sides cannot name each other, so
+// the match runs on the OS process a browser window belongs to (TabSnapshot::pids).
 //
-// The rules are built around being wrong safely. EXACT, not fuzzy: a prefix match would be
-// guessing, and a browser window guessed into the wrong window is a set of tabs filed under the
-// wrong program. ONE-TO-ONE: two browser windows claiming the same Hyprland window is not a
-// match, it is a conflict. AMBIGUOUS means unmatched: two windows with the same title, and
-// neither is matched, because guessing there is the one failure a user cannot detect by
-// looking. Unmatched is a supported outcome -- the window then contributes nothing in Tabs
-// mode, exactly as a window nobody has heard from does (ReportedTabs::known).
+// The rules are built around being wrong safely. ONE-TO-ONE: two candidates is not a match,
+// it is a conflict. AMBIGUOUS means unmatched: guessing is the one failure a user cannot
+// detect by looking. Unmatched is a supported outcome -- the window then contributes nothing
+// in Tabs mode, exactly as a window nobody has heard from does (ReportedTabs::known).
 
 #include "tab_feed.hpp"
 
@@ -36,9 +31,7 @@ struct HostWindow {
 // window id and a window absent from it has no process and matches nothing.
 //
 // Two windows of one browser share a process, so "is this host the right browser?" is a SET,
-// not a single answer -- that is the whole shape of this function, and why matching by title
-// had to go: two windows of one browser differ in title and agree in process, the opposite of
-// what the old rule assumed.
+// not a single answer -- that is the whole shape of this function.
 [[nodiscard]] inline std::unordered_map<std::uint64_t, std::size_t> matchBrowserWindows(
     const std::vector<HostWindow> &hosts,
     const std::unordered_map<std::uint64_t, std::uint64_t> &pids) {
@@ -64,10 +57,10 @@ struct HostWindow {
 }
 
 // A map from a compositor window to the browser window whose tabs it shows. A type rather than
-// a bare map because it has a lifetime: built when a run opens, dropped when it ends, and
-// "dropped" is the part that has to be right -- holding it for the life of the plugin would
-// let a process that matched during one run decide the next. Both directions, because
-// answering one by scanning for the other is a second place that could disagree.
+// a bare map because it has a lifetime: built when a run opens, dropped when it ends -- holding
+// it for the life of the plugin would let a process that matched during one run decide the
+// next. Both directions, because answering one by scanning for the other is a second place
+// that could disagree.
 class BrowserLinks {
   public:
     void rebuild(const std::vector<HostWindow> &hosts,

@@ -34,9 +34,8 @@ void Overview::renderStrip() const {
     return;
   const double e = eased();
   // A windowed exit holds the overlay PAST the animation, waiting for Hyprland to rebuild its
-  // blur, and m_place.progress.raw() is already 1e-6 by then. Gating on e alone stopped drawing
-  // the whole strip while the overlay was still up (measured e=0.000 with active=1), so the
-  // band vanished in one frame. While holding, the strip keeps being drawn at full strength.
+  // blur, while m_place.progress.raw() is already 1e-6. Gating on e alone dropped the whole
+  // strip while the overlay was still up, so the band vanished in one frame.
   const double stripE = blurAlpha();
   if (stripE <= 0.01)
     return;
@@ -54,12 +53,9 @@ void Overview::renderStrip() const {
     // FIRST invocation (bandE=6.727 for e=0.025, where the curve is 6.25e-5).
     // m_place.progress.raw(), NOT e: a shaped curve is directional, front-loaded in and
     // slow-then-collapsing out. progress.raw() is elapsed/duration, so it fades evenly both ways.
-    // eased(), NOT blurAlpha(): blurAlpha() pins itself to 1.0 while a windowed exit is held and
-    // snaps back the moment it ends, moving the band's opacity in one frame. The band is chrome,
-    // not backdrop, so its opacity is the same number on every workspace in every state. On the
-    // way OUT it fades on exitT(), the same number the cards leave on. stripE was used on both
-    // sides, and on a close it is pinned to 1.0 by blurAlpha() while the landing workspace of an
-    // all-workspaces run usually HAS windows, so the band sat at full alpha for the whole exit.
+    // The band is chrome, not backdrop: its opacity is the same number in every state. On the
+    // way OUT it fades on exitT(), the same number the cards leave on -- stripE is pinned to
+    // 1.0 by blurAlpha() on a close, so the band would sit at full alpha the whole exit.
   const double bandE = opening() ? stripE : exitT();
   auto bandCol       = cfg::colors.strip_band.get(bandE);
   // strip_band_opacity is the single source of the band's alpha; the colour string's own
@@ -147,10 +143,9 @@ void Overview::renderStrip() const {
           safeRenderRect("all", pxb(CBox(gx + col * (cw + cg), gy + r * (ch + cg), cw, ch), s),
                    allCol, {.round = pxr(2, s)});
     } else {
-      // Wallpaper under the windows too, not just on empty cards. The condition used to be
-      // it.wins.empty(), so a card with a floating window showed flat card colour everywhere the
-      // window did not cover -- a 300x300 window on a 1366x768 screen is 2% of the card, which
-      // read as "no wallpaper at all". The window paints over it, so this fills what is left.
+      // Wallpaper under the windows too, not just on empty cards: a card with a floating
+      // window showed flat card colour everywhere the window did not cover, which read as
+      // "no wallpaper at all". The window paints over it, so this fills what is left.
       if (cfg::strip.wallpaper != 0) {
         SP<Render::ITexture> tex = backdropSourceTexture();
         if (tex && tex->ok()) {

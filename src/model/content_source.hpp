@@ -9,10 +9,8 @@ namespace gloview::model {
 
 // What the overview may ask of anything it shows. The arrow points one way: every consumer
 // asks THIS and never reaches for a window handle; the compositor is reached only inside an
-// implementation. No Hyprland and no GL, so ctest can build the seam -- a boundary nobody can
-// test erodes in a single commit. A branch on "is this a tab" would leave both paths side by
-// side and one would drift; that has happened twice here. No texture-producing verbs: they
-// need a GL type and live in render/content.
+// implementation. No Hyprland and no GL, so ctest can build the seam. No texture-producing
+// verbs: they need a GL type and live in render/content.
 class IContentSource {
   public:
     virtual ~IContentSource() = default;
@@ -20,7 +18,7 @@ class IContentSource {
     // Everything on the run now, in layout order. NOT const, load-bearing: the identity is a
     // number, so this call is what refreshes the ownership a SubjectRef resolves through. An
     // id from an old enumeration stops resolving -- "it went away" and "resurrected a freed
-    // pointer" must not look alike to the caller, and one of them is a segfault.
+    // pointer" must not look alike; one of them is a segfault.
     [[nodiscard]] virtual std::vector<SubjectRef> enumerate() = 0;
 
     // Where a subject lives: a workspace for a window, a browser window for a tab.

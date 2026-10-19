@@ -13,16 +13,13 @@
 
 namespace gloview::clock {
 
-// Everything that answers "how far along is this", and nothing else. It owns the clocks, the
-// run's Progress and the resolved recipes, so two callers asking at the same moment cannot
-// disagree. It draws nothing, reads the compositor not, decides nothing. Scene and view are
-// passed per call: they belong to the run, and holding them here would make this the
-// coordinator again under a smaller name.
+// Everything that answers "how far along is this", and nothing else: it owns the clocks,
+// the run's Progress and the resolved recipes, so two callers cannot disagree. Scene and
+// view are passed per call.
 class Placement {
   public:
     // The run's overall fade, on the master clock's curve. Resolved once per frame by
-    // resolve(), not per call: six files ask for eased() and both are the same curve
-    // lookup plus the same leaf. A config edit still applies next frame.
+    // resolve(), not per call; a config edit still applies next frame.
     [[nodiscard]] double eased() const { return m_eased; }
     [[nodiscard]] double masterDuration() const { return m_masterMs; }
 
@@ -39,7 +36,7 @@ class Placement {
                                      bool carousel) const;
 
     // currentBox lerps natural -> target as e RISES, so close feeds it the run's progress
-    // as-is; flipping that put every card on its natural box on the first close frame.
+    // as-is.
     [[nodiscard]] double tileProgress(int i, const view::State &view, bool opening,
                                       const model::Scene &scene) const;
 
@@ -49,9 +46,8 @@ class Placement {
     struct Frame {
       const view::State &view;
       const model::Scene &scene;
-      // Where the run returns to. A tile in that group flies home, one in any other leaves
-      // by fading. Asked through the contract, not a window handle. A default landing means
-      // "nothing to compare against", which reads as home.
+      // Where the run returns to: a tile in that group flies home, any other leaves by
+      // fading. Asked through the contract, not a window handle; a default landing = home.
       const model::IContentSource &src;
       model::GroupRef landing;
       bool opening;
@@ -72,7 +68,7 @@ class Placement {
     [[nodiscard]] LRect box(const model::Tile &t, int i, const Frame &f) const;
 
     // t.landed is the flag, entryProgress the clock. A tile that is not playing must not
-    // read the clock, or a stale rebuild clock keeps shrinking cards already landed.
+    // read the clock, or a stale rebuild clock keeps shrinking landed cards.
     [[nodiscard]] double entryNow(const model::Tile &t, int i,
                                   const model::Scene &scene) const;
 
@@ -80,8 +76,7 @@ class Placement {
     [[nodiscard]] double entryFade(const model::Tile &t, int i, const Frame &f) const;
 
     // Every tile's box this frame, paired with its SUBJECT, skipping `exclude`. Subjects
-    // rather than windows: windowOf() is not on the contract and must not be, because the
-    // contract is what keeps this file compilable by ctest.
+    // rather than windows: the contract is what keeps this file compilable by ctest.
     [[nodiscard]] std::vector<std::pair<model::SubjectRef, LRect>>
     capture(const Frame &f, model::SubjectRef exclude) const;
 

@@ -1,8 +1,7 @@
 #pragma once
 
-// How far the run is open: 0 closed, 1 fully open. Seven files read it, four wrote it as bare
-// assignments with no range check and no stated meaning; the transitions are named so a site
-// cannot invent a fifth meaning for the same number.
+// How far the run is open: 0 closed, 1 fully open. The transitions are named so a site
+// cannot invent another meaning for the same number.
 namespace gloview::clock {
 
 class Progress {
@@ -15,8 +14,7 @@ class Progress {
         // The exit ran to the end.
     void closed() { m_v = 0.0; }
 
-        // Inverted on the way out: the master counts up to 1 while the run counts down from 1.
-        // Flipping this put every card on its natural box on the first close frame.
+            // Inverted on the way out: the master counts up to 1 while the run counts down from 1.
     void fromMaster(double masterRaw, bool opening) {
       m_v = opening ? masterRaw : 1.0 - masterRaw;
     }

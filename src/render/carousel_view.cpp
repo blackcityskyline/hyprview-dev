@@ -54,9 +54,8 @@ void Overview::renderCarousel() const {
   if (!m || m_scene.tiles().empty() || m_view.carousel().cards.size() != m_scene.tiles().size())
     return;
 
-  // Paint order is far -> near by DEPTH, but the cards are still the scene's tiles:
-  // slot k is m_view.slot()[k], so the run can be ordered by recency without the
-  // array itself being reordered.
+  // Paint order is far -> near by DEPTH, but the cards are still the scene's tiles: slot k is
+  // m_view.slot()[k], so the run can be ordered by recency without the array being reordered.
   std::vector<int> paint;
   paint.reserve(m_scene.size());
   for (size_t i = 0; i < m_scene.size(); ++i)
@@ -75,11 +74,10 @@ void Overview::renderCarousel() const {
 
   for (const int i : paint) {
     const int k = m_view.slotOf(static_cast<std::size_t>(i));
-    // No slot means this tile is not on the run -- and substituting slot 0 handed it the
-    // FOCUSED card's geometry, which is `visible`, so a tile the run has already dropped was
-    // painted full size behind the cards for the frame before it was collected: a window the
-    // width of the screen, sitting under the carousel, that then settled at the end. There is
-    // no card here to draw, so say so instead of borrowing one.
+    // No slot means this tile is not on the run -- and substituting slot 0 handed it the FOCUSED
+    // card's geometry, so a tile the run had already dropped was painted full size behind the
+    // cards for one frame: a window the width of the screen under the carousel. There is no
+    // card here to draw, so say so instead of borrowing one.
     if (k < 0)
       continue;
     const auto &card = m_view.carousel().cards[static_cast<std::size_t>(k)];
@@ -89,25 +87,18 @@ void Overview::renderCarousel() const {
       continue;
 
     const auto &t = m_scene.tiles()[static_cast<size_t>(i)];
-    // A window with a live grid flight is already being drawn by renderSwapFX. The
-    // run skipped this check while the grid renderer had it, so the card and its
-    // flying copy were both on screen.
-    //
-    // horizontal hid it: the flight lerps from `from`, which is exactly where the card
-    // is, so the two sat on top of each other. slidevert lifts on the first frame
-    // (from.y - (h + LIFT) * q) and the card underneath became visible -- which is why
-    // this only ever showed up as "vertical animations duplicate".
+    // A window with a live grid flight is already being drawn by renderSwapFX; the run skipped
+    // this check while the grid renderer had it, so the card and its flying copy were both on
+    // screen. horizontal hid it -- slidevert lifts on the first frame, exposing the card below.
     if (swapfxActive(tileWindow(t), false))
       continue;
 
     TileLook look;
     look.box = currentBox(t, i);
-    // m_place.progress.raw() runs DOWN on close (1 open -> 0 closed); every exit fraction
-    // reads it through exitT. Read backwards it looks exactly like no animation.
-    // The deck's ONE hide rule, same predicate as the grid's: a card that cannot land
-    // hides whatever its depth, which is what makes a cancel take the whole deck out
-    // instead of leaving the centred card pretending to be on its way somewhere. A card
-    // that CAN land and is centred keeps currentBox's own lerp — one motion, one place.
+    // progress.raw() runs DOWN on close; every exit fraction reads it through exitT.
+    // The deck's ONE hide rule, same predicate as the grid's: a card that cannot land hides
+    // whatever its depth, which is what makes a cancel take the whole deck out. A card that can
+    // land and is centred keeps currentBox's own lerp -- one motion, one place.
     if (!opening() && anim::cardHides(card.depth, frame().goesHome(t))) {
       const double k =
           anim::hideShrink(exitT(), anim::param(anim::Param::Collapse));
@@ -127,9 +118,9 @@ void Overview::renderCarousel() const {
                   std::pow(depthTaper(), static_cast<double>(card.depth - 1))
             : 0.0;
     look.button = tileCloseButtons();
-    // The counter is the centred card's caption sprout, so it is drawn with that card's
-    // pill and pushed with it. One owner, one push: as a separate element above the run
-    // the two drifted apart the moment a preview reached only one of them.
+    // The counter is the centred card's caption sprout, so it is drawn with that card's pill and
+    // pushed with it: one owner, one push. As a separate element the two drifted apart the
+    // moment a preview reached only one.
     look.counter = card.depth == 0;
     drawTile(static_cast<size_t>(i), look);
   }

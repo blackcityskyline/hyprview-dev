@@ -1,15 +1,12 @@
 #pragma once
 
 // The strip's scroll position, as four doubles that were allowed to disagree. The invariant is
-// that the ENDPOINTS live in [0, max] and nothing held the current value; setMax() re-clamps
-// all three, so the ordering that used to survive by accident (build.cpp zeroing the current
-// position a line before a call the clock tick then overwrote) stops mattering.
+// that the ENDPOINTS live in [0, max]; setMax() re-clamps all three.
 //
 // current is NOT clamped during a glide, on purpose: curves.cpp bounds the bezier solver's t
 // to [0,1] but not its output, so a cubic with a control point outside eases past 1. That
-// overshoot is reachable and was visible before this type existed, and clamping it here would
-// remove an effect a config can ask for. The invariant covers the endpoints and the re-anchor,
-// not the transit.
+// overshoot is reachable, and clamping it here would remove an effect a config can ask for.
+// The invariant covers the endpoints and the re-anchor, not the transit.
 
 #include <algorithm>
 #include <string>

@@ -367,10 +367,10 @@ bool CBlurFilter::render(const SP<Render::ITexture>& src, const SP<Render::IFram
     glGetIntegerv(GL_BLEND_DST_RGB, &blendDstRGB);
     glGetIntegerv(GL_BLEND_SRC_ALPHA, &blendSrcAlpha);
     glGetIntegerv(GL_BLEND_DST_ALPHA, &blendDstAlpha);
-    // Scissor and caller FBO/viewport too: a stray scissor clips the quads.
-    // The damage box, not just the enable bit: the raw glDisable moved GL without touching
-    // m_capStatus, and the next scissor(nullptr) then early-returned on a stale cache
-    // (OpenGL.cpp:2620) without disabling. Restoring through the API keeps the box too.
+        // Scissor and caller FBO/viewport too: a stray scissor clips the quads. The damage BOX, not
+        // just the enable bit: a raw glDisable moved GL without touching m_capStatus, and the next
+        // scissor(nullptr) early-returned on a stale cache (OpenGL.cpp:2620) without disabling.
+        // Restoring through the API keeps the box too.
     const bool scissorBefore = glIsEnabled(GL_SCISSOR_TEST) == GL_TRUE;
     const CBox  dmgExtents   = g_pHyprRenderer->m_renderData.damage.getExtents();
     g_pHyprOpenGL->scissor(nullptr);
@@ -423,18 +423,17 @@ bool CBlurFilter::render(const SP<Render::ITexture>& src, const SP<Render::IFram
         }
     }
 
-    // No dim here: the cache stays free of backdrop_color and fade; renderBackdrop() draws it.
-    //
-    // The enable bit first, then the FUNC: blend(true) issues glBlendFunc(GL_ONE,
-    // GL_ONE_MINUS_SRC_ALPHA) (OpenGL.cpp:984, everything premultiplied), so restoring the
-    // factors before the bit would have the bit's own call overwrite them.
-    //
-    // This read `if (!blendBefore) blend(false)`, which restores the OFF case and leaves the
-    // ON case broken: the passes above disable blending, and with blending on at entry
-    // nothing turned it back on. Every frame through blur with blending enabled came out of
-    // it disabled, and the damage landed on the compositor's own draw afterwards. The fence
-    // found it -- GL|leak|what=blend|blend=1->0 -- and only on the FIRST painted frame,
-    // because the next one enters with blending already off and looks self-consistent.
+        // No dim here: the cache stays free of backdrop_color and fade; renderBackdrop() draws it.
+        //
+        // The enable bit first, then the FUNC: blend(true) issues glBlendFunc(GL_ONE,
+        // GL_ONE_MINUS_SRC_ALPHA) (OpenGL.cpp:984, everything premultiplied), so restoring the
+        // factors before the bit would have the bit's own call overwrite them.
+        //
+        // It read `if (!blendBefore) blend(false)`, which restores the OFF case and leaves the ON
+        // one broken: the passes above disable blending and nothing turned it back on, so every
+        // frame entered with blending on and left it off, and the damage landed on the compositor's
+        // own draw afterwards. The fence found it -- GL|leak|what=blend|blend=1->0 -- on the FIRST
+        // painted frame only, because the next one enters with blending already off.
     if (blendBefore)
       g_pHyprOpenGL->blend(true);  // through the API: see blitTex
     glBlendFuncSeparate(blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha);

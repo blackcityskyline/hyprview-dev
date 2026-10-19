@@ -9,16 +9,14 @@
 
 namespace gloview {
 
-// Every clock here is pure linear progress; shaping lives in curves.cpp and durations are
-// re-read from config every call. The ladder spread is capped at 1: Stagger is the ceiling and
-// StaggerPerTile grows it with the tile count without pushing past.
+// Pure linear progress; shaping lives in curves.cpp, durations are re-read from config.
+// The ladder spread is capped at 1: Stagger is the ceiling, StaggerPerTile the growth.
 double staggered(double base, int i, int n) {
   return anim::stagger(base, i, n,
                        std::min(anim::param(anim::Param::Stagger),
                                 anim::param(anim::Param::StaggerPerTile) * n));
 }
 
-// imperative rule > schema key > default; off -> 1ms, speed divides base
 anim::Id Overview::entryLeaf() const {
   if (m_view.expoFlip() != 0)
     return m_view.expoFlip() > 0 ? anim::Id::ExpoIn : anim::Id::ExpoOut;
@@ -38,27 +36,19 @@ anim::Id Overview::glideLeaf() const {
   return carouselMode() ? anim::Id::CarouselStep : anim::Id::Glide;
 }
 
-// How far the close has run, 0 -> 1. progress.raw() runs DOWN on a close, and read forwards it
-// looks exactly like no animation. Every exit fraction reads it here so the shrink, the fade
-// and the clock cannot disagree about where the close is.
+// progress.raw() runs DOWN on a close, and read forwards it looks exactly like no animation.
+// Every exit fraction reads it here so the shrink, the fade and the clock cannot disagree.
 double Overview::exitT() const { return m_place.progress.exit(opening()); }
 
 // WINDOWED exit: hold the backdrop until our own tiles are done AND Hyprland has spent the
-// forced full frames close() asked for -- those are the frames it rebuilds its blur in. Asking
-// whether the windows reached their goal does NOT work: in a plain open/close the real windows
-// never move (the plugin draws previews and hides them), so that test is true on frame 0.
+// forced full frames close() asked for -- those are the frames it rebuilds its blur in.
 bool Overview::backdropSettled() const {
   const auto m = m_monitor.lock();
   return m_place.clocks.tiles.done(animDuration()) && (!m || m->m_forceFullFrames <= 0);
 }
 
-// The backdrop is part of the SAME gesture as the tiles, the strip and the chrome: it rides the
-// open/close animation itself, which is the whole fix for the queued feel -- separate clocks
-// made the strip arrive first and the backdrop follow with nothing joining them. The gap a
-// private clock existed for is handled by the BASE: with windows present it is the blurred
-// cache, so the screen is blurred on frame 0. WINDOWED exit is the one exception -- the
-// backdrop must stay until Hyprland has rebuilt its blur, and fading before that exposed a
-// sharp desktop mid-flight.
+// The backdrop rides the open/close animation itself, and the BASE is the blurred cache with
+// windows present, so the screen is blurred on frame 0. WINDOWED exit is the one exception.
 double Overview::blurAlpha() const {
   if (!anim::backdropFades(opening(), m_landingEmpty))
     return 1.0;
@@ -69,8 +59,7 @@ double Overview::eased() const { return m_place.eased(); }
 
 double Overview::animDuration() const { return m_place.masterDuration(); }
 
-// CLOSE rides m_place.progress.raw() DOWN: tiles then match the collapsing chrome.
-// Read m_place.clocks.tileMs, not m_place.recipes.glide.ms: a glideLeaf() flip jumps progress.
+// CLOSE rides progress.raw() DOWN, so tiles match the collapsing chrome.
 double Overview::tileProgress(int i) const {
   return m_place.tileProgress(i, m_view, opening(), m_scene);
 }
@@ -83,8 +72,8 @@ double Overview::entryNow(const model::Tile &t, int i) const {
   return m_place.entryNow(t, i, m_scene);
 }
 
-// The one call into Placement for "where is tile i". What Placement cannot know -- the monitor
-// and whether this tile has somewhere to land -- arrives in the frame.
+// What Placement cannot know -- the monitor and whether this tile has somewhere to land --
+// arrives in the frame.
 clock::Placement::Frame Overview::frame() const {
   const auto m = m_monitor.lock();
   const PHLWORKSPACE land = m_workspace.lock();
@@ -159,8 +148,7 @@ void Overview::updateAnimation() {
 
   const auto pulse = anim::cfg(anim::Id::Pulse);
   m_fx.eachPulse([&](auto &p) {
-    // A pulse whose subject no longer resolves has nothing left to ring around. Previously
-    // this was the window handle expiring; now it is the source answering "not mine".
+    // A pulse whose subject no longer resolves has nothing left to ring around.
     if (!m_windows.windowOf(p.subj))
       return;
     p.p += std::min(34.0, std::chrono::duration<double, std::milli>(now - p.last)
@@ -168,8 +156,7 @@ void Overview::updateAnimation() {
            pulse.ms;
     p.last = now;
   });
-  // Pruned on each pulse's own accumulated fraction: a live config change must not
-  // shorten a ring that is already running.
+  // Pruned on each pulse's own fraction: a live config change must not shorten a running ring.
   m_fx.dropPulse([&](const model::WinPulse &p) {
     return !m_windows.windowOf(p.subj) || p.p >= 1.0;
   });
@@ -186,8 +173,7 @@ void Overview::updateAnimation() {
   const auto flightEnd = std::chrono::steady_clock::now();
   m_fx.dropSwap([&](const model::SwapFX &fx) {
     const bool done = m_windows.windowOf(fx.subj) == nullptr || fx.clock.raw(fx.ms) >= 1.0;
-    // Measured, not configured: the harness compares the two, and a flight that ran
-    // long or short is exactly what it is looking for.
+    // Measured, not configured: the harness compares the two.
     if (done && fx.traceSeq)
       debug::trace::animEnd(fx.traceSeq, std::chrono::duration<double, std::milli>(
                                           flightEnd - fx.traceStart)
@@ -202,14 +188,11 @@ void Overview::updateAnimation() {
     m_newCardId = 0;
   }
     // NEVER zero progress.raw(): a transparent frame before deactivate() flashes. Clamp as soon
-    // as the flight ends, NOT together with the deactivate -- the exit ramp outlives the close
-    // animation, and at exactly 0 the overlay paints nothing, Hyprland has no damage to serve,
-    // and the ramp runs on with no frames to show it (measured: 769ms of ticks, no render).
+    // as the flight ends, NOT together with the deactivate -- the exit ramp outlives the close.
   if (!opening() && t >= 1.0 && m_place.progress.raw() <= 0.0)
     m_place.progress.firstFrame();
-    // The overlay outlives the close animation by exactly the windowed-exit hold, which is what
-    // keeps the backdrop covering the screen until Hyprland's own blur has taken over. Lingering
-    // past it would leave a transparent overlay over a sharp desktop.
+    // The overlay outlives the close animation by exactly the windowed-exit hold, keeping the
+    // backdrop up until Hyprland's own blur has taken over.
   if (!opening() && t >= 1.0 && m_place.clocks.tiles.done(dur) && backdropSettled()) {
     m_life.requestDeactivate();
     debug::trace::life("requestDeactivate", m_life.describe());
@@ -231,8 +214,8 @@ double Overview::newCardScale() const {
 }
 
 void Overview::animateStripTo(double from, double to) {
-  // The range clamp and the sub-pixel threshold live in the type now, so a third caller
-  // cannot arrive here with an endpoint outside [0, max], or with a 0.3px move to animate.
+  // The range clamp and the sub-pixel threshold live in the type, so no caller arrives here
+  // with an endpoint outside [0, max] or a sub-pixel move to animate.
   const auto st = anim::cfg(anim::Id::StripStep);
   if (!st.on || !m_scroll.beginGlide(from, to)) {
     m_scroll.snap(to);
@@ -240,9 +223,8 @@ void Overview::animateStripTo(double from, double to) {
     return;
   }
   debug::trace::scroll("glide", m_scroll.describe());
-    // A glide in flight retargets from where the group actually is, not from the caller's `from`:
-    // that is the previous TARGET on the rebuild path and the current position on the wheel path,
-    // and neither is what should be left behind.
+    // A glide in flight retargets from where the group actually is: the caller's `from` is
+    // the previous TARGET on the rebuild path and the old position on the wheel path.
   if (!m_place.clocks.strip.done(st.ms))
     m_scroll.beginGlide(m_scroll.current(), m_scroll.target());
   m_place.clocks.strip.begin();

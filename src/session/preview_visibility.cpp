@@ -33,8 +33,8 @@ namespace gloview {
 
 namespace session {
 
-// The saved values are what make force/restore a PAIR: calling either alone leaves the
-// desktop wrong for the rest of the session, and nothing else in the plugin notices.
+// Saved values are what make force/restore a PAIR: calling either alone leaves the desktop
+// wrong for the rest of the session.
 template <class WinFor>
 void PreviewVisibility::force(const std::vector<model::Tile> &tiles,
                               const std::vector<model::StripItem> &strip,

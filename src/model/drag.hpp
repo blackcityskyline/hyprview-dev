@@ -1,15 +1,11 @@
 #pragma once
 
-// The drag FSM, as a type that owns its state. It was a 14-field struct with public members,
-// written in one file and read from seven, and nothing said which fields a press kind may have:
-// Press::Tile with idx == -1, Press::StripWin with winIdx == -1, a stale grab offset carried
-// across a reset -- all compile, all render as something.
-//
-// So the fields are private and the only way in is a transition, each setting the whole press in
-// one place: there is no way to set press = Tile without the idx that goes with it, because
-// beginTile() is the only call that reaches that state. Templated on the window handle so the
-// FSM has no hyprland/ include and drag_check.cpp can unit-test it; model::Drag is the
-// instantiation the plugin uses, and WinRef only needs to be assignable here.
+// The drag FSM, as a type that owns its state. Fields are private and the only way in is a
+// transition, each setting the whole press in one place: there is no way to set press = Tile
+// without the idx that goes with it, because beginTile() is the only call that reaches that
+// state. Templated on the window handle so the FSM has no hyprland/ include and
+// drag_check.cpp can unit-test it; model::Drag is the instantiation the plugin uses, and
+// WinRef only needs to be assignable here.
 
 #include <chrono>
 #include <string>
@@ -90,8 +86,8 @@ public:
 
   void setLifted(bool on) { m_lifted = on; }
 
-    // Back to a virgin drag. Call sites used to write `m_drag = {}` inline; it must clear
-    // everything, or the next drag reads the previous one's grab offset or fromBox.
+    // Back to a virgin drag. It must clear everything, or the next drag reads the previous
+    // one's grab offset or fromBox.
   void clear() { *this = DragT{}; }
 
     // --- queries ----------------------------------------------------------------------
@@ -129,8 +125,8 @@ public:
     // debug/log.hpp, so one parser reads both without knowing which subsystem a line came from.
   [[nodiscard]] std::string describe() const {
     std::string s = "press=";
-    // A switch, not an array indexed by the enum: the two were written separately once and
-    // the array's order did not match Press, which named every state wrong.
+    // A switch, not an array indexed by the enum: an independently-ordered array named every
+    // state wrong.
     switch (m_press) {
     case Press::Tile:     s += "tile";     break;
     case Press::StripWin: s += "stripwin"; break;

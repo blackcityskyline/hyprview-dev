@@ -6,7 +6,6 @@
 
 namespace gloview::clock {
 
-// One clock: begin, seek, pin, query. The anchor stays inside.
 class Clock {
   public:
     void begin() { m_t.begin(); }
@@ -25,9 +24,8 @@ class Clock {
     anim::Tween m_t;
 };
 
-// The domain of time: every tween lives here and nowhere else, so "is anything
-// still moving" is one question of one object rather than a tally assembled at
-// each call site. Read-only during paint.
+// The domain of time: every tween lives here, so "is anything still moving" is one question
+// of one object. Read-only during paint.
 class Clocks {
   public:
     Clock master;

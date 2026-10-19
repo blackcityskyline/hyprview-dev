@@ -1,13 +1,5 @@
-// The animation precedence chain, in its own translation unit.
-//
-// This exists as a separate .cpp for one reason: anim.cpp cannot be linked into a test.
-// It includes the Lua headers and reads Config::Values, both of which resolve inside the
-// Hyprland binary -- there is no libhyprland to link against. resolve() touches none of
-// that, so it lives here where a test can reach it. cfg() above it is the thin shell that
-// reads the handles and calls in.
-//
-// Nothing in here may include anything from hyprland/. That rule is what keeps the test
-// possible, and a violation shows up as a link error in tests/anim_resolve_check.cpp.
+// The animation precedence chain, in its own TU: anim.cpp's Lua/Config deps keep it out of
+// tests, so nothing here may include hyprland/ -- a link error in tests/anim_resolve_check.cpp.
 
 #include "anim_types.hpp"
 
@@ -31,8 +23,8 @@ Cfg resolve(const Inputs &in, int baseMs, const char *curveDefault) {
     c.ms = 1.0;
     return c;
   }
-  // _ms IS the base duration -- it defaults to the table's base, so existing configs are
-  // unchanged -- and _speed still scales it. A Lua rule's ms overrides both outright.
+  // _ms is the base duration -- it defaults to the table's base -- and _speed still scales
+  // it. A Lua rule's ms overrides both outright.
   const double base = absMs >= 0 ? static_cast<double>(absMs) : static_cast<double>(baseMs);
   c.ms = std::max(16.0, base / std::clamp(speed, 0.01, 20.0));
   if (in.rule && in.rule->curve)
@@ -49,8 +41,8 @@ double stagger(double base, int i, int n, double spread) {
     return base;
   const double s = spread < 0.0 ? 0.0 : (spread > 1.0 ? 1.0 : spread);
   const double start = s * (static_cast<double>(i) / (n - 1));
-  // 1 - s is floored away from zero: with s == 1 the staircase would divide by zero and
-  // the last tile would resolve to NaN, which propagates into a box and a NaN RECTs.
+  // 1 - s is floored away from zero: with s == 1 the staircase would divide by zero and the
+  // last tile would resolve to a NaN box the compositor draws.
   const double denom = 1.0 - s > 0.001 ? 1.0 - s : 0.001;
   return std::clamp((base - start) / denom, 0.0, 1.0);
 }

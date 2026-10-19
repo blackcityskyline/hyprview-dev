@@ -40,8 +40,7 @@ template <class Tex> class SubjectCache {
     // The entry for this subject, empty if there is none yet -- and everything dropped first
     // if the connection moved. This is how a cached entry is UPDATED, and it is separate from
     // put() because put() skips anything falsy, which is right for a picture you already hold
-    // and wrong for the empty entry a label starts life as. Two entry points because there are
-    // two jobs: put a value you have, or fill one in.
+    // and wrong for the empty entry a label starts life as.
     [[nodiscard]] Tex *slot(model::SubjectRef s) {
       if (m_generation != s.epoch) {
         m_items.clear();

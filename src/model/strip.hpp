@@ -11,14 +11,9 @@ namespace gloview::model {
 // The workspace strip: one card per workspace, plus the optional leading "All" card.
 //
 // This exists because m_strip was the last piece of session state reachable as a bare
-// field. Everything else goes through a method -- Scene::tiles(), Effects::ghosts() --
-// while m_strip handed out clear/empty/push_back/size from eight translation units, so
-// any of them could reorder or inject a card behind the logic that keeps the strip and
-// the scene consistent.
-//
-// Construction is not open on purpose: the strip is rebuilt from scratch by buildStrip()
-// and read as a snapshot by the painters, so "append to whatever is there" is never the
-// right move and no caller asked for it.
+// field; everything else goes through a method. Construction is not open on purpose: the
+// strip is rebuilt from scratch by buildStrip() and read as a snapshot by the painters, so
+// "append to whatever is there" is never the right move and no caller asked for it.
 class Strip {
   public:
     [[nodiscard]] const std::vector<StripItem> &items() const { return m_items; }
@@ -45,11 +40,8 @@ class Strip {
 
     // Card i's on-screen box: its laid-out box plus the band's slide and the group's
     // scroll. Out of range is an empty box rather than a throw -- callers are hit-testing
-    // against a moving strip, and "no card there" is an answer they ask for.
-    //
-    // It lives here because the card's box is the strip's, not the builder's: eleven files
-    // ask for it, and the two numbers that displace it (slide, scroll) are the only things
-    // it needs from the run.
+    // against a moving strip, and "no card there" is an answer they ask for. It lives here
+    // because the card's box is the strip's, not the builder's.
     [[nodiscard]] LRect cardAt(std::size_t i, LVec2 slide, LVec2 scroll) const {
       if (i >= m_items.size())
         return LRect{0, 0, 0, 0};

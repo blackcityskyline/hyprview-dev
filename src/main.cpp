@@ -64,20 +64,14 @@ int luaInvoke(lua_State*) {
 }
 
 // gloview.cmd("state") / ("swap 0 1") / ("sel 2") / ("movews 0 3")
-//
-// Registered as Lua rather than only as a dispatcher because this session's config is
-// Lua: hyprctl dispatch routes through hl.dispatch there, which does not reach plugin
-// dispatchers by name at all -- `dispatch gloview:toggle` fails the same way it does.
-// The result comes back as a string AND goes to the trace log, because a harness that
-// has to parse stdout of `hyprctl eval` is a harness that breaks on the next quoting
-// change.
+// Registered as Lua because this session's config is Lua: hyprctl dispatch
+// routes through hl.dispatch, which does not reach plugin dispatchers by name.
 int luaCmd(lua_State *L) {
     const char *args = luaL_optstring(L, 1, "");
     std::string err = g_overview ? g_overview->runCommand(args)
                                  : std::string("no overview");
-    // hyprctl eval does NOT print a Lua return value, so the caller cannot learn
-    // whether this worked. Every command therefore acknowledges itself in the trace
-    // log, which is the channel a harness actually reads.
+    // hyprctl eval does NOT print a Lua return value: every command acknowledges
+    // itself in the trace log.
     gloview::debug::trace::emitState(err.empty() ? std::string("CMD|ok|") + args
                                                  : std::string("CMD|err|") + args +
                                                        "|" + err);
@@ -132,10 +126,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
                   }})),
          ...);
 
-        // The automation seam. Registered outside the kActions fold because it takes
-        // arguments, and a failure must reach the caller as text rather than as a
-        // silent no-op -- that is the difference between a matrix run that reports
-        // truth and one that reports green.
+        // The automation seam: registered outside the kActions fold because it
+        // takes arguments, and a failure must reach the caller as text.
         HyprlandAPI::addDispatcherV2(handle, "gloview:cmd",
                                      [](std::string a) -> SDispatchResult {
                                          if (!g_overview)

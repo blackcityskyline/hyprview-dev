@@ -12,18 +12,15 @@
 
 namespace gloview::session {
 
-// Fading the bars and popups to 0 so they do not bleed through the translucent backdrop,
-// and putting them back on the way out.
+// Fading the bars and popups to 0 so they do not bleed through the translucent backdrop, and
+// putting them back on the way out. The PAIR is the invariant: hide() without restore() leaves
+// the user's taskbar invisible for the rest of the session and nothing else would notice. The
+// saved alphas live here so the two cannot be called apart -- the destructor restores.
 //
-// The pair is the invariant, not the convenience: hide() without restore() leaves the
-// user's taskbar invisible for the rest of the session, and nothing else in the plugin
-// would notice. The saved alphas live here so the two cannot be called apart by accident --
-// the destructor restores.
-//
-// The wallpaper is NOT chrome and is never in this list. It is the one thing that keeps the
-// desktop from being an empty black buffer on the first frame: Hyprland renders it at alpha
-// 0 into the monitor framebuffer and the opaque entry base goes down on top of nothing,
-// which is the entry blackout this exclusion prevents.
+// The wallpaper is NOT chrome and is never in this list. It is what keeps the desktop from
+// being an empty black buffer on the first frame: Hyprland renders it at alpha 0 into the
+// monitor framebuffer and the opaque entry base goes down on top of nothing, which is the
+// entry blackout this exclusion prevents.
 class LayerVisibility {
   public:
     LayerVisibility() = default;

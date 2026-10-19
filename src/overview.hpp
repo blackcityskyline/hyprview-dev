@@ -99,8 +99,7 @@ public:
   void renderPulses(bool strip) const;
   void renderTiles() const;
   void renderCarousel() const;
-  // Not in carousel_view.cpp: it is a read of the run's mode and nothing else, so it lives
-  // with the mode.
+  // A read of the run's mode only; it lives with the mode, not in carousel_view.cpp.
   [[nodiscard]] bool carouselMode() const { return m_view.run(); }
   void relayoutCarousel();
   void renderGhosts() const;
@@ -108,8 +107,8 @@ public:
   void renderDragWindow() const;
   void renderCursorOnTop() const;
 
-  // The pump, asked three ways: arm now, re-check from inside its own callback, or just
-  // repaint. All three are the frame pump, none is the run's lifecycle.
+  // The frame pump, asked two ways: arm now or re-check from inside its own callback;
+  // neither is the run's lifecycle.
   void rearmanim() const { m_pump.ensure(animBusy(), m_monitor.lock()); }
   void ensureAnimPump() { m_pump.ensure(animBusy(), m_monitor.lock()); }
 
@@ -126,18 +125,14 @@ public:
   // IWindowHost's inbound port: the one question the window source cannot answer itself.
   [[nodiscard]] bool belongs(const PHLWINDOW &w) const override;
 
-    // Reads what the browser side wrote and re-decides the matching. Called when a run opens,
-    // never per frame: the file changes when the browser does, and re-reading it per frame would
-    // be a syscall per tile per frame to learn nothing new.
+  // Called when a run opens, never per frame: the file changes when the browser does.
   void loadTabs();
 
   bool shouldHideWindow(const PHLWINDOW &w, const PHLMONITOR &m) const;
   [[nodiscard]] bool isTileWindow(const PHLWINDOW &w) const;
 
-    // The three lifecycle questions, delegated. active() is visible; openedOrParked() is ownership
-    // of the screen, parked included, because the windows must lose focus on the first parked
-    // frame -- a caller testing active() right after open() reads a waiting open as a failed one,
-    // which is how alt+tab got silently disarmed. opening() is a third axis, not a refinement.
+  // active() is visible; openedOrParked() is screen ownership, parked included -- windows lose
+  // focus on the first parked frame; opening() is a third axis, not a refinement.
   [[nodiscard]] bool active() const { return m_life.active(); }
   [[nodiscard]] bool openedOrParked() const { return m_life.ownsScreen(); }
   [[nodiscard]] bool opening() const { return m_life.opening(); }
@@ -147,14 +142,12 @@ public:
   [[nodiscard]] SP<Render::ITexture> backdropBlurTexture() const {
     return m_backdrop.blurTexture();
   }
-    // The composited (unblurred) backdrop, for anything that draws under the windows -- strip
-    // cards fill the gaps their windows leave with it. Reads the composite's own state rather
-    // than its framebuffer: whether there IS a composite is backdrop.cpp's decision.
+  // The composited (unblurred) backdrop, for drawing under the windows. Reads the composite's
+  // own state, not its framebuffer: whether there IS a composite is backdrop.cpp's decision.
   [[nodiscard]] SP<Render::ITexture> backdropSourceTexture() const {
     return m_backdrop.composite();
   }
-  // Separate from having a texture: a stale cache still holds the last blur, which the
-  // entry path falls back to.
+  // A stale cache still holds the last blur, which the entry path falls back to.
   [[nodiscard]] bool backdropBlurStale() const {
     return m_backdrop.blurStale();
   }
@@ -170,20 +163,16 @@ private:
   clock::Placement m_place;
   mutable render::FramePump m_pump;
 
-    // Who owns the screen, and whether the entry animation is playing. Parked is neither visible
-    // nor closed: nothing is drawn, the windows already lost focus. Painting late beats painting
-    // black -- the first visible frame has no backdrop while the wallpaper texture is
-    // mid-recreation.
+  // Screen ownership and entry animation. Parked is neither visible nor closed: nothing is
+  // drawn, the windows already lost focus.
   model::Lifecycle m_life;
   model::Recency m_recency;
   PHLWINDOWREF m_lastFocus;
-    // UNUSED: never assigned, only reset in close() and deactivate(). A comment here once claimed
-    // it held the compositor's focus for a passthrough bind; no such snapshot exists -- keys.cpp
-    // reads focusState()->window() live. Kept because what a passthrough bind should act on while
-    // the overview is up is a product question.
+    // UNUSED: never assigned, only reset in close() and deactivate(). Kept because what a
+    // passthrough bind should act on while the overview is up is a product question.
   PHLWINDOWREF m_focusOutside;
-  // Applied BEFORE the run resolves its centre, so the opening motion plays for the target
-  // window instead of landing on one and swapping at the end.
+  // Applied BEFORE the run resolves its centre, so the opening motion aims at the target
+  // window instead of landing on one.
   int m_pendingStep = 0;
   void syncRecency();
   void pruneRecency();
@@ -195,15 +184,11 @@ private:
   model::TabsContentSource m_tabs;
   // Rebuilt per run: it is made of titles, and a title is only true of the run it was read in.
   model::BrowserLinks m_links;
-  // The window behind a tile, or null for a tab and for a window that has gone. Here and not
-  // on Tile: a tile is a value with no route to its owner, so resolution belongs to the source
-  // that holds the ownership and only there.
+  // The window behind a tile, null for a tab or a gone window. Resolution lives here, not on
+  // Tile: a tile has no route to its owner.
   PHLWINDOW tileWindow(const model::Tile &t) const { return m_windows.windowOf(t.subj); }
 
-    // What a card IS, resolved in one place, with named answers. Thirty-three call sites used to
-    // branch on `tileWindow(t)` for themselves and disagreed: drawTile skipped a null window,
-    // pushOut yielded to it, the caption was gated on it, the border was not. A fourth kind
-    // changes this function and the sites keep reading.
+    // What a card IS, in one place with named answers; a fourth kind changes only this.
   struct Card {
     PHLWINDOW window = {};        // empty for anything that is not a window
     bool      paintsOwnContent = false; // draws a picture of itself
@@ -217,16 +202,13 @@ private:
     return Card{w, static_cast<bool>(w), static_cast<bool>(w)};
   }
 
-    // The directory the browser side writes into, in one place: the feed, the screenshots and the
-    // icons all live under it, and a second spelling of the root is a second place to disagree --
-    // the bug that left the feed at a doubled path for a commit.
+    // The browser side's root, in one place: feed, screenshots and icons all live under it.
   static std::string browserSideFile(const std::string &leaf) {
     const char *rt = std::getenv("XDG_RUNTIME_DIR");
     return (rt && *rt ? std::string(rt) : std::string("/tmp")) + "/gloview" + leaf;
   }
-    // The identity of a window the caller already holds. The inverse of tileWindow(), same side
-    // of the boundary: a caller that has a window asks here rather than casting an address into
-    // a SubjectRef in three places.
+    // The inverse of tileWindow(): a caller holding a window asks here rather than casting an
+    // address into a SubjectRef.
   [[nodiscard]] static model::SubjectRef subjectOf(const PHLWINDOW &w) {
     return w ? model::SubjectRef{reinterpret_cast<std::uintptr_t>(w.get()), 0}
              : model::SubjectRef{};
@@ -248,8 +230,7 @@ private:
 
   int m_newCardId = 0;
   bool m_newCardAnim = false;
-  // Offset, endpoints and range: four doubles that had to agree on [0, max] with nothing
-  // enforcing it.
+  // Offset, endpoints and range over [0, max], kept in one type.
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
   bool animBusy() const;
@@ -261,13 +242,13 @@ private:
   }
   // Read on the call site: a config edit mid-fade retimes the rest of the ramp.
   double blurAlpha() const; // backdrop strength, on the open/close clock
-  // The predicate build.cpp/actions.cpp each re-spelled: a window that really occupies
-  // the desktop. First true one on `ws` is what tells an empty workspace from a busy one.
+  // A window that really occupies the desktop; the first true one on `ws` tells an empty
+  // workspace from a busy one.
   static bool workspaceHasWindows(const PHLWORKSPACE &ws);
   // Windowed exit is done: tiles landed and Hyprland has spent the forced blur frames.
   bool backdropSettled() const;
-  // Landing workspace empty? Re-read on every open and close: the landing workspace can
-  // change while the overview is up (all-workspaces, digit jump).
+  // Re-read on every open and close: the landing workspace can change while the overview is
+  // up (all-workspaces, digit jump).
   mutable bool m_landingEmpty = true;
   double entryProgress(int i) const; // staggered 0..1 for tile i
   // The above, gated on the tile actually playing its entry (Tile::landed < 1).
@@ -278,15 +259,10 @@ private:
   double entryFade(size_t i) const;
   // How far the close has run, 0 -> 1. Every exit fraction reads it through this.
   double exitT() const;
-  // Only then is the natural box a destination rather than a rectangle on a workspace that
-  // is not coming. See anim::tileExit.
-  // The one place a Placement::Frame is built: three sites assembled the same six values and
-  // one passed `true` for goesHome, a stub that reads as an answer.
+  // The one place a Placement::Frame is built.
   [[nodiscard]] clock::Placement::Frame frame() const;
-  // Clear the three pieces of state that make the compositor skip a window that is not on
-  // the active workspace: the workspace's alpha, the window's fullscreen alpha, and each
-  // surface's visibleRegion. ScrollOverview does the same; without it a window from
-  // another workspace previews as an empty frame. Restored on the way out.
+  // Clear the state that skips a window not on the active workspace (ws alpha, fullscreen
+  // alpha, visibleRegion): without it such a window previews as an empty frame; restored on exit.
   void forcePreviewVisibility();
   void restorePreviewVisibility();
   session::PreviewVisibility m_previewVis;
@@ -296,27 +272,22 @@ private:
                    bool toStrip = false);
   void landAfterMove(const PHLWINDOW &w, const LRect &oldBox, double ms,
                      const std::string &curve, bool strip);
-  // Both surfaces of a swap: the dragged one from the cursor, the bystander from where
-  // it was. See the note on the definition.
+  // Both surfaces of a swap: the dragged one from the cursor, the bystander from where it was.
   void landAfterSwap(const PHLWINDOW &w, const LRect &fromGrid,
                      const LRect &fromStrip, const LRect &drop, double ms,
                      const std::string &curve, bool draggedOnStrip);
   [[nodiscard]] bool hasStripThumb(const PHLWINDOW &w) const;
   // Where a window's strip thumbnail sits right now, empty if it has none.
   [[nodiscard]] LRect stripThumbRect(const PHLWINDOW &w) const;
-  // Per surface: each stands down only for its own flight. A shared predicate made the
-  // strip's thumbnail disappear while the card flew.
+  // Per surface: each stands down only for its own flight.
   [[nodiscard]] bool swapfxActive(const PHLWINDOW &w, bool strip) const;
   // Two predicates answering one question from two sides, so a tab can skip every effect.
   [[nodiscard]] bool swapfxActiveSubject(model::SubjectRef s, bool strip) const {
     return m_fx.swapActive(s, strip);
   }
 
-  // A tab's art is its icon, and nothing else. The browser side cannot picture ONE tab:
-  // captureVisibleTab photographs the visible window, so previews/<id>.png is the whole
-  // browser -- chrome, sidebar, every other tab's thumbnail. Drawing it put a picture of the
-  // browser on each of its own tab cards, thirteen times. No crop fixes that without
-  // hardcoding one browser's sidebar geometry, so a tab card is its icon or its caption.
+  // A tab's art is its icon or its caption: captureVisibleTab photographs the whole window,
+  // so previews/<id>.png is never one tab.
   SP<Render::ITexture> tabArt(const model::Tile &t) const {
     if (!cardOf(t).isTab())
       return nullptr;
@@ -324,8 +295,8 @@ private:
                                                                std::to_string(t.subj.id) + ".png"));
   }
   void renderSwapFX() const;
-  // Every box this window flies to on one surface. Shared by the painter and the
-  // trace so a reported target cannot differ from a drawn one.
+  // Every box this window flies to on one surface, shared with the trace so a reported target
+  // cannot differ from a drawn one.
   [[nodiscard]] std::vector<LRect> swapDests(const PHLWINDOW &w, bool strip) const;
 
   session::PendingClick m_click;
@@ -351,10 +322,8 @@ private:
   LRect stripBand() const;
   Vector2D stripSlide(double e) const; // reveal slide-in at progress e
   Vector2D stripPush(const LRect &band) const; // band yields to a preview that reached it
-  // THE strip displacement. Band, cards, the window previews inside them and the hit-test all
-  // go through this: computing it in each of them meant the previews and the hit-test drifted
-  // from the cards by exactly the push (measured: window previews stopped following the
-  // motion on any workspace that HAS windows).
+  // THE strip displacement: band, cards, their window previews and the hit-test all go
+  // through this.
   Vector2D stripOffset(double e) const;
   Vector2D pushOut(const LRect &r) const; // chrome yields to a preview
   Vector2D stripScroll() const;
@@ -369,8 +338,8 @@ private:
   void layoutTiles();
   void updateAnimation();
   void deactivate();
-  // Boundary policy (user-specified): real windows hard-switch at BOTH edges, NO
-  // per-window fades — a fading original under the preview reads as double vision.
+  // Boundary policy (user-specified): real windows hard-switch at BOTH edges, NO per-window
+  // fades -- a fading original under the preview reads as double vision.
   double eased() const; // chrome opacity / backdrop progress
   double animDuration() const; // read LIVE, so config applies in-flight
   double glideDur() const { return m_place.clocks.tileMs > 0 ? m_place.clocks.tileMs : anim::cfg(glideLeaf()).ms; }
@@ -379,8 +348,8 @@ private:
   double newCardDur() const { return anim::cfg(anim::Id::NewCard).ms; }
   double tileProgress(int i) const;
   LRect currentBox(const model::Tile &t, int i) const;
-  // The drawn box of tile i: currentBox() letterboxed to the window's own aspect.
-  // Every consumer asking "where is tile i" wants this, not the pair spelled out.
+  // The drawn box of tile i: currentBox() letterboxed to the window's own aspect. Consumers
+  // asking "where is tile i" want this, not the pair spelled out.
   LRect tileRect(size_t i) const;
   LRect dragBox() const;
   LRect dragStripBox() const;
@@ -433,10 +402,8 @@ private:
   double killZoneGlow(double lx, double ly) const;
   void renderKillZone() const;
   double m_killGlow = 0.0; // 1 at the zone, 0 a screen-width away, while dragging
-  // Keyed by SUBJECT, not by window. A browser tab has no window, and a vector keyed by one
-  // drops every tab on the floor: capture came back empty, the glide was never armed, and the
-  // card sat at the browser window's box instead of its own -- a full-screen card that did not
-  // move. The subject is the identity both kinds have.
+  // Keyed by SUBJECT, not by window: a tab has no window, and a window-keyed vector drops
+  // every tab. The subject is the identity both kinds have.
   std::vector<std::pair<model::SubjectRef, LRect>> captureCurrentBoxes(
       PHLWINDOW exclude = {}) const;
   void replayReflow(std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes);
@@ -450,11 +417,8 @@ private:
   // A card that joined or left the run has no slot to glide between. See keys.cpp.
   void pinRunEdges(const std::vector<char> &wasOnRun);
   int tileOf(const PHLWINDOW &w) const;
-  // Defined here, next to m_pump, rather than in session/lifecycle.cpp. Twenty-two files
-  // ask for a damage and only one of them is about the run's lifecycle -- an action, a
-  // hit-test and a hover all need a repaint. Leaving the definition in lifecycle made
-  // twenty-two files depend on the lifecycle, which is what kept the whole set in one
-  // component.
+  // Defined here, next to m_pump, not in session/lifecycle.cpp: most callers ask for a damage
+  // without being about the run's lifecycle.
   void damage() const { m_pump.damage(m_monitor.lock()); }
 };
 

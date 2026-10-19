@@ -11,7 +11,6 @@ namespace gloview::model {
 // that just left, the pulse a window kicked off, the flight of a strip thumbnail
 // to its new card, and workspaces created this session that must not be reaped
 // before close. The scene is REBUILT; these are appended to and pruned.
-//
 
 class Effects {
   public:
@@ -52,9 +51,8 @@ class Effects {
     void clearNewWorkspaces() { m_newWorkspaces.clear(); }
 
     // beginSwapFX() may reuse a slot rather than append, so the caller that knows the
-    // real origin has to pin it afterwards. Returning bool instead of a pointer: the
-    // only way to spell "no last swap" was to pair this with an emptiness check on the
-    // vector, which is the same question asked twice.
+    // real origin has to pin it afterwards. Bool, not a pointer: "no last swap" needs no
+    // emptiness check on the vector beside it.
     bool retargetLastSwap(const LRect &from) {
       if (m_swapfx.empty())
         return false;

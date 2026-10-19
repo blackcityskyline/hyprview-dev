@@ -11,8 +11,7 @@ namespace gloview::clock {
 
 namespace {
 
-// The ladder spread is the user's, capped at 1: Stagger is the ceiling,
-// StaggerPerTile grows it with the tile count and must not push past it.
+// The ladder spread is capped at 1: Stagger is the ceiling, StaggerPerTile the growth.
 double staggered(double base, int i, int n) {
   return anim::stagger(base, i, n,
                        std::min(anim::param(anim::Param::Stagger),
@@ -21,7 +20,6 @@ double staggered(double base, int i, int n) {
 
 } // namespace
 
-// imperative rule > schema key > default; off -> 1ms, speed divides base
 anim::Id Placement::entryLeaf(const view::State &view) const {
   if (view.expoFlip() != 0)
     return view.expoFlip() > 0 ? anim::Id::ExpoIn : anim::Id::ExpoOut;
@@ -79,11 +77,8 @@ double Placement::entryNow(const model::Tile &t, int i,
 }
 
 double Placement::entryFade(const model::Tile &t, int i, const Frame &f) const {
-  // A card with nowhere to go cannot fly anywhere -- close() pinned its natural box to its
-  // own tile box -- so it leaves by dissolving on the master clock instead of standing
-  // still until the overlay is torn out from under it. Only ever on a close that is NOT
-  // committing: fading a window that is about to become real reads as a double image
-  // (AGENTS.md), so every tile that does go home stays at full alpha and flies.
+  // A card with nowhere to go leaves by dissolving on the master clock; only on a close that
+  // is NOT committing -- fading a window about to become real reads as a double image.
   if (!f.opening && anim::tileExit(f.goesHome(t)) == anim::TileExit::InPlace)
     return m_eased;
   // A fade is alpha only, and it fades whenever the tile is playing its entry.
@@ -104,31 +99,20 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   // resize on its way there either -- hold the box it was last shown at.
   if (f.view.run() && b.w < 1.0 && a.w >= 1.0)
     r = a;
-  // And a card that has NEVER had a box of its own has an empty natural: a tab, which is a
-  // slot inside a window and not a place on the desktop. Interpolating from nothing starts
-  // the card at the origin, so it grew out of the top left corner of the monitor and only
-  // then became itself -- which is the card everyone can see flying out of the corner on
-  // every step. It has exactly one place it has ever been, and that is its target.
-  //
-  // Here rather than in the callers because this is the one function every draw path goes
-  // through: startTileGlide, replayReflow and stepAltTab each set natural by their own rules
-  // and each of them missed this case at least once.
+  // A card that never had a box of its own has an empty natural (a tab, a slot inside a
+  // window): interpolating from nothing grows it out of the corner, so it uses its target.
+  // Here because box() is the one function every draw path goes through.
   if (a.w < 1.0 && b.w >= 1.0)
     r = b;
-  // The deck's hide motion, in the grid as well as the run. A card that cannot land was
-  // pinned to its own box by close(); without this it simply stood there while the backdrop
-  // faded and was gone in a frame.
+  // The deck's hide motion, in the grid as well as the run: a card that cannot land was
+  // pinned to its own box by close() and would otherwise stand there.
   if (!f.view.run() && !f.opening && anim::cardHides(0, f.goesHome(t))) {
     const double k = anim::hideShrink(exit(f.opening), anim::param(anim::Param::Collapse));
     const double cx = r.cx(), cy = r.cy();
     r = LRect{cx - r.w * k * 0.5, cy - r.h * k * 0.5, r.w * k, r.h * k};
   }
   // TILEBOX: the box every draw path agrees on, with the two it was interpolated from. The
-  // overlay's cards shrink in rounding steps with distance and the caption and the capture
-  // both read this one number, so "the card is at the wrong size" and "the pill is at the
-  // wrong place" have not been separable from the outside: a card's OWN rect was traced by
-  // name (title_card) and read as the window's box, and every conclusion drawn from it was
-  // about the wrong rectangle. One line, both ends in it.
+  // caption and the capture both read this one number.
   debug::trace::emitState("TILEBOX|i=" + std::to_string(i) + "|subj=" +
                           std::to_string(t.subj.id) + "|a=" + std::to_string(a.x) + "," +
                           std::to_string(a.y) + "," + std::to_string(a.w) + "," +

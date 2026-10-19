@@ -38,7 +38,6 @@ model::StripItem *Overview::homeStripCardFor(const PHLWINDOW &w) {
 bool Overview::dropOnStripCard(const PHLWINDOW &w, double lx, double ly,
                                int skipItem) {
   const int idx = stripItemAt(lx, ly);
-  // One to_string per card, built on every drop even with logs off.
   if (debug::enabled()) {
     std::string s = "[DROP] at=" + std::to_string(static_cast<int>(lx)) + "," +
                     std::to_string(static_cast<int>(ly)) +
@@ -126,7 +125,7 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
     debug::trace::animStart("new_card", "card", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
     m_newCardAnim = true;
   } else if (it.virtualWs) {
-    // Placeholder card: create exactly this id, persistent or it is reaped.
+    // Placeholder card: create exactly this id.
     target = State::workspaceState()->query().id(it.id).run();
     if (!target)
       target = State::workspaceState()->create(it.id, m->m_id);
@@ -166,8 +165,6 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
 // window's real goal().
 bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
                            const LRect &fromA, bool draggedOnStrip) {
-  // Which of the five reasons fired: "refused by Hyprland" alone covers a missing window, a
-  // fullscreen one and one the layout has no target for, which have nothing in common.
   const auto why = [&](const char *r) {
     debug::trace::record("SWAP", "refused", std::string("why=") + r);
     return false;
@@ -186,26 +183,16 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
     return why("no-layout-target");
 
   auto oldBoxes = captureCurrentBoxes();
-  // Captured before the rebuild, which replaces the strip: this is where the thumbnail
-  // was, and it is the origin of the slide the bystander surface plays.
+  // Captured before the rebuild: the rebuild replaces the strip.
   const LRect thumbA = stripThumbRect(wa), thumbB = stripThumbRect(wb);
   g_layoutManager->switchTargets(ta, tb);
   replayReflow(oldBoxes);
-  // The overlay's own exchange, and ONLY when the rebuild left nothing to animate.
-  // switchTargets moves the real windows only when it can: two already at one geometry leave
-  // goal() unchanged, the rebuild hands each back the box it had, and the glide has no
-  // distance -- then the layout cannot tell them apart and the exchange must be expressed in
-  // the card slots, which is what the user is looking at. Guarded on tileAtRest because when
-  // the rebuild DID move them startTileGlide already armed the exchange, and trading the
-  // slots again lands each window back on its own box: that made the first swap animate and
-  // every one after it stand still.
+  // The overlay's own exchange, ONLY when the rebuild left nothing to animate: a
+  // second exchange lands each window back on its own box.
   const int ia = m_scene.tileIndexOf(subjectOf(wa));
   const int ib = m_scene.tileIndexOf(subjectOf(wb));
-  // Why the slot exchange did or did not happen -- the only thing that can express a swap the
-  // compositor could not. The condition is `natural == target` per tile, and `natural` is
-  // whatever the card showed at capture time, so a swap during the entry animation reads as
-  // "at motion" and is skipped. Both boxes and the verdict are recorded so that is decidable
-  // from the log instead of a screenshot.
+  // Slot exchange needs natural == target: a swap during the entry animation
+  // reads as "at motion" and is skipped; the trace records the verdict.
   const bool restA = m_scene.tileAtRest(ia), restB = m_scene.tileAtRest(ib);
   debug::trace::record(
       "SWAP", "decide",
@@ -222,20 +209,19 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
           "|slots=" + std::to_string((restA && restB) ? 1 : 0));
   if (restA && restB) {
     m_scene.swapTiles(ia, ib);
-    // Both halves: the targets move the geometry, the slots carry the depth that goes with
-    // it. Without the second the periphery keeps depth 0 and paints over the centre.
+    // Both halves: targets move geometry, slots carry depth. Without the
+    // slot swap the periphery keeps depth 0 and paints over the centre.
     m_view.swapSlots(static_cast<std::size_t>(ia), static_cast<std::size_t>(ib));
   }
 
-  // The initiator flies from where it was RELEASED -- under the cursor, not the card slot it
-  // was picked up from; that gap is the whole drag. Applied AFTER the exchange decision, which
-  // reads natural == target and would see this as "the rebuild moved it" and skip the swap.
+  // Applied AFTER the exchange decision: it rewrites natural, and that decision
+  // reads natural == target, so doing it earlier would skip the swap.
   const bool dropped = fromA.w > 0.0 && fromA.h > 0.0;
   if (dropped)
     m_scene.setNatural(ia, fromA);
 
-  // Keyed by subject, so a tab is a participant in this like a window is. Resolving each one
-  // back to a window would drop every tab and the swap would animate one side only.
+  // Keyed by subject: resolving back to windows would drop every tab
+  // and the swap would animate one side only.
   for (const auto &[subj, box] : oldBoxes) {
     const auto win = m_windows.windowOf(subj);
     const bool isA = subj == subjectOf(wa);
@@ -250,9 +236,7 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
   return true;
 }
 
-// Automation seam. One method, not five public accessors: everything a harness needs to drive
-// the overlay deterministically, and nothing it does not. Returns "" on success and a short
-// reason otherwise, so a failure is a visible error instead of a silent no-op.
+// Returns "" on success, a short reason otherwise.
 std::string Overview::runCommand(const std::string &args) {
   std::vector<std::string> tok;
   std::string cur;
@@ -274,8 +258,7 @@ std::string Overview::runCommand(const std::string &args) {
     return i < tok.size() ? tok[i] : std::string();
   };
 
-  // "state" first: it is how a harness learns what it is driving, and it must work
-  // whether or not the overlay is open.
+  // "state" first: it must work whether or not the overlay is open.
   if (tok[0] == "state") {
     std::string out = "STATE|open=" + std::to_string(m_life.active()) +
                       "|pending=" + std::to_string(m_life.parked()) + "|tiles=" +
@@ -283,17 +266,13 @@ std::string Overview::runCommand(const std::string &args) {
                       std::to_string(m_strip.size()) + "|allws=" +
                       std::to_string(showAllWorkspaces()) + "|carousel=" +
                       std::to_string(carouselMode()) + "|ccx=" +
-                      // Where the run is centred, so a harness can tell which card is
-                      // the middle one without re-deriving the layout.
                       std::to_string(static_cast<int>(m_view.carousel().area.x +
                                                      m_view.carousel().originX +
                                                      m_view.carousel().area.w / 2.0));
     for (std::size_t i = 0; i < m_scene.size(); ++i) {
       const auto w = tileWindow(m_scene.tiles()[i]);
       const auto &t = m_scene.tiles()[i];
-      // Depth travels with the card, not the tile (the run reads cards[slotOf(tile)].depth),
-      // so it is dumped beside the box: a geometry-only trace cannot see a tile that moved and
-      // kept someone else's depth, which is what put the periphery over the centre.
+      // Depth travels with the card, not the tile; dumped beside the box.
       int depth = -1;
       if (carouselMode()) {
         const int k = m_view.slotOf(i);
@@ -309,8 +288,6 @@ std::string Overview::runCommand(const std::string &args) {
              "," + std::to_string(static_cast<int>(t.target.h)) +
              "|d=" + std::to_string(depth);
     }
-    // A strip-to-strip exchange needs two windows on ONE workspace; without this the harness
-    // cannot tell "nothing to swap with" from "the drop is broken".
     for (std::size_t i = 0; i < m_strip.size(); ++i) {
       const auto &it = m_strip[i];
       const char *kind = it.kind == model::StripItem::Kind::Ws   ? "Ws"
@@ -323,8 +300,7 @@ std::string Overview::runCommand(const std::string &args) {
     return "";
   }
 
-  // Mode switches a matrix has to set up before it can measure anything. They call the
-  // same methods the binds do, so a harness and a user drive identical code.
+  // Mode switches call the same methods the binds do, so a harness and a user drive identical code.
   if (tok[0] == "open") {
     if (!m_life.ownsScreen())
       open();
@@ -336,16 +312,12 @@ std::string Overview::runCommand(const std::string &args) {
     return "";
   }
   if (tok[0] == "allws") {
-    // Explicit set, not a toggle: a matrix must be able to ask for the state it wants
-    // without reading and reasoning about the current one first.
     const bool want = num(1) != 0;
     if (want != showAllWorkspaces())
       toggleAllWorkspaces();
     return "";
   }
   if (tok[0] == "domain") {
-    // Same method key_browser ends up in. No argument means "the other one", so a matrix
-    // keying off `b` need not know which view it is looking at.
     if (word(1).empty())
       toggleBrowserView();
     else
@@ -354,8 +326,6 @@ std::string Overview::runCommand(const std::string &args) {
   }
 
   if (tok[0] == "tuning") {
-    // What the harness believes it set: otherwise a mismatch between "asked" and "ran" has
-    // two possible homes and guessing which is the mistake this file exists to prevent.
     std::string out = "TUNING|n=" + std::to_string(anim::tuningKeys().size());
     for (const auto &kv : anim::tuningKeys())
       out += "|" + kv;
@@ -364,8 +334,6 @@ std::string Overview::runCommand(const std::string &args) {
   }
 
   if (tok[0] == "trace") {
-    // Self-describing on purpose: nothing is written to the Hyprland log, so a grep there
-    // returns empty and reads as "the plugin is silent" rather than "wrong path".
     struct stat st;
     std::string out = "TRACE|gate=" + std::to_string(cfg::debug.trace) +
                       "|logs=" + std::to_string(cfg::debug.logs) + "|path=/tmp/gloview.log";
@@ -388,8 +356,7 @@ std::string Overview::runCommand(const std::string &args) {
       return "set: need <key> <value>";
     if (!anim::setTuning(tok[1], tok[2]))
       return "set: unknown key " + tok[1];
-    // Anim cfg is re-read every frame, but the damage makes the change visible at once
-    // instead of on the next unrelated repaint.
+    // cfg re-reads every frame, but damage makes the change visible at once.
     damage();
     return "";
   }
@@ -420,12 +387,8 @@ std::string Overview::runCommand(const std::string &args) {
     return "";
   }
 
-  // --- drag scenarios ----------------------------------------------------------------
-  // Each mirrors ONE release branch in input/mouse.cpp and calls the same functions the
-  // pointer path calls, so the landing, the ghost set and the flight are the real ones. What
-  // is NOT covered is the hit test that picks the branch -- the target is resolved by index
-  // and the point synthesised, so "nearest tile within gap/2" stays untested. That is the
-  // trade for any coverage at all without moving a real pointer.
+  // --- drag scenarios: each mirrors one release branch in input/mouse.cpp, calling
+  // the same functions; the pointer hit test is not covered.
   const auto tile = [&](int i) -> PHLWINDOW {
     return i >= 0 && i < static_cast<int>(m_scene.size())
                ? tileWindow(m_scene.tiles()[static_cast<std::size_t>(i)])
@@ -440,8 +403,7 @@ std::string Overview::runCommand(const std::string &args) {
     return true;
   };
 
-  // Grid tile onto a strip card. The "+" card is Kind::Plus and creates the workspace --
-  // the same call the LMB branch makes, so "grid -> +" needs no separate command.
+  // Grid tile onto a strip card; "+" creates the workspace (the LMB branch's call).
   if (tok[0] == "dropcard") {
     const int t = num(1), ci = num(2);
     const auto w = tile(t);
@@ -492,7 +454,7 @@ std::string Overview::runCommand(const std::string &args) {
     return "";
   }
 
-  // Onto the closing zone. Closes the tile and flies it out, as Tile->killZone does.
+  // Onto the closing zone: mirrors Tile->killZone.
   if (tok[0] == "killz") {
     const int t = num(1);
     const auto w = tile(t);
@@ -511,8 +473,7 @@ std::string Overview::runCommand(const std::string &args) {
     return "";
   }
 
-  // Enter commits the focused window, Escape cancels. Same decision the key handler makes,
-  // so this exercises toggleIntent and the close path that follows it.
+  // Enter commits, Escape cancels: the key handler's decision.
   if (tok[0] == "commit" || tok[0] == "cancel") {
     const bool commit = tok[0] == "commit";
     if (!openedOrParked())
@@ -563,15 +524,13 @@ void Overview::swapTiles(int a, int b, const LRect &fromA) {
     damage();
 }
 
-// RMB on a strip card swaps `w` with that workspace's last-focused window.
-
 void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
                            anim::Move style, double ms,
                            const std::string &curve, bool toStrip) {
   if (!w || !w->m_isMapped || w->isHidden())
     return;
-  // Same surface only: a window in the all-workspaces view has two live flights at once,
-  // and dropping by window alone meant the second one cancelled the first.
+  // Same surface only: in the all-workspaces view a window has two live
+  // flights, and dropping by window alone lets the second cancel the first.
   m_fx.dropSwap([&w, toStrip](const model::SwapFX &f) {
     return f.subj == subjectOf(w) && f.toStrip == toStrip;
   });
@@ -586,8 +545,8 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
   fx.traceSeq = debug::trace::nextSeq();
   fx.traceStart = std::chrono::steady_clock::now();
 
-  // Here, not in the painter: paint() is const and cannot mark the flight as traced, and the
-  // scene is already rebuilt so the destination resolved is the one the next frame draws.
+  // Here, not in the painter: paint() is const and the scene is already
+  // rebuilt, so this resolves the destination the next frame draws.
   if (fx.traceSeq) {
     const auto dests = swapDests(w, toStrip);
     if (dests.empty())
@@ -609,16 +568,14 @@ bool Overview::swapfxActive(const PHLWINDOW &w, bool strip) const {
   return m_fx.swapActive(subjectOf(w), strip);
 }
 
-// One surface's landing. `strip` says which one, and it picks the style key: a grid card
-// and a strip thumbnail are different gestures with their own config.
+// One surface's landing; `strip` picks the style key -- grid card and strip
+// thumbnail are different gestures with their own config.
 void Overview::landAfterMove(const PHLWINDOW &w, const LRect &oldBox,
                              double ms, const std::string &curve, bool strip) {
   if (!w)
     return;
-  // Every style flies, grid included. It used to branch on gridSwapStyle() != Horizontal and
-  // fall through to pinNatural() otherwise, which made the DEFAULT style the one that showed
-  // no motion of its own. pinNatural() runs for the tile only, pointing the glide source back
-  // at where the window was; a thumbnail has no glide to point.
+  // pinNatural() runs for the tile only, pointing the glide source at where
+  // the window was; a thumbnail has no glide to point.
   if (!strip)
     m_scene.pinNatural(subjectOf(w), oldBox);
   beginSwapFX(w, oldBox,
@@ -627,17 +584,12 @@ void Overview::landAfterMove(const PHLWINDOW &w, const LRect &oldBox,
               ms, curve, strip);
 }
 
-// Both surfaces, from their own origins. The one the user DRAGGED leaves the cursor -- that is
-// the gesture, and the only one that may displace. The other is a bystander sliding from where
-// it already was; running both from the cursor made the strip's thumbnail fly in from the
-// middle of the screen and read as a second window.
+// Both surfaces from their own origins: the dragged one leaves the cursor,
+// the other is a bystander sliding from where it was.
 void Overview::landAfterSwap(const PHLWINDOW &w, const LRect &fromGrid,
                              const LRect &fromStrip, const LRect &drop, double ms,
                              const std::string &curve, bool draggedOnStrip) {
   const bool dragging = drop.w > 0.0 && drop.h > 0.0;
-  // Only the surface the user let go of starts from the cursor. Handing the bystander that
-  // origin made a strip drag launch the GRID card from the thumbnail's spot at the bottom of
-  // the screen, which read as cards flying in from off-screen.
   landAfterMove(w, dragging && !draggedOnStrip ? drop : fromGrid, ms, curve, false);
   if (hasStripThumb(w))
     landAfterMove(w, dragging && draggedOnStrip ? drop : fromStrip, ms, curve, true);
@@ -769,12 +721,11 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     m_view.setWsSlideDir( ws->m_id > oldWs->m_id ? 1 : -1);
   // The frozen backdrop belongs to the PREVIOUS ws — do NOT invalidate it.
   const auto oldBoxes = captureCurrentBoxes();
-  // The strip is the workspace axis, the run the window axis inside it, so a selection cannot
-  // survive: the tile sets are disjoint and keeping the index just centres an arbitrary
-  // window. Land on the new workspace's most recent, the window a plain switch would focus.
+  // Tile sets are disjoint, so the selection cannot survive: land on the new
+  // workspace's most recent, the window a plain switch would focus.
   buildTiles();
-  // The centred card has to be a window OF the chosen workspace. Measured: in
-  // all-workspaces buildTiles does NOT filter by workspace, so nothing left the tile set.
+  // buildTiles does not filter by workspace in all-workspaces mode, so the
+  // centred card is picked here: a window OF the chosen workspace.
   {
     std::vector<const void *> keys;
     std::vector<int> idx;
@@ -812,10 +763,6 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
   }
   m_scene.armEntry();
   m_fx.clearGhosts();
-  // Whether every window of the old workspace is still in the tile set. Declared true and
-  // never assigned, so the "identical set" branch always ran and called setWsSlideDir(0):
-  // switching by plugin bind or by clicking the strip cleared the slide and the tiles fell to
-  // the scale-in instead of the configured style.
   bool sameSet = !oldBoxes.empty();
   for (const auto &[oldSubj, oldBox] : oldBoxes) {
     bool kept = false;
@@ -826,7 +773,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
       sameSet = false;
     }
   }
-  // A ws slide is a CONTENT change; with the set identical it left frame one empty.
+  // A ws slide is a CONTENT change; with the set identical frame one would be empty.
   if (sameSet && !oldBoxes.empty()) {
     m_view.setWsSlideDir(0);
     startTileGlide(oldBoxes);
@@ -911,11 +858,8 @@ void Overview::closeTileWindow(int i) {
   if (!w)
     return;
   debug::dbg("close tile window");
-  // Fly the card out before it goes. sendClose is async, so the tile is still on screen when
-  // this starts and syncTiles() reflows the survivors once it vanishes: without the flight the
-  // neighbours jump sideways into the gap. It used to live in the drag-to-kill-zone branch,
-  // so only that trigger had motion -- the ✕ button, the double-click and the close key went
-  // straight to sendClose. Five entry points to one behaviour was four ways to forget it.
+  // Fly the card out before sendClose: it is async, so the tile is still on
+  // screen; without the flight the neighbours jump sideways into the gap.
   const LRect from = m_drag.lifted() ? m_lastDragBox : tileRect(i);
   w->sendClose();
   beginSwapFX(w, from, anim::Move{anim::Travel::Slide, anim::Axis::Horizontal},

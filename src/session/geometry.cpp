@@ -85,14 +85,8 @@ Vector2D Overview::stripPush(const LRect &band) const {
     const LRect b = currentBox(tiles[i], static_cast<int>(i));
     if (b.w < 1.0 || b.h < 1.0)
       continue;
-    // The strip is shoved clear of whatever would COVER it. A window's card covers it with its
-    // own content, so the shove is right. A tab's card covers it with nothing -- frost, an
-    // outline, a caption -- and shoving for one threw the whole band off the top of the
-    // screen whenever a tab card crossed the band, which on the run is every step. It read
-    // as the strip snapping away and coming back.
-    //
-    // This is pushOut()'s question asked a second time, in a second function with its own
-    // loop, and the answer belongs to cardOf() in both.
+    // The strip is shoved clear of whatever would COVER it: a window's card covers it with its
+    // own content, a tab's card with nothing. Same rule as pushOut(), answered by cardOf().
     if (!cardOf(tiles[i]).coversChrome)
       continue;
     double pen = 0.0;
@@ -106,10 +100,8 @@ Vector2D Overview::stripPush(const LRect &band) const {
   }
   if (deepest <= 0.0)
     return {};
-  // Uncapped: the depth is bounded by the tile, and a strip shoved past the screen edge is
-  // exactly "задвигает". The cap this replaces held it to one band thickness, which cleared
-  // the band for a shallow overlap and left the workspace cards — riding the same slide —
-  // painted over the tile edge once the window grew to cover the strip (measured on exit).
+  // Uncapped: the depth is bounded by the tile, and pushing the strip past the screen edge is
+  // intended.
   const double d = deepest;
   switch (stripAnchor()) {
   case Anchor::Bottom: return Vector2D{0.0, d};
@@ -128,22 +120,17 @@ Vector2D Overview::pushOut(const LRect &r) const {
     const LRect b = currentBox(tiles[i], static_cast<int>(i));
     if (b.w < 1.0 || b.h < 1.0)
       continue;
-    // A tab's card has nothing in it: frost, an outline, a caption. It cannot cover the
-    // chrome it would be displacing, so it must not displace it. Yielding to one made the
-    // strip get shoved on every step of the run -- the cards change places on every step, and
-    // the shoving stopped only once the ladder wrapped and the set of boxes settled. A
-    // window's card is its own content and that one still yields.
+    // A tab's card has nothing in it, so it cannot cover the chrome it would displace and must
+    // not displace it. Same rule as stripPush(); a window's card is its own content and yields.
     if (!cardOf(tiles[i]).coversChrome)
       continue;
     const double ox = std::min(b.x + b.w, r.x + r.w) - std::max(b.x, r.x);
     const double oy = std::min(b.y + b.h, r.y + r.h) - std::max(b.y, r.y);
     if (ox <= 0.0 || oy <= 0.0)
-      continue; // not touching
+      continue;
 
-    // SWALLOWED: the preview covers the element whole, so there is no cheaper axis to leave
-    // by and both overlaps equal the element's size. Eject toward the nearest edge instead,
-    // otherwise the displacement degenerates to one element-sized step and stops there -- the
-    // measured "nudges once, then stands still while the window draws over it".
+    // SWALLOWED: the preview covers the element whole, so both overlaps equal its size and
+    // there is no cheaper axis to leave by -- eject toward the nearest edge instead.
     Vector2D d{0.0, 0.0};
     double depth = 0.0;
     if (ox >= r.w && oy >= r.h) {

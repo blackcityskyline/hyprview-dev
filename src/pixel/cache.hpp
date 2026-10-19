@@ -30,10 +30,10 @@ enum Slot : int { All = -2, CarouselCount = -1 };
 //
 // Entries are owned by what they describe. Keyed by a raw address, a caption outlives its
 // object whenever the scene is not rebuilt in between -- Hyprland recycles addresses, so the
-// next window to land on a closed one's address inherits its texture, in snapshot mode its
-// contents. A weak reference beside the key removes that by construction: the object dies, the
-// reference expires, the lookup misses, and there is no sweep to forget to run. Entries with no
-// object behind them live in m_fixed for the session.
+// next window to land on a closed one's address inherits its texture. A weak reference beside
+// the key removes that by construction: the object dies, the reference expires, the lookup
+// misses, and there is no sweep to forget to run. Entries with no object behind them live in
+// m_fixed for the session.
 class PixelCache {
   public:
     struct LabelEntry {
@@ -57,10 +57,8 @@ class PixelCache {
                                      const CHyprColor &col, int size, int maxW = 0);
         // A label for a subject rather than a window, deliberately on the SAME code path as
         // windowLabel() -- two label caches would be two places to disagree about how a title is
-        // drawn. A tab has no window to own the entry, so the SubjectCache's epoch is the owner:
-        // an entry made under one connection is dropped when the next arrives.
-        // A picture for a subject: screenshot first, then icon, then nothing. The paths are the
-        // caller's because where files come from is not this cache's business. Nothing found is
+        // drawn. A tab has no window to own the entry, so the SubjectCache's epoch is the owner.
+        // A picture for a subject: screenshot first, then icon, then nothing. Nothing found is
         // NOT cached -- a file not there yet is ordinary for a directory the browser is writing,
         // and caching the miss would draw an empty card for the rest of the connection.
     SP<Render::ITexture> putPicture(const model::SubjectRef &s,

@@ -11,26 +11,19 @@ namespace gloview::model {
 
 // What the overview shows FOR ONE WINDOW: the window itself, or a tab inside it. The box and
 // the label are the same kind either way, so every rule about "a tile" applies to both.
-// `tabId == -1` is the window. The handle is an opaque pointer: an entry is an identity and
-// an index, and which windows belong is somebody else's question -- keeping Hyprland out is
-// what lets the rule below be checked without a compositor.
+// `tabId == -1` is the window. The handle is an opaque pointer: an entry is an identity and an
+// index, and keeping Hyprland out is what lets the rule below be checked without one.
 struct Entry {
     const void *win;
     std::int64_t tabId = -1;
 };
 
-// The entries one window contributes.
-//
-// A browser we have never heard from falls back to being shown as a window: a browser that
-// has not reported yet is indistinguishable from one with no tabs, and dropping every browser
-// until the extension connects reads as "the overview lost my windows". A window we HAVE
-// heard from, reporting none, contributes nothing -- that is the mode working.
-//
-// Never-heard-from and not-a-browser are both an empty tab list, and reading them as one
-// thing put the terminal in the browser's view. So the caller says which of the two it has.
-// Two plain facts rather than a container: `isBrowser` answers whether it was heard from and
-// the span answers which tabs, and ReportedTabs cannot be handed back out of a source anyway
-// -- its titles are string_views into the parsed text, which dies with the call.
+// The entries one window contributes. A browser we have never heard from falls back to being
+// shown as a window; a window we HAVE heard from, reporting none, contributes nothing -- the
+// mode working. Never-heard-from and not-a-browser are both an empty tab list, so the caller
+// says which it has: `isBrowser` whether it was heard from, the span which tabs. Reading them
+// as one thing put the terminal in the browser's view. ReportedTabs cannot be handed back out
+// anyway -- its titles are string_views into the parsed text, which dies with the call.
 [[nodiscard]] inline std::vector<Entry> entriesFor(const void *win, Domain mode,
                                                    bool tabsKnown,
                                                    std::span<const std::int64_t> tabIds,

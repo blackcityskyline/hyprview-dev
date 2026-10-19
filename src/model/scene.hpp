@@ -41,29 +41,24 @@ class Scene {
       m_tiles[i].natural = at;
       m_tiles[i].parked = true;
     }
-        // Exchange which tile carries which window. A swap Hyprland cannot express is invisible:
-    // switchTargets exchanges two layout TARGETS, but two windows already at one geometry give
-    // goal() the same box before and after, so the rebuild reproduces the layout and nothing
-    // travels. The overlay lays cards out by INDEX, so trading the two TARGETS is what makes the
-    // exchange visible: each window keeps the natural startTileGlide captured for it and is
-    // handed the other's card slot. Trading the whole tiles instead would be a no-op --
-    // natural == target for both. When the geometry does differ the two agree, because the next
-    // rebuild puts each window where this swap already drew it.
+    // Exchange which tile carries which window. A swap Hyprland cannot express is invisible:
+    // two windows already at one geometry give goal() the same box before and after, so the
+    // rebuild reproduces the layout. The overlay lays cards out by INDEX, so trading the two
+    // TARGETS is what makes the exchange visible: each window keeps its own natural and is
+    // handed the other's card slot.
 void swapTiles(size_t a, size_t b) {
   if (a >= m_tiles.size() || b >= m_tiles.size() || a == b)
     return;
   std::swap(m_tiles[a].target, m_tiles[b].target);
 }
-    // Did the rebuild leave this tile with nowhere to go? natural == target means the
-    // layout handed the window back the box it already had, so the glide has no distance
-    // to cover. That is the signal that the layout could not tell two windows apart, and
-    // the caller has to express the exchange in the card slots itself.
     // Point a tile's glide at a different source box -- where a window was actually
     // released, as opposed to the card slot it was picked up from.
     void setNatural(size_t i, const LRect &box) {
       if (i < m_tiles.size())
         m_tiles[i].natural = box;
     }
+    // natural == target: the layout handed the window back the box it already had and could
+    // not tell two windows apart, so the caller has to express the exchange in card slots.
     [[nodiscard]] bool tileAtRest(size_t i) const {
   if (i >= m_tiles.size())
     return false;
@@ -111,9 +106,8 @@ void swapTiles(size_t a, size_t b) {
 
     // The one answer to "which tile is focused", for paint and input alike, or null. Not
     // selected(): the deck can hold tiles while nothing is selected -- an empty workspace
-    // switched to all-workspaces rebuilds into tiles without re-selecting, and layoutTiles
-    // then draws tile 0 centred. Asking the raw index got -1 there, so Enter activated
-    // nothing and the exit fell through to a bare close.
+    // switched to all-workspaces rebuilds into tiles without re-selecting, and the raw index
+    // was -1 there, so Enter activated nothing.
     [[nodiscard]] SubjectRef focusedSubject() const {
       const int f = focused();
       return f >= 0 ? m_tiles[static_cast<std::size_t>(f)].subj : SubjectRef{};

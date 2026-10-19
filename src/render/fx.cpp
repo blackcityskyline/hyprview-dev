@@ -24,10 +24,8 @@ using Render::GL::g_pHyprOpenGL;
 namespace gloview {
 
 namespace {
-// Down-right of the pointer, so the drop zones stay visible under the preview. Functions
-// rather than constants read once: a value initialised from config at namespace scope runs
-// before PLUGIN_INIT registers it, and cross-TU static init order is undefined -- that took
-// the compositor down at startup.
+// Down-right of the pointer, so the drop zones stay visible under the preview. Functions, not
+// namespace-scope constants: config read before PLUGIN_INIT registered it crashed the session.
 double dragOffsetX() { return cfg::look.drag_offset_x; }
 double dragOffsetY() { return cfg::look.drag_offset_y; }
 double dragScale() {
@@ -133,9 +131,7 @@ void Overview::renderDragWindow() const {
 
 // Brightness tracks how close the CURSOR is (m_killGlow, a smoothstepped distance), so it
 // guides the drop rather than switching on once you are on it. The zone sits at the screen
-// edge OPPOSITE the strip, so the two are never in the same place; empty when disabled, and
-// an empty rect contains nothing and never closes a window. Geometry, not lifecycle, so it
-// lives beside the one thing that draws it.
+// edge OPPOSITE the strip; empty when disabled, and an empty rect contains nothing.
 LRect Overview::killZoneRect() const {
   const auto m = m_monitor.lock();
   if (!m)
@@ -147,8 +143,6 @@ LRect Overview::killZoneRect() const {
   return LRect{0.0, atTop ? 0.0 : m->m_size.y - kH, m->m_size.x, kH};
 }
 
-// Full brightness inside the zone, nothing by kill_zone_falloff px away. A distance rather
-// than a bool: a zone blank until the cursor crosses it says nothing while aiming.
 double Overview::killZoneGlow(double lx, double ly) const {
   return render::killZoneGlow(killZoneRect(), lx, ly, cfg::behavior.kill_zone_falloff);
 }
@@ -166,14 +160,13 @@ void Overview::renderKillZone() const {
   const double s    = m->m_scale;
   const double glow = m_killGlow;
   const auto   col  = cfg::colors.select_border.get(eased());
-  // Strip at the bottom puts the zone at the top of the screen, and vice versa.
   const bool zoneAtTop = stripAnchor() == Anchor::Bottom;
-  // ONE falloff from the SCREEN edge, through the band and into the screen. Two
-  // ramps — band and halo — put a step where they met that read as a second line.
+  // ONE falloff from the SCREEN edge, through the band and into the screen: two ramps put a
+  // step where they met that reads as a second line.
   const int kReach = cfg::behavior.kill_zone_reach;
   for (int d = 0; d < kReach; ++d) {
     const double f = static_cast<double>(d) / kReach;
-    const double a = std::pow(1.0 - f, 2.5) * 0.4675 * glow; // 0.55 less 15%
+    const double a = std::pow(1.0 - f, 2.5) * 0.4675 * glow;
     if (a < 0.004)
       continue;
     const double y = zoneAtTop ? z.y + d : z.y + z.h - 1 - d;
@@ -181,8 +174,8 @@ void Overview::renderKillZone() const {
   }
 }
 
-// A subject, not a window: a pulse is a ring around whatever the run is showing, and a tab
-// has no window to be handed here even though it has a card that can ring.
+// A subject, not a window: a pulse rings whatever the run is showing, and a tab has no window
+// but has a card that can ring.
 void Overview::kickPulse(model::SubjectRef s) {
   if (s == model::SubjectRef{} || !anim::cfg(anim::Id::Pulse).on)
     return;
@@ -241,8 +234,8 @@ void Overview::renderPulses(bool strip) const {
 
 void Overview::drawPulseRing(const CBox &boxPx, int round, float roundPow,
                              const CHyprColor &col, double p) const {
-  // The curve comes from the pulse animation and the reach past the tile edge is its own shape
-  // parameter. Both were literals -- two halves of one animation configured from different places.
+  // Curve from the pulse animation, reach past the tile edge its own shape parameter: two
+  // halves of one animation must not be configured from different places.
   const double k  = curves::eval(anim::cfg(anim::Id::Pulse).curve, p) *
                   anim::param(anim::Param::PulseScale);
   const double cx = boxPx.x + boxPx.w / 2.0, cy = boxPx.y + boxPx.h / 2.0;
@@ -253,14 +246,8 @@ void Overview::drawPulseRing(const CBox &boxPx, int round, float roundPow,
                roundPow);
 }
 
-// Flying windows, lerped to the CURRENT slot box (itself possibly gliding); slots are
-// suppressed while the flight is live and take over invisibly at t=1.
-//
-// Every place this window is drawn ON THIS SURFACE. The all-workspaces view shows it twice at
-// once and the two are not the same gesture -- the one the user dragged leaves the cursor, the
-// other slides from where it already was. Both flights exist, tagged, and each painter stands
-// down only for its own. One resolver for both painter and trace: a trace resolving the target
-// differently from the draw would report a motion that never happened.
+// Every place this window is drawn ON THIS SURFACE: a flight lerps to the CURRENT slot box.
+// One resolver for both painter and trace, or the trace reports a motion that never happened.
 std::vector<LRect> Overview::swapDests(const PHLWINDOW &w, bool strip) const {
   std::vector<LRect> out;
   if (!strip) {
@@ -302,18 +289,13 @@ void Overview::renderSwapFX() const {
     const double t   = fx.clock.raw(fx.ms);
     const double p   = curves::eval(fx.curve, t);
     for (const LRect &to : dests) {
+    // No ring here: the pulse owns rings.
     double bx = 0, by = 0, bw = 0, bh = 0;
     float alpha = 1.0F;
-    // No ring here. This branch used to draw one, ungated, while renderPulses drew a second
-    // for the same window on the same frame: a ring showed up with pulse switched off, and its
-    // corner radius tightened for the whole flight (clampRound reads min(w,h) of a box
-    // shrinking from a grid card to a strip thumbnail) while the content's radius never moved,
-    // so the frame visibly slid off the card it was framing. The pulse owns rings.
 
     // One travel, two shapes. `Slide` on the horizontal axis lerps every edge; on the vertical
-    // it arcs the card up and down, which is what "slidevert" has always meant in a swap and is
-    // NOT a slide on Y. The arc carries the landing the drop asks for, so it stays hardcoded
-    // with speed as its only knob.
+    // it arcs the card up and down -- "slidevert" in a swap is NOT a slide on Y, and the arc
+    // carries the landing the drop asks for.
     if (fx.style.travel == anim::Travel::Slide &&
         fx.style.axis == anim::Axis::Vertical) {
       const double LIFT = cfg::look.swap_lift;
@@ -359,10 +341,9 @@ void Overview::renderSwapFX() const {
       bh = lerp(fx.from.h, to.h, p);
     }
 
-    // A flight draws at EVERY surface the window occupies and those differ in size by two
-    // orders of magnitude, so a cross-surface flight lerps between them. A box shrinking past a
-    // pixel on the way is not worth a shadow, and renderRoundedShadow ASSERTS on it -- a
-    // Hyprland RASSERT inside the compositor, so the whole session goes.
+    // A flight draws at EVERY surface the window occupies, two orders of magnitude apart, so
+    // the box can shrink past a pixel: renderRoundedShadow ASSERTS on it -- a Hyprland
+    // RASSERT inside the compositor takes the whole session.
     const LRect box{bx, by, bw, bh};
     const CBox px = pxb(box, s);
     const int lr = clampRound(round, bw, bh); // logical: dropShadow scales it

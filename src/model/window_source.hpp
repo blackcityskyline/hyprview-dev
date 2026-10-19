@@ -11,7 +11,6 @@ namespace gloview::model {
 // Windows as subjects, the first of the two implementations. A window IS its address and the
 // epoch is always 0, which is why a tabs SubjectRef passed to this source cannot be mistaken
 // for a window: it would need an id that happens to be a valid pointer AND an epoch of 0.
-// Holds nothing but what a window is and what you can do to one; layout, drag and exit ask.
 class WindowsContentSource final : public IContentSource {
   public:
     explicit WindowsContentSource(const IWindowHost &host) : m_host(host) {}

@@ -59,10 +59,8 @@ std::unordered_map<const Color *, std::pair<std::string, CHyprColor>>
 } // namespace
 
 CHyprColor Color::get(float alphaMul) const {
-  // The override is resolved BEFORE the cache lookup, not after. The cache is keyed on
-  // the string it was parsed from, so an override read past the cache would keep serving
-  // whatever was parsed first and `set <colour-key> <value>` would report success and
-  // change nothing. Int/Float/Str have no cache and were never exposed to this.
+  // The override is resolved BEFORE the cache lookup, not after: the cache is keyed on the
+  // parsed string, so an override read past it would keep serving the first parse.
   const std::string *ov = override::find(key);
   const std::string raw = ov ? *ov : (v ? std::string(v->value()) : std::string(def));
   auto &c = g_colorCache[this];
@@ -76,12 +74,8 @@ CHyprColor Color::get(float alphaMul) const {
 }
 
 // ---- registration -------------------------------------------------------------
-// THE SCHEMA: handle, FULL config key, default. Grouped by domain — the table is
-// the documentation of record for what exists and what it defaults to.
-//
-// The key MUST be a string LITERAL: CIntValue/CStringValue keep it as a const
-// char*, so a c_str() of a temporary dangles and commence() aborts on it at
-// registration — which is why the leaf keys below go into a deque.
+// THE SCHEMA: handle, FULL config key, default. Key MUST be a string LITERAL: the value
+// objects keep it as const char*, so a temporary's c_str() dangles and commence() aborts.
 
 namespace {
 
@@ -114,10 +108,8 @@ constexpr IntSpec kInts[] = {
     {&grid.padding_top, "plugin:gloview:padding_top", 40},
     {&grid.padding_bottom, "plugin:gloview:padding_bottom", 70},
     {&behavior.kill_zone_reach, "plugin:gloview:kill_zone_reach", 160},
-    // caption text, then the carousel counter below it: two pills, two sizes
     {&look.title_font_size, "plugin:gloview:title_font_size", 12},
     {&look.counter_font_size, "plugin:gloview:counter_font_size", 12},
-    // carousel: the run, laid over `layout` in the all-workspaces view only
     {&carousel.enabled, "plugin:gloview:carousel", 0},
     {&carousel.on_open, "plugin:gloview:carousel_on_open", 1},
     {&carousel.cards, "plugin:gloview:carousel_cards", 5},
@@ -158,13 +150,11 @@ constexpr IntSpec kInts[] = {
     {&layer.hide_overlay, "plugin:gloview:hide_overlay_layers", 0},
     {&debug.logs, "plugin:gloview:debug_logs", 0},
     // Separate from debug_logs on purpose: a trace run wants every animation event and
-    // none of the per-frame spam, and the harness parses these lines.
+    // none of the per-frame spam.
     {&debug.trace, "plugin:gloview:debug_trace", 0},
 };
 
 constexpr FloatSpec kFloats[] = {
-    // Depth shading of the run: nearest unfocused card, far one, and the multiplier per
-    // step deeper.
     {&carousel.tone_near, "plugin:gloview:carousel_tone_near", 0.125F},
     {&carousel.tone_far, "plugin:gloview:carousel_tone_far", 0.25F},
     {&carousel.depth_taper, "plugin:gloview:carousel_depth_taper", 0.8F},
@@ -208,8 +198,8 @@ constexpr StrSpec kStrs[] = {
     {&strip.bar_position, "plugin:gloview:bar_position", "top"}, // deprecated alias
     {&strip.empty_mode, "plugin:gloview:strip_empty_mode", "show"},
     {&look.close_button_position, "plugin:gloview:close_button_position", "top-right"},
-    // "top" / "bottom". The title's puts the WHOLE caption above or below the card; the
-    // counter's only decides whether it leads or trails the title inside it.
+    // "top" / "bottom": the title's moves the WHOLE caption, the counter's only its order
+    // inside it.
     {&look.title_position, "plugin:gloview:title_position", "bottom"},
     {&look.counter_position, "plugin:gloview:counter_position", ""},
     {&look.close_button_visibility, "plugin:gloview:close_button_visibility", "shift"},
@@ -246,8 +236,8 @@ constexpr ColorSpec kColors[] = {
     {&colors.drop_hint, "plugin:gloview:drop_hint_color", "0x38ffffff"},
     {&colors.hover_border, "plugin:gloview:hover_border", "0xf0ffffff"},
     {&colors.label, "plugin:gloview:label_color", "0xf2ffffff"},
-    // The text in the two caption pills. Separate from label_color so one can be dimmed
-    // against the other, and separate from each other for the same reason.
+    // The text in the two caption pills, separate from label_color and from each other so
+    // each can be dimmed against the other.
     {&colors.title_label, "plugin:gloview:title_label_color", "0xf2ffffff"},
     {&colors.counter_label, "plugin:gloview:counter_label_color", "0xf2ffffff"},
     {&colors.select_border, "plugin:gloview:select_border", "0xf066ccff"},
@@ -265,14 +255,9 @@ constexpr ColorSpec kColors[] = {
 
 } // namespace
 
-// ---- animation leaves ---------------------------------------------------------
-// One row per leaf: handles, base duration (what speed 1.0 means), default curve.
-// The resolver reads ONLY this table and the imperative rules.
 void registerAll(HANDLE handle) {
-  // Every handle learns its own key here, because this is the only place the key
-  // exists -- the spec tables carry it, the value objects do not. cfg::override then
-  // addresses any registered key by name, which is what makes `set` a real seam
-  // rather than a list of special cases.
+  // Every handle learns its own key here: the spec tables carry it, the value objects do
+  // not. cfg::override then addresses any registered key by name.
   for (auto &s : kInts) {
     s.h->v = makeShared<Config::Values::CIntValue>(s.key, "",
                                                      static_cast<Config::INTEGER>(s.def));

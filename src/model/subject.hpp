@@ -11,9 +11,9 @@ namespace gloview::model {
 // nor the width of id is decoration -- both exist because a bare integer is reused. A window
 // is identified by its address (never key a map by a raw pointer, AGENTS.md 2.9) and a browser
 // tab id is the same hazard from another source: close tab 41 and tab 41 exists again a moment
-// later on another page. An id is only meaningful with the epoch it was issued under; the
-// source bumps it on every fresh connection and resynchronisation, so a SubjectRef with an
-// older epoch fails equality rather than silently matching whoever took the number.
+// later. An id is only meaningful with the epoch it was issued under; the source bumps it on
+// every fresh connection, so a SubjectRef with an older epoch fails equality rather than
+// silently matching whoever took the number.
 // Default-constructed is Window0@0, the live compositor window.
 struct SubjectRef {
     std::uint64_t id     = 0;
@@ -52,9 +52,7 @@ enum class Domain : int {
 }
 
 // A mode parsed from config. Anything unrecognised is Windows, the mode that was always there,
-// so a typo cannot quietly turn the overview into something else. It used to be a second enum
-// with the same three values one file over -- two spellings of one question get answered two
-// ways.
+// so a typo cannot quietly turn the overview into something else.
 [[nodiscard]] constexpr Domain parseDomain(std::string_view s) {
     if (s == "tabs")
         return Domain::Tabs;
