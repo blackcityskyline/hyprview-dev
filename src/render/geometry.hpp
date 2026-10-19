@@ -448,6 +448,47 @@ struct CoverUV {
   return uv;
 }
 
+// How a window's own surface maps into the tile it is drawn in: one scale, one
+// translation. Over-cover from the CENTER -- fitting exactly shows the backing as
+// seams -- unless the tile is settled or the content is contained.
+struct WindowFitInput {
+  double destX = 0.0, destY = 0.0, destW = 0.0, destH = 0.0;
+  double logicalX = 0.0, logicalY = 0.0, logicalW = 0.0, logicalH = 0.0;
+  double monX = 0.0, monY = 0.0, monScale = 1.0;
+  bool settled = false;
+  bool contain = false;
+  double seamPad = 0.0;
+};
+
+struct WindowFit {
+  bool valid = false;
+  double scale = 1.0;
+  LVec2 translate;
+};
+
+[[nodiscard]] inline WindowFit windowFit(const WindowFitInput &in) {
+  WindowFit fit;
+  const double lw = std::max(in.logicalW, 5.0);
+  const double lh = std::max(in.logicalH, 5.0);
+  const double pad = (in.settled || in.contain) ? 0.0 : in.seamPad;
+  const double sW = (in.destW + pad) / std::max(lw * in.monScale, 5.0);
+  const double sH = (in.destH + pad) / std::max(lh * in.monScale, 5.0);
+  const double scale = in.contain ? std::min(sW, sH) : std::max(sW, sH);
+  if (!(scale > 0.0))
+    return fit;
+
+  const double tlX = (in.logicalX - in.monX) * in.monScale;
+  const double tlY = (in.logicalY - in.monY) * in.monScale;
+  const double winCx = tlX + lw * in.monScale / 2.0;
+  const double winCy = tlY + lh * in.monScale / 2.0;
+  const double destCx = in.destX + in.destW / 2.0;
+  const double destCy = in.destY + in.destH / 2.0;
+  fit.valid = true;
+  fit.scale = scale;
+  fit.translate = LVec2{destCx / scale - winCx, destCy / scale - winCy};
+  return fit;
+}
+
 // The kill zone sits at the screen edge OPPOSITE the strip.
 [[nodiscard]] inline LRect killZoneRect(Anchor strip, double screenW, double screenH,
                                         double thickness) {

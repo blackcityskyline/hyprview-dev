@@ -365,6 +365,82 @@ static void theKillZoneIsOppositeTheStrip() {
   std::puts("the kill zone: opposite the strip");
 }
 
+// How a window's surface maps into its tile: one scale, one translation. It was
+// arithmetic in the leaf, where a wrong scale is a stretched window and nothing
+// says so.
+static void theWindowMapsIntoItsTile() {
+  using hyprview::render::windowFit;
+  using hyprview::render::WindowFitInput;
+
+  // A fullscreen window on the monitor it fills: one to one, no offset.
+  {
+    WindowFitInput in;
+    in.destW = 1920.0;
+    in.destH = 1080.0;
+    in.logicalW = 1920.0;
+    in.logicalH = 1080.0;
+    in.settled = true;
+    const auto fit = windowFit(in);
+    want(fit.valid, true, "a fullscreen window fits");
+    near(fit.scale, 1.0, "at the monitor's own scale");
+    near(fit.translate.x, 0.0, "and it is not moved");
+    near(fit.translate.y, 0.0, "and it is not moved");
+  }
+
+  // The same window on a scaled monitor: the pixels are what matter, not the
+  // logical size.
+  {
+    WindowFitInput in;
+    in.destW = 1920.0;
+    in.destH = 1080.0;
+    in.logicalW = 960.0;
+    in.logicalH = 540.0;
+    in.monScale = 2.0;
+    in.settled = true;
+    const auto fit = windowFit(in);
+    near(fit.scale, 1.0, "a scaled monitor still draws at its own pixels");
+  }
+
+  // A contained window keeps its shape: the smaller of the two ratios wins, and
+  // the content is centred in the tile.
+  {
+    WindowFitInput in;
+    in.destW = 1000.0;
+    in.destH = 100.0;
+    in.logicalW = 500.0;
+    in.logicalH = 500.0;
+    in.contain = true;
+    in.settled = true;
+    const auto fit = windowFit(in);
+    near(fit.scale, 0.2, "contained by the tight side");
+    near(fit.translate.x, 2250.0, "and centred in the tile");
+    near(fit.translate.y, 0.0, "and centred in the tile");
+  }
+
+  // Not settled: the tile is covered a little over, so the backing never shows
+  // as a seam.
+  {
+    WindowFitInput in;
+    in.destW = 1920.0;
+    in.destH = 1080.0;
+    in.logicalW = 1920.0;
+    in.logicalH = 1080.0;
+    in.seamPad = 2.0;
+    const auto fit = windowFit(in);
+    want(fit.scale > 1.0, true, "an unsettled tile is over-covered");
+  }
+
+  // A tile with no area draws nothing.
+  {
+    WindowFitInput in;
+    in.destW = 0.0;
+    in.destH = 0.0;
+    in.settled = true;
+    want(windowFit(in).valid, false, "an empty tile has no fit");
+  }
+  std::puts("the window fit: one to one, contained, over-covered, and nothing at all");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -709,6 +785,7 @@ int main() {
   theStripDecidesItsOwnShapes();
   theFlightHasFourKinds();
   theKillZoneIsOppositeTheStrip();
+  theWindowMapsIntoItsTile();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

@@ -83,24 +83,18 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   // goal(), not value(): value() mid-resize scales only part of destPx.
   const auto pos  = w->positionAnimation()->goal();
   const auto size = w->sizeAnimation()->goal();
-  const float logicalW = std::max((float)size.x, 5.F);
-  const float logicalH = std::max((float)size.y, 5.F);
-  // Over-cover from the CENTER: fit-exact shows the backing as seams; a contained window needs no pad.
-  const float pad = (settled || contain) ? 0.0F : kSeamPadPx;
-  const float sW  = (static_cast<float>(destPx.w) + pad) /
-                   std::max(logicalW * mon->m_scale, 5.F);
-  const float sH  = (static_cast<float>(destPx.h) + pad) /
-                   std::max(logicalH * mon->m_scale, 5.F);
-  const float scaleMod = contain ? std::min(sW, sH) : std::max(sW, sH);
-  if (!(scaleMod > 0.F))
-    return;
-
   const Vector2D logicalTL = pos + w->m_floatingOffset;
-  const Vector2D scaledTL  = (logicalTL - mon->m_position) * mon->m_scale;
-  const Vector2D scaledSize   = Vector2D(logicalW, logicalH) * mon->m_scale;
-  const Vector2D winCenter    = scaledTL + scaledSize / 2.0;
-  const Vector2D destCenterPx = destPx.pos() + destPx.size() / 2.0;
-  const Vector2D translate    = destCenterPx / scaleMod - winCenter;
+
+  const render::WindowFitInput fitIn{
+      destPx.x, destPx.y, destPx.w, destPx.h,
+      logicalTL.x, logicalTL.y, size.x, size.y,
+      mon->m_position.x, mon->m_position.y, mon->m_scale,
+      settled, contain, kSeamPadPx};
+  const auto fit = render::windowFit(fitIn);
+  if (!fit.valid)
+    return;
+  const float scaleMod = static_cast<float>(fit.scale);
+  const Vector2D translate{fit.translate.x, fit.translate.y};
 
   Render::SRenderModifData modif;
   modif.modifs.push_back(
