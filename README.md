@@ -1,7 +1,5 @@
 # HyprView
-[![license](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/blackcityskyline/hyprview/blob/main/LICENSE) [![#main:feds.farm](https://escape.feds.farm/feds.png)](https://escape.feds.farm/#main:feds.farm)
-
-https://github.com/user-attachments/assets/0a3d812a-eae0-4ca5-8698-7a006e540857
+[![license](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/blackcityskyline/hyprview/blob/main/LICENSE)
 
 A better macOS Mission Control-style overview plugin for Hyprland
 
@@ -193,7 +191,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `key_desktop` | key names | `shift` | Flip canvas↔grid |
 | `key_all_workspaces` | key names | `a` | Toggle the all-workspaces (expo) view; `""` to disable |
 | `key_workspace` | key names | `1,2,3,4,5,6,7,8,9,0` | Key at position N switches DIRECTLY to workspace N+1 (so `0` is always workspace 10) — creates it first if needed, independent of what's currently on the strip |
-| `key_workspace_mode` | `switch` \| `jump` | `switch` | `switch`: a digit changes the displayed workspace and the overview stays open (Ctrl+digit is a no-op) — `jump`: a digit switches AND immediately closes the overview; hold Ctrl+digit for the old stay-open behavior |
+| `key_workspace_mode` | `switch` \| `jump` | `switch` | `switch`: a digit changes the displayed workspace and the overview stays open — `jump`: a digit switches AND immediately closes the overview; `Ctrl+digit` keeps the overview open in both modes |
 | `alt_tab_modifier` | `alt` \| `ctrl` \| `shift` \| `super` | `alt` | Which modifier's release commits the Alt-Tab selection (match whatever you bound `hyprview:alttab` with) |
 | `alt_tab_commit_on_release` | bool (0/1) | `1` | Releasing `alt_tab_modifier` focuses the selection & closes, like a normal alt-tab — off: releasing does nothing, confirm with `key_activate`/click instead |
 | `exit_on_click` | bool (0/1) | `1` | Click on empty space dismisses the overview |
@@ -500,12 +498,3 @@ plugin {
 ```
 
 Keys you leave out keep their defaults from the tables above.
-
-## Donate
-
-#### BTC:
-`bc1p2xkwf9elq8wgajtq2cc6zthuh4k998tgnk6365cnjqgal7mpd09q4jtfq8`  
-#### ETH:
-`0xBD636eBD3a6b9F046930101657459E90DA370e81`  
-#### XMR:
-`42uxSBp4aMyTAsPCMGEwHvJyGpemr1c7kdjtFsD5tnEsU7XsnYMjseyXBzLWHkruSWFGbQWagsh31bBRdU7vDNUBAzm1Mo4`  

@@ -35,7 +35,7 @@ window title (AGENTS.md 2.26).
    - `about:debugging#/runtime/this-firefox` → load temporary add-on → pick `manifest.json`
 
 A temporary add-on in a release Firefox build cannot open a native-messaging
-port; that needs the installed XPI. This is the same limitation brotab has.
+port; that needs the installed XPI.
 
 ## Permissions
 
