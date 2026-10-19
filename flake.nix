@@ -51,7 +51,7 @@
 
         meta = {
           description = "macOS Mission Control-style overview for Hyprland";
-          homepage = "https://github.com/fedsfarm/hyprview";
+          homepage = "https://github.com/blackcityskyline/hyprview";
           license = lib.licenses.gpl3Plus;
           platforms = lib.platforms.linux;
         };

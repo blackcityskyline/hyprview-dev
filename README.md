@@ -1,5 +1,5 @@
 # HyprView
-[![license](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/fedsfarm/hyprview/blob/main/LICENSE) [![#main:feds.farm](https://escape.feds.farm/feds.png)](https://escape.feds.farm/#main:feds.farm)
+[![license](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/blackcityskyline/hyprview/blob/main/LICENSE) [![#main:feds.farm](https://escape.feds.farm/feds.png)](https://escape.feds.farm/#main:feds.farm)
 
 https://github.com/user-attachments/assets/0a3d812a-eae0-4ca5-8698-7a006e540857
 
@@ -42,7 +42,7 @@ nothing. Whatever sits ON TOP of content draws AFTER it.
 Via hyprpm:
 
 ```sh
-hyprpm add https://github.com/fedsfarm/hyprview
+hyprpm add https://github.com/blackcityskyline/hyprview
 hyprpm enable hyprview
 ```
 
@@ -55,7 +55,7 @@ yay -S hyprview
 ### Nixos
 
 ```nix
-inputs.hyprview = { url = "github:fedsfarm/hyprview"; inputs.hyprland.follows = "hyprland"; };
+inputs.hyprview = { url = "github:blackcityskyline/hyprview"; inputs.hyprland.follows = "hyprland"; };
 ```
 ```nix
 wayland.windowManager.hyprland = {
