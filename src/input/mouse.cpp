@@ -41,11 +41,8 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
     overStrip = band.contains(lx, ly);
   }
 
-  // Vertical only for the run; the strip handles both axes, fenced off below.
   const bool vertical = e.axis == WL_POINTER_AXIS_VERTICAL_SCROLL;
 
-  // Carousel uses carousel_scroll_speed, its own switch -- scroll_switches_workspace
-  // is about workspaces.
   if (!overStrip && vertical && carouselMode()) {
     const double speed =
         std::clamp(static_cast<double>(cfg::carousel.scroll_speed), 0.05, 20.0);
@@ -54,13 +51,11 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
     const int whole = static_cast<int>(std::trunc(m_scrollAccum));
     if (whole != 0) {
       m_scrollAccum -= static_cast<double>(whole);
-      // moveSelection, not stepAltTab(): the wheel asks for the next card, not an alt-tab.
       moveSelection(whole, 0);
     }
     return true;
   }
 
-  // Same fence: a sideways swipe must not reach the workspace switch.
   if (!overStrip && vertical &&
       cfg::behavior.scroll_switches_workspace != 0) {
     if (notches != 0.0)
@@ -68,10 +63,9 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
     return true;
   }
 
-  // Modal: swallow the wheel even with nothing to scroll.
   if (!m_scroll.scrollable())
     return true;
-  const double step = stripThickness() * 0.9; // ~one card per notch
+  const double step = stripThickness() * 0.9;
   animateStripTo(m_scroll.current(),
                  std::clamp(m_scroll.target() + notches * step, 0.0, m_scroll.max()));
   updateHover();
@@ -85,8 +79,7 @@ void Overview::onMouseMove() {
     updateHover();
     return;
   }
-  // Kill-zone glow: BEFORE the hardware-cursor return below, which would leave
-  // the zone dark for a hardware cursor.
+  // Kill-zone glow BEFORE the hardware-cursor return below, which would leave the zone dark.
   {
     double g = 0.0;
     if (active() && (draggedTile() >= 0 ||
@@ -94,7 +87,6 @@ void Overview::onMouseMove() {
       const auto mc = g_pInputManager->getMouseCoordsInternal();
       g = killZoneGlow(mc.x - m->m_position.x, mc.y - m->m_position.y);
     }
-    // Held just outside the falloff must not repaint every frame.
     if (std::abs(g - m_killGlow) > 0.02) {
       m_killGlow = g;
       damage();
@@ -102,16 +94,14 @@ void Overview::onMouseMove() {
   }
   if (m_cursor.hasHardwareCursor(m)) {
     updateHover();
-    // damageCursor() for THIS frame: this branch returns before any damage is
-    // issued; the union box is what a software copy needs erased, not the plane.
+    // damageCursor() for THIS frame: this branch returns before any damage is issued.
     if (active() && Pointer::mgr())
       Pointer::mgr()->damageCursor(m);
     return;
   }
   const CBox unionBox = m_cursor.moveDamage(m);
   updateHover();
-  // Named because it fails silently: CURSOR|mode=draw with no matching
-  // CURSORMV|damage clips the cursor away while the mouse keeps moving.
+  // CURSOR|mode=draw with no matching CURSORMV|damage clips the cursor away while the mouse keeps moving.
   const bool dmg = active() && unionBox.w > 0 && unionBox.h > 0;
   debug::trace::emitState(
       std::string("CURSORMV|at=") + (active() ? "open" : "closed") +
@@ -146,12 +136,10 @@ int Overview::tileAt(double lx, double ly) const {
     }
     return best;
   }
-  // One frame for the whole scan, not one per tile.
   const auto f = frame();
   std::vector<LRect> boxes;
   boxes.reserve(m_scene.tiles().size());
   for (std::size_t i = 0; i < m_scene.tiles().size(); ++i)
-    // box() staggers by index: passing 0 for every tile lands them on one card's timing.
     boxes.push_back(m_place.box(m_scene.tiles()[i], static_cast<int>(i), f));
   return render::firstHit(lx, ly, boxes.data(), boxes.size());
 }
@@ -163,7 +151,6 @@ int Overview::stripItemAt(double lx, double ly) const {
   return -1;
 }
 
-// A press that never travelled is a click: drop the lift so the card lands back down.
 void Overview::dropLiftIfNotMoved() {
   if (m_drag.lifted() && m_drag.travelSq() < 64.0) {
     m_drag.setLifted(false);
@@ -211,8 +198,7 @@ void Overview::updateHover() {
     }
     const auto m = m_monitor.lock();
     if (m) {
-      // A selection move is not a two-tile repaint: the run rebuilds every slot,
-      // so damage everything or a card flickers at its border.
+      // A selection move rebuilds every slot: damage everything or a card flickers at its border.
       if (oldSel != m_scene.selected()) {
         damage();
         return;
@@ -285,12 +271,11 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           continue;
         if (carouselMode()) {
           const int k = m_view.slotOf(i);
-          // off-run: nothing of it is drawn, so nothing of it can be hit
           if (k < 0 || !m_view.carousel().cards[static_cast<size_t>(k)].visible)
             continue;
         }
         if (closeButtonRect(tileRect(i)).contains(lx, ly)) {
-          m_drag.consume(e.button); // handled on press
+          m_drag.consume(e.button);
           closeTileWindow(static_cast<int>(i));
           return true;
         }
@@ -357,7 +342,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
   }
 
   if (e.button == BTN_MIDDLE)
-    return true; // middle was fully handled on press
+    return true;
 
   switch (m_drag.press()) {
   case model::Drag::Press::Consumed: {
@@ -369,7 +354,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
   }
   case model::Drag::Press::Tile: {
     const int press = m_drag.idx();
-    m_killGlow = 0.0; // a stale glow would stay painted after the drop
+    m_killGlow = 0.0;
     const auto w = tileWindow(m_scene.tiles()[press]);
     const double grabDX = m_drag.grabX(), grabDY = m_drag.grabY();
     debug::trace::drag("release", m_drag.describe() + "|rmb=" +
@@ -388,8 +373,6 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           break;
         }
       if (cardIdx >= 0) {
-        // Any strip card is a drop target, not just a Ws one: a drag that ends
-        // on "+" never went through the press handler.
         const bool wsCard = m_strip[cardIdx].kind == model::StripItem::Kind::Ws;
         debug::trace::dragBranch("Tile->stripCard",
                                  "rmb=" + std::to_string(rmb) + "|kind=" +
@@ -411,7 +394,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
               kickPulse(subjectOf(w)), kickPulse(subjectOf(vj));
             else damage();
           } else {
-            swapOnWorkspace(w, m_strip[cardIdx]); // no slot hit → last-focused fallback
+            swapOnWorkspace(w, m_strip[cardIdx]);
             kickPulse(subjectOf(w));
             landAfterSwap(w, m_lastDragBox, m_lastDragBox, m_lastDragBox,
                           anim::cfg(anim::Id::Drop).ms, anim::cfg(anim::Id::Drop).curve,
@@ -419,8 +402,6 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           }
           return true;
         }
-        // LMB on any card, rmb on a non-Ws one: dropOnStripCard creates the "+"
-        // workspace and moves the window in.
         if (dropOnStripCard(w, lx, ly, -1)) {
           kickPulse(subjectOf(w));
           landAfterSwap(w, m_lastDragBox, m_lastDragBox, m_lastDragBox,
@@ -428,19 +409,16 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
                         true);
           return true;
         }
-        // A drop that resolved to nothing still flies back: fall through to the checks below.
       }
       // The closing zone wins over everything else, carousel or plain.
       if (w && killZoneRect().contains(lx, ly)) {
         debug::trace::dragBranch("Tile->killZone");
-        // Hand the centre to whatever lands in the closed window's place, by
-        // index: the rebuild shifts the neighbour into this slot.
         if (press == m_scene.selected() && m_scene.tiles().size() > 1) {
           m_scene.select(static_cast<int>(press % (m_scene.tiles().size() - 1)));
           m_scene.select(std::clamp(m_scene.selected(), 0,
                                    static_cast<int>(m_scene.tiles().size()) - 2));
         }
-        closeTileWindow(press); // carries the flight out with it
+        closeTileWindow(press);
         return true;
       }
       // Nearest tile within gap/2, not containment: a natural drop lands in the gap.
@@ -465,12 +443,10 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             std::max(0.0, cfg::grid.gap / 2.0);
         if (best >= 0 && bestDist2 <= tol * tol) {
           debug::trace::dragBranch("Tile->gridSwap");
-          // The release point, not the pickup slot: the card lands from under the cursor.
           swapTiles(press, best, m_lastDragBox);
           return true;
         }
       }
-      // Desktop mode parks the preview; the box lives on the Tile so rebuilds keep it.
       if (m_view.desktop() && w) {
         debug::trace::dragBranch("Tile->desktopPark");
         const LRect cur =
@@ -482,8 +458,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         return true;
       }
       debug::trace::dragBranch("Tile->flyback");
-      // Own glide source: captureCurrentBoxes excludes the dragged window,
-      // so startTileGlide would call it a newcomer and fade it in.
+      // Own glide source: captureCurrentBoxes excludes the dragged window; startTileGlide would fade it in as a newcomer.
       if (w)
         oldBoxes.emplace_back(subjectOf(w), m_lastDragBox);
       replayReflow(oldBoxes);
@@ -492,8 +467,6 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       return true;
     }
     m_drag.clear();
-    // Only the focused card commits; setting selected() is enough -- relayoutCarousel
-    // glides the run around it.
     if (carouselMode() && press >= 0 && press < static_cast<int>(m_scene.tiles().size()) &&
         press != m_scene.selected()) {
       debug::trace::dragBranch("Tile->carouselFocus", "idx=" + std::to_string(press));
@@ -668,21 +641,18 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
   return true;
 }
 
-// True if focusing `w` switches the monitor's real workspace (it slides).
 bool Overview::crossesRealWorkspace(const PHLWINDOW &w) const {
   const auto m = m_monitor.lock();
   return w && m && w->m_workspace && w->m_workspace != m->m_activeWorkspace;
 }
 
 void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
-  // Cross-workspace commit must not focus here; m_pendingFocus defers to
-  // deactivate(), after the overlay is gone.
+  // Cross-workspace commit must not focus here; m_pendingFocus defers to deactivate(), after the overlay is gone.
   const bool deferFocus = crossesRealWorkspace(w);
   if (w) {
     if (const auto ws = w->m_workspace;
         ws && (showAllWorkspaces() || ws != m_workspace.lock())) {
-      // Set before close(): focusAndClose runs DURING close and layoutTiles
-      // recomputes run(), so this must land before close() reads the deck.
+      // Before close(): focusAndClose runs DURING close and layoutTiles recomputes run().
       m_view.setAllOverride( 0);
       m_workspace = ws;
       m_scene.clearHover();

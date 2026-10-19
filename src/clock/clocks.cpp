@@ -9,8 +9,6 @@
 
 namespace gloview {
 
-// Pure linear progress; shaping lives in curves.cpp, durations are re-read from config.
-// The ladder spread is capped at 1: Stagger is the ceiling, StaggerPerTile the growth.
 double staggered(double base, int i, int n) {
   return anim::stagger(base, i, n,
                        std::min(anim::param(anim::Param::Stagger),
@@ -36,19 +34,16 @@ anim::Id Overview::glideLeaf() const {
   return carouselMode() ? anim::Id::CarouselStep : anim::Id::Glide;
 }
 
-// progress.raw() runs DOWN on a close, and read forwards it looks exactly like no animation.
-// Every exit fraction reads it here so the shrink, the fade and the clock cannot disagree.
+// progress.raw() runs DOWN on a close, so every exit fraction reads it here, not on its own.
 double Overview::exitT() const { return m_place.progress.exit(opening()); }
 
-// WINDOWED exit: hold the backdrop until our own tiles are done AND Hyprland has spent the
-// forced full frames close() asked for -- those are the frames it rebuilds its blur in.
+// Hold the backdrop until our tiles are done AND Hyprland has spent its forced full frames.
 bool Overview::backdropSettled() const {
   const auto m = m_monitor.lock();
   return m_place.clocks.tiles.done(animDuration()) && (!m || m->m_forceFullFrames <= 0);
 }
 
-// The backdrop rides the open/close animation itself, and the BASE is the blurred cache with
-// windows present, so the screen is blurred on frame 0. WINDOWED exit is the one exception.
+// The backdrop rides the open/close animation; WINDOWED exit is the one exception.
 double Overview::blurAlpha() const {
   if (!anim::backdropFades(opening(), m_landingEmpty))
     return 1.0;
@@ -59,7 +54,6 @@ double Overview::eased() const { return m_place.eased(); }
 
 double Overview::animDuration() const { return m_place.masterDuration(); }
 
-// CLOSE rides progress.raw() DOWN, so tiles match the collapsing chrome.
 double Overview::tileProgress(int i) const {
   return m_place.tileProgress(i, m_view, opening(), m_scene);
 }
@@ -72,8 +66,7 @@ double Overview::entryNow(const model::Tile &t, int i) const {
   return m_place.entryNow(t, i, m_scene);
 }
 
-// What Placement cannot know -- the monitor and whether this tile has somewhere to land --
-// arrives in the frame.
+// What Placement cannot know -- the monitor, the landing -- arrives in the frame.
 clock::Placement::Frame Overview::frame() const {
   const auto m = m_monitor.lock();
   const PHLWORKSPACE land = m_workspace.lock();
@@ -88,12 +81,10 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
 }
 
 void Overview::updateAnimation() {
-    // Placement::resolve, NOT recipes.resolve: this also computes the frame's eased() and master
-    // duration. Calling the recipe resolver leaves them at zero all frame -- alpha 0 everywhere.
+    // Placement::resolve, NOT recipes.resolve: it also computes eased() and master duration.
   m_place.resolve(m_view, opening(), carouselMode());
 
   const double dur = animDuration();
-  // stall guard: rewind every clock past a render hole
   const auto now = std::chrono::steady_clock::now();
   if (m_lastAnimTick.time_since_epoch().count() != 0) {
     const double gapMs =
@@ -140,7 +131,7 @@ void Overview::updateAnimation() {
 
   if (!m_fx.ghosts().empty() && m_place.clocks.rebuild.done(m_place.recipes.ghost.ms))
     m_fx.clearGhosts();
-  // entries must settle explicitly or they keep evaluating curves forever
+  // Entries must settle explicitly or they keep evaluating curves forever.
   if (m_place.clocks.rebuild.done(m_place.recipes.entry.ms) &&
       std::any_of(m_scene.tiles().begin(), m_scene.tiles().end(),
                   [](const model::Tile &t) { return t.landed < 1.0; }))
@@ -148,7 +139,6 @@ void Overview::updateAnimation() {
 
   const auto pulse = anim::cfg(anim::Id::Pulse);
   m_fx.eachPulse([&](auto &p) {
-    // A pulse whose subject no longer resolves has nothing left to ring around.
     if (!m_windows.windowOf(p.subj))
       return;
     p.p += std::min(34.0, std::chrono::duration<double, std::milli>(now - p.last)
@@ -169,7 +159,7 @@ void Overview::updateAnimation() {
     }
   }
 
-  // prune on each flight's own clock; live config would cut landings short
+  // Pruned on each flight's own clock: a live config would cut landings short.
   const auto flightEnd = std::chrono::steady_clock::now();
   m_fx.dropSwap([&](const model::SwapFX &fx) {
     const bool done = m_windows.windowOf(fx.subj) == nullptr || fx.clock.raw(fx.ms) >= 1.0;
@@ -191,8 +181,6 @@ void Overview::updateAnimation() {
     // as the flight ends, NOT together with the deactivate -- the exit ramp outlives the close.
   if (!opening() && t >= 1.0 && m_place.progress.raw() <= 0.0)
     m_place.progress.firstFrame();
-    // The overlay outlives the close animation by exactly the windowed-exit hold, keeping the
-    // backdrop up until Hyprland's own blur has taken over.
   if (!opening() && t >= 1.0 && m_place.clocks.tiles.done(dur) && backdropSettled()) {
     m_life.requestDeactivate();
     debug::trace::life("requestDeactivate", m_life.describe());
@@ -214,8 +202,6 @@ double Overview::newCardScale() const {
 }
 
 void Overview::animateStripTo(double from, double to) {
-  // The range clamp and the sub-pixel threshold live in the type, so no caller arrives here
-  // with an endpoint outside [0, max] or a sub-pixel move to animate.
   const auto st = anim::cfg(anim::Id::StripStep);
   if (!st.on || !m_scroll.beginGlide(from, to)) {
     m_scroll.snap(to);

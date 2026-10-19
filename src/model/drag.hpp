@@ -1,11 +1,8 @@
 #pragma once
 
-// The drag FSM, as a type that owns its state. Fields are private and the only way in is a
-// transition, each setting the whole press in one place: there is no way to set press = Tile
-// without the idx that goes with it, because beginTile() is the only call that reaches that
-// state. Templated on the window handle so the FSM has no hyprland/ include and
-// drag_check.cpp can unit-test it; model::Drag is the instantiation the plugin uses, and
-// WinRef only needs to be assignable here.
+// Templated on the window handle so there is no hyprland/ include and drag_check.cpp can
+// build it; model::Drag is the instantiation the plugin uses. Fields are private and a
+// transition is the only write, so press and the idx that goes with it are set together.
 
 #include <chrono>
 #include <string>
@@ -17,25 +14,18 @@ namespace gloview::model {
 
 template <typename WinRef> class DragT {
 public:
-    // What the pointer went down on. Consumed is "the press was ours and was handled", which is
-    // why it sits alongside Empty rather than replacing it: swallowed and hit-nothing lead to
-    // different code on release.
+    // Consumed sits BESIDE Empty: swallowed and hit-nothing lead to different code on release.
   enum class Press : int { Tile, StripWin, Empty, Consumed };
 
-    // --- transitions: the only writes ------------------------------------------------
-    // begin* is a complete press: it sets press and every field that press owns, so none can
-    // survive from the drag before it.
-
-  // A press that armed on a grid card. grab is the pointer's offset inside the card, so
-  // the card keeps its point under the cursor while it travels.
+    // begin* is a complete press: it sets every field that press owns, so none can survive
+    // from the drag before it.
   void beginTile(int idx, double x, double y, int button, double grabX, double grabY,
                  LRect from, std::chrono::steady_clock::time_point at) {
     m_press  = Press::Tile;
     m_idx    = idx;
     m_winIdx = -1;
     m_win    = {};
-    // press and current are set together: travelSq() measures from here, and a press with
-    // no press point measures from (0,0) instead of from where the pointer went down.
+    // press and current are set together: travelSq() measures from here.
     m_x = m_pressX = x;
     m_y = m_pressY = y;
     m_button   = button;
@@ -46,7 +36,6 @@ public:
     m_holdFrom = at;
   }
 
-  // A press that armed on a window inside a strip card.
   void beginStripWin(int idx, int winIdx, double x, double y, int button,
                      double grabX, double grabY, LRect from, WinRef win,
                      std::chrono::steady_clock::time_point at) {
@@ -64,21 +53,19 @@ public:
     m_holdFrom = at;
   }
 
-  // The overview took this press and did not arm on anything. Carries the button because
-  // release still has to tell left from right.
+  // Carries the button because release still has to tell left from right.
   void consume(int button) {
     m_press  = Press::Consumed;
     m_button = button;
   }
 
-  // A press that hit nothing at all.
   void miss(int button) {
     m_press  = Press::Empty;
     m_button = button;
   }
 
-  // Cursor motion. Sets the current point only -- press point is fixed at begin*, which is
-  // what makes travelSq() the distance since the press rather than since the last frame.
+  // Sets the current point only; the press point is fixed at begin*, which is what makes
+  // travelSq() the distance since the press rather than since the last frame.
   void moveTo(double x, double y) {
     m_x = x;
     m_y = y;
@@ -86,13 +73,10 @@ public:
 
   void setLifted(bool on) { m_lifted = on; }
 
-    // Back to a virgin drag. It must clear everything, or the next drag reads the previous
-    // one's grab offset or fromBox.
+  // Must clear everything, or the next drag reads the previous one's grab offset or fromBox.
   void clear() { *this = DragT{}; }
 
-    // --- queries ----------------------------------------------------------------------
-    // idx() and winIdx() are -1 unless armed, as a property of construction rather than of
-    // call-site discipline.
+    // idx() and winIdx() are -1 unless armed, by construction rather than call-site discipline.
   [[nodiscard]] Press press() const { return m_press; }
   [[nodiscard]] bool armed() const {
     return m_press == Press::Tile || m_press == Press::StripWin;
@@ -114,19 +98,16 @@ public:
     return m_holdFrom;
   }
 
-  // Squared distance travelled since the press. Squared because every caller compares it
-  // against a squared threshold -- 64 is 8px of slop (mouse.cpp:148), not 64px.
+  // Squared because every caller compares against a squared threshold -- 64 is 8px of slop
+  // (mouse.cpp:148), not 64px.
   [[nodiscard]] double travelSq() const {
     const double dx = m_x - m_pressX, dy = m_y - m_pressY;
     return dx * dx + dy * dy;
   }
 
-    // One line of state: key=value, pipe-separated, no spaces in a value. Same shape as ANIM| in
-    // debug/log.hpp, so one parser reads both without knowing which subsystem a line came from.
+    // Key=value, pipe-separated; the same shape as ANIM| in debug/log.hpp.
   [[nodiscard]] std::string describe() const {
     std::string s = "press=";
-    // A switch, not an array indexed by the enum: an independently-ordered array named every
-    // state wrong.
     switch (m_press) {
     case Press::Tile:     s += "tile";     break;
     case Press::StripWin: s += "stripwin"; break;

@@ -28,8 +28,6 @@ struct RowPlan {
 RowPlan planForRows(const std::vector<LRect>& w, const LRect& area, const LayoutCfg& cfg, int rows) {
     const auto counts = rowCounts(static_cast<int>(w.size()), rows);
 
-    // Gaps are unscaled: the scale applies only to content left after carving
-    // gaps out of the area, else wide rows overflow the area.
     double sW         = cfg.maxScale;
     double totalH     = 0.0;
     double totalGapsH = std::max(0, rows - 1) * cfg.gap;
@@ -120,8 +118,7 @@ std::vector<LRect> layoutGrid(const std::vector<LRect>& w, const LRect& area, co
         return {};
     const int    cols  = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n)))));
     const int    rows  = std::max(1, static_cast<int>(std::ceil(static_cast<double>(n) / cols)));
-    // Floor the cell: (area.w - (cols-1)*gap) can go negative and the compositor's
-    // render entry points assert on a negative box. layoutRows floors for the same reason.
+    // Floor the cell: the area minus gaps can go negative and a negative box asserts in the compositor's render entry points.
     const double cellW = std::max(1.0, (area.w - (cols - 1) * cfg.gap) / cols);
     const double cellH = std::max(1.0, (area.h - (rows - 1) * cfg.gap) / rows);
 
@@ -184,9 +181,6 @@ Engine parseEngine(const char* s) {
     return Engine::Rows;
 }
 
-// One standard box per card: geometry cannot depend on which window is centred.
-// Cards lay out from the focused one, centred in the usable rect (padding carries
-// the strip band); nothing anchors to the run's own extent, asymmetric when even.
 CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
                                const CarouselMetrics& mt) {
     CarouselLayout L;
@@ -224,21 +218,17 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     };
     const auto wAt = [&](int depth) { return boxW * sizeAt(depth); };
     const auto pitchAt = [&](int depth) { return wAt(depth) * mt.pitchK; };
-    // Symmetric extent: the wider side decides so even counts fit.
     const int reach = std::max(leftSlots, rightSlots);
     const double stripW =
         wAt(0) + (pitchAt(reach) + wAt(reach) * 0.5) * static_cast<double>(reach) * 2.0;
-    // The caption hangs below the centred card, so the panel reserves room.
     const double stripH = boxH + mt.captionGap + mt.captionH;
 
-    // One uniform scale so the run fits both axes at once.
     const double availW = std::max(1.0, screen.w - mt.screenMargin * 2.0);
     const double availH = std::max(1.0, screen.h - mt.screenMargin * 2.0);
     const double k =
         std::min({1.0, availW / std::max(1.0, stripW),
                   availH / std::max(1.0, stripH)}) * mt.scale;
-    // It may NOT push the focused card past the screen: a lone card has no
-    // neighbours to absorb the zoom the way a ladder does.
+    // Must NOT push the focused card past the screen: a lone card has no neighbours to absorb the zoom.
     const double kCard =
         std::min(k, std::min(screen.w / boxW, screen.h / stripH));
 
@@ -247,7 +237,6 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     L.stripH = stripH * kCard;
     L.panelH = L.stripH;
     L.stripY = 0.0;
-    // Card x is absolute inside the usable rect, so originX stays 0.
     L.originX = 0.0;
     L.originY = std::round((screen.h - L.panelH) * 0.5);
 

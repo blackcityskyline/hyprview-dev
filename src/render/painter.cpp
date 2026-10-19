@@ -65,9 +65,7 @@ void Overview::renderStage(eRenderStage stage) {
     syncRecency();
   }
 
-  // Parked open: the pass is registered anyway so draw() can run primeBackdrop, which
-  // composites into a private framebuffer and draws nothing. Without this the pass is never
-  // added while m_active is false, so the backdrop is never computed before the first draw.
+  // Parked open: the pass is registered anyway so draw() can run primeBackdrop (private FB, no draw).
   if (m_life.parked() && stage == RENDER_LAST_MOMENT) {
     const auto pm  = m_monitor.lock();
     const auto prm = g_pHyprRenderer->m_renderData.pMonitor.lock();
@@ -90,16 +88,12 @@ void Overview::renderStage(eRenderStage stage) {
   if (!active())
     return;
 
-  // debug::enabled() reads the live config, so this gate follows a runtime toggle;
-  // the block itself is ~20 std::to_string calls per frame.
   if (debug::enabled()) {
     const double e  = eased();
     const float  k  = static_cast<float>(e);
     const float  kk = opening() ? k : std::pow(k, 0.45F);
     const auto   sol = rm->m_solitaryClient.lock();
-    // `valid` is load-bearing here and not part of backdropBlurTexture(): the FB keeps
-    // holding the last blur after the cache goes stale, so "has a texture" and "is the
-    // cache good" are different questions, and this line exists to answer the second.
+    // blurOK answers "is the cache good", not "has a texture": the FB holds the stale blur.
     const auto   blurTex = backdropBlurTexture();
     const bool   blurOK = blurTex && blurTex->ok() && !backdropBlurStale();
     const auto ext = g_pHyprRenderer->m_renderData.damage.copy().getExtents();
@@ -141,9 +135,7 @@ void Overview::renderStage(eRenderStage stage) {
     m_commitPending = true;
   relayoutCarousel();
   syncTiles();
-  // syncTiles() just rebuilt the deck, so any window on it may be one the compositor has
-  // never drawn. Re-assert the three pieces of state every frame; it is idempotent and
-  // only touches what a not-active workspace would skip.
+  // syncTiles() just rebuilt the deck: re-assert the three pieces of state every frame, idempotently.
   forcePreviewVisibility();
   updateSnapshots();
 
@@ -162,15 +154,12 @@ void Overview::renderStage(eRenderStage stage) {
       buildStrip();
       layoutTiles();
       startTileGlide(shown);
-      // startTileGlide marks matched windows as already present (landed = 1), right for a
-      // reflow and wrong here: on a workspace switch the whole tile set is new content, so
-      // arm it like the plugin's own Tab switch and leave every window animated.
+      // startTileGlide marks matched windows landed = 1: right for a reflow, wrong on a switch.
       m_scene.armEntry();
       m_place.clocks.rebuild.begin();
       debug::trace::animStart("entry", "entry", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
-      // Arm the slide AFTER the rebuild clock starts: updateAnimation clears wsSlideDir
-      // whenever both entry clocks already read done, and on a hop from an empty workspace
-      // the previous frame's clocks are done, so an earlier arm is wiped before paint.
+      // Arm the slide AFTER the rebuild clock starts: updateAnimation clears wsSlideDir when
+      // both entry clocks read done, which they do on a hop from an empty workspace.
       if (const auto prev = m_workspace.lock())
         m_view.setWsSlideDir( m->m_activeWorkspace->m_id > prev->m_id ? 1 : -1);
       ensureAnimPump();
@@ -198,7 +187,6 @@ void Overview::renderStage(eRenderStage stage) {
 
   g_pHyprRenderer->m_renderPass.add(makeUnique<PainterPass>(this));
 
-  // half-damage frames rebuild half the FB
   {
     const bool busy = secondaryAnimsActive() ||
                       !m_place.clocks.tiles.done(glideDur()) || m_newCardAnim ||
@@ -213,18 +201,15 @@ void Overview::renderStage(eRenderStage stage) {
 // Z-slots, top to bottom: on-top-of-content draws after it.
 void Overview::paint() {
   if (m_life.parked()) {
-    primeBackdrop(); // computes into a private FB; deliberately draws nothing
+    primeBackdrop();
     return;
   }
-  // Bracketed, not sampled per site. Whatever this pass leaves enabled is not ours to fix
-  // -- Hyprland sets it up for the next one -- but a pass that leaves it DIFFERENT from how
-  // it found it is a defect that shows up one render later, in someone else's draw call.
   const render::GLState glEnter = readGLState();
   glStateFence("paint");
   renderBackdrop();
 
   if (carouselMode())
-    renderCarousel(); // overlapping cards: one whole tile at a time
+    renderCarousel();
   else
     renderTiles();
   renderGhosts();
@@ -241,10 +226,8 @@ void Overview::paint() {
       draggedTile() >= 0 ||
       (m_drag.press() == model::Drag::Press::StripWin && m_drag.lifted());
   if (dragging) {
-    // Kill zone FIRST, then the preview over it -- the reverse of what fx.cpp says it wants
-    // ("the drop zones stay visible under the preview"). Drawing it after put up to 160
-    // stacked 1px glow lines across the card being dragged, over the very thing they were
-    // meant to sit behind.
+    // Kill zone FIRST, then the preview over it: drawing it after stacked the 1px glow lines
+    // over the very card being dragged.
     renderKillZone();
     renderDragTile();
     renderDragWindow();

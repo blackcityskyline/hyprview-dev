@@ -8,9 +8,6 @@
 
 namespace gloview::render {
 
-// Two ways to make the compositor draw another frame, kept out of Overview so nothing reaches
-// into the lifecycle to say "redraw". The pump takes ONE boolean, "is there work", and stays a
-// leaf because the caller already knows what the work is.
 class FramePump {
   public:
     FramePump() = default;
@@ -21,12 +18,10 @@ class FramePump {
 
     void damage(const PHLMONITOR &m) const;
 
-    // Arms the timer while `busy`, disarms otherwise. Idempotent.
     void ensure(bool busy, const PHLMONITOR &m);
 
     // Cancels AND removes the timer, leaving the last shared pointer alone: the timer must
-    // never fire against a destroyed owner. Safe from inside its own callback --
-    // CEventLoopManager::onTimerFire walks a COPY of its timer list.
+    // never fire against a destroyed owner (onTimerFire walks a COPY of its timer list).
     void stop();
 
     // The stall guard reads this, compensating for a hole in the frame stream.

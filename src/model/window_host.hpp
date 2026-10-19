@@ -5,18 +5,13 @@
 
 namespace gloview::model {
 
-// What the window source asks the run to enumerate. The inbound half of IContentSource's
-// outbound half, and separate because the two callers differ: a tabs source needs nothing from
-// the run; which windows belong is the run's rule and it changes mid-run. Shared, the tabs
-// source would return a default meaning "yes" -- the failure this boundary exists to prevent.
-// Narrow: the verbs are not here, an implementation closes and moves windows with Hyprland
-// calls alone.
+// Which windows belong is the run's rule and changes mid-run: a default here would mean "yes".
 class IWindowHost {
   public:
     virtual ~IWindowHost() = default;
 
-    // Does this window get a tile? The one rule, shared by buildTiles() and syncTiles() --
-    // they MUST agree or a window that is on screen has no card to click.
+    // One rule, shared by buildTiles() and syncTiles(): they MUST agree or a window that is on
+    // screen has no card to click.
     [[nodiscard]] virtual bool belongs(const PHLWINDOW &w) const = 0;
 
     // The monitor the run is laid out in. Enumeration is scoped to it.

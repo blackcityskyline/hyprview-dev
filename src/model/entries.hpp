@@ -9,21 +9,15 @@
 
 namespace gloview::model {
 
-// What the overview shows FOR ONE WINDOW: the window itself, or a tab inside it. The box and
-// the label are the same kind either way, so every rule about "a tile" applies to both.
-// `tabId == -1` is the window. The handle is an opaque pointer: an entry is an identity and an
-// index, and keeping Hyprland out is what lets the rule below be checked without one.
+// What the overview shows FOR ONE WINDOW: the window or a tab inside it (`tabId == -1` = window).
 struct Entry {
     const void *win;
     std::int64_t tabId = -1;
 };
 
-// The entries one window contributes. A browser we have never heard from falls back to being
-// shown as a window; a window we HAVE heard from, reporting none, contributes nothing -- the
-// mode working. Never-heard-from and not-a-browser are both an empty tab list, so the caller
-// says which it has: `isBrowser` whether it was heard from, the span which tabs. Reading them
-// as one thing put the terminal in the browser's view. ReportedTabs cannot be handed back out
-// anyway -- its titles are string_views into the parsed text, which dies with the call.
+// Never-heard-from and not-a-browser are both an empty tab list, so the caller says which it
+// has: `isBrowser` whether it was heard from, the span which tabs. A browser we have never
+// heard from is shown as a window, while one reporting none contributes nothing.
 [[nodiscard]] inline std::vector<Entry> entriesFor(const void *win, Domain mode,
                                                    bool tabsKnown,
                                                    std::span<const std::int64_t> tabIds,

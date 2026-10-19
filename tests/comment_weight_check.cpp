@@ -1,21 +1,8 @@
-// Comment weight. AGENTS.md 10.3/10.4 ask for comments that state a rule or carry a reason;
-// they do not cap how many. There is no cap, so the codebase sits at 25.6% -- nearly four
-// comment lines for every ten of code -- and the cost is not the file size.
-//
-// The cost is that the rules contradict each other inside drawTile: five successive comment
-// blocks describe five successive versions of "what happens to a caption that is being
-// shoved", each written to answer the bug visible that day, each cancelling the one above it.
-// Five versions of one rule is not documentation, it is a log of not having a rule. And a
-// comment that is not the current answer is worse than no comment, because it is read as the
-// answer.
-//
-// So the cap is on WEIGHT, not on count, and it is a ratchet rather than a wall: 25.6% today
-// is the number to beat, 10% is the target, and going over the baseline is red. Cutting it is
-// real work -- the history goes with the code, git has it -- and it is the kind of work that
-// does not happen unless something turns red when it is skipped.
+// Comment weight, capped by AGENTS.md 10.3: 8% of comment+code, ratcheted at the value the
+// tree last held, so a fifth version of one rule alongside the other four turns this red.
 //
 // What counts as a comment: full-line // and /* */ blocks, and a trailing // on a line of
-// code. Blank lines are not counted on either side: padding is not weight.
+// code. Blank lines are counted on neither side: padding is not weight.
 
 #include <algorithm>
 #include <cstdio>
@@ -30,10 +17,10 @@
 namespace {
 
 // Comment lines as a share of comment + code, per file, for the whole of src/. Not a per-file
-// wall: a header that states a rule the code cannot express is allowed to be heavy, and a
-// header that only declares things is not allowed to be empty of explanation.
-constexpr double kBaselinePct = 20.7;
-constexpr double kTargetPct   = 10.0;
+// wall: a header that states a rule the code cannot express may be heavier than one that only
+// declares things.
+constexpr double kBaselinePct = 7.1;
+constexpr double kTargetPct   = 8.0;
 
 struct Weight {
   int comments = 0;

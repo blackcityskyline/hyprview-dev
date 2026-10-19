@@ -1,7 +1,7 @@
 #pragma once
 
-// Live handles resolved through the V2 config system; adding one = a handle
-// in its domain + a schema row in config.cpp + a README row.
+// Live handles resolved through the V2 config system; adding a key = a handle in its domain +
+// a schema row in config.cpp + a README row (checked by scan_config_keys).
 
 #include <optional>
 #include <cstdlib>
@@ -20,7 +20,7 @@
 namespace gloview::cfg {
 
 // Runtime overrides, keyed by the registered config key: hl.config accepts only the nested
-// form and CConfigValue has no setter, so every getter consults this first. Empty value clears.
+// form and CConfigValue has no setter, so every getter consults this first. Empty clears.
 namespace override {
 inline std::unordered_map<std::string, std::string> values;
 
@@ -33,16 +33,11 @@ inline const std::string *find(const char *key) {
 inline void set(const char *key, const std::string &v) { values[key] = v; }
 inline bool clear(const char *key) { return values.erase(key) > 0; }
 
-// Every registered key, filled during registerAll: the override map is the thing being
-// written to, so on the first set every key would look unknown.
 inline std::unordered_map<std::string, char> known;
 inline bool isConfigKey(const char *key) {
   return key && known.find(key) != known.end();
 }
 } // namespace override
-
-// Set at registration from the spec table, which is the only place the key exists.
-// A null key means "never registered", and then get() is a plain read.
 
 class Int {
 public:
@@ -83,7 +78,7 @@ public:
   operator std::string() const { return get(); }
 };
 
-// Parsed once, re-parsed only when the configured string changes; get(a) multiplies its alpha.
+// Parsed once, re-parsed when the string changes; get() multiplies its alpha.
 class Color {
 public:
   SP<Config::Values::CStringValue> v;
@@ -103,20 +98,14 @@ struct grid {
 
 inline grid grid;
 
-// The run is a separate mechanism laid over whatever `layout` says, not a
-// layout of its own — see Overview::layoutTiles for where it takes over.
+// A separate mechanism laid over whatever `layout` says, not a layout of its own.
 struct carousel {
   Int enabled;
   Int cards;
   Int card_width;
   Float scale;
-  // Wheel paging: notches * speed = cards moved.
-  Float scroll_speed;
-  // Carousel state when the all-workspaces view opens. The key binding is always
-  // a toggle; this only decides where it starts.
-  Int on_open;
-  // Depth shading of the run: nearest unfocused card's tone, the far one, the multiplier
-  // per step deeper.
+  Float scroll_speed; // notches * speed = cards moved
+  Int on_open;        // where the run starts; the key binding is always a toggle
   Float tone_near;
   Float tone_far;
   Float depth_taper;
@@ -130,8 +119,6 @@ struct strip {
   Int margin;
   Int gap;
   Int card_round;
-  // Label strip under a card, how far a card widens to fit its label, the slide-out's share
-  // of the strip's thickness, and the ceiling on offset as a fraction of the cross axis.
   Float label_band;
   Float label_extra;
   Float slide_frac;
@@ -141,8 +128,7 @@ struct strip {
   Str empty_mode;
   Int all_card;
   Int wallpaper;
-  // Percent. The band's own alpha comes from here and nowhere else; strip_band_color
-  // supplies RGB only.
+  // Percent. RGB comes from strip_band_color; the alpha from here only.
   Int band_opacity;
 };
 
@@ -158,34 +144,24 @@ struct look {
   Int select_border_size;
   Float close_button_size;
   Float drag_size;
-  // Drag preview offset from the pointer, so the drop zones stay visible under it, and
-  // the vertical lift of a SlideVert swap.
   Float drag_offset_x;
   Float drag_offset_y;
   Float swap_lift;
-  // Shadow blur at rest and lifted, the shadow alpha multiplier, title-pill padding and
-  // gaps, the close glyph's fill.
   Float shadow_radius;
   Float shadow_radius_lift;
   Float shadow_alpha;
   Float title_pad_x;
   Float title_pad_y;
   Int title_font_size;
-  // "bottom" hangs the whole caption off the card's lower edge, "top" off its upper one.
   Str title_position;
-  // Corner radius in px. Negative = a capsule (half the height), 0 = square. Capped at half
-  // the shorter side, past which it turns inside out.
+  // Corner radius in px. Negative = a capsule, 0 = square; capped at half the shorter side.
   Float title_round;
   Float title_gap;
   Float title_margin;
-  // The carousel's "n / total" is its own pill under the caption, not a stem: two translucent
-  // shapes cannot share a silhouette without a gap or a density step, hence separate knobs.
   Float counter_pad_x;
   Float counter_pad_y;
   Int counter_font_size;
-  Float counter_round; // negative = capsule, as the caption's
-  // "bottom" puts the counter under the title pill, "top" over it; empty = follow
-  // title_position. Order INSIDE the caption only; where it hangs is title_position's business.
+  Float counter_round;
   Str counter_position;
   Float counter_gap;
   Float counter_margin;
@@ -206,7 +182,7 @@ struct colors {
   Color label;
   Color title_pill;
   Color title_label;
-  Color counter_pill;    // the n / total pill
+  Color counter_pill;
   Color counter_label;
   Color drop_hint;
   Color close_button;
@@ -260,12 +236,9 @@ struct behavior {
   Int scroll_switches_workspace;
   Int passthrough_keys;
   Int exit_on_click;
-  // Closing a window by dragging it to the screen edge. The zone is the strip opposite the
-  // strip band; disabling it leaves the edge a no-op instead of a trap.
   Int kill_zone;
   Float kill_zone_size;
   Float kill_zone_falloff;
-  // How far from the screen edge the drop target reaches, in px.
   Int kill_zone_reach;
   Int click_window_ms;
   Int exit_on_switch;
@@ -274,10 +247,8 @@ struct behavior {
   Int switch_on_new_workspace;
   Int show_all_workspaces;
   Int show_special;
-  // One card per window, one per browser tab, or the window plus its tabs; until the
-  // extension reports, every window falls back to a window (model/entries.hpp, checked).
   Str tile_mode;
-  Int alttab_advances; // the entry is aimed at the next window
+  Int alttab_advances;
   Int hold_lift_ms;
   Str tile_layout;
 };
@@ -293,8 +264,8 @@ struct layer {
 inline layer layer;
 
 struct debug {
-  Int logs;   // per-frame developer log
-  Int trace;  // machine-readable ANIM| records only; see debug/trace.cpp
+  Int logs;
+  Int trace; // machine-readable ANIM| records only; see debug/log.hpp
 };
 
 inline debug debug;

@@ -7,8 +7,7 @@
 
 #include "../layout.hpp"
 
-// Pure geometry, monitor-local LOGICAL px: no GL, no Hyprland, no cfg:: reads, every value
-// an argument.
+// Pure geometry, monitor-local LOGICAL px: no GL, no Hyprland, no config reads (AGENTS.md 2.15).
 
 namespace gloview::render {
 
@@ -30,7 +29,6 @@ enum class Anchor {
     return a == Anchor::Top || a == Anchor::Bottom;
 }
 
-// `anchor` is the configured string, `fallback` the older knob read when it is empty.
 [[nodiscard]] inline Anchor parseAnchor(const std::string& anchor,
                                         const std::string& fallback) {
     const auto& a = anchor.empty() ? fallback : anchor;
@@ -43,8 +41,7 @@ enum class Anchor {
     return Anchor::Top;
 }
 
-// The band's thickness, perpendicular to the anchored edge. std::clamp requires
-// !comp(hi, lo) and does not check it: offset_max is unbounded, so it can invert the range.
+// Band thickness. std::clamp requires !comp(hi, lo) and does not check it: offset_max is unbounded.
 [[nodiscard]] inline double stripThickness(double cross, double height, double offsetMax) {
     const double hi    = cross * offsetMax;
     const double floor = std::min(100.0, hi);
@@ -79,8 +76,7 @@ enum class Anchor {
     }
 }
 
-// Full brightness inside the zone, nothing by `falloff` px away. A distance rather than a
-// bool: a zone blank until the cursor crosses it says nothing while the user is aiming.
+// Full brightness inside the zone, nothing by `falloff` px away: a distance, not a bool.
 [[nodiscard]] inline double killZoneGlow(const LRect& zone, double lx, double ly, double falloff) {
     if (zone.w < 1.0 || zone.h < 1.0 || falloff <= 0.0)
         return 0.0;
@@ -91,9 +87,7 @@ enum class Anchor {
     return t * t * (3.0 - 2.0 * t);
 }
 
-// The box a dragged card is drawn at this frame: glided from where it was picked up, then
-// lifted. Scale and rise apply at every progress INCLUDING zero -- a stationary hold still
-// has to animate.
+// Scale and rise apply at every progress INCLUDING zero: a stationary hold still animates.
 [[nodiscard]] inline LRect dragVisualBox(const LRect& fromBox, const LRect& to, bool lifted, double progress,
                                          double liftScale, double liftRise) {
     const double p = progress;
@@ -105,8 +99,6 @@ enum class Anchor {
     return LRect{cx - b.w * s / 2.0, cy - b.h * s / 2.0 + dy, b.w * s, b.h * s};
 }
 
-// Where a caption pill hangs off a card edge, clamped onto the screen. The clamp mirrors
-// with `below`: down and capped at the screen bottom, up and floored at the top margin.
 [[nodiscard]] inline double captionPillY(double cardY, double cardH, double pillH,
                                          double gap, bool below, double screenH,
                                          double margin) {
@@ -114,8 +106,7 @@ enum class Anchor {
                  : std::max(margin, cardY - gap - pillH);
 }
 
-// Both pills on ONE card edge; the counter is the OUTER pill either way, or it reads as the
-// card's own furniture. `cardGap` and `stackGap` are different knobs; clamped as one block.
+// Both pills on ONE card edge; the counter is the OUTER pill either way.
 struct CaptionPills {
     double titleY;
     double counterY;
@@ -131,24 +122,22 @@ struct CaptionPills {
                  : CaptionPills{top + counterH + stackGap, top};   // counter, title, card
 }
 
-// Negative = a capsule. Capped at half the shorter side: past that the shape turns inside
-// out rather than rounding more.
+// Negative configured = a capsule; capped at half the shorter side, or the shape turns inside out.
 [[nodiscard]] inline int pillRadius(double configured, double w, double h) {
     const double cap = std::min(w, h) * 0.5;
     const double want = configured < 0.0 ? cap : std::min(configured, cap);
     return static_cast<int>(std::max(0.0, want));
 }
 
-// Keep a box inside a screen, with an inset. std::clamp requires lo <= hi and does not check
-// it: a caption sized off a window title can be wider than the screen minus both insets.
+// Keep a box inside a screen, with an inset. std::clamp requires lo <= hi and does not check it:
+// a caption sized off a window title can be wider than the screen minus both insets.
 [[nodiscard]] inline double insetWithin(double x, double size, double screenW,
                                         double inset) {
     const double hi = screenW - size - inset;
     return hi < inset ? screenW * 0.5 : std::clamp(x, inset, hi);
 }
 
-// Which of a row of boxes is under the cursor, or -1. First match wins, in order: the GRID
-// hit-test, deliberately NOT the carousel's, whose overlapping cards need front-most.
+// First match wins: the GRID hit-test, deliberately NOT the carousel's, which needs front-most.
 [[nodiscard]] inline int firstHit(double lx, double ly, const LRect *boxes,
                                    std::size_t n) {
   for (std::size_t i = 0; i < n; ++i)
@@ -157,8 +146,6 @@ struct CaptionPills {
   return -1;
 }
 
-// The largest box of the given aspect that fits inside `outer`, centred. The 0.01 tolerance:
-// a preview a pixel narrower than its ring reads as a misaligned ring.
 [[nodiscard]] inline LRect fitInside(const LRect &outer, double aspect) {
   if (outer.w <= 0.0 || outer.h <= 0.0 || aspect <= 0.0)
     return outer;
@@ -176,9 +163,6 @@ struct CaptionPills {
   return LRect{outer.x, outer.y + (outer.h - h) / 2.0, outer.w, h};
 }
 
-// Where one window's thumbnail sits inside a card, from a card-relative rectangle. `rel` is
-// relative so the card can be sized from the strip's settings and the thumbnails follow.
-// The 2px floor is on both axes: a zero thumbnail is invisible yet still clickable.
 [[nodiscard]] inline LRect winSlotRect(const LRect& rel, const LRect& card) {
     return LRect{card.x + rel.x * card.w, card.y + rel.y * card.h,
                  std::max(2.0, rel.w * card.w), std::max(2.0, rel.h * card.h)};
@@ -201,18 +185,13 @@ struct CaptionPills {
     return LRect{cx - r, cy - r, 2 * r, 2 * r};
 }
 
-// How far a caption pill comes down to fit its card: 1.0 fits, less shrinks it. One factor
-// over the WHOLE pill including padding, so the label narrows with the card instead of being
-// squeezed inside a pill that stayed tall.
 [[nodiscard]] inline double pillScale(double cardW, double inset, double pillW) {
     if (pillW <= 0.0)
         return 1.0;
     return std::min(1.0, std::max(cardW - inset, 1.0) / pillW);
 }
 
-// How far a caption comes down with its card. refW is the CENTRED card, the one scale 1.0
-// belongs to; a layout that never set one leaves every card at full size. Floored: a pill
-// scaled to nothing is an absent caption, not a small one.
+// How far a caption comes down with its card. refW is the CENTRED card, the one scale 1.0 belongs to.
 [[nodiscard]] inline double cardScale(double cardW, double refW) {
     if (refW <= 0.0 || cardW <= 0.0)
         return 1.0;
@@ -220,8 +199,6 @@ struct CaptionPills {
 }
 
 
-// Which axis a chrome element takes to get out from under a covering card. Sideways: same
-// depth, pressed against its own card's top edge; downward pushes are untouched.
 struct Escape {
   double dx = 0.0;
   double dy = 0.0;
@@ -248,9 +225,7 @@ struct Escape {
 }
 
 
-// How much of a caption is left: 1.0 all of it, 0.0 gone. Two reasons it leaves, weighed in
-// this ONE place: shoved, or its card is leaving -- min(), not a blend. exitFrac is IGNORED
-// while opening, where the clock runs the other way.
+// 1.0 all of it, 0.0 gone: min() of shoved / card leaving, in ONE place; exitFrac ignored while opening.
 [[nodiscard]] inline double captionRemains(double shove, double pillW, double pillH,
                                           double exitFrac, bool opening) {
   constexpr double kGoneOver = 0.25; // of its own width
@@ -261,9 +236,6 @@ struct Escape {
   return std::min(byShove, std::clamp(1.0 - exitFrac, 0.0, 1.0));
 }
 
-// The same factor applied to a rect, about its own centre: a caption shrinks where it is
-// rather than travelling while it shrinks. Both pills go through here so they cannot carry
-// two rules on one screen.
 [[nodiscard]] inline LRect scaledAboutCentre(const LRect &r, double k) {
   const double cx = r.x + r.w / 2.0, cy = r.y + r.h / 2.0;
   const double w = r.w * k, h = r.h * k;

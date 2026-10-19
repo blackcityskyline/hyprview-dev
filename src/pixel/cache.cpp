@@ -30,8 +30,7 @@ std::string PixelCache::truncate(const std::string &text,
   const auto probe = render(text, col, size);
   if (!probe || probe->m_size.x <= maxW)
     return text;
-  // Binary search on the character count, not the width: rendering a candidate
-  // costs far more than the comparison.
+  // Binary search on the character count, not the width: a candidate costs a render.
   int lo = 1, hi = static_cast<int>(text.size()) - 1, best = 0;
   while (lo <= hi) {
     const int mid = (lo + hi) / 2;
@@ -98,8 +97,7 @@ SP<Render::ITexture> PixelCache::virtualLabel(WORKSPACEID id,
                                                const CHyprColor &col, int size,
                                                int maxW) {
   auto &e = m_virtualLabels[id];
-  // Hit first: nothing to measure. Probing before the lookup rendered the full
-  // string every frame to discover that nothing had changed.
+  // Hit first: nothing to measure before the lookup.
   if (e.matches(text, maxW, size, col))
     return e.tex;
   e = LabelEntry{truncate(text, col, size, maxW), maxW, size, col, nullptr};
@@ -111,8 +109,6 @@ SP<Render::ITexture> PixelCache::fixedLabel(Slot slot, const std::string &text,
                                              const CHyprColor &col, int size,
                                              int maxW) {
   auto &e = m_slotLabels[slot];
-  // Hit first: nothing to measure. Probing before the lookup rendered the full
-  // string every frame to discover that nothing had changed.
   if (e.matches(text, maxW, size, col))
     return e.tex;
   e = LabelEntry{truncate(text, col, size, maxW), maxW, size, col, nullptr};
@@ -151,8 +147,6 @@ SP<Render::ITexture> PixelCache::snapshot(const PHLWINDOW &win) const {
   if (!key)
     return nullptr;
   const auto it = m_snapshots.find(key);
-  // An expired owner means the window that put this texture here is gone; whatever
-  // now lives at this address has nothing to do with it.
   if (it == m_snapshots.end() || it->second.owner.expired())
     return nullptr;
   return it->second.tex;

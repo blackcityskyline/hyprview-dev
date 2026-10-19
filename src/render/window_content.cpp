@@ -28,8 +28,8 @@ namespace gloview {
 
 namespace {
 
-// Real opacity: active/inactive rule x FULLSCREEN/LAYOUT fade; workspace-switch and FADE
-// alphas excluded — they compound with the caller's fade.
+// Real opacity: active/inactive rule x FULLSCREEN/LAYOUT fade; the ws-switch and FADE alphas
+// are excluded because they compound with the caller's fade.
 float windowRealAlpha(const PHLWINDOW &w, const PHLMONITOR &mon) {
   if (!w)
     return 1.0F;
@@ -67,8 +67,7 @@ float windowRealAlpha(const PHLWINDOW &w, const PHLMONITOR &mon) {
 
 } // namespace
 
-// roundPx is the corner radius the CONTENT carries, in monitor px; matching it to
-// the ring is the caller's job. destPx must carry the window's own aspect.
+// roundPx is the CONTENT radius in monitor px; destPx must carry the window's own aspect.
 void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
                       const CBox &destPx, const CBox &clipPx, float alpha,
                       const Time::steady_tp &when, int roundPx,
@@ -86,8 +85,7 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   const auto size = w->sizeAnimation()->goal();
   const float logicalW = std::max((float)size.x, 5.F);
   const float logicalH = std::max((float)size.y, 5.F);
-  // Over-cover from the CENTER: fit-exact lets the backing show as seams. A
-  // contained window sits inside the box, so the pad would only shrink it.
+  // Over-cover from the CENTER: fit-exact shows the backing as seams; a contained window needs no pad.
   const float pad = (settled || contain) ? 0.0F : kSeamPadPx;
   const float sW  = (static_cast<float>(destPx.w) + pad) /
                    std::max(logicalW * mon->m_scale, 5.F);
@@ -129,13 +127,7 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   data.h        = std::max(size.y, 5.0);
   data.surface  = w->wlSurface()->resource();
   data.dontRound      = false;
-  // The window's own opacity, not a constant. It was pinned to 1 by bab6eb3 ("show windows
-  // opaque") on the argument that depth is carried by size and overlap instead -- but that is
-  // a different claim from "the user never set an opacity rule", and a window with
-  // active_opacity or inactive_opacity below 1 stopped looking like itself on every card. The
-  // surface's own alphaModifier and overallOpacity still apply on top of this (see
-  // SurfacePassElement.cpp), so this is the compositor's rule opacity, not a replacement for
-  // the client's.
+  // The window's own rule opacity; the surface's alphaModifier and overallOpacity still apply on top.
   data.fadeAlpha = windowRealAlpha(w, mon);
   data.alpha          = std::clamp(alpha, 0.F, 1.F);
   data.decorate       = false;
@@ -148,9 +140,6 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   data.surfaceCounter = 0;
 
   if (g_overview && g_overview->snapshotMode()) {
-    // A miss here means either "not captured yet" or "the window that owned that
-    // texture is gone and its address has a new tenant" -- the cache owns its entries
-    // and expires them, so there is no sweep to have forgotten to run.
     if (const auto snap = g_overview->snapshot(w); snap && snap->ok()) {
       auto sdata      = data;
       sdata.texture   = snap;

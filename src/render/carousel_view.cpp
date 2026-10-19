@@ -20,28 +20,24 @@ namespace gloview {
 
 namespace {
 
-// Read through functions, never cached at namespace scope: see the same note in fx.cpp
-// about a global initialised from the config before PLUGIN_INIT.
+// Functions, not namespace-scope constants: config read before PLUGIN_INIT crashed the session (2.5).
 double nearTone()   { return cfg::carousel.tone_near; }
 double farTone()    { return cfg::carousel.tone_far; }
 double depthTaper() { return cfg::carousel.depth_taper; }
 
 } // namespace
 
-// A selection move is a relayout + glide, detected once: renderStage vs m_view.carouselFor().
 void Overview::relayoutCarousel() {
   if (!carouselMode() || m_scene.tiles().empty())
     return;
-  // Never mid-drag: a relayout moves every slot, so the run would shift under the
-  // window the user is carrying.
+  // Never mid-drag: a relayout moves every slot, under the window the user is carrying.
   if (draggedTile() >= 0 || m_drag.press() == model::Drag::Press::StripWin)
     return;
-  // Never during a close: a relayout rewrites every natural, which for maximized
-  // windows is one shared rectangle — all the cards land in one point.
+  // Never during a close: maximized windows share one natural rectangle and all land in one point.
   if (!opening() || m_life.deactivating())
     return;
   if (m_scene.selected() < 0 || m_scene.selected() >= static_cast<int>(m_scene.tiles().size()))
-    return; // not a selection change; layoutTiles settles it next
+    return;
   if (m_scene.selected() == m_view.carouselFor())
     return;
   auto shown = captureCurrentBoxes();
@@ -54,8 +50,7 @@ void Overview::renderCarousel() const {
   if (!m || m_scene.tiles().empty() || m_view.carousel().cards.size() != m_scene.tiles().size())
     return;
 
-  // Paint order is far -> near by DEPTH, but the cards are still the scene's tiles: slot k is
-  // m_view.slot()[k], so the run can be ordered by recency without the array being reordered.
+  // Paint order is far -> near by DEPTH: slot k is m_view.slot()[k], the array order is untouched.
   std::vector<int> paint;
   paint.reserve(m_scene.size());
   for (size_t i = 0; i < m_scene.size(); ++i)
@@ -74,10 +69,7 @@ void Overview::renderCarousel() const {
 
   for (const int i : paint) {
     const int k = m_view.slotOf(static_cast<std::size_t>(i));
-    // No slot means this tile is not on the run -- and substituting slot 0 handed it the FOCUSED
-    // card's geometry, so a tile the run had already dropped was painted full size behind the
-    // cards for one frame: a window the width of the screen under the carousel. There is no
-    // card here to draw, so say so instead of borrowing one.
+    // No slot: this tile is not on the run -- never substitute slot 0, which is the FOCUSED card.
     if (k < 0)
       continue;
     const auto &card = m_view.carousel().cards[static_cast<std::size_t>(k)];
@@ -87,18 +79,14 @@ void Overview::renderCarousel() const {
       continue;
 
     const auto &t = m_scene.tiles()[static_cast<size_t>(i)];
-    // A window with a live grid flight is already being drawn by renderSwapFX; the run skipped
-    // this check while the grid renderer had it, so the card and its flying copy were both on
-    // screen. horizontal hid it -- slidevert lifts on the first frame, exposing the card below.
+    // Already drawn by renderSwapFX during a grid flight: skip it in the run too.
     if (swapfxActive(tileWindow(t), false))
       continue;
 
     TileLook look;
     look.box = currentBox(t, i);
     // progress.raw() runs DOWN on close; every exit fraction reads it through exitT.
-    // The deck's ONE hide rule, same predicate as the grid's: a card that cannot land hides
-    // whatever its depth, which is what makes a cancel take the whole deck out. A card that can
-    // land and is centred keeps currentBox's own lerp -- one motion, one place.
+    // The deck's ONE hide rule, same predicate as the grid's: a cancel takes the whole deck out.
     if (!opening() && anim::cardHides(card.depth, frame().goesHome(t))) {
       const double k =
           anim::hideShrink(exitT(), anim::param(anim::Param::Collapse));
@@ -106,21 +94,17 @@ void Overview::renderCarousel() const {
       look.box = LRect{cx - look.box.w * k * 0.5, cy - look.box.h * k * 0.5,
                        look.box.w * k, look.box.h * k};
     }
-    // Clamped to the box it is about to round: the box shrinks toward zero on close, and a
-    // radius past half the shorter side does not round at all -- the card would go square
-    // and its ring would vanish instead of closing with it.
+    // Clamped to the shrinking box: a radius past half the shorter side does not round at all.
     look.round = clampRound(cfg::look.preview_round, look.box.w, look.box.h);
     look.frame = card.depth == 0;         // only the centred card is framed
-    look.contain = true;                  // the window goes inside the box whole
+    look.contain = true;
     look.tone =
         card.depth > 0
             ? (card.depth == 1 ? nearTone() : farTone()) *
                   std::pow(depthTaper(), static_cast<double>(card.depth - 1))
             : 0.0;
     look.button = tileCloseButtons();
-    // The counter is the centred card's caption sprout, so it is drawn with that card's pill and
-    // pushed with it: one owner, one push. As a separate element the two drifted apart the
-    // moment a preview reached only one.
+    // The counter is drawn with the centred card's pill and pushed with it: one owner, one push.
     look.counter = card.depth == 0;
     drawTile(static_cast<size_t>(i), look);
   }

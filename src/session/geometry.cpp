@@ -85,8 +85,7 @@ Vector2D Overview::stripPush(const LRect &band) const {
     const LRect b = currentBox(tiles[i], static_cast<int>(i));
     if (b.w < 1.0 || b.h < 1.0)
       continue;
-    // The strip is shoved clear of whatever would COVER it: a window's card covers it with its
-    // own content, a tab's card with nothing. Same rule as pushOut(), answered by cardOf().
+    // Shove clear of whatever would COVER it; same rule as pushOut(), answered by cardOf().
     if (!cardOf(tiles[i]).coversChrome)
       continue;
     double pen = 0.0;
@@ -100,8 +99,7 @@ Vector2D Overview::stripPush(const LRect &band) const {
   }
   if (deepest <= 0.0)
     return {};
-  // Uncapped: the depth is bounded by the tile, and pushing the strip past the screen edge is
-  // intended.
+  // Uncapped: the depth is bounded by the tile, and pushing past the screen edge is intended.
   const double d = deepest;
   switch (stripAnchor()) {
   case Anchor::Bottom: return Vector2D{0.0, d};
@@ -120,8 +118,7 @@ Vector2D Overview::pushOut(const LRect &r) const {
     const LRect b = currentBox(tiles[i], static_cast<int>(i));
     if (b.w < 1.0 || b.h < 1.0)
       continue;
-    // A tab's card has nothing in it, so it cannot cover the chrome it would displace and must
-    // not displace it. Same rule as stripPush(); a window's card is its own content and yields.
+    // Same rule as stripPush(): a tab's card covers nothing and must not displace chrome.
     if (!cardOf(tiles[i]).coversChrome)
       continue;
     const double ox = std::min(b.x + b.w, r.x + r.w) - std::max(b.x, r.x);
@@ -129,8 +126,7 @@ Vector2D Overview::pushOut(const LRect &r) const {
     if (ox <= 0.0 || oy <= 0.0)
       continue;
 
-    // SWALLOWED: the preview covers the element whole, so both overlaps equal its size and
-    // there is no cheaper axis to leave by -- eject toward the nearest edge instead.
+    // SWALLOWED: no cheaper axis to leave by -- eject toward the nearest edge instead.
     Vector2D d{0.0, 0.0};
     double depth = 0.0;
     if (ox >= r.w && oy >= r.h) {
@@ -183,4 +179,4 @@ int Overview::blurResolution() const {
 }
 
 
-} // namespace gloview
+}

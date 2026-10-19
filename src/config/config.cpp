@@ -17,12 +17,9 @@ extern "C" {
 
 namespace gloview::cfg {
 
-// ---- Color ------------------------------------------------------------------
-
 namespace {
 
-// Hex literal: optional whitespace, `0x`/`0X`/`#`, then 6 (RRGGBB → opaque) or 8
-// (AARRGGBB) digits. Anything unparseable → `fallback`.
+// Hex literal: optional whitespace, `0x`/`0X`/`#`, then 6 (RRGGBB) or 8 (AARRGGBB) digits.
 uint64_t parseHex(std::string s, uint64_t fallback) {
   while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front())))
     s.erase(s.begin());
@@ -59,8 +56,7 @@ std::unordered_map<const Color *, std::pair<std::string, CHyprColor>>
 } // namespace
 
 CHyprColor Color::get(float alphaMul) const {
-  // The override is resolved BEFORE the cache lookup, not after: the cache is keyed on the
-  // parsed string, so an override read past it would keep serving the first parse.
+  // The override is resolved BEFORE the cache lookup: the cache is keyed on the parsed string.
   const std::string *ov = override::find(key);
   const std::string raw = ov ? *ov : (v ? std::string(v->value()) : std::string(def));
   auto &c = g_colorCache[this];
@@ -73,13 +69,9 @@ CHyprColor Color::get(float alphaMul) const {
   return out;
 }
 
-// ---- registration -------------------------------------------------------------
-// THE SCHEMA: handle, FULL config key, default. Key MUST be a string LITERAL: the value
-// objects keep it as const char*, so a temporary's c_str() dangles and commence() aborts.
+// THE SCHEMA: handle, FULL config key, default. Key MUST be a literal: it is kept as const char*.
 
 namespace {
-
-
 
 struct IntSpec {
   Int *h;
@@ -149,8 +141,7 @@ constexpr IntSpec kInts[] = {
     {&layer.hide_top, "plugin:gloview:hide_top_layers", 0},
     {&layer.hide_overlay, "plugin:gloview:hide_overlay_layers", 0},
     {&debug.logs, "plugin:gloview:debug_logs", 0},
-    // Separate from debug_logs on purpose: a trace run wants every animation event and
-    // none of the per-frame spam.
+    // Separate from debug_logs: a trace run wants every event and none of the per-frame spam.
     {&debug.trace, "plugin:gloview:debug_trace", 0},
 };
 
@@ -198,8 +189,6 @@ constexpr StrSpec kStrs[] = {
     {&strip.bar_position, "plugin:gloview:bar_position", "top"}, // deprecated alias
     {&strip.empty_mode, "plugin:gloview:strip_empty_mode", "show"},
     {&look.close_button_position, "plugin:gloview:close_button_position", "top-right"},
-    // "top" / "bottom": the title's moves the WHOLE caption, the counter's only its order
-    // inside it.
     {&look.title_position, "plugin:gloview:title_position", "bottom"},
     {&look.counter_position, "plugin:gloview:counter_position", ""},
     {&look.close_button_visibility, "plugin:gloview:close_button_visibility", "shift"},
@@ -236,8 +225,7 @@ constexpr ColorSpec kColors[] = {
     {&colors.drop_hint, "plugin:gloview:drop_hint_color", "0x38ffffff"},
     {&colors.hover_border, "plugin:gloview:hover_border", "0xf0ffffff"},
     {&colors.label, "plugin:gloview:label_color", "0xf2ffffff"},
-    // The text in the two caption pills, separate from label_color and from each other so
-    // each can be dimmed against the other.
+    // The text in the two caption pills, separate from label_color and from each other.
     {&colors.title_label, "plugin:gloview:title_label_color", "0xf2ffffff"},
     {&colors.counter_label, "plugin:gloview:counter_label_color", "0xf2ffffff"},
     {&colors.select_border, "plugin:gloview:select_border", "0xf066ccff"},
@@ -256,8 +244,7 @@ constexpr ColorSpec kColors[] = {
 } // namespace
 
 void registerAll(HANDLE handle) {
-  // Every handle learns its own key here: the spec tables carry it, the value objects do
-  // not. cfg::override then addresses any registered key by name.
+  // Every handle learns its own key here: the spec tables carry it, the value objects do not.
   for (auto &s : kInts) {
     s.h->v = makeShared<Config::Values::CIntValue>(s.key, "",
                                                      static_cast<Config::INTEGER>(s.def));

@@ -9,12 +9,8 @@
 
 namespace gloview::session {
 
-// close_trigger == "doubleclick": the first click waits behind a timer, and that armed
-// timer IS the record. A second click on the same window before it fires closes it.
-//
-// The timer is the state. There is no "a click is pending" flag that could disagree with
-// it, and no way to be pending without an armed callback -- which is why cancel() must run
-// before the owner is destroyed, and why the destructor does it too.
+// close_trigger == "doubleclick": the armed timer IS the state -- no flag can disagree with it.
+// Nothing can be pending without an armed callback, so the destructor cancels too.
 class PendingClick {
   public:
     PendingClick() = default;
@@ -27,9 +23,7 @@ class PendingClick {
       return m_timer && m_win.lock() == w;
     }
 
-    // Arms for `w`, dropping whatever was pending. Returns false when there is no event
-    // loop to arm against, which leaves nothing pending rather than a timer that never
-    // fires.
+    // Arms for `w`, dropping whatever was pending; false when there is no event loop to arm against.
     bool arm(std::chrono::milliseconds ms, const PHLWINDOW &w,
              const std::function<void(PHLWINDOW)> &onFire);
 
@@ -42,4 +36,4 @@ class PendingClick {
     SP<CEventLoopTimer> m_timer;
 };
 
-} // namespace gloview::session
+}

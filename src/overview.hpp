@@ -23,7 +23,7 @@
 namespace Render {
 class ITexture;
 class IFramebuffer;
-} // namespace Render
+}
 
 namespace Config {
 class CGradientValueData; // general:col.active_border's real type
@@ -62,13 +62,10 @@ class CEventLoopTimer;
 
 namespace gloview {
 
-// Mission Control-style overview: a workspace strip over live window previews,
-// drawn compositor-side while the real windows are hidden.
 class Overview : public model::IWindowHost {
 public:
   explicit Overview(HANDLE handle);
-  // Automation seam for `hyprctl dispatch gloview:cmd ...`: state / sel / swap /
-  // movews. Returns "" on success, a reason otherwise.
+  // Automation seam for gloview:cmd: "" on success, a reason otherwise.
   std::string runCommand(const std::string &args);
   ~Overview();
 
@@ -79,12 +76,12 @@ public:
   void open();
   void close();
   void hardClose();           // animation-free teardown for the UNLOAD path
-  void toggleDesktop();       // open, or switch into free-arrange mode
+  void toggleDesktop();
   void toggleAllWorkspaces();
-  void toggleCarousel();   // flip the run on/off; on_open picks the start
-  void switchDomain(model::Domain d); // window view <-> browser-tab view, live
-  void toggleBrowserView();  // what key_browser calls: flip to the other of the two
-  void altTabInvoke(bool reverse); // opens+seeds if closed, else advances
+  void toggleCarousel();
+  void switchDomain(model::Domain d);
+  void toggleBrowserView();
+  void altTabInvoke(bool reverse);
 
   void renderStage(eRenderStage stage);
   void paint();
@@ -99,7 +96,6 @@ public:
   void renderPulses(bool strip) const;
   void renderTiles() const;
   void renderCarousel() const;
-  // A read of the run's mode only; it lives with the mode, not in carousel_view.cpp.
   [[nodiscard]] bool carouselMode() const { return m_view.run(); }
   void relayoutCarousel();
   void renderGhosts() const;
@@ -107,8 +103,6 @@ public:
   void renderDragWindow() const;
   void renderCursorOnTop() const;
 
-  // The frame pump, asked two ways: arm now or re-check from inside its own callback;
-  // neither is the run's lifecycle.
   void rearmanim() const { m_pump.ensure(animBusy(), m_monitor.lock()); }
   void ensureAnimPump() { m_pump.ensure(animBusy(), m_monitor.lock()); }
 
@@ -122,17 +116,15 @@ public:
   void onMouseMove();
   void updateHover();
   void onKey(const IKeyboard::SKeyEvent &e, bool &cancel);
-  // IWindowHost's inbound port: the one question the window source cannot answer itself.
   [[nodiscard]] bool belongs(const PHLWINDOW &w) const override;
 
-  // Called when a run opens, never per frame: the file changes when the browser does.
+  // Called once per run, never per frame: the feed file changes only when the browser does.
   void loadTabs();
 
   bool shouldHideWindow(const PHLWINDOW &w, const PHLMONITOR &m) const;
   [[nodiscard]] bool isTileWindow(const PHLWINDOW &w) const;
 
-  // active() is visible; openedOrParked() is screen ownership, parked included -- windows lose
-  // focus on the first parked frame; opening() is a third axis, not a refinement.
+  // Three axes, not refinements of one another (AGENTS.md 3.3).
   [[nodiscard]] bool active() const { return m_life.active(); }
   [[nodiscard]] bool openedOrParked() const { return m_life.ownsScreen(); }
   [[nodiscard]] bool opening() const { return m_life.opening(); }
@@ -142,8 +134,7 @@ public:
   [[nodiscard]] SP<Render::ITexture> backdropBlurTexture() const {
     return m_backdrop.blurTexture();
   }
-  // The composited (unblurred) backdrop, for drawing under the windows. Reads the composite's
-  // own state, not its framebuffer: whether there IS a composite is backdrop.cpp's decision.
+  // Composited (unblurred) backdrop; whether one exists is backdrop.cpp's decision.
   [[nodiscard]] SP<Render::ITexture> backdropSourceTexture() const {
     return m_backdrop.composite();
   }
@@ -163,35 +154,28 @@ private:
   clock::Placement m_place;
   mutable render::FramePump m_pump;
 
-  // Screen ownership and entry animation. Parked is neither visible nor closed: nothing is
-  // drawn, the windows already lost focus.
+  // Parked is neither visible nor closed: nothing drawn, windows already lost focus.
   model::Lifecycle m_life;
   model::Recency m_recency;
   PHLWINDOWREF m_lastFocus;
-    // UNUSED: never assigned, only reset in close() and deactivate(). Kept because what a
-    // passthrough bind should act on while the overview is up is a product question.
+  // UNUSED: never assigned (AGENTS.md 13).
   PHLWINDOWREF m_focusOutside;
-  // Applied BEFORE the run resolves its centre, so the opening motion aims at the target
-  // window instead of landing on one.
+  // Applied BEFORE the run resolves its centre, so the opening aims at the target window.
   int m_pendingStep = 0;
   void syncRecency();
   void pruneRecency();
   model::Scene m_scene;
   // Holds a reference to this object as its host; both are members, so neither outlives.
   model::WindowsContentSource m_windows{*this};
-    // The browser side, read in rather than dialled: a file under XDG_RUNTIME_DIR. No socket, no
-    // thread, no JSON in this process (AGENTS.md 1).
+  // Browser side, read in rather than dialled: a file under XDG_RUNTIME_DIR, no socket and no thread (AGENTS.md 1).
   model::TabsContentSource m_tabs;
-  // Rebuilt per run: it is made of titles, and a title is only true of the run it was read in.
   model::BrowserLinks m_links;
-  // The window behind a tile, null for a tab or a gone window. Resolution lives here, not on
-  // Tile: a tile has no route to its owner.
+  // The window behind a tile; null for a tab or a gone window (resolution lives here, not on Tile).
   PHLWINDOW tileWindow(const model::Tile &t) const { return m_windows.windowOf(t.subj); }
 
-    // What a card IS, in one place with named answers; a fourth kind changes only this.
   struct Card {
-    PHLWINDOW window = {};        // empty for anything that is not a window
-    bool      paintsOwnContent = false; // draws a picture of itself
+    PHLWINDOW window = {};
+    bool      paintsOwnContent = false;
     bool      coversChrome = false;     // occludes the strip and yields to it
 
     [[nodiscard]] bool isTab() const { return !window; }
@@ -202,13 +186,10 @@ private:
     return Card{w, static_cast<bool>(w), static_cast<bool>(w)};
   }
 
-    // The browser side's root, in one place: feed, screenshots and icons all live under it.
   static std::string browserSideFile(const std::string &leaf) {
     const char *rt = std::getenv("XDG_RUNTIME_DIR");
     return (rt && *rt ? std::string(rt) : std::string("/tmp")) + "/gloview" + leaf;
   }
-    // The inverse of tileWindow(): a caller holding a window asks here rather than casting an
-    // address into a SubjectRef.
   [[nodiscard]] static model::SubjectRef subjectOf(const PHLWINDOW &w) {
     return w ? model::SubjectRef{reinterpret_cast<std::uintptr_t>(w.get()), 0}
              : model::SubjectRef{};
@@ -230,39 +211,31 @@ private:
 
   int m_newCardId = 0;
   bool m_newCardAnim = false;
-  // Offset, endpoints and range over [0, max], kept in one type.
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
   bool animBusy() const;
-  // Clocks outliving the master: the pump must name every clock, or the next one added
-  // never arms.
+  // Clocks that outlive the master: the pump must name every clock, or the next one added never arms.
   bool secondaryAnimsActive() const {
     return m_place.clocks.anyRunning(anim::cfg(entryLeaf()).ms, anim::cfg(ghostLeaf()).ms,
                                anim::cfg(anim::Id::StripStep).ms);
   }
-  // Read on the call site: a config edit mid-fade retimes the rest of the ramp.
   double blurAlpha() const; // backdrop strength, on the open/close clock
-  // A window that really occupies the desktop; the first true one on `ws` tells an empty
-  // workspace from a busy one.
+  // A window that really occupies the desktop; tells an empty workspace from a busy one.
   static bool workspaceHasWindows(const PHLWORKSPACE &ws);
   // Windowed exit is done: tiles landed and Hyprland has spent the forced blur frames.
   bool backdropSettled() const;
-  // Re-read on every open and close: the landing workspace can change while the overview is
-  // up (all-workspaces, digit jump).
+  // Re-read on every open and close: the landing workspace can change while the overview is up.
   mutable bool m_landingEmpty = true;
-  double entryProgress(int i) const; // staggered 0..1 for tile i
-  // The above, gated on the tile actually playing its entry (Tile::landed < 1).
+  double entryProgress(int i) const;
   double entryNow(const model::Tile &t, int i) const;
   anim::Id entryLeaf() const;
   anim::Id ghostLeaf() const;
   anim::Id glideLeaf() const;
   double entryFade(size_t i) const;
-  // How far the close has run, 0 -> 1. Every exit fraction reads it through this.
+  // How far the close has run, 0 -> 1; every exit fraction reads it through this.
   double exitT() const;
-  // The one place a Placement::Frame is built.
   [[nodiscard]] clock::Placement::Frame frame() const;
-  // Clear the state that skips a window not on the active workspace (ws alpha, fullscreen
-  // alpha, visibleRegion): without it such a window previews as an empty frame; restored on exit.
+  // Clears ws alpha / fullscreen alpha / visibleRegion, or an off-ws window previews empty; restore undoes it.
   void forcePreviewVisibility();
   void restorePreviewVisibility();
   session::PreviewVisibility m_previewVis;
@@ -277,17 +250,14 @@ private:
                      const LRect &fromStrip, const LRect &drop, double ms,
                      const std::string &curve, bool draggedOnStrip);
   [[nodiscard]] bool hasStripThumb(const PHLWINDOW &w) const;
-  // Where a window's strip thumbnail sits right now, empty if it has none.
   [[nodiscard]] LRect stripThumbRect(const PHLWINDOW &w) const;
   // Per surface: each stands down only for its own flight.
   [[nodiscard]] bool swapfxActive(const PHLWINDOW &w, bool strip) const;
-  // Two predicates answering one question from two sides, so a tab can skip every effect.
   [[nodiscard]] bool swapfxActiveSubject(model::SubjectRef s, bool strip) const {
     return m_fx.swapActive(s, strip);
   }
 
-  // A tab's art is its icon or its caption: captureVisibleTab photographs the whole window,
-  // so previews/<id>.png is never one tab.
+  // A tab's art is its icon or its caption; a preview photo is never one tab.
   SP<Render::ITexture> tabArt(const model::Tile &t) const {
     if (!cardOf(t).isTab())
       return nullptr;
@@ -295,13 +265,12 @@ private:
                                                                std::to_string(t.subj.id) + ".png"));
   }
   void renderSwapFX() const;
-  // Every box this window flies to on one surface, shared with the trace so a reported target
-  // cannot differ from a drawn one.
+  // Every box this window flies to on one surface, shared with the trace so drawn and reported cannot differ.
   [[nodiscard]] std::vector<LRect> swapDests(const PHLWINDOW &w, bool strip) const;
 
   session::PendingClick m_click;
 
-  model::Drag m_drag; // pointer PRESS..RELEASE, both drag kinds
+  model::Drag m_drag;
   LRect m_lastDragBox; // drag box at RELEASE, the `from` for landings
   bool m_altTabbing = false;
   bool m_commitPending = false;
@@ -315,19 +284,18 @@ private:
 
 
   using Anchor = render::Anchor;
-  Anchor stripAnchor() const; // falls back to bar_position
+  Anchor stripAnchor() const;
   bool stripHorizontal() const;
-  double stripThickness() const; // perpendicular to the anchored edge
+  double stripThickness() const;
   double stripOffset() const;
   LRect stripBand() const;
-  Vector2D stripSlide(double e) const; // reveal slide-in at progress e
-  Vector2D stripPush(const LRect &band) const; // band yields to a preview that reached it
-  // THE strip displacement: band, cards, their window previews and the hit-test all go
-  // through this.
+  Vector2D stripSlide(double e) const;
+  Vector2D stripPush(const LRect &band) const;
+  // THE strip displacement: band, cards, their window previews and the hit-test all go through this.
   Vector2D stripOffset(double e) const;
-  Vector2D pushOut(const LRect &r) const; // chrome yields to a preview
+  Vector2D pushOut(const LRect &r) const;
   Vector2D stripScroll() const;
-  LRect stripCardAt(size_t i) const;   // card shifted by the scroll
+  LRect stripCardAt(size_t i) const;
   int stripItemAt(double lx, double ly) const;
   int tileAt(double lx, double ly) const;
   bool showAllWorkspaces() const;
@@ -338,9 +306,8 @@ private:
   void layoutTiles();
   void updateAnimation();
   void deactivate();
-  // Boundary policy (user-specified): real windows hard-switch at BOTH edges, NO per-window
-  // fades -- a fading original under the preview reads as double vision.
-  double eased() const; // chrome opacity / backdrop progress
+  // Boundary policy (user-specified): windows hard-switch at BOTH edges, no per-window fades.
+  double eased() const;
   double animDuration() const; // read LIVE, so config applies in-flight
   double glideDur() const { return m_place.clocks.tileMs > 0 ? m_place.clocks.tileMs : anim::cfg(glideLeaf()).ms; }
   bool entrySettled() const;
@@ -348,8 +315,7 @@ private:
   double newCardDur() const { return anim::cfg(anim::Id::NewCard).ms; }
   double tileProgress(int i) const;
   LRect currentBox(const model::Tile &t, int i) const;
-  // The drawn box of tile i: currentBox() letterboxed to the window's own aspect. Consumers
-  // asking "where is tile i" want this, not the pair spelled out.
+  // The drawn box of tile i: currentBox() letterboxed to the window's own aspect.
   LRect tileRect(size_t i) const;
   LRect dragBox() const;
   LRect dragStripBox() const;
@@ -361,13 +327,11 @@ private:
   LRect tileBox(size_t i, const LRect &slot) const;
   void switchToWorkspace(const model::StripItem &it, bool instant = false);
   void dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it);
-  // Shared tail of both release paths: a point on another card moves w there, or
-  // swaps with its last-focused window (RMB).
+  // Shared tail of both release paths: move to another card, or swap with its last-focused window (RMB).
   bool dropOnStripCard(const PHLWINDOW &w, double lx, double ly, int skipItem);
   model::StripItem *homeStripCardFor(const PHLWINDOW &w);
   void swapOnWorkspace(const PHLWINDOW &w, const model::StripItem &it);
-  // `fromA` is where the initiator ACTUALLY is -- under the cursor at release, not the
-  // card slot it was dragged out of. Empty means "use the card slot".
+  // `fromA` is where the initiator ACTUALLY is (under the cursor at release); empty means "use the card slot".
   void swapTiles(int a, int b, const LRect &fromA = {});
   bool swapWindows(const PHLWINDOW &a, const PHLWINDOW &b,
                    const LRect &fromA = {}, bool draggedOnStrip = true);
@@ -375,7 +339,7 @@ private:
                      const CHyprColor &col, double p) const;
   void addWorkspace();
   void closeWorkspaceWindows(const model::StripItem &it);
-  void setDesktopMode(bool on); // flip grid<->canvas, purely visual
+  void setDesktopMode(bool on);
   LRect closeButtonRect(const LRect &tile) const;
   bool closeButtonsAlwaysOn() const;
   bool closeOnDoubleClick() const;
@@ -393,8 +357,7 @@ private:
   int keyIndex(int keycode, uint32_t mods, const std::string &combo) const;
   void moveSelection(int dx, int dy);
   void activateSelection();
-  // A target off the DISPLAYED workspace collapses onto it and rebuilds BEFORE
-  // the glide, so it aims at the real final position.
+  // A target off the DISPLAYED workspace collapses onto it BEFORE the glide, so it aims at the real final position.
   void focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason);
   bool crossesRealWorkspace(const PHLWINDOW &w) const;
   void closeTileWindow(int i);
@@ -402,8 +365,7 @@ private:
   double killZoneGlow(double lx, double ly) const;
   void renderKillZone() const;
   double m_killGlow = 0.0; // 1 at the zone, 0 a screen-width away, while dragging
-  // Keyed by SUBJECT, not by window: a tab has no window, and a window-keyed vector drops
-  // every tab. The subject is the identity both kinds have.
+  // Keyed by SUBJECT: a window-keyed vector drops every tab.
   std::vector<std::pair<model::SubjectRef, LRect>> captureCurrentBoxes(
       PHLWINDOW exclude = {}) const;
   void replayReflow(std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes);
@@ -417,11 +379,9 @@ private:
   // A card that joined or left the run has no slot to glide between. See keys.cpp.
   void pinRunEdges(const std::vector<char> &wasOnRun);
   int tileOf(const PHLWINDOW &w) const;
-  // Defined here, next to m_pump, not in session/lifecycle.cpp: most callers ask for a damage
-  // without being about the run's lifecycle.
   void damage() const { m_pump.damage(m_monitor.lock()); }
 };
 
-} // namespace gloview
+}
 
 inline gloview::Overview *g_overview = nullptr;

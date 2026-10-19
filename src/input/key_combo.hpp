@@ -1,10 +1,7 @@
 #pragma once
 
 // Key-combo parsing: "shift+tab, super+q" against a keycode and modifier mask.
-// No Hyprland types: bits declared here, static_asserted in keys.cpp, so a moved
-// bit fails the build instead of silently rejecting every combo using it.
-// Rule: EXTRA held modifiers fail the match -- a bare "tab" must not swallow
-// shift+tab. That is the trailing `(heldMods & STRICTMODS & ~need) == 0`.
+// Extra held modifiers fail the match: a bare "tab" must not swallow shift+tab.
 
 #include <algorithm>
 #include <cctype>
@@ -171,7 +168,6 @@ inline bool comboMatches(int keycode, uint32_t heldMods, std::string token) {
   return (heldMods & STRICTMODS & ~need) == 0;
 }
 
-// True if any token in the comma-separated list matches. Used for single-key binds.
 [[nodiscard]] inline bool keyMatches(int keycode, uint32_t heldMods,
                                      const std::string &combo) {
   for (const auto &tok : keyTokens(combo))

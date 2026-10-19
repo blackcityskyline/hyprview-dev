@@ -1,6 +1,6 @@
 #pragma once
 
-// in: LOGICAL, except projectBoxToTarget: PIXEL, so pre-scale
+// In: LOGICAL px, except the *Px forms, which take monitor pixels already.
 #include <algorithm>
 #include <cmath>
 
@@ -40,13 +40,7 @@ inline int clampRound(int round, double w, double h) {
 }
 
 // --- GL state fence ---------------------------------------------------------------------
-//
-// The half of GL discipline nothing covered: that the state we change is put back. A mock
-// proves which functions were called, not what the driver ended in, so state is read back --
-// a pipeline sync, hence behind debug_trace and bracketed by paint twice, not every site.
-
-// Needs a current context. A reader outside a pass sees whatever the last left; the delta is
-// read against a fence taken inside the same frame, which is the point.
+// Reads live state back (a pipeline sync), so behind debug_trace and bracketed by paint().
 [[nodiscard]] inline render::GLState readGLState() {
   render::GLState s;
   GLboolean on = GL_FALSE;
@@ -61,9 +55,7 @@ inline int clampRound(int round, double w, double h) {
   return s;
 }
 
-// A named reading, once per frame like every RING| site. Volume is the norm under an explicit
-// debug flag: a once-per-process heartbeat cannot tell a reader the fence is running, and
-/// silence then means either "clean" or "not looking" with nothing to tell them apart.
+// A named GL| reading, once per frame like every RING| site.
 inline void glStateFence(const char *where) {
   if (!debug::trace::enabled())
     return;
@@ -79,8 +71,7 @@ inline void glStateFence(const char *where) {
       "|fbo=" + std::to_string(s.fbo));
 }
 
-// The other end of the pair paint() brackets itself with: what came back different is the
-// leak. Reported only when something differs, so silence here means the frame was clean.
+// The other end of the pair paint() brackets itself with: what came back different is the leak.
 inline void glStateReport(const render::GLState &before, const char *where) {
   if (!debug::trace::enabled())
     return;
@@ -111,17 +102,11 @@ inline CHyprColor argb(Hyprlang::INT raw, double alphaMul = 1.0) {
   return CHyprColor(r, g, b, a * std::clamp(alphaMul, 0.0, 1.0));
 }
 
-// Hyprland asserts on a non-positive box in every immediate-mode render entry point, and that
-// assert is a crash inside the compositor -- the session goes, it is not a no-op:
-//   OpenGL.cpp:1071 renderRect   OpenGL.cpp:2163 renderBorder   OpenGL.cpp:2341 shadow
-// pxb() rounds, so a box under half a pixel becomes zero even while non-empty. ONE predicate
-// here rather than a guard per call site: strip_view's own tested `width < 0`, handing a
-// zero box straight to the assert the helper exists to prevent, and the flight's shadow had
-// no guard at all and cost a session on 2026-10-10.
+// OpenGL.cpp:1071 renderRect, :2163 renderBorder, :2341 shadow RASSERT a non-positive box:
+// a crash inside the compositor. pxb() rounds, so a box under half a pixel becomes zero.
 inline bool drawable(const CBox &b) { return b.w > 0 && b.h > 0; }
 inline bool drawable(const LRect &r, double s) { return drawable(pxb(r, s)); }
 
-// Logs instead of dropping silently: after the fact the numbers are gone.
 inline void safeRenderRect(const char *tag, const CBox &b, const CHyprColor &col,
                            Render::GL::CHyprOpenGLImpl::SRectRenderData opts) {
   if (!drawable(b)) {
@@ -133,11 +118,8 @@ inline void safeRenderRect(const char *tag, const CBox &b, const CHyprColor &col
   Render::GL::g_pHyprOpenGL->renderRect(b, col, opts);
 }
 
-// STROKE, never a filled rect grown by borderSize. renderBorder scissors to each region and
-// NEVER clears it (OpenGL.cpp:2233-2239) while renderRect ends in scissor(nullptr), so the
-// last ring drawn leaves its own scissor and clips everything composited after it.
-// Restored through the API, never raw GL: a raw glEnable puts GL back on while Hyprland's cap
-// cache still says off, and the next scissor(nullptr) early-returns (OpenGL.cpp:2620).
+// renderBorder scissors to each region and NEVER clears it (OpenGL.cpp:2233-2239), so a ring
+// leaves its own scissor behind. Restore through the API: raw GL desyncs the cap cache (:2620).
 inline void restoreScissorAfterBorder() {
   Render::GL::g_pHyprOpenGL->scissor(nullptr);
 }
@@ -156,15 +138,12 @@ inline void strokeRing(const LRect &lb, double s, const CHyprColor &col,
   restoreScissorAfterBorder();
 }
 
-// renderWindowLive over-covers by this much so sub-pixel snapping cannot open a
-// seam; the content radius follows it out. PIXELS, not logical: window_content.cpp adds it
-// straight to a pixel width, so scaling it here gave the radius 3px of cover against a box
-// over-covering 1.5, and the content arc sat half that inside the ring's outer edge.
+// PIXELS, not logical: window_content.cpp adds it to a pixel width. renderWindowLive
+// over-covers by this much so sub-pixel snapping cannot open a seam.
 inline constexpr float kSeamPadPx = 1.5F;
 
-// The corner radius a tile's CONTENT must carry so its arc lands on the ring's
-// outer edge, from the ring's OWN inputs. +1: Hyprland subtracts one.
-// overCovers false = a contained window, whose arc does not walk outward.
+// The radius a tile's CONTENT carries so its arc lands on the ring's outer edge; +1, Hyprland
+// subtracts one. overCovers false = a contained window, whose arc does not walk outward.
 inline int contentRadiusPx(int round, int width, float roundPow, double scale,
                            bool overCovers = true) {
   return pxr(round, scale) + static_cast<int>(std::lround(width * scale)) +

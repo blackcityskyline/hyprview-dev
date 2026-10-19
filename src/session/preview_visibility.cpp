@@ -33,8 +33,7 @@ namespace gloview {
 
 namespace session {
 
-// Saved values are what make force/restore a PAIR: calling either alone leaves the desktop
-// wrong for the rest of the session.
+// force/restore are a PAIR: either alone leaves the desktop wrong for the rest of the session.
 template <class WinFor>
 void PreviewVisibility::force(const std::vector<model::Tile> &tiles,
                               const std::vector<model::StripItem> &strip,
@@ -122,7 +121,7 @@ void PreviewVisibility::restore() {
   m_regions.clear();
 }
 
-} // namespace session
+}
 
 void Overview::forcePreviewVisibility() {
   m_previewVis.force(m_scene.tiles(), m_strip.items(),
@@ -131,4 +130,4 @@ void Overview::forcePreviewVisibility() {
 
 void Overview::restorePreviewVisibility() { m_previewVis.restore(); }
 
-} // namespace gloview
+}

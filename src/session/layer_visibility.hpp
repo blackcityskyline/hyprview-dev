@@ -12,15 +12,8 @@
 
 namespace gloview::session {
 
-// Fading the bars and popups to 0 so they do not bleed through the translucent backdrop, and
-// putting them back on the way out. The PAIR is the invariant: hide() without restore() leaves
-// the user's taskbar invisible for the rest of the session and nothing else would notice. The
-// saved alphas live here so the two cannot be called apart -- the destructor restores.
-//
-// The wallpaper is NOT chrome and is never in this list. It is what keeps the desktop from
-// being an empty black buffer on the first frame: Hyprland renders it at alpha 0 into the
-// monitor framebuffer and the opaque entry base goes down on top of nothing, which is the
-// entry blackout this exclusion prevents.
+// hide() and restore() are a PAIR: hide alone leaves the taskbar invisible for the rest of the session,
+// and only the saved alphas can put it back -- hence the destructor restores.
 class LayerVisibility {
   public:
     LayerVisibility() = default;
@@ -29,8 +22,7 @@ class LayerVisibility {
     LayerVisibility(const LayerVisibility &)            = delete;
     LayerVisibility &operator=(const LayerVisibility &) = delete;
 
-    // Read the config at the call site, every frame (2.16), so an edit applies to the next
-    // open rather than to a captured copy.
+    // Config read at the call site, every frame (AGENTS.md 2.16).
     void hide(const PHLMONITOR &m, bool hideTop, bool hideOverlay,
               const std::string &aboveNamespaces);
 
@@ -43,4 +35,4 @@ class LayerVisibility {
     std::vector<std::pair<PHLLSREF, float>> m_hidden; // + pre-hide alpha
 };
 
-} // namespace gloview::session
+}

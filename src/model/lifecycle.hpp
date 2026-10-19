@@ -1,10 +1,7 @@
 #pragma once
 
-// Who owns the screen, and whether the entry animation is running. Ownership is a 3-value
-// state, the entry animation a flag beside it -- m_opening is NOT on the ownership axis,
-// which is why sites ask `openingNow()` instead of combining two flags. Neither is
-// Hyprland-bound, so a test can reach the header, which is the only reason the invariants
-// are checked rather than remembered.
+// Ownership is a 3-value state; m_opening is a flag BESIDE it, not on the axis -- sites ask
+// openingNow(), not the pair. No Hyprland type here, so a test can reach the invariants.
 
 #include <string>
 
@@ -12,16 +9,11 @@ namespace gloview::model {
 
 class Lifecycle {
 public:
-  // The screen axis. Parked is neither visible nor closed: the overlay is coming up but the
-  // backdrop composite is not ready, and paint() draws nothing. Parked counts as owned for
-  // focus (AGENTS.md rule 10) because the windows must lose focus on the first parked frame,
-  // and does NOT count as active for painting -- two questions, two methods, not one flag.
+  // Parked: the overlay is coming up but the backdrop composite is not ready, and paint()
+  // draws nothing. Parked still owns focus (AGENTS.md 2.14); active() answers visibility only.
   enum class Own : int { Closed, Parked, Screen };
 
-  // --- transitions -------------------------------------------------------------------
-
-  // open(): take the screen, but park until the backdrop exists -- going straight to Screen
-  // puts a backdrop-less frame on screen. Layers are hidden on promote, not here.
+  // Park until the backdrop exists: going straight to Screen puts a backdrop-less frame up.
   void requestOpen() {
     m_own          = Own::Parked;
     m_opening      = false;
@@ -30,16 +22,12 @@ public:
     m_parkTicks    = 0;
   }
 
-  // One parked frame. Returns true when the overlay may finally become visible. Two is the
-  // whole budget: after that it opens anyway, because a late overview beats a stuck one, and
-  // the frame it gives up is the single black one this exists to avoid.
+  // Two parked frames is the whole budget: a late overview beats a stuck one.
   bool parkTick(bool backdropReady, int budget = 2) {
     ++m_parkTicks;
     return backdropReady || m_parkTicks >= budget;
   }
 
-  // primeBackdrop(): a composite exists. Only legal from Parked -- promoting a closed or
-  // already-visible overlay is not a transition.
   bool promote() {
     if (m_own != Own::Parked)
       return false;
@@ -48,7 +36,6 @@ public:
     return true;
   }
 
-  // A close arrived before the first visible frame: nothing to animate away.
   bool abortPark() {
     if (m_own != Own::Parked)
       return false;
@@ -57,14 +44,12 @@ public:
     return true;
   }
 
-  // Reachable two ways -- promote(), and the reflow sites on an overlay already on screen --
-  // which is why the flag is not derivable from the ownership axis.
+  // Not derivable from the ownership axis: the reflow sites set opening on an overlay that
+  // is already on screen.
   void replayEntry() { m_opening = true; }
   void endEntry() { m_opening = false; }
 
-  // Ask for the overlay to go away. The wait is the point: deactivating mid-frame skips the
-  // final painted frame and the screen shows one transparent frame (AGENTS.md rule 9).
-  // Refuses when nothing is on screen, so the caller's guard is a fact of the type.
+  // The wait is the point: deactivating mid-frame shows one transparent frame (AGENTS.md 2.13).
   bool requestDeactivate() {
     if (m_own == Own::Closed)
       return false;
@@ -72,7 +57,6 @@ public:
     return true;
   }
 
-  // finishPendingDeactivate(): the final frame is painted, hand the screen back.
   bool consumeDeactivate() {
     if (!m_deactivating)
       return false;
@@ -89,29 +73,23 @@ public:
     return true;
   }
 
-  // hardClose(): everything back to the start, whatever state it was in.
   void hardClose() { *this = Lifecycle{}; }
 
-  // --- queries -----------------------------------------------------------------------
   [[nodiscard]] Own own() const { return m_own; }
   [[nodiscard]] bool closed() const { return m_own == Own::Closed; }
   [[nodiscard]] bool parked() const { return m_own == Own::Parked; }
-  // Visible: the compositor should be drawing the overlay. A parked overlay is NOT.
   [[nodiscard]] bool active() const { return m_own == Own::Screen; }
-  // Owns input: parked counts, because the windows must already have lost focus.
+  // Parked counts: the windows must already have lost focus (AGENTS.md 2.14).
   [[nodiscard]] bool ownsScreen() const { return m_own != Own::Closed; }
   [[nodiscard]] bool opening() const { return m_opening; }
   [[nodiscard]] bool deactivating() const { return m_deactivating; }
   [[nodiscard]] bool jumpClosing() const { return m_jumpClosing; }
   [[nodiscard]] int parkTicks() const { return m_parkTicks; }
 
-  // The `active && opening` pair nine sites spelled out. Not redundant: the reflow paths have
-  // opening without a fresh open, so the conjunction is a real question.
+  // The `active && opening` pair nine sites spelled out.
   [[nodiscard]] bool openingNow() const { return m_own == Own::Screen && m_opening; }
 
-  // One pipe-separated key=value line, same grammar as ANIM| and DRAG|. parkTicks is only
-  // meaningful while parked and deactivating only while on screen, so both are emitted
-  // conditionally rather than as zeros that read like facts.
+  // Key=value, pipe-separated, same grammar as ANIM|.
   [[nodiscard]] std::string describe() const {
     std::string s = "own=";
     s += m_own == Own::Closed ? "closed" : m_own == Own::Parked ? "parked" : "screen";

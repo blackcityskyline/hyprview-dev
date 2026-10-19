@@ -6,16 +6,15 @@
 
 namespace gloview::anim {
 
+// begin() resets `last`; a stall guard re-anchors at `last`, never at the current raw.
 struct Tween {
   std::chrono::steady_clock::time_point start{};
   mutable double last = 0.0;
 
-  // begin resets last; stall guard rewinds to it
   void begin() {
     start = clock::now();
     last = 0.0;
   }
-  // re-anchor at `last`, not current raw
   void compensateStall(double gapMs, double durMs) {
     if (gapMs > 100.0)
       seek(last, durMs);

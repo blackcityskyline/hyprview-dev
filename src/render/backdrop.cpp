@@ -22,8 +22,7 @@ namespace gloview {
 
 namespace render {
 
-// Never sample currentFB: a fullscreen window renders via the "solitary client" fast path and
-// an idle workspace leaves it stale. Blur cache is PURE.
+// Never sample currentFB: solitary fullscreen bypasses shouldRenderWindow (AGENTS.md 2.12).
 
 SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
                                      int H) const {
@@ -42,7 +41,6 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   if (!fit(m_srcFB))
     return nullptr;
 
-  // The composite is kept indefinitely and compared on every open; there is no timer.
   const void *tex = nullptr;
   for (const int li : {0, 1})
     for (const auto &lr : m->m_layerSurfaceLayers[li]) {
@@ -56,8 +54,7 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
       tex = surf->m_current.texture.get();
       break;
     }
-  // Require several changes IN A ROW so a single compositor re-creation still goes through
-  // the safe path.
+  // Several changes IN A ROW: a one-off compositor re-creation of a static wallpaper is not animation.
   static constexpr int kAnimatedStreak = 4;
   if (tex != m_lastObservedTex) {
     m_srcAnimStreak   = m_lastObservedTex ? m_srcAnimStreak + 1 : 0;
@@ -67,13 +64,10 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   }
   m_srcAnimated = m_srcAnimStreak >= kAnimatedStreak;
 
-  // A live source is cached ONCE and then held: the overview shows a single frozen frame of
-  // the video wallpaper.
   if (m_drawn && (m_srcAnimated || (tex && tex == m_srcTex)))
     return m_srcFB->getTexture();
 
-  // The source changed: rebuild into a SCRATCH framebuffer and let its CONTENT decide, not a
-  // frame count: a texture mid-recreation reads black and the good composite must be kept.
+  // The source changed: rebuild into SCRATCH and let its CONTENT decide -- mid-recreation reads black.
   if (!m_scratchFB)
     m_scratchFB = g_pHyprRenderer->createFB("gloview backdrop scratch");
   if (!fit(m_scratchFB))
@@ -150,22 +144,20 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
 
   unsigned char q[4] = {0, 0, 0, 0};
   glReadPixels(W / 4, H / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, q);
-  // A dark frame of a video wallpaper IS the wallpaper, so the black check is skipped for a
-  // live source: it exists to catch a texture that is not ready.
+  // Black check skipped for a live source: a dark frame of a video wallpaper IS the wallpaper.
   const bool haveContent = drew || m->m_background;
   const bool good = haveContent && (m_srcAnimated || !(q[0] < 8 && q[1] < 8 && q[2] < 8));
   if (good) {
     std::swap(m_srcFB, m_scratchFB);
     m_drawn = true;
     m_srcTex = tex;
-    // Content changed while the FB identity did not, so the blur cache key cannot see it;
-    // without this the blur stays cached from the old wallpaper.
+    // Content changed under the same FB identity, so the srcId-keyed blur cache cannot see it.
     m_blur.valid = false;
   }
   return m_drawn ? m_srcFB->getTexture() : nullptr;
 }
 
-// The projection/fbSize dance every caller of source() would otherwise repeat.
+// RPT_EXPORT + fbSize save/restore (AGENTS.md 2.3); callers of source() would repeat it.
 SP<Render::ITexture> Backdrop::frameSource(const BackdropFrame &f) const {
   if (!f.mon || !g_pHyprRenderer || !g_pHyprOpenGL)
     return nullptr;
@@ -192,22 +184,16 @@ void Backdrop::render(const BackdropFrame &f) const {
   const auto baseCol  = f.baseCol;
 
   const float k = static_cast<float>(e);
-  // The dim is the same material as the blur and rides the same clock.
   const double dimK = f.dimK;
   debug::dbg(std::string("backdrop e=") + std::to_string(e).substr(0, 5) +
       " opening=" + std::to_string(f.opening) +
       " k=" + std::to_string(k).substr(0, 5));
 
-  // Entry fade needs an OPAQUE base built from the backdrop SOURCES: at low k the blend target
-  // is currentFB, whose stale wallpaper blinks dark. baseIsBlur: the base is already blurred,
-  // so the ramp must not blend it over itself nor outlive it.
+  // Opaque base from the backdrop SOURCES: at low k the blend target is currentFB, stale and dark.
   const float baseA = f.opening ? 1.0F : static_cast<float>(f.dimK);
   bool baseIsBlur = false;
-  // Also while a windowed exit holds: that is the moment the real desktop would show through
-  // under the band.
   if (baseA > 0.0F) {
-    // NOT gated on m_blur.valid: valid drives RECOMPUTATION and the FB still holds the last
-    // good blur.
+    // NOT gated on m_blur.valid: valid drives RECOMPUTATION; the FB keeps the last good blur.
     const bool blurCacheReady = m_blur.fb && m_blur.fb->isAllocated() &&
         m_blur.fb->m_size == Vector2D(W, H);
     const auto cachedTex = blurCacheReady ? m_blur.fb->getTexture() : nullptr;
@@ -246,8 +232,6 @@ void Backdrop::render(const BackdropFrame &f) const {
       glViewport(vp[0], vp[1], vp[2], vp[3]);
       cachedUsable = lit > 0;
     }
-    // WINDOWED: Hyprland's own blur stops the instant the windows fly, so the base must
-    // already be blurred. EMPTY: the SHARP composite is safe and gives the ramp something.
     if (cachedUsable) {
       baseIsBlur = true;
       g_pHyprOpenGL->renderTexture(cachedTex, fullPx, {.a = baseA});
@@ -257,17 +241,14 @@ void Backdrop::render(const BackdropFrame &f) const {
       if (comp && comp->ok()) {
         g_pHyprOpenGL->renderTexture(comp, fullPx, {.a = baseA});
 } else if (m_blur.fb && m_blur.fb->isAllocated()) {
-        // The stale blur FB holds the previous, correct backdrop; an outdated frame beats a
-        // black one. Leave the base unpainted if the probe already called it black: painting
-        // it at baseA==1 buries the monitor framebuffer (the entry blackout).
+        // The stale blur FB holds the previous, correct backdrop; an outdated frame beats a black
+        // one. Painting a probe called black at baseA==1 buries the FB (the entry blackout).
         const auto stale = m_blur.fb->getTexture();
         if (stale && stale->ok() && cachedUsable) {
           baseIsBlur = true;
           g_pHyprOpenGL->renderTexture(stale, fullPx, {.a = baseA});
         }
       }
-      // Nothing painted this frame: the wallpaper texture is mid-recreation and the composite
-      // was rejected as black. A fill does not help: backdrop_color is a black frame tinted.
     }
   }
 
@@ -333,12 +314,9 @@ void Backdrop::render(const BackdropFrame &f) const {
   }
 
   const auto tex = m_blur.fb ? m_blur.fb->getTexture() : nullptr;
-  // ENTRY rides its own clock, not the open animation: easeout puts the blur at full strength
-  // in one or two frames and reads as a hard cut, so the fade outlives the open by design.
   const float kk = static_cast<float>(f.dimK);
   if (tex && tex->ok() && !baseIsBlur) {
-    // Save/restore through g_pHyprOpenGL->blend so m_capStatus follows: the plugin pass runs
-    // immediately before Hyprland's end() (GLRenderer.cpp:88/94), and a raw glEnable makes its
+    // Through g_pHyprOpenGL->blend so m_capStatus follows: a raw glEnable makes the pass's own
     // blend(false) early-return (OpenGL.cpp:2620), leaving GL on with the cache saying off.
     const bool blendBefore = glIsEnabled(GL_BLEND) == GL_TRUE;
     GLint      srcRGB = GL_ONE, dstRGB = GL_ZERO, srcA = GL_ONE, dstA = GL_ZERO;
@@ -353,7 +331,6 @@ void Backdrop::render(const BackdropFrame &f) const {
     if (!blendBefore)
       g_pHyprOpenGL->blend(false);
   } else if (!baseIsBlur) {
-    // Keep the entry base: it is already on screen.
     m_blur.valid = false;
   }
 
@@ -374,14 +351,12 @@ void Overview::renderBackdrop() const {
                      blurPasses(), blurSize(), blurResolution(), blurStrength()});
 }
 
-// Runs on the parked-open frames. Builds the composite into a PRIVATE framebuffer and promotes
-// the open the moment a non-black one exists, so the overview never becomes visible on a frame
-// with nothing behind it. Two frames is the budget (m_pendingTicks); then it opens anyway.
+// Parked-open frames: promote the moment a non-black composite exists (two frames is the budget).
 void Overview::primeBackdrop() {
   const auto m = m_monitor.lock();
   const auto promote = [this] {
     if (!m_life.promote())
-      return; // not parked: there is no first visible frame to give
+      return;
     debug::trace::life("promote", m_life.describe());
     // LIFE|open: the entry animation's inputs on its first painted frame, once per open.
     {
@@ -414,7 +389,7 @@ void Overview::primeBackdrop() {
 
   const bool ready = comp && comp->ok();
   if (!m_life.parkTick(ready)) {
-    damage(); // the wallpaper texture is still being created: spend one more frame on it
+    damage();
     return;
   }
 

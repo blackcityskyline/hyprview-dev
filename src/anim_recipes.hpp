@@ -2,8 +2,7 @@
 
 #include "anim.hpp"
 
-// The resolved animation recipes: resolve() is the ONLY writer. Reading config here is the
-// deliberate exception to AGENTS.md 2.16 -- the glide leaf changes mid-run, the lift is fixed.
+// resolve() is the ONLY writer; reading config here is the deliberate exception to AGENTS.md 2.16.
 namespace gloview::anim {
 
 class Recipes {
@@ -15,8 +14,6 @@ class Recipes {
     Move enterStyle{Travel::Slide, Axis::Horizontal};
     Move exitStyle{Travel::Slide, Axis::Horizontal};
 
-    // Which behavior the run is currently playing: they change mid-run, hence passed in
-    // rather than read.
     void resolve(Id glideLeaf, Id entryLeaf, Id ghostLeaf) {
       glide     = cfg(glideLeaf);
       entry     = cfg(entryLeaf);

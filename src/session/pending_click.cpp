@@ -14,8 +14,7 @@ bool PendingClick::arm(std::chrono::milliseconds ms, const PHLWINDOW &w,
       ms,
       [this, onFire](SP<CEventLoopTimer>, void *) {
         const auto pw = m_win.lock();
-        // Disarm BEFORE the callback: it can close a window, tear the owner down and destroy
-        // this, so nothing here may touch a member after onFire or leave the timer armed.
+        // Disarm BEFORE the callback: onFire can tear the owner down and destroy this.
         cancel();
         if (pw)
           onFire(pw);
@@ -35,4 +34,4 @@ void PendingClick::cancel() {
   m_timer.reset();
 }
 
-} // namespace gloview::session
+}

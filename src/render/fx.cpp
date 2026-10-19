@@ -25,7 +25,7 @@ namespace gloview {
 
 namespace {
 // Down-right of the pointer, so the drop zones stay visible under the preview. Functions, not
-// namespace-scope constants: config read before PLUGIN_INIT registered it crashed the session.
+// namespace-scope constants: a config value read before PLUGIN_INIT crashed the session (2.5).
 double dragOffsetX() { return cfg::look.drag_offset_x; }
 double dragOffsetY() { return cfg::look.drag_offset_y; }
 double dragScale() {
@@ -67,11 +67,9 @@ LRect Overview::dragVisualBox() const {
                                anim::param(anim::Param::LiftScale), anim::param(anim::Param::LiftRise));
 }
 
-// A dragged tile is the same tile, lifted: taller shadow, framed, no pill.
 void Overview::renderDragTile() const {
   const int dragIdx = draggedTile();
   if (dragIdx < 0) {
-    // A window dragged OUT of the strip has no tile; it gets its own chrome.
     if (m_drag.press() == model::Drag::Press::StripWin && m_windows.windowOf(m_drag.win()) != nullptr)
       drawDragStripChrome();
     return;
@@ -96,13 +94,11 @@ void Overview::drawDragStripChrome() const {
   const auto   shadowCol = cfg::colors.shadow.get(1.0);
   const auto   hoverCol  = cfg::colors.hover_border.get(e);
 
-  // The drag box is whatever the pointer made it, including nothing, which is
-  // exactly the case the guarded wrappers in gl_util.hpp exist for.
+  // The drag box can be empty: the guarded wrappers in gl_util.hpp exist for exactly this.
   dropShadow(lb, s, shadowCol, 14.0, 30.0, static_cast<float>(e * 0.18), round,
              roundPow);
 
-  // A stroke, not a filled underlay: a fill shows through the window's own
-  // transparency as a solid wash.
+  // A stroke, not a filled underlay: a fill shows through the window's transparency.
   const int th = cfg::look.hover_border_size; // 0 = no ring
   strokeRing(lb, s, hoverCol, th, round, roundPow);
   debug::trace::ring("drag_tile", lb, round, hoverCol.a);
@@ -129,9 +125,7 @@ void Overview::renderDragWindow() const {
                    roundPow);
 }
 
-// Brightness tracks how close the CURSOR is (m_killGlow, a smoothstepped distance), so it
-// guides the drop rather than switching on once you are on it. The zone sits at the screen
-// edge OPPOSITE the strip; empty when disabled, and an empty rect contains nothing.
+// The zone sits at the screen edge OPPOSITE the strip; brightness follows cursor distance.
 LRect Overview::killZoneRect() const {
   const auto m = m_monitor.lock();
   if (!m)
@@ -147,8 +141,6 @@ double Overview::killZoneGlow(double lx, double ly) const {
   return render::killZoneGlow(killZoneRect(), lx, ly, cfg::behavior.kill_zone_falloff);
 }
 
-// One ramp whose alpha reaches ZERO at the far end: stacked rounded rectangles
-// have edges of their own and read as geometry, not light.
 void Overview::renderKillZone() const {
   const auto m = m_monitor.lock();
   if (!m || m_killGlow <= 0.004)
@@ -161,8 +153,7 @@ void Overview::renderKillZone() const {
   const double glow = m_killGlow;
   const auto   col  = cfg::colors.select_border.get(eased());
   const bool zoneAtTop = stripAnchor() == Anchor::Bottom;
-  // ONE falloff from the SCREEN edge, through the band and into the screen: two ramps put a
-  // step where they met that reads as a second line.
+  // ONE falloff from the SCREEN edge: two ramps put a step where they meet.
   const int kReach = cfg::behavior.kill_zone_reach;
   for (int d = 0; d < kReach; ++d) {
     const double f = static_cast<double>(d) / kReach;
@@ -174,8 +165,7 @@ void Overview::renderKillZone() const {
   }
 }
 
-// A subject, not a window: a pulse rings whatever the run is showing, and a tab has no window
-// but has a card that can ring.
+// A subject, not a window: a pulse rings whatever the run shows, and a tab's card can ring.
 void Overview::kickPulse(model::SubjectRef s) {
   if (s == model::SubjectRef{} || !anim::cfg(anim::Id::Pulse).on)
     return;
@@ -220,7 +210,6 @@ void Overview::renderPulses(bool strip) const {
         if (tileWindow(m_scene.tiles()[i]) != w)
           continue;
         const LRect lb = tileRect(i);
-        // The pulse tracks the tile's own radius, so it lands on the same arc.
         drawPulseRing(pxb(lb, s),
                       pxr(clampRound(cfg::look.preview_round, lb.w, lb.h), s),
                       roundPow, col, pr);
@@ -234,8 +223,6 @@ void Overview::renderPulses(bool strip) const {
 
 void Overview::drawPulseRing(const CBox &boxPx, int round, float roundPow,
                              const CHyprColor &col, double p) const {
-  // Curve from the pulse animation, reach past the tile edge its own shape parameter: two
-  // halves of one animation must not be configured from different places.
   const double k  = curves::eval(anim::cfg(anim::Id::Pulse).curve, p) *
                   anim::param(anim::Param::PulseScale);
   const double cx = boxPx.x + boxPx.w / 2.0, cy = boxPx.y + boxPx.h / 2.0;
@@ -246,8 +233,7 @@ void Overview::drawPulseRing(const CBox &boxPx, int round, float roundPow,
                roundPow);
 }
 
-// Every place this window is drawn ON THIS SURFACE: a flight lerps to the CURRENT slot box.
-// One resolver for both painter and trace, or the trace reports a motion that never happened.
+// One resolver for painter and trace, or the trace reports a motion that never happened.
 std::vector<LRect> Overview::swapDests(const PHLWINDOW &w, bool strip) const {
   std::vector<LRect> out;
   if (!strip) {
@@ -293,9 +279,7 @@ void Overview::renderSwapFX() const {
     double bx = 0, by = 0, bw = 0, bh = 0;
     float alpha = 1.0F;
 
-    // One travel, two shapes. `Slide` on the horizontal axis lerps every edge; on the vertical
-    // it arcs the card up and down -- "slidevert" in a swap is NOT a slide on Y, and the arc
-    // carries the landing the drop asks for.
+    // "slidevert" arcs the card up and down: a swap on the vertical axis is NOT a slide on Y.
     if (fx.style.travel == anim::Travel::Slide &&
         fx.style.axis == anim::Axis::Vertical) {
       const double LIFT = cfg::look.swap_lift;
@@ -341,9 +325,8 @@ void Overview::renderSwapFX() const {
       bh = lerp(fx.from.h, to.h, p);
     }
 
-    // A flight draws at EVERY surface the window occupies, two orders of magnitude apart, so
-    // the box can shrink past a pixel: renderRoundedShadow ASSERTS on it -- a Hyprland
-    // RASSERT inside the compositor takes the whole session.
+    // A flight draws at EVERY surface the window occupies, sizes orders of magnitude apart, so
+    // the box can shrink past a pixel: renderRoundedShadow RASSERTs, and that takes the session.
     const LRect box{bx, by, bw, bh};
     const CBox px = pxb(box, s);
     const int lr = clampRound(round, bw, bh); // logical: dropShadow scales it
@@ -361,8 +344,7 @@ bool Overview::isAboveLayer(const std::string &ns) const {
   return session::isAboveLayer(ns, cfg::layer.above_namespaces.get());
 }
 
-// renderLayer is renderer-protected, so opted-in TOP/OVERLAY surfaces go through
-// the immediate leaf; damageBox forces a composite with no client damage.
+// renderLayer is renderer-protected, so opted-in TOP/OVERLAY surfaces go through the immediate leaf.
 void Overview::renderAboveLayers() const {
   const auto m = m_monitor.lock();
   if (!m || !g_pHyprRenderer)
@@ -377,7 +359,7 @@ void Overview::renderAboveLayers() const {
       if (!isAboveLayer(ls->m_namespace))
         continue;
 
-      const auto pos = ls->positionAnimation()->value(); // absolute logical
+      const auto pos = ls->positionAnimation()->value();
       const auto size = ls->sizeAnimation()->value();
       if (!(size.x > 0 && size.y > 0))
         continue;

@@ -7,11 +7,7 @@
 
 namespace gloview::model {
 
-// Transient visuals with the opposite lifetime to the scene: ghosts of windows
-// that just left, the pulse a window kicked off, the flight of a strip thumbnail
-// to its new card, and workspaces created this session that must not be reaped
-// before close. The scene is REBUILT; these are appended to and pruned.
-
+// The scene is REBUILT; these are appended to and pruned.
 class Effects {
   public:
     [[nodiscard]] const std::vector<Ghost> &ghosts() const { return m_ghosts; }
@@ -20,9 +16,7 @@ class Effects {
     }
     [[nodiscard]] const std::vector<SwapFX> &swapfx() const { return m_swapfx; }
 
-    // Is this window flying on THIS surface? The grid asks false, the strip true, and each
-    // one only stands down for its own flight -- a shared predicate made the strip's
-    // thumbnail disappear while the card flew.
+    // Each surface stands down only for its own flight.
     [[nodiscard]] bool swapActive(SubjectRef s, bool strip) const {
       for (const auto &l : m_swapfx)
         if (l.subj == s && l.toStrip == strip)
@@ -30,8 +24,8 @@ class Effects {
       return false;
     }
 
-    // A pulse for this window, replacing any it already has. Pulses accrue per FRAME, so
-    // re-kicking one in flight restarts it rather than stacking a second ring on top.
+    // Replaces any pulse it already has: pulses accrue per FRAME, so re-kicking one in flight
+    // restarts it rather than stacking a second ring.
     void kickPulse(SubjectRef s) {
       dropPulse([s](const WinPulse &p) { return p.subj == s; });
       addPulse(model::WinPulse{s, 0.0, std::chrono::steady_clock::now()});
@@ -50,9 +44,8 @@ class Effects {
     void clearGhosts() { m_ghosts.clear(); }
     void clearNewWorkspaces() { m_newWorkspaces.clear(); }
 
-    // beginSwapFX() may reuse a slot rather than append, so the caller that knows the
-    // real origin has to pin it afterwards. Bool, not a pointer: "no last swap" needs no
-    // emptiness check on the vector beside it.
+    // beginSwapFX() may reuse a slot rather than append, so the caller that knows the real
+    // origin pins it afterwards.
     bool retargetLastSwap(const LRect &from) {
       if (m_swapfx.empty())
         return false;

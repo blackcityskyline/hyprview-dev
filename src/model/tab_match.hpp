@@ -1,12 +1,9 @@
 #pragma once
 
-// Which Hyprland window is which browser window. The two sides cannot name each other, so
-// the match runs on the OS process a browser window belongs to (TabSnapshot::pids).
-//
-// The rules are built around being wrong safely. ONE-TO-ONE: two candidates is not a match,
-// it is a conflict. AMBIGUOUS means unmatched: guessing is the one failure a user cannot
-// detect by looking. Unmatched is a supported outcome -- the window then contributes nothing
-// in Tabs mode, exactly as a window nobody has heard from does (ReportedTabs::known).
+// Which Hyprland window is which browser window: the two sides cannot name each other, so the
+// match runs on the OS process a browser window belongs to (TabSnapshot::pids). ONE-TO-ONE --
+// two candidates is not a match but a conflict, and a guess is the one failure a user cannot
+// detect by looking. Unmatched is supported: that window then contributes nothing (AGENTS.md 2.19).
 
 #include "tab_feed.hpp"
 
@@ -19,25 +16,19 @@ namespace gloview::model {
 
 // A window the plugin can put a browser window into.
 struct HostWindow {
-    // Opaque identity of the compositor window; the caller resolves it.
     std::uint64_t id = 0;
-    // The OS process it belongs to -- the match, where a title was not. A browser appends its
-    // own name to a window's title, so the two sides hold different strings by construction.
-    // See TabSnapshot::pids.
+    // The match -- never a title: the browser appends its own name to the window title
+    // (AGENTS.md 2.26).
     std::uint64_t pid = 0;
 };
 
-// Browser window id -> index into `hosts`, for those that matched. `pids` is keyed by browser
-// window id and a window absent from it has no process and matches nothing.
-//
-// Two windows of one browser share a process, so "is this host the right browser?" is a SET,
-// not a single answer -- that is the whole shape of this function.
+// Browser window id -> index into `hosts`, for those that matched; absent from `pids` means no
+// process and no match. Two windows of one browser share a process, so "which host is the right
+// browser" is a SET, not a single answer.
 [[nodiscard]] inline std::unordered_map<std::uint64_t, std::size_t> matchBrowserWindows(
     const std::vector<HostWindow> &hosts,
     const std::unordered_map<std::uint64_t, std::uint64_t> &pids) {
 
-    // Host indices per process. Every index is kept, never just the first, because picking one
-    // out of several would be a coin flip dressed up as a rule.
     std::unordered_map<std::uint64_t, std::vector<std::size_t>> byPid;
     for (std::size_t i = 0; i < hosts.size(); ++i)
         if (hosts[i].pid != 0)
@@ -47,25 +38,22 @@ struct HostWindow {
     for (const auto &[browserWindow, pid] : pids) {
         const auto it = byPid.find(pid);
         if (it == byPid.end())
-            continue; // that browser has no window on this run
+            continue;
         const auto &cands = it->second;
         if (cands.size() != 1)
-            continue; // two windows of this browser are on the run and nothing says which
+            continue;
         out.emplace(browserWindow, cands.front());
     }
     return out;
 }
 
 // A map from a compositor window to the browser window whose tabs it shows. A type rather than
-// a bare map because it has a lifetime: built when a run opens, dropped when it ends -- holding
-// it for the life of the plugin would let a process that matched during one run decide the
-// next. Both directions, because answering one by scanning for the other is a second place
-// that could disagree.
+// a bare map because it has a lifetime: built when a run opens, dropped when it ends. Both
+// directions, because answering one by scanning for the other is a second place to disagree.
 class BrowserLinks {
   public:
     void rebuild(const std::vector<HostWindow> &hosts,
                  const std::unordered_map<std::uint64_t, std::uint64_t> &pids) {
-      // Replaced, never accumulated: the next run must not inherit the last run's answers.
       m_byHost.clear();
       m_byBrowser.clear();
       for (const auto &[browserWindow, host] :
@@ -75,8 +63,7 @@ class BrowserLinks {
       }
     }
 
-    // The browser window whose tabs this one carries, or 0 -- which is never a browser window
-    // id, so "none" needs no separate spelling and no optional.
+    // 0 is never a browser window id, so "none" needs no separate spelling and no optional.
     [[nodiscard]] std::uint64_t browserOf(std::uint64_t host) const {
       const auto it = m_byHost.find(host);
       return it == m_byHost.end() ? 0 : it->second;

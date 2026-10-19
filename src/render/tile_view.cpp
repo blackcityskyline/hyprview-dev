@@ -67,7 +67,6 @@ LRect Overview::tileBox(size_t i, const LRect &slot) const {
     return slot;
   double aspect = slot.w / std::max(1.0, slot.h);
   if (i < m_scene.tiles().size()) {
-    // A window's own proportions; a tab has no geometry of its own and keeps the slot's.
     if (const auto w = tileWindow(m_scene.tiles()[i])) {
       const auto s = w->sizeAnimation()->goal();
       if (s.x > 0 && s.y > 0)
@@ -89,8 +88,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
   if (!m || i >= m_scene.tiles().size())
     return;
   const auto &t = m_scene.tiles()[i];
-  // Chrome -- frost, ring, shadow, pill -- is drawn from geometry alone and applies to a tab
-  // as to a window; only the CONTENT below needs a window.
+  // Chrome -- frost, ring, shadow, pill -- is geometry-only and applies to a tab too; only CONTENT needs a window.
   const auto w = tileWindow(t);
   const auto card = cardOf(t);
   const bool tab = card.isTab();
@@ -125,8 +123,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
              static_cast<float>(e * cfg::look.shadow_alpha * f), round, roundPow);
 
   if (look.frame) {
-    // show_border is the user's economy and still holds for windows; a tab's card is the
-    // frosted desktop and needs its outline to be a card at all.
+    // show_border holds for windows; a tab's card is the frosted desktop and needs its outline.
     if (cfg::look.show_border != 0 || tab) {
       strokeRing(box, s, cfg::colors.border.get(e * f), cfg::look.border_size,
                  round, roundPow);
@@ -139,9 +136,8 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                  ringW, round, roundPow);
   }
 
-  // Transition frost: the cached blur at CONSTANT alpha (fading it leaks C*e*(1-e) of the
-  // sharp desktop) plus the dim rect at the GLOBAL alpha e. A tab needs it ALWAYS: its card
-  // is this frost or it is nothing at all.
+  // Frost: the cached blur at CONSTANT alpha (fading it leaks C*e*(1-e) of the sharp desktop),
+  // plus the dim at the global e. A tab needs it ALWAYS: its card is this frost or nothing.
   const double apNow = entryNow(t, static_cast<int>(i));
   if (tab || (opening() && (e < 0.999 || apNow < 0.999))) {
     if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
@@ -163,17 +159,12 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
       g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
       uvTL = Vector2D{-1.0, -1.0};
       uvBR = Vector2D{-1.0, -1.0};
-      // The frost covers the global dim: re-apply it at the global alpha.
       safeRenderRect("tile", boxPx, cfg::blur.backdrop.get(static_cast<float>(e)),
                                 {.round = pxr(round, s), .roundingPower = roundPow});
     }
   }
   if (tab) {
-    // The frost above already drew the card, so a tab with no art yet is a card with its
-    // caption.
     if (const auto tex = tabArt(t))
-      // round/roundingPower are not decoration: renderWindowLive() takes them and clips a
-      // card's content to the card's corners.
       g_pHyprOpenGL->renderTexture(tex, pxb(box, s),
                                    {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
   } else {
@@ -186,19 +177,14 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
                               {.round = pxr(round, s), .roundingPower = roundPow});
 
-  // A window's card is its own content, so one caption at a time is enough. A tab has none:
-  // the title IS the card, and an uncaptioned tab card is invisible.
+  // A tab's title IS the card: an uncaptioned tab card is invisible.
   if ((framed || selected || tab) && !look.lift) {
-    // The pill measures the texture it draws. It shows WHATEVER there is: the title, the
-    // carousel's n / total, or both -- gating on a title hides the counter on a captionless
-    // window, where it is most wanted.
     const bool hasLabel = t.label && t.label->m_size.x > 0;
     const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
     auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
     const bool hasCounter = countTex && countTex->m_size.x > 0;
     debug::trace::ring("title_card", box, pxr(round, s), e * f);
     if (hasLabel || hasCounter) {
-    // Sized off the texture plus ITS OWN padding, so the two are set independently.
     const double lw   = hasLabel ? t.label->m_size.x : 0.0;
     const double lh   = hasLabel ? t.label->m_size.y : 0.0;
     const double countW = hasCounter ? countTex->m_size.x : 0.0;
@@ -241,7 +227,6 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const LRect counter{render::insetWithin(m->m_size.x / 2.0 - cW / 2.0, cW, m->m_size.x, 6.0),
                         counterY, cW, counterH};
     const Vector2D push = pushOut(pill);
-    // Both reasons a caption leaves live in captionRemains().
     const double shove = std::hypot(push.x, push.y);
     const double pop = render::captionRemains(shove, pw, ph, exitT(), opening());
     const double cf = e * f;
@@ -311,8 +296,7 @@ void Overview::renderTiles() const {
   const auto m = m_monitor.lock();
   if (!m)
     return;
-  // GL_BLEND left off by a previous pass writes the ✕ glyph's transparent padding through as
-  // opaque black; restore the exact func.
+  // GL_BLEND left off by a previous pass writes the ✕ glyph's padding through as opaque black.
   const bool wantButtons = tileCloseButtons();
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -360,20 +344,19 @@ void Overview::renderGhosts() const {
   const auto when    = Time::steadyNow();
   const float roundPow = cfg::look.preview_round_power;
   const double p    = std::min(1.0, m_place.clocks.rebuild.raw(m_place.recipes.ghost.ms));
-  const double eOut = curves::eval(m_place.recipes.ghost.curve, p); // 0..1 gone
+  const double eOut = curves::eval(m_place.recipes.ghost.curve, p);
 
   for (const auto &g : m_fx.ghosts()) {
     const auto w = m_windows.windowOf(g.subj);
     if (!w || !w->m_isMapped || w->isHidden())
       continue;
-    const double k  = 1.0 - 0.3 * eOut; // shrink toward its own center
+    const double k  = 1.0 - 0.3 * eOut;
     const double cx = g.box.x + g.box.w / 2.0, cy = g.box.y + g.box.h / 2.0;
     const LRect box{cx - g.box.w * k / 2.0, cy - g.box.h * k / 2.0,
                     g.box.w * k, g.box.h * k};
     LRect slidBox = box;
     float gAlpha = static_cast<float>((1.0 - eOut) * 0.85);
-    // Same three branches as the entry, in the same order: a slide moves the box, a fade
-    // leaves it for gAlpha, a pop scales it. Branch on style fields, never by equality.
+    // Same three branches as the entry: branch on style fields, never by equality.
   if (m_place.recipes.exitStyle.travel == anim::Travel::Slide && m_view.wsSlideDir() != 0) {
     if (m_place.recipes.exitStyle.axis == anim::Axis::Horizontal)
       slidBox.x -= static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * eOut;

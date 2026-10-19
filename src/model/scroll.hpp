@@ -1,12 +1,8 @@
 #pragma once
 
-// The strip's scroll position, as four doubles that were allowed to disagree. The invariant is
-// that the ENDPOINTS live in [0, max]; setMax() re-clamps all three.
-//
-// current is NOT clamped during a glide, on purpose: curves.cpp bounds the bezier solver's t
-// to [0,1] but not its output, so a cubic with a control point outside eases past 1. That
-// overshoot is reachable, and clamping it here would remove an effect a config can ask for.
-// The invariant covers the endpoints and the re-anchor, not the transit.
+// Invariant: the ENDPOINTS live in [0, max] and setMax() re-clamps all of them. current is NOT
+// clamped during a glide, on purpose: a bezier control point outside eases past 1, and that
+// overshoot is reachable -- clamping it here would remove an effect a config can ask for.
 
 #include <algorithm>
 #include <string>
@@ -27,11 +23,10 @@ public:
   [[nodiscard]] double current() const { return m_current; }
   [[nodiscard]] double target() const { return m_target; }
   [[nodiscard]] double from() const { return m_from; }
-  // Nothing to scroll: the cards fit the band. The wheel swallows input on this.
   [[nodiscard]] bool scrollable() const { return m_max > 0.0; }
 
-  // Returns whether anything moved, so the caller snaps instead of arming a clock for a
-  // 0.4px change. The 0.5 threshold is part of "is this worth animating".
+  // Returns whether anything moved; the 0.5px threshold is part of "worth animating", so the
+  // caller snaps instead of arming a clock for a sub-pixel change.
   bool beginGlide(double from, double to) {
     const double f = clamp(from), t = clamp(to);
     if (std::abs(t - f) < 0.5)
@@ -41,15 +36,12 @@ public:
     return true;
   }
 
-  // No glide worth running.
   void snap(double v) {
     m_from = m_target = m_current = clamp(v);
   }
 
-  // One frame of the glide. `eased` is the curve's output, 0..1.
   void advance(double eased) { m_current = m_from + (m_target - m_from) * eased; }
 
-  // Endpoints and current in one write, for a rebuild that has no glide to preserve.
   void reseat(double position) { snap(position); }
 
   [[nodiscard]] std::string describe() const {

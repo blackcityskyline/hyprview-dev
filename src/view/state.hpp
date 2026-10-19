@@ -9,8 +9,7 @@
 
 namespace gloview::view {
 
-// Which view is on screen, its direction, the monitor-to-preview transform, and what
-// layoutTiles last resolved: the renderer asks what was PRODUCED, never the config.
+// Which view is on screen, its direction, the transform, and what layoutTiles last resolved.
 class State {
   public:
     [[nodiscard]] bool desktop() const { return m_desktop; }
@@ -19,24 +18,21 @@ class State {
     [[nodiscard]] int allOverride() const { return m_allOverride; }
     void setAllOverride(int v) { m_allOverride = v; }
 
-        // A question about the run's mode, not the config: an override set for this run
-        // outranks the key, and -1 is the only "no override".
+    // A question about the run's mode, not the config; -1 is the only "no override".
     [[nodiscard]] bool allWorkspaces(bool configured) const {
       return m_allOverride < 0 ? configured : m_allOverride != 0;
     }
 
     [[nodiscard]] bool run() const { return m_run; }
     void setRun(bool on) { m_run = on; }
-        // The width of the CENTRED card, the reference every other card's chrome is measured
-        // against -- run cards shrink with distance. Written once per layout, read at paint.
+    // The CENTRED card's width, the reference every other card's chrome is measured against.
     void        setCardRefW(double w) { m_cardRefW = w > 0.0 ? w : 0.0; }
     [[nodiscard]] double cardRefW() const { return m_cardRefW; }
 
     [[nodiscard]] bool carouselOn() const { return m_carouselOn; }
     void setCarouselOn(bool on) { m_carouselOn = on; }
 
-        // Windows, tabs, or both, resolved once when the run opens, like m_engine: changing
-        // it mid-run would lay out two vocabularies. Live change lands on the NEXT run.
+    // Resolved once when the run opens: a live change lands on the NEXT run.
     [[nodiscard]] model::Domain domain() const { return m_domain; }
     void setDomain(model::Domain d) { m_domain = d; }
 
@@ -61,13 +57,10 @@ class State {
     [[nodiscard]] const CarouselLayout &carousel() const { return m_carousel; }
     [[nodiscard]] int carouselFor() const { return m_carouselFor; }
 
-        // slot[k] = the card index slot k shows, with the geometry it was resolved with: card
-        // k is NOT tile k, and assuming otherwise draws the wrong window.
+    // slot[k] = the card index slot k shows: card k is NOT tile k.
     [[nodiscard]] const std::vector<std::size_t> &slot() const { return m_slot; }
 
-
-        // The tile the carousel's k-th slot holds, or -1: the carousel orders tiles by DEPTH,
-        // not index. -1 marks a stale slot; callers must fall back, not grab another tile.
+    // The carousel orders tiles by DEPTH: -1 marks a stale slot, callers must fall back.
     [[nodiscard]] int tileInSlot(std::size_t k) const {
       return k < m_slot.size() ? static_cast<int>(m_slot[k]) : -1;
     }
@@ -79,9 +72,7 @@ class State {
       return -1;
     }
 
-        // Scene::swapTiles exchanges two tiles' TARGETS, but the carousel reads depth as
-        // cards[slotOf(tile)].depth: swap targets alone and the travelled card stays at
-        // depth 0. Swapping the slot entries travels with the geometry.
+    // The carousel reads depth as cards[slotOf(tile)].depth, so swapping slots is the geometry.
     void swapSlots(std::size_t a, std::size_t b) {
       const auto pos = [this](std::size_t tile) {
         for (std::size_t k = 0; k < m_slot.size(); ++k)

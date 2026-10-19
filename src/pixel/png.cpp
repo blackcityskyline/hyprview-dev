@@ -10,10 +10,7 @@ SP<Render::ITexture> loadPng(const std::string &path) {
     auto *surf = readPngSurface(path);
     if (!surf)
         return nullptr;
-    // createTexture copies what it needs from the surface, so the surface dies here. That is
-    // assumed, not verified: nothing in the headers says otherwise, and a cairo upload that
-    // aliased the surface would leave this reading freed memory. Worth a check if a preview
-    // ever comes out as noise.
+    // createTexture copies from the surface, so it dies here -- assumed, not verified by the headers.
     auto tex = g_pHyprRenderer->createTexture(surf);
     cairo_surface_destroy(surf);
     return tex;

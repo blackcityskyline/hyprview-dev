@@ -27,8 +27,7 @@ inline std::unique_ptr<gloview::Overview> g_overviewOwned;
 
 namespace {
 
-// null name field = that path is skipped. gloviewunload is UNLOAD-safe:
-// hardClose; gloviewclose only starts close, unloading there crashes.
+// null name field = that path is skipped. gloviewunload is UNLOAD-safe (hardClose); gloviewclose only starts close.
 struct Action {
     const char* dispatch;
     const char* hyprctl;
@@ -63,15 +62,11 @@ int luaInvoke(lua_State*) {
     return 0;
 }
 
-// gloview.cmd("state") / ("swap 0 1") / ("sel 2") / ("movews 0 3")
-// Registered as Lua because this session's config is Lua: hyprctl dispatch
-// routes through hl.dispatch, which does not reach plugin dispatchers by name.
 int luaCmd(lua_State *L) {
     const char *args = luaL_optstring(L, 1, "");
     std::string err = g_overview ? g_overview->runCommand(args)
                                  : std::string("no overview");
-    // hyprctl eval does NOT print a Lua return value: every command acknowledges
-    // itself in the trace log.
+    // hyprctl eval does NOT print a Lua return value: every command acknowledges itself in the trace log.
     gloview::debug::trace::emitState(err.empty() ? std::string("CMD|ok|") + args
                                                  : std::string("CMD|err|") + args +
                                                        "|" + err);
@@ -126,8 +121,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
                   }})),
          ...);
 
-        // The automation seam: registered outside the kActions fold because it
-        // takes arguments, and a failure must reach the caller as text.
+        // Registered outside the kActions fold: it takes arguments, and a failure must reach the caller as text.
         HyprlandAPI::addDispatcherV2(handle, "gloview:cmd",
                                      [](std::string a) -> SDispatchResult {
                                          if (!g_overview)

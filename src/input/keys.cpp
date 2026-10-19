@@ -58,11 +58,9 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   const bool passthrough = cfg::behavior.passthrough_keys != 0;
 
   if (e.state != WL_KEYBOARD_KEY_STATE_PRESSED) {
-    // The modifier release is swallowed either way: letting it through fires the
-    // user's own SUPER binding and tears the state down before the run settles.
+    // Swallowed either way: letting it through fires the user's own SUPER binding and tears the state down.
     if (m_altTabbing && modBitForKeycode(e.keycode) == altTabModBit()) {
       m_altTabbing = false;
-      // A hold commits here; too early to apply means arming it, as a tap does.
       if (cfg::keys.alt_tab_commit_on_release != 0 && !m_commitPending) {
         if (entrySettled())
           activateSelection();
@@ -139,8 +137,8 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
       if (m) {
         if (const auto target = m_workspace.lock();
             target && target != m->m_activeWorkspace) {
-          // internal=false, not true; warp the slide away below instead.
-          const auto oldWs = m->m_activeWorkspace; // capture BEFORE the switch
+          // internal=false: warp the slide away; capture oldWs BEFORE the switch.
+          const auto oldWs = m->m_activeWorkspace;
           m->changeWorkspace(target, false, true, false);
           if (oldWs && oldWs != target) {
             oldWs->m_alpha->setValueAndWarp(oldWs->m_alpha->goal());
@@ -151,7 +149,6 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
           m_liveWsAtOpen = m->m_activeWorkspace;
         }
       }
-      // "switch" stays open; "jump" closes now, or when the ws-slide settles.
       if (doJump) {
         if (instant)
           close();
@@ -164,7 +161,6 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   cancel = handled || !passthrough;
 }
 
-// key_combo.hpp's bits must match Hyprland's, or every combo using that modifier stops matching.
 static_assert(gloview::input::kModShift == HL_MODIFIER_SHIFT);
 static_assert(gloview::input::kModCtrl == HL_MODIFIER_CTRL);
 static_assert(gloview::input::kModAlt == HL_MODIFIER_ALT);
@@ -189,7 +185,6 @@ void Overview::moveSelection(int dx, int dy) {
     damage();
     return;
   }
-  // Carousel: dx is a circular index step, dy unused; relayoutCarousel reacts to selected().
   if (carouselMode()) {
     if (dx != 0) {
       m_scene.stepSelection(dx);
@@ -225,21 +220,18 @@ void Overview::moveSelection(int dx, int dy) {
   }
 }
 
-// Steps the order the user SEES: slot order in the run, array order in the grid --
-// the run is laid out MRU-first, so array order is not on-screen order.
+// Steps the order the user SEES: slot order in the run, array order in the grid; the run is MRU-first.
 void Overview::stepAltTab(int dir) {
   const std::size_t n = m_scene.size();
   if (n == 0)
     return;
 
-    // Which cards are on the run now, taken before anything below: a card that
-    // joins or leaves has no slot to glide from or to.
+    // Which cards are on the run now, taken before anything below: a card that joins or leaves has no slot to glide to.
   std::vector<char> wasOnRun(n, 0);
   for (std::size_t i = 0; i < n; ++i)
     wasOnRun[i] = m_scene.tiles()[i].target.w >= 1.0 ? 1 : 0;
 
-    // Freeze each card at its current slot BEFORE any target below is rewritten:
-    // priorSlot() says a window's natural IS its prior slot, a tab's is not.
+    // Freeze each card at its current slot BEFORE any target below is rewritten: priorSlot() reads natural and target.
   if (m_view.run())
     for (std::size_t i = 0; i < n; ++i) {
       const auto &t = m_scene.tiles()[i];
@@ -260,8 +252,7 @@ void Overview::stepAltTab(int dir) {
       const int count = static_cast<int>(n);
       const int nxt = ((cur + dir) % count + count) % count;
       m_scene.select(m_view.tileInSlot(static_cast<std::size_t>(nxt)));
-      // The run's geometry is built FROM the selection: selecting without
-      // relaying out leaves the previous step's cards standing.
+      // The run's geometry is built FROM the selection: selecting without relayout leaves the previous step's cards standing.
       layoutTiles();
       pinRunEdges(wasOnRun);
       damage();
@@ -276,8 +267,6 @@ void Overview::stepAltTab(int dir) {
   damage();
 }
 
-// A JOINED card's only place is the slot it is taking; a LEFT one holds its
-// slot until it fades. No kind test: the rule reads the same for every subject.
 void Overview::pinRunEdges(const std::vector<char> &wasOnRun) {
   for (std::size_t i = 0; i < m_scene.size(); ++i) {
     const auto &t = m_scene.tiles()[i];

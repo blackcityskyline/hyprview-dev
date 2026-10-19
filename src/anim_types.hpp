@@ -1,7 +1,7 @@
 #pragma once
 
-// The animation registry's value types, and nothing else. No hyprland/ include: a header
-// pulling one in is unreachable from a test, which is what makes anim_resolve.cpp linkable.
+// The animation registry's value types, and nothing else. No hyprland/ include: a header pulling
+// one in becomes unreachable from a test, and this is what anim_resolve.cpp links.
 
 #include <cstddef>
 #include <string_view>
@@ -27,47 +27,44 @@ struct Rule {
   std::optional<std::string> style;
 };
 
-// The values cfg() reads, lifted out of the config handles so resolve() touches nothing but
-// plain C++ and the whole precedence chain is testable headless.
+// Plain values, lifted out of the config handles so resolve() is testable headless.
 struct Inputs {
   bool        globalEnabled = true;
-  bool        enabled = true;         // the leaf's own _enabled
-  bool        hasMs = false;          // _ms was set, vs "not set, use the table base"
+  bool        enabled = true;
+  bool        hasMs = false;
   int         ms = 0;
   double      speed = 1.0;
-  std::string curve;                  // _curve
-  const Rule *rule = nullptr;         // gloview.animation{...}, may be null
+  std::string curve;
+  const Rule *rule = nullptr;
 };
 
 // Precedence: Lua rule > config key > table default. Switched off resolves to 1ms, not to
 // its duration -- a clock still has to tick, it just must not move anything.
 [[nodiscard]] Cfg resolve(const Inputs &in, int baseMs, const char *curveDefault);
 
-// `registered` and `value` are two questions the handles cannot answer together: asking only
-// the value makes pulse_enabled=0 read as not-registered. Unregistered defaults to on.
+// registered and value are two questions the handles cannot answer together: asking only the
+// value makes pulse_enabled=0 read as not-registered. Unregistered defaults to on.
 [[nodiscard]] constexpr bool switchOn(bool registered, int value) {
   return !registered || value != 0;
 }
 
-// The same split as resolve(): registered-but-unset falls back to the table default.
 [[nodiscard]] double resolveParam(bool hasValue, double value, double fallback);
 
-// How an animation is shaped rather than how long it runs. Resolved live, like the rest.
 enum class Param : std::uint8_t {
-  Stagger,        // entry ladder: spread of the tiles over the window
-  StaggerPerTile, // ... per extra tile, capped by Stagger
-  Collapse,       // carousel: fraction of the exit spent shrinking the unfocused cards
-  PulseScale,     // pulse ring: how far past the tile edge it reaches
-  LiftScale,      // lift: how much the picked-up tile grows
-  LiftRise,       // lift: how far it rises, px
-  PopScale,        // pop: how much a tile is SMALLER at the start of its scale-in
-  ShadowOffset,    // tile shadow offset at rest, px
-  LiftShadow,      // tile shadow offset while lifted, px
+  Stagger,
+  StaggerPerTile,
+  Collapse,
+  PulseScale,
+  LiftScale,
+  LiftRise,
+  PopScale,
+  ShadowOffset,
+  LiftShadow,
   Count
 };
 
-// Key and default tables beside the enum, both sized by it: a Param added without a row is
-// a compile error here and an assertion in the test, not a silent wrong slot.
+// Key and default tables beside the enum, both sized by it: a Param added without a row is a
+// compile error here, not a silent wrong slot.
 inline constexpr std::size_t kParamCount = static_cast<std::size_t>(Param::Count);
 
 inline constexpr const char *const kParamKeys[kParamCount] = {
@@ -78,8 +75,7 @@ inline constexpr const char *const kParamKeys[kParamCount] = {
 inline constexpr double kParamDefaults[kParamCount] = {0.08, 0.015, 0.5, 0.10,
                                                        0.07, 5.0, 0.15, 16.0, 30.0};
 
-// Legal style names, in one place, for ws_enter_style, ws_exit_style, grid_swap_style and
-// strip_swap_style: a forgotten one must not be silently ignored.
+// Legal style names in one place: a forgotten one must not be silently ignored.
 inline constexpr const char *const kEnterStyles[] = {"slide", "slidevert", "fade", "pop"};
 
 [[nodiscard]] constexpr bool isEnterStyle(std::string_view s) {
@@ -90,19 +86,17 @@ inline constexpr const char *const kEnterStyles[] = {"slide", "slidevert", "fade
 }
 
 // One layer of matching quotes is removed here: the tokenizer splits on spaces only, so a
-// meant-empty value arrives as the two characters "" and num() on those is 0.
+// meant-empty value arrives as the two characters "".
 [[nodiscard]] constexpr std::string_view stripQuotes(std::string_view v) {
   return v.size() >= 2 && (v.front() == '"' || v.front() == '\'') && v.back() == v.front()
            ? v.substr(1, v.size() - 2)
            : v;
 }
 
-// What a card does from A to B; unknown names resolve to Slide, the kRows default.
-// Spring is deliberately NOT a member: stiffness and damping with no end cannot live on
-// the same _ms scale.
+// What a card does from A to B; unknown names resolve to Slide. Spring is deliberately NOT a
+// member: stiffness and damping with no end cannot live on the same _ms scale.
 enum class Travel : int { Slide, Pop, Fade };
 
-// The manual spellings name an axis, not a travel: they read as a style and are not one.
 enum class Axis : int { Horizontal, Vertical };
 
 struct Move {
@@ -117,8 +111,8 @@ struct Move {
   friend constexpr bool operator==(const Move &, const Move &) = default;
 };
 
-// Short spellings, both kept because they are in existing configs. `slide-vertical` is
-// canonical and what moveName emits, so a trace record parses back.
+// Short spellings kept because they are in existing configs; slide-vertical is canonical and
+// what moveName emits, so a trace record parses back.
 [[nodiscard]] constexpr Move parseMove(std::string_view s) {
   if (s == "fade")
     return Move{Travel::Fade, Axis::Horizontal};
@@ -128,11 +122,9 @@ struct Move {
   return Move{Travel::Slide, vert ? Axis::Vertical : Axis::Horizontal};
 }
 
-// What parseMove emits and moveName reads back; the aliases above resolve into these.
 inline constexpr const char *const kMoveNames[] = {"slide-horizontal", "slide-vertical",
                                                    "fade", "pop"};
 
-// The spelling the round-trip check feeds back into parseMove.
 [[nodiscard]] constexpr const char *travelName(Travel t) {
   return t == Travel::Fade ? "fade" : t == Travel::Pop ? "pop" : "slide";
 }
@@ -141,19 +133,18 @@ inline constexpr const char *const kMoveNames[] = {"slide-horizontal", "slide-ve
   return a == Axis::Vertical ? "vertical" : "horizontal";
 }
 
-// What a trace record says about a move, in a spelling parseMove reads back; the axis is
-// only spelled for a Slide. A dash, not a space or slash: key=value, no spaces, '|' separates.
+// What a trace record says about a move, in a spelling parseMove reads back; a dash, not a
+// space or slash -- key=value, no spaces, '|' separates.
 [[nodiscard]] inline std::string moveName(const Move &m) {
   return m.slides() ? std::string(travelName(m.travel)) + "-" + axisName(m.axis)
                     : std::string(travelName(m.travel));
 }
 
-// The entry stagger as pure arithmetic, spread handed in (staggered() in clocks.cpp reads
-// it from anim::param(), unreachable from a test). n <= 1 returns base.
+// Spread is handed in because anim::param() is unreachable from a test; n <= 1 returns base.
 [[nodiscard]] double stagger(double base, int i, int n, double spread);
 
-// Which leaf drives the master clock. jumpMode means the overview was closed by a digit
-// key: the window keeps flying, and the clock carrying the close has to keep carrying it.
+// Which leaf drives the master clock: on a jumpMode close the window keeps flying, and the
+// clock carrying the close has to keep carrying it.
 enum class MasterLeaf : std::uint8_t { Open, Close, JumpOut };
 
 [[nodiscard]] constexpr MasterLeaf masterLeaf(bool jumpMode, bool opening) {
@@ -162,18 +153,15 @@ enum class MasterLeaf : std::uint8_t { Open, Close, JumpOut };
   return opening ? MasterLeaf::Open : MasterLeaf::Close;
 }
 
-// true = the backdrop fades with the clock; false = it holds at full while the real
-// windows' own blur covers the exit (AGENTS.md: never fade out with windows present).
+// false = the backdrop holds while the real windows' blur covers the exit (never fade out
+// with windows present).
 [[nodiscard]] constexpr bool backdropFades(bool opening, bool landingEmpty) {
   return opening || landingEmpty;
 }
 
-// What the toggle key means: while the overview is up it takes me to what I am looking at
-// (Enter's meaning), and it only opens when the overview is down.
 enum class DismissIntent : std::uint8_t { Open, Cancel, Commit };
 
-// False on an empty workspace: committing nothing is cancelling, not an activateSelection()
-// that quietly closes.
+// False on an empty workspace: committing nothing is cancelling, not an activateSelection().
 [[nodiscard]] constexpr DismissIntent toggleIntent(bool overviewOpen,
                                                   bool haveFocusableTile) {
   if (!overviewOpen)
@@ -181,24 +169,19 @@ enum class DismissIntent : std::uint8_t { Open, Cancel, Commit };
   return haveFocusableTile ? DismissIntent::Commit : DismissIntent::Cancel;
 }
 
-// Home = the window belongs to the workspace this close lands on, so its natural box is
-// where it is genuinely going. InPlace otherwise: a box on a workspace that is not coming
-// is a lie.
+// Home = the window belongs to the workspace this close lands on; InPlace otherwise -- a box
+// on a workspace that is not coming is a lie.
 enum class TileExit : std::uint8_t { Home, InPlace };
 
 [[nodiscard]] constexpr TileExit tileExit(bool windowOnLandingWs) {
   return windowOnLandingWs ? TileExit::Home : TileExit::InPlace;
 }
 
-// One predicate so both layouts ask it: a card hides when it cannot land (nothing is being
-// committed, or its window is not on the workspace we land on) or when it is not the
-// focused card in the carousel.
 [[nodiscard]] constexpr bool cardHides(int carouselDepth, bool canLand) {
   return !canLand || carouselDepth != 0;
 }
 
-// Shrink toward the card's own centre: out runs 0 -> 1 across the close, collapse is the
-// fraction it occupies. collapse <= 0 would divide by zero -- a NaN box the compositor draws.
+// collapse <= 0 would divide by zero -- a NaN box the compositor draws.
 [[nodiscard]] constexpr double hideShrink(double out, double collapse) {
   const double c = collapse > 1e-6 ? collapse : 1e-6;
   const double k = 1.0 - out / c;

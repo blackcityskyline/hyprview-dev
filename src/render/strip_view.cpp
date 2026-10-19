@@ -33,9 +33,7 @@ void Overview::renderStrip() const {
   if (!m || m_strip.empty())
     return;
   const double e = eased();
-  // A windowed exit holds the overlay PAST the animation, waiting for Hyprland to rebuild its
-  // blur, while m_place.progress.raw() is already 1e-6. Gating on e alone dropped the whole
-  // strip while the overlay was still up, so the band vanished in one frame.
+  // Windowed exit holds the overlay PAST the animation, so gate on blurAlpha(), not e.
   const double stripE = blurAlpha();
   if (stripE <= 0.01)
     return;
@@ -44,31 +42,16 @@ void Overview::renderStrip() const {
   const float roundPow     = cfg::look.preview_round_power;
 
 
-    // Never blur-sample currentFB here: a solitary fullscreen window bypasses
-    // shouldRenderWindow and would leak into the band.
-    // smoothstep, not e: e is front-loaded enough to go 0.03 -> 0.33 between two frames, so a
-    // band at 0.141 alpha covered its whole range in four -- one frame, perceptually -- while
-    // everything it sits behind arrived on its own slower curves.
-    // Written out rather than curves::eval("easeinout", ...): that call returns garbage on its
-    // FIRST invocation (bandE=6.727 for e=0.025, where the curve is 6.25e-5).
-    // m_place.progress.raw(), NOT e: a shaped curve is directional, front-loaded in and
-    // slow-then-collapsing out. progress.raw() is elapsed/duration, so it fades evenly both ways.
-    // The band is chrome, not backdrop: its opacity is the same number in every state. On the
-    // way OUT it fades on exitT(), the same number the cards leave on -- stripE is pinned to
-    // 1.0 by blurAlpha() on a close, so the band would sit at full alpha the whole exit.
+    // Chrome, not backdrop: blurAlpha() is pinned to 1.0 on a close, so the way out fades on
+    // exitT(), the same number the cards leave on.
   const double bandE = opening() ? stripE : exitT();
   auto bandCol       = cfg::colors.strip_band.get(bandE);
-  // strip_band_opacity is the single source of the band's alpha; the colour string's own
-  // alpha is ignored. Below ~60% the band reads at two different densities on the same
-  // screen depending on whether a blurred or a sharp backdrop is behind it, which is the
-  // instability this removes.
+  // strip_band_opacity is the single source of the band's alpha; the colour string's alpha is ignored.
   bandCol.a = std::clamp(cfg::strip.band_opacity.get() / 100.0, 0.0, 1.0) * bandE;
 
   const LRect bandR  = stripBand();
   const Vector2D slide = stripOffset(e);
-  // STRIPBAND: offset, alpha and the rect it was derived from. The band was reported blinking
-  // for one frame on focus, and offset and alpha are two causes identical from outside: a card
-  // growing into the band pushes it, and anything moving bandE takes the alpha with it.
+  // STRIPBAND: offset, alpha and the rect they came from -- two causes of a blink look alike.
   debug::trace::ring("strip_band", LRect{slide.x, slide.y, bandCol.a, bandE}, 0, bandE);
   debug::trace::ring("strip_band_rect", stripBand(), 0, bandE);
   safeRenderRect("band", pxb(CBox(bandR.x + slide.x, bandR.y + slide.y, bandR.w, bandR.h), s),
@@ -143,9 +126,6 @@ void Overview::renderStrip() const {
           safeRenderRect("all", pxb(CBox(gx + col * (cw + cg), gy + r * (ch + cg), cw, ch), s),
                    allCol, {.round = pxr(2, s)});
     } else {
-      // Wallpaper under the windows too, not just on empty cards: a card with a floating
-      // window showed flat card colour everywhere the window did not cover, which read as
-      // "no wallpaper at all". The window paints over it, so this fills what is left.
       if (cfg::strip.wallpaper != 0) {
         SP<Render::ITexture> tex = backdropSourceTexture();
         if (tex && tex->ok()) {
@@ -179,7 +159,6 @@ void Overview::renderStrip() const {
           uvBR = Vector2D{-1.0, -1.0};
         }
       }
-      // Per-slot backing: a transparent thumbnail would bleed the band through.
       if (!suppressContent) {
         for (size_t j = 0; j < it.wins.size(); ++j) {
           const auto &sw = it.wins[j];
@@ -216,7 +195,6 @@ void Overview::renderStrip() const {
         lw *= k;
         lh *= k;
       }
-      // 26 is reserved above every card by buildStrip in both layouts.
       const double labelBand = cfg::strip.label_band;
       const double lx = card.cx() - lw / 2.0;
       const double ly = card.y - labelBand + (labelBand - lh) / 2.0;
@@ -262,27 +240,20 @@ void Overview::renderStripWindows() const {
       if (swapfxActive(w, true))
         continue;
       const LRect slot = stripWinSlotRect(it, card, j);
-      // A slot smaller than a pixel cannot carry content and renderWindowLive drops it on
-      // exactly that check, so a stashed or floating window would leave no trace at all.
       if (slot.w < 1.0 || slot.h < 1.0)
         debug::dbg("strip slot dropped: card " + std::to_string(i) + " slot " +
                    std::to_string(j) + " rel=" + std::to_string(it.wins[j].rel.w) +
                    "x" + std::to_string(it.wins[j].rel.h) + " -> " +
                    std::to_string(slot.w) + "x" + std::to_string(slot.h));
       const int round = clampRound(previewRound, slot.w, slot.h);
-      // renderWindowLive takes monitor PIXEL coords; pxb()'s .round() snap keeps
-      // content off the chrome by a sub-pixel (hairline gap at the corner).
       const CBox slotPx = pxb(slot, scale);
       const CBox cardPx = pxb(card, scale);
       if (slot.w >= 1.0 && slot.h >= 1.0 && it.ws && it.ws->m_isSpecialWorkspace)
-        // About to be handed to renderWindowLive, which drops it again if the pixel box rounds
-        // to nothing. Only special cards: once per card per frame, it would bury everything.
         debug::dbg("strip special slot: " + std::to_string(slotPx.w) + "x" +
                    std::to_string(slotPx.h) + "px of " + std::to_string(slot.w) + "x" +
                    std::to_string(slot.h) + " card=" + std::to_string(card.w) + "x" +
                    std::to_string(card.h));
-      // The slot's own ring is a hover/select ring when grabbed; otherwise the
-      // plain border. Whichever it is, the content radius has to follow it.
+      // Grab ring or plain border: whichever is on top, the content radius follows it.
       const int ringW = stripSlotGrabbed(i, j) ? 2 : cfg::look.border_size;
       renderWindowLive(w, m, slotPx, cardPx, static_cast<float>(e), when,
                        contentRadiusPx(round, ringW, roundPow, scale),
@@ -329,7 +300,6 @@ void Overview::renderStripButtons() const {
       continue;
     const LRect card = stripCardAt(i);
 
-    // RMB: slot under the cursor on EVERY card — a partner, not a destination.
     if (dropping) {
       const auto hoverCol = argb(cfg::colors.hover_border.get(e));
       const auto hintCol  = argb(cfg::colors.drop_hint.get(e));
@@ -394,7 +364,6 @@ void Overview::renderStripButtons() const {
       }
     }
 
-    // Plain circle on purpose: a squircle looks broken at a custom roundingPower.
     if (showClose) {
       const LRect br = closeButtonRect(card);
       const double rad = br.w / 2.0;

@@ -11,37 +11,30 @@ namespace gloview::session {
 
 namespace {
 
-// The installed hooks, one pointer rather than four raw originals: every hook body needs the
-// function it replaces.
+// One pointer, not four raw originals: every hook body needs the function it replaces.
 Hooks *g_hooks = nullptr;
 
 using PSHOULDRENDER = bool (*)(void *, PHLWINDOW, PHLMONITOR);
 
-// --- input routing ---------------------------------------------------------
 
-// shouldRenderWindow hides the real windows from the RENDERER only: CSeatManager still hands
-// them pointer and keyboard focus, and Event::bus() carries no focus event to block.
+// shouldRenderWindow hides windows from the RENDERER only: CSeatManager still hands them focus.
 
-// Hooked where input BECOMES addressed, not at the send* calls: blocking a send leaves the
-// seat believing the window still has focus, and the compositor keeps routing to it.
+// Hooked where input BECOMES addressed, not at the send* calls: blocking a send leaves the seat believing the window still has focus.
 using PSETKEYFOCUS = void (*)(void *, SP<CWLSurfaceResource>);
 using PSETPTRFOCUS = void (*)(void *, SP<CWLSurfaceResource>, const Vector2D &);
 
-// openedOrParked() rather than active(): the parked frames are already the overview's and
-// input must not reach the windows it covers. m_pendingDeactivate is NOT included.
+// openedOrParked() rather than active(): input must not reach windows the parked frames still cover.
 bool inputRoutedAway() {
   return g_overview && g_overview->openedOrParked();
 }
 
-// The hooks refuse to move focus but do not drop the one already held: without this the
-// window under the cursor keeps receiving motion. refocus() re-runs Hyprland's resolution.
+// The hooks refuse to move focus but do not drop the one already held; refocus() re-runs Hyprland's resolution.
 void hkSetKeyboardFocus(void *thisptr, SP<CWLSurfaceResource> surf) {
   const auto orig = reinterpret_cast<PSETKEYFOCUS>(
       g_hooks ? g_hooks->setKeyboardFocusOrig() : nullptr);
   if (!orig)
     return;
-  // nullptr is Hyprland's own "no window has focus" value: the seat ends in a clean state
-  // rather than a stale one.
+  // nullptr is Hyprland's own "no window has focus" value.
   orig(thisptr, inputRoutedAway() ? nullptr : surf);
 }
 
@@ -71,8 +64,7 @@ bool hkShouldRenderWindow(void *thisptr, PHLWINDOW window, PHLMONITOR monitor) {
   return orig ? orig(thisptr, window, monitor) : true;
 }
 
-// commitWindow's "visible" is !isHidden, NOT shouldRenderWindow: a hidden window would still
-// pin the compositor
+// commitWindow's "visible" is !isHidden, NOT shouldRenderWindow: a hidden window would still pin the compositor
 using PDAMAGESURFACE =
     void (*)(void *, SP<CWLSurfaceResource>, double, double, double);
 
@@ -101,7 +93,7 @@ void hkDamageSurface(void *thisptr, SP<CWLSurfaceResource> pSurface, double x,
     orig(thisptr, pSurface, x, y, scale);
 }
 
-} // namespace
+}
 
 Hooks::~Hooks() {
   const auto drop = [this](CFunctionHook *&slot) {
@@ -151,7 +143,6 @@ bool Hooks::install(HANDLE handle, void *self) {
           info.cancelled = true;
       });
 
-  // The demangled match names the REAL type, not PHLMONITOR.
   const auto findBySignature = [&](const char *name, const std::string &sig) {
     for (const auto &mt : HyprlandAPI::findFunctionsByName(m_handle, name))
       if (mt.demangled.find(sig) != std::string::npos)
@@ -202,8 +193,7 @@ bool Hooks::install(HANDLE handle, void *self) {
         CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
   }
 
-  // Both input hooks are required: half of this is worse than none -- modal for the keyboard
-  // and not for the mouse.
+  // Both input hooks are required: half of this is worse than none -- modal for the keyboard and not for the mouse.
   struct FocusHook {
     const char *name;
     const char *sig;
@@ -245,4 +235,4 @@ bool Hooks::install(HANDLE handle, void *self) {
   return true;
 }
 
-} // namespace gloview::session
+}
