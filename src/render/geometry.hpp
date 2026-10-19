@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 
+#include "../anim_types.hpp"
 #include "../layout.hpp"
 
 // Pure geometry, monitor-local LOGICAL px: no GL, no Hyprland, no config reads (AGENTS.md 2.15).
@@ -445,6 +446,75 @@ struct CoverUV {
     uv.u1 = (1.0 + f) / 2.0;
   }
   return uv;
+}
+
+// The kill zone sits at the screen edge OPPOSITE the strip.
+[[nodiscard]] inline LRect killZoneRect(Anchor strip, double screenW, double screenH,
+                                        double thickness) {
+  const bool atTop = strip == Anchor::Bottom;
+  return LRect{0.0, atTop ? 0.0 : screenH - thickness, screenW, thickness};
+}
+
+// The flight of a swap: four kinds, one answer each. A swap on the vertical axis
+// is NOT a slide on Y -- it arcs up and comes down on the other card.
+struct SwapFlight {
+  LRect box;
+  double alpha = 1.0;
+};
+
+struct SwapFlightInput {
+  anim::Travel travel = anim::Travel::Slide;
+  anim::Axis axis = anim::Axis::Horizontal;
+  LRect from;
+  LRect to;
+  double t = 0.0;     // raw time, 0..1
+  double p = 0.0;     // eased progress of the whole flight
+  double q1 = 0.0;    // curve at t / 0.5
+  double q2 = 0.0;    // curve at (t - 0.5) / 0.5
+  double popK = 1.0;  // 0.7 + 0.3 * cardCurve((t - 0.3) / 0.7)
+  double lift = 0.0;
+};
+
+[[nodiscard]] inline SwapFlight swapFlight(const SwapFlightInput &in) {
+  SwapFlight f;
+  if (in.travel == anim::Travel::Slide && in.axis == anim::Axis::Vertical) {
+    if (in.t < 0.5) {
+      f.box = in.from;
+      f.box.y = in.from.y - (in.from.h + in.lift) * in.q1;
+    } else {
+      f.box = in.to;
+      f.box.y = in.to.y - (in.to.h + in.lift) * (1.0 - in.q2);
+      f.alpha = std::min(1.0, in.q2 * 2.0);
+    }
+    return f;
+  }
+  if (in.travel == anim::Travel::Fade) {
+    if (in.t < 0.5) {
+      f.box = in.from;
+      f.alpha = 1.0 - in.t / 0.5;
+    } else {
+      f.box = in.to;
+      f.alpha = (in.t - 0.5) / 0.5;
+    }
+    return f;
+  }
+  if (in.travel == anim::Travel::Pop) {
+    if (in.t < 0.3) {
+      f.box = in.from;
+      f.alpha = 1.0 - in.t / 0.3;
+    } else {
+      const double k = in.popK;
+      f.box = in.to;
+      f.box.x = in.to.x + in.to.w * (1.0 - k) / 2.0;
+      f.box.y = in.to.y + in.to.h * (1.0 - k) / 2.0;
+      f.box.w = in.to.w * k;
+      f.box.h = in.to.h * k;
+      f.alpha = std::min(1.0, (in.t - 0.3) / 0.7 * 3.0);
+    }
+    return f;
+  }
+  f.box = lerp(in.from, in.to, in.p);
+  return f;
 }
 
 // How far the strip assembly leaves the band's edge: the deepest card penetration,

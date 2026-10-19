@@ -132,9 +132,8 @@ LRect Overview::killZoneRect() const {
     return {};
   if (cfg::behavior.kill_zone == 0)
     return {};
-  const double kH = cfg::behavior.kill_zone_size;
-  const bool atTop = stripAnchor() == Anchor::Bottom;
-  return LRect{0.0, atTop ? 0.0 : m->m_size.y - kH, m->m_size.x, kH};
+  return render::killZoneRect(stripAnchor(), m->m_size.x, m->m_size.y,
+                               cfg::behavior.kill_zone_size);
 }
 
 double Overview::killZoneGlow(double lx, double ly) const {
@@ -272,64 +271,34 @@ void Overview::renderSwapFX() const {
     if (dests.empty())
       continue;
 
-    const double t   = fx.clock.raw(fx.ms);
-    const double p   = curves::eval(fx.curve, t);
+    const double t = fx.clock.raw(fx.ms);
+    const double p = curves::eval(fx.curve, t);
+    const bool vertical = fx.style.travel == anim::Travel::Slide &&
+                          fx.style.axis == anim::Axis::Vertical;
+    render::SwapFlightInput flight;
+    flight.travel = fx.style.travel;
+    flight.axis = fx.style.axis;
+    flight.t = t;
+    flight.p = p;
+    flight.lift = cfg::look.swap_lift;
+    if (vertical) {
+      flight.q1 = curves::eval(fx.curve, t / 0.5);
+      flight.q2 = curves::eval(fx.curve, (t - 0.5) / 0.5);
+    }
+    if (fx.style.travel == anim::Travel::Pop)
+      flight.popK = 0.7 + 0.3 * curves::eval(anim::cfg(anim::Id::Card).curve, (t - 0.3) / 0.7);
     for (const LRect &to : dests) {
     // No ring here: the pulse owns rings.
-    double bx = 0, by = 0, bw = 0, bh = 0;
-    float alpha = 1.0F;
-
-    // "slidevert" arcs the card up and down: a swap on the vertical axis is NOT a slide on Y.
-    if (fx.style.travel == anim::Travel::Slide &&
-        fx.style.axis == anim::Axis::Vertical) {
-      const double LIFT = cfg::look.swap_lift;
-      if (t < 0.5) {
-        const double q = curves::eval(fx.curve, t / 0.5);
-        bx = fx.from.x;
-        by = fx.from.y - (fx.from.h + LIFT) * q;
-        bw = fx.from.w;
-        bh = fx.from.h;
-      } else {
-        const double q = curves::eval(fx.curve, (t - 0.5) / 0.5);
-        bx = to.x;
-        by = to.y - (to.h + LIFT) * (1.0 - q);
-        bw = to.w;
-        bh = to.h;
-        alpha = static_cast<float>(std::min(1.0, q * 2.0));
-      }
-    } else if (fx.style.travel == anim::Travel::Fade) {
-      if (t < 0.5) {
-        bx = fx.from.x; by = fx.from.y; bw = fx.from.w; bh = fx.from.h;
-        alpha = static_cast<float>(1.0 - t / 0.5);
-      } else {
-        bx = to.x; by = to.y; bw = to.w; bh = to.h;
-        alpha = static_cast<float>((t - 0.5) / 0.5);
-      }
-    } else if (fx.style.travel == anim::Travel::Pop) {
-      if (t < 0.3) {
-        bx = fx.from.x; by = fx.from.y; bw = fx.from.w; bh = fx.from.h;
-        alpha = static_cast<float>(1.0 - t / 0.3);
-      } else {
-        const double q = (t - 0.3) / 0.7;
-        const double k = 0.7 + 0.3 * curves::eval(anim::cfg(anim::Id::Card).curve, q);
-        bx = to.x + to.w * (1.0 - k) / 2.0;
-        by = to.y + to.h * (1.0 - k) / 2.0;
-        bw = to.w * k;
-        bh = to.h * k;
-        alpha = static_cast<float>(std::min(1.0, q * 3.0));
-      }
-    } else {
-      bx = lerp(fx.from.x, to.x, p);
-      by = lerp(fx.from.y, to.y, p);
-      bw = lerp(fx.from.w, to.w, p);
-      bh = lerp(fx.from.h, to.h, p);
-    }
+    flight.from = fx.from;
+    flight.to = to;
+    const auto moved = render::swapFlight(flight);
+    const LRect box = moved.box;
+    const float alpha = static_cast<float>(moved.alpha);
 
     // A flight draws at EVERY surface the window occupies, sizes orders of magnitude apart, so
     // the box can shrink past a pixel: renderRoundedShadow RASSERTs, and that takes the session.
-    const LRect box{bx, by, bw, bh};
     const CBox px = pxb(box, s);
-    const int lr = clampRound(round, bw, bh); // logical: dropShadow scales it
+    const int lr = clampRound(round, box.w, box.h); // logical: dropShadow scales it
     if (alpha > 0.02F)
       dropShadow(box, s, cfg::colors.shadow.get(), 6.0, 16.0,
                  static_cast<float>(0.18 * alpha), lr, roundPow);

@@ -258,6 +258,113 @@ static void theStripDecidesItsOwnShapes() {
   std::puts("the strip: band alpha, label box, two glyphs, and the wallpaper crop");
 }
 
+// The flight of a swap: four kinds, one answer each. These were branches inside the
+// render loop, where a change of one number moved a card and nothing said so.
+static void theFlightHasFourKinds() {
+  using hyprview::anim::Axis;
+  using hyprview::anim::Travel;
+  using hyprview::render::swapFlight;
+  using hyprview::render::SwapFlightInput;
+
+  const LRect from{0.0, 0.0, 100.0, 100.0};
+  const LRect to{200.0, 0.0, 100.0, 100.0};
+
+  // A plain slide: the card travels from one box to the other.
+  {
+    SwapFlightInput in;
+    in.travel = Travel::Slide;
+    in.axis = Axis::Horizontal;
+    in.from = from;
+    in.to = to;
+    in.p = 0.5;
+    const auto f = swapFlight(in);
+    sameRect(f.box, LRect{100.0, 0.0, 100.0, 100.0}, "halfway is halfway");
+    near(f.alpha, 1.0, "a slide does not fade");
+  }
+
+  // The vertical swap is an ARC, not a slide on Y: the card leaves upwards by its own
+  // height plus the lift, and comes down on the other card.
+  {
+    SwapFlightInput in;
+    in.travel = Travel::Slide;
+    in.axis = Axis::Vertical;
+    in.from = from;
+    in.to = to;
+    in.lift = 12.0;
+    in.t = 0.0;
+    in.q1 = 0.0;
+    const auto start = swapFlight(in);
+    sameRect(start.box, from, "it starts where it was");
+
+    in.t = 0.25;
+    in.q1 = 1.0;
+    const auto up = swapFlight(in);
+    near(up.box.y, -(100.0 + 12.0), "it leaves upwards by its height and the lift");
+
+    in.t = 0.5;
+    in.q2 = 0.0;
+    const auto apex = swapFlight(in);
+    near(apex.box.y, -(100.0 + 12.0), "the apex is over the destination");
+    near(apex.alpha, 0.0, "and the card is gone at the turn");
+
+    in.t = 1.0;
+    in.q2 = 1.0;
+    const auto end = swapFlight(in);
+    sameRect(end.box, to, "it lands on the other card");
+    near(end.alpha, 1.0, "and it is back");
+  }
+
+  // A fade crosses over at the midpoint.
+  {
+    SwapFlightInput in;
+    in.travel = Travel::Fade;
+    in.from = from;
+    in.to = to;
+    in.t = 0.25;
+    const auto first = swapFlight(in);
+    sameRect(first.box, from, "the first half is the old card");
+    near(first.alpha, 0.5, "fading out");
+    in.t = 0.75;
+    const auto second = swapFlight(in);
+    sameRect(second.box, to, "the second half is the new card");
+    near(second.alpha, 0.5, "fading in");
+  }
+
+  // A pop shrinks to 70% and grows back with the card curve.
+  {
+    SwapFlightInput in;
+    in.travel = Travel::Pop;
+    in.from = from;
+    in.to = to;
+    in.t = 0.15;
+    const auto first = swapFlight(in);
+    sameRect(first.box, from, "the first part is the old card");
+    near(first.alpha, 0.5, "fading out");
+    in.t = 0.3;
+    in.popK = 0.7;
+    const auto shrunk = swapFlight(in);
+    near(shrunk.box.w, 70.0, "it shrinks to 70%");
+    near(shrunk.box.cx(), to.cx(), "about its own centre");
+    in.t = 1.0;
+    in.popK = 1.0;
+    const auto grown = swapFlight(in);
+    sameRect(grown.box, to, "and it grows back onto the card");
+    near(grown.alpha, 1.0, "and it is back");
+  }
+  std::puts("the flight: slide, vertical arc, fade, pop");
+}
+
+// The kill zone sits at the screen edge opposite the strip.
+static void theKillZoneIsOppositeTheStrip() {
+  using hyprview::render::Anchor;
+  using hyprview::render::killZoneRect;
+  const auto top = killZoneRect(Anchor::Bottom, 1920.0, 1080.0, 120.0);
+  sameRect(top, LRect{0.0, 0.0, 1920.0, 120.0}, "a bottom strip leaves the zone at the top");
+  const auto bottom = killZoneRect(Anchor::Top, 1920.0, 1080.0, 120.0);
+  sameRect(bottom, LRect{0.0, 960.0, 1920.0, 120.0}, "a top strip leaves the zone at the bottom");
+  std::puts("the kill zone: opposite the strip");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -600,6 +707,8 @@ int main() {
   pillFitsCard();
   captionFollowsItsCard();
   theStripDecidesItsOwnShapes();
+  theFlightHasFourKinds();
+  theKillZoneIsOppositeTheStrip();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;
