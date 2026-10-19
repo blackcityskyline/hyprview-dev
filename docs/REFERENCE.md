@@ -6,8 +6,8 @@
 | Документ | Что внутри |
 |---|---|
 | `../AGENTS.md` | правила, архитектура, чеклист. Читать перед изменением |
-| `manual-test-cases.md` | 44 ручных кейса, 12 помечены `·часто·` |
-| `feat-stash-secret.md` | что делает фича «стеллаж» |
+| `manual-test-cases.md` | 46 ручных кейсов, 12 помечены `·часто·` |
+| `ROADMAP.md` | что сделано и что дальше |
 
 ---
 
@@ -112,13 +112,13 @@
 
 ## Ключи блюра
 
-| Ключ | Строка | Тип | Дефолт | Смысл |
-|---|---|---|---|---|
-| `blur` | 177 | float | `1.0` | сила блюра, 0 = выкл |
-| `blur_passes` | 131 | int 1..16 | `3` | итераций гауссиана на дне |
-| `blur_size` | 132 | int 1..200 | `8` | радиус в пикселях экрана |
-| `blur_resolution` | 133 | int 1..32 | `4` | глубина пирамиды |
-| `backdrop_color` | 219 | colour | `0x73070a10` | dim, рисуется отдельным rect'ом |
+| Ключ | Тип | Дефолт | Смысл |
+|---|---|---|---|
+| `blur` | float | `1.0` | сила блюра, 0 = выкл |
+| `blur_passes` | int 1..16 | `3` | итераций гауссиана на дне |
+| `blur_size` | int 1..200 | `8` | радиус в пикселях экрана |
+| `blur_resolution` | int 1..32 | `4` | глубина пирамиды |
+| `backdrop_color` | colour | `0x73070a10` | dim, рисуется отдельным rect'ом |
 
 ---
 
@@ -138,13 +138,24 @@
 
 | Тег | События | Источник |
 |---|---|---|
-| `ANIM\|` | `begin`, `end`, `reject` | `beginSwapFX`, `animStart` (13 мест) |
+| `ANIM\|` | `begin`, `end`, `reject` | `beginSwapFX`, `animStart` |
 | `LIFE\|` | `park`, `promote`, `abort`, `close`, `requestDeactivate`, `deactivate`, `open` | `Lifecycle` |
 | `DRAG\|` | `release`, `branch` | `input/mouse.cpp` |
 | `SCROLL\|` | `setMax`, `glide`, `snap` | `ScrollState` |
 | `SWAP\|` | `decide` | `swapWindows` |
 | `CMD\|` | `ok`, `err` | шов `cmd()` |
 | `STATE\|` | — | команда `state` |
+| `TABS\|` | `load`, `match` | `buildTiles` |
+| `GL\|` | `at=paint`, `leak` | `state_fence.hpp` |
+| `RING\|` | `kind=<...>` | `log.cpp` |
+| `CURSOR\|` | `mode=<...>` | `cursor.cpp` |
+| `CURSORMV\|` | `at=<open\|closed>` | `input/mouse.cpp` |
+| `DOMAIN\|` | `to=<windows\|tabs\|both>` | `lifecycle.cpp` |
+| `TILEBOX\|` | `i=<n>` | `clock/placement.cpp` |
+| `TRACE\|` | `gate=<n>` | команда `trace` |
+
+Пять семейств гейтятся маской (биты ниже). Остальные теги пишутся всегда,
+пока `debug_trace` не ноль.
 
 `DRAG|` и `SWAP|` — семейства, **зависящие от человека**: их нельзя
 произвести командой, шов ставит состояние, а не двигает мышь. Автоматических
@@ -162,8 +173,8 @@ SKIP, хуже отсутствующей.
 
 ## Маска и файл
 
-`debug_trace` — **маска, не флаг**. `0` выключено, `1` включает всё (старое
-значение означает то же, что и раньше), иначе — побитовое ИЛИ:
+`debug_trace` — **маска, не флаг**. `0` выключено, `1` включает всё, иначе —
+побитовое ИЛИ:
 
 | Бит | Семейство |
 |---|---|
@@ -257,40 +268,17 @@ hyprctl eval 'hl.plugin.hyprview.cmd("set debug_trace 1")'
 
 # 4. Ключи анимаций
 
-Реестр в `src/anim.cpp`, `kRows`. Длительности читаются на месте **каждый кадр**,
-поэтому правка конфига видна сразу.
+Реестр в `src/anim.cpp`, `kRows`; листья, базовые длительности, кривые и стили —
+таблица в `README.md`. Здесь только правила:
 
-| leaf | мс | кривая | стиль | что двигает |
-|---|---|---|---|---|
-| `open` | | | | открытие овервью |
-| `close` | | | | закрытие |
-| `glide` | | | | глид плиток `natural → target` |
-| `appear` | | | | вход плиток |
-| `card` | | | | новая карточка |
-| `pulse` | | | | пульс |
-| `strip_step` | 300 | easeout | | шаг скролла полосы |
-| `ws_enter` | 250 | easeout | `slide` | вход при смене воркспейса |
-| `ws_exit` | 250 | easeout | `slide` | уход |
-| `expo_in` / `expo_out` | 250 | easeout | | флип all↔one |
-| `jump_in` / `jump_out` | 180 | easeout | | digit-jump |
-| `swap_main` | | | | ведущая карточка свопа |
-| `swap_partner` | | | | вторая карточка |
-| `drop` | | | | снос |
-| `swap_fly` | | | | полёт после дропа |
-| `lift` | | | | подъём при перетаскивании |
-| `carousel_step` | 300 | easeout | | шаг карусели |
-| `new_card` | 180 | easeout | | масштаб новой карточки |
-
-Стили (`ws_enter_style`, `ws_exit_style`): `slide` \| `slidevert` \| `fade` \| `pop`.
-`pop` масштабирует, остальные возвращаются раньше ветки scale-in.
-
-Стили свопа (`grid_swap_style`, `strip_swap_style`): `horizontal` \| `slidevert`
-\| `fade` \| `pop`. `horizontal` — дефолт и **единственный, что раньше не
-анимировался**; теперь все стили стартуют полёт.
-
-`jump_style` добавляет `instant`.
-
----
+- Длительности читаются на месте **каждый кадр**, поэтому правка конфига видна сразу.
+- Каждый лист читает `<leaf>_enabled`, `<leaf>_ms`, `<leaf>_speed`, `<leaf>_curve`;
+  у листьев со стилем есть `<leaf>_style`.
+- Стили (`ws_enter_style`, `ws_exit_style`): `slide` | `slidevert` | `fade` | `pop`.
+  `slidevert` (и `slide-vertical`) — вертикальная ось.
+- Стили свопа (`grid_swap_style`, `strip_swap_style`): тот же набор плюс
+  `horizontal` (алиас `slide`); дефолт — `horizontal`.
+- `jump_style` добавляет `instant`.
 
 # 5. Приоритет настроек
 
