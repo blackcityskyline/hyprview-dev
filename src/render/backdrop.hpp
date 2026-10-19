@@ -72,8 +72,11 @@ class Backdrop {
     [[nodiscard]] bool computeBlur(const BackdropFrame &f, const SP<Render::ITexture> &src) const;
 
     mutable BlurCache m_blur;
-    mutable SP<Render::IFramebuffer> m_srcFB, m_scratchFB, m_probeFB;
+    mutable SP<Render::IFramebuffer> m_srcFB, m_scratchFB;
     mutable bool m_drawn = false;
+    // The blur has been rendered into its FB at least once: the base may be that blur
+    // even when it is stale, and even when it is dark.
+    mutable bool m_blurDrawn = false;
     // The layer texture the committed composite was made from, compared on every open.
     mutable const void *m_srcTex = nullptr;
     // Video wallpaper: the source texture changes every frame, so it is composited once and held.

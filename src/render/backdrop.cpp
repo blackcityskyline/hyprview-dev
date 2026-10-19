@@ -180,8 +180,10 @@ bool Backdrop::computeBlur(const BackdropFrame &f, const SP<Render::ITexture> &s
       m_blur.fb->m_size != Vector2D(W, H)) {
     if (!m_blur.fb)
       m_blur.fb = g_pHyprRenderer->createFB("hyprview blur");
-    if (!m_blur.fb->isAllocated() || m_blur.fb->m_size != Vector2D(W, H))
+    if (!m_blur.fb->isAllocated() || m_blur.fb->m_size != Vector2D(W, H)) {
       m_blur.fb->alloc(W, H);
+      m_blurDrawn = false;
+    }
 
     const auto oldProjType = g_pHyprRenderer->m_renderData.projectionType;
     const auto oldFbSize   = g_pHyprRenderer->m_renderData.fbSize;
@@ -202,6 +204,7 @@ bool Backdrop::computeBlur(const BackdropFrame &f, const SP<Render::ITexture> &s
       return false;
     }
     m_blur.valid = true;
+    m_blurDrawn = true;
   }
   return true;
 }
@@ -240,64 +243,28 @@ void Backdrop::render(const BackdropFrame &f) const {
     const bool blurCacheReady = m_blur.fb && m_blur.fb->isAllocated() &&
         m_blur.fb->m_size == Vector2D(W, H);
     const auto cachedTex = blurCacheReady ? m_blur.fb->getTexture() : nullptr;
-    // Reading m_blur.fb directly returns multisample garbage: probe through a 1x1 FB instead.
-    bool cachedUsable = false;
-    unsigned char q[4] = {0, 0, 0, 0};
-    if (!m_probeFB)
-      m_probeFB = g_pHyprRenderer->createFB("hyprview cache probe");
-    if (cachedTex && cachedTex->ok() && m_probeFB) {
-      if (!m_probeFB->isAllocated())
-        m_probeFB->alloc(1, 1);
-      GLint bnd = 0;
-      GLint vp[4] = {0, 0, 0, 0};
-      glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bnd);
-      glGetIntegerv(GL_VIEWPORT, vp);
-      m_probeFB->bind();
-      g_pHyprOpenGL->setViewport(0, 0, 1, 1);
-      // Three samples: a single one can land in a legitimately dark corner.
-      const CBox spots[3] = {CBox(0, 0, 1, 1), CBox(0.25F, 0.25F, 1, 1),
-                             CBox(0.75F, 0.75F, 1, 1)};
-      int lit = 0;
-      // Restore through the API, never raw GL: raw glEnable desyncs the cap cache and the
-      // next scissor(nullptr) early-returns (OpenGL.cpp:2620), clipping the rest of the frame.
-      const bool scissorOn = glIsEnabled(GL_SCISSOR_TEST) == GL_TRUE;
-      const CBox  dmgExtents = g_pHyprRenderer->m_renderData.damage.getExtents();
-      g_pHyprOpenGL->scissor(nullptr);
-      for (const auto &spot : spots) {
-        g_pHyprOpenGL->renderTexture(cachedTex, spot, {.a = 1.0F});
-        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, q);
-        if (!render::looksBlack(q[0], q[1], q[2]))
-          lit++;
-      }
-      if (scissorOn)
-        g_pHyprOpenGL->scissor(dmgExtents);
-      glBindFramebuffer(GL_FRAMEBUFFER, bnd);
-      glViewport(vp[0], vp[1], vp[2], vp[3]);
-      cachedUsable = lit > 0;
-    }
-    if (cachedUsable) {
-      baseIsBlur = true;
-      debug::dbg("backdrop base=blur|blurOn=" + std::to_string(f.blurEnabled ? 1 : 0));
-      g_pHyprOpenGL->renderTexture(cachedTex, fullPx, {.a = baseA});
-    } else {
-      // The base is decided by ONE rule (AGENTS.md 2.28): with the blur on, the
-      // sharp source is not a base.
-      const auto base = backdropBase(f.blurEnabled, false);
-      debug::dbg(std::string("backdrop base=") +
-                 (base == BackdropBase::OpaqueDim ? "dim" : "source") +
-                 "|blurOn=" + std::to_string(f.blurEnabled ? 1 : 0));
-      switch (base) {
-        case BackdropBase::Blur:
-          break;
-        case BackdropBase::OpaqueDim:
-          safeRenderRect("backdrop", fullPx, CHyprColor(baseCol.r, baseCol.g, baseCol.b, 1.0F), {});
-          break;
-        case BackdropBase::Source: {
-          const auto comp = frameSource(f);
-          if (comp && comp->ok())
-            g_pHyprOpenGL->renderTexture(comp, fullPx, {.a = baseA});
-          break;
-        }
+    // "The blur EXISTS", not "the blur is LIT": a dark desktop blurs to a dark frame,
+    // and a pixel probe cannot tell that from an empty buffer -- it sent the base to
+    // the sharp source, which is the flash. What matters is that the base is blurred.
+    const bool blurUsable = cachedTex && cachedTex->ok() && m_blurDrawn;
+    const auto base = backdropBase(f.blurEnabled, blurUsable);
+    debug::dbg(std::string("backdrop base=") +
+               (base == BackdropBase::Blur ? "blur"
+                                           : (base == BackdropBase::OpaqueDim ? "dim" : "source")) +
+               "|blurOn=" + std::to_string(f.blurEnabled ? 1 : 0));
+    switch (base) {
+      case BackdropBase::Blur:
+        baseIsBlur = true;
+        g_pHyprOpenGL->renderTexture(cachedTex, fullPx, {.a = baseA});
+        break;
+      case BackdropBase::OpaqueDim:
+        safeRenderRect("backdrop", fullPx, CHyprColor(baseCol.r, baseCol.g, baseCol.b, 1.0F), {});
+        break;
+      case BackdropBase::Source: {
+        const auto comp = frameSource(f);
+        if (comp && comp->ok())
+          g_pHyprOpenGL->renderTexture(comp, fullPx, {.a = baseA});
+        break;
       }
     }
   }
