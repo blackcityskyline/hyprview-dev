@@ -496,6 +496,43 @@ static void aClickOnTheRunLandsOnTheFront() {
   std::puts("the click on the run: the front-most card, and only what is shown");
 }
 
+// The wallpaper covers the monitor, and a frame that is black everywhere is not
+// a backdrop.
+static void theWallpaperCoversTheMonitor() {
+  using hyprview::render::coverFit;
+  using hyprview::render::kSourceAnimatedStreak;
+  using hyprview::render::looksBlack;
+
+  // The same shape: it fills, exactly.
+  const auto same = coverFit(1920.0, 1080.0, 1920.0, 1080.0);
+  near(same.scale, 1.0, "no scaling for the same shape");
+  near(same.x, 0.0, "and no offset");
+  near(same.y, 0.0, "and no offset");
+
+  // The monitor is wider than the image: the image is scaled to the width and
+  // centred vertically, the overflow cut off.
+  const auto wide = coverFit(1920.0, 1080.0, 1920.0, 1200.0);
+  near(wide.scale, 1.0, "scaled to the width");
+  near(wide.y, -60.0, "and centred, the overflow cut off");
+
+  // The monitor is taller than the image: the other axis.
+  const auto tall = coverFit(1080.0, 1920.0, 1920.0, 1080.0);
+  near(tall.scale, 1920.0 / 1080.0, "scaled to the height");
+  near(tall.x, (1080.0 - 1920.0 * (1920.0 / 1080.0)) / 2.0, "and centred, the overflow cut off");
+
+  // Black is a frame that is nowhere lit. A dark frame of a video wallpaper is
+  // not black: the threshold is low.
+  want(looksBlack(0, 0, 0), true, "black is black");
+  want(looksBlack(7, 7, 7), true, "almost black is black");
+  want(looksBlack(8, 0, 0), false, "one lit channel is not black");
+  want(looksBlack(200, 200, 200), false, "a lit frame is not black");
+
+  // Animation is several changes in a row: one re-creation of a static wallpaper
+  // is not animation.
+  want(kSourceAnimatedStreak >= 2, true, "one change is not animation");
+  std::puts("the wallpaper: cover-fit, the black check, and what counts as animation");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -843,6 +880,7 @@ int main() {
   theWindowMapsIntoItsTile();
   theRunPaintsFarBeforeNear();
   aClickOnTheRunLandsOnTheFront();
+  theWallpaperCoversTheMonitor();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

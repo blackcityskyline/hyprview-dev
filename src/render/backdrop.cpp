@@ -54,15 +54,13 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
       tex = surf->m_current.texture.get();
       break;
     }
-  // Several changes IN A ROW: a one-off compositor re-creation of a static wallpaper is not animation.
-  static constexpr int kAnimatedStreak = 4;
   if (tex != m_lastObservedTex) {
     m_srcAnimStreak   = m_lastObservedTex ? m_srcAnimStreak + 1 : 0;
     m_lastObservedTex = tex;
   } else {
     m_srcAnimStreak = 0;
   }
-  m_srcAnimated = m_srcAnimStreak >= kAnimatedStreak;
+  m_srcAnimated = m_srcAnimStreak >= render::kSourceAnimatedStreak;
 
   if (m_drawn && (m_srcAnimated || (tex && tex == m_srcTex)))
     return m_srcFB->getTexture();
@@ -99,21 +97,12 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   safeRenderRect("backdrop", CBox(0, 0, W, H), argb(*PBG, 1.0), {});
 
   if (m->m_background && m->m_background->ok()) {
-    const double MONRATIO = static_cast<double>(W) / H;
-    const double WPRATIO = m->m_background->m_size.x / m->m_background->m_size.y;
-    double scale;
-    Vector2D origin;
-    if (MONRATIO > WPRATIO) {
-      scale = static_cast<double>(W) / m->m_background->m_size.x;
-      origin.y = (H - m->m_background->m_size.y * scale) / 2.0;
-    } else {
-      scale = static_cast<double>(H) / m->m_background->m_size.y;
-      origin.x = (W - m->m_background->m_size.x * scale) / 2.0;
-    }
+    const auto fit = render::coverFit(W, H, m->m_background->m_size.x,
+                                       m->m_background->m_size.y);
     g_pHyprOpenGL->renderTexture(m->m_background,
-                                 CBox{origin.x, origin.y,
-                                      m->m_background->m_size.x * scale,
-                                      m->m_background->m_size.y * scale},
+                                 CBox{fit.x, fit.y,
+                                      m->m_background->m_size.x * fit.scale,
+                                      m->m_background->m_size.y * fit.scale},
                                  {.a = 1.0F});
   }
 
@@ -146,7 +135,7 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   glReadPixels(W / 4, H / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, q);
   // Black check skipped for a live source: a dark frame of a video wallpaper IS the wallpaper.
   const bool haveContent = drew || m->m_background;
-  const bool good = haveContent && (m_srcAnimated || !(q[0] < 8 && q[1] < 8 && q[2] < 8));
+  const bool good = haveContent && (m_srcAnimated || !render::looksBlack(q[0], q[1], q[2]));
   if (good) {
     std::swap(m_srcFB, m_scratchFB);
     m_drawn = true;
@@ -223,7 +212,7 @@ void Backdrop::render(const BackdropFrame &f) const {
       for (const auto &spot : spots) {
         g_pHyprOpenGL->renderTexture(cachedTex, spot, {.a = 1.0F});
         glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, q);
-        if (!(q[0] < 8 && q[1] < 8 && q[2] < 8))
+        if (!render::looksBlack(q[0], q[1], q[2]))
           lit++;
       }
       if (scissorOn)

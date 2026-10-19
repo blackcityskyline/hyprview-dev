@@ -550,6 +550,39 @@ struct CarouselHitCard {
   return best;
 }
 
+// The wallpaper covers the monitor: scaled to fill, centred, the overflow cut off.
+// One axis is scaled to fit, the other is centred.
+struct CoverFit {
+  double scale = 1.0;
+  double x = 0.0;
+  double y = 0.0;
+};
+
+[[nodiscard]] inline CoverFit coverFit(double destW, double destH, double texW, double texH) {
+  CoverFit f;
+  const double destRatio = destW / std::max(1.0, destH);
+  const double texRatio = texW / std::max(1.0, texH);
+  if (destRatio > texRatio) {
+    f.scale = destW / std::max(1.0, texW);
+    f.y = (destH - texH * f.scale) / 2.0;
+  } else {
+    f.scale = destH / std::max(1.0, texH);
+    f.x = (destW - texW * f.scale) / 2.0;
+  }
+  return f;
+}
+
+// The black check: a frame that is black everywhere is not a backdrop. The
+// threshold is low on purpose -- a dark frame of a video wallpaper IS the wallpaper.
+[[nodiscard]] inline bool looksBlack(unsigned char r, unsigned char g, unsigned char b) {
+  constexpr unsigned char kBlack = 8;
+  return r < kBlack && g < kBlack && b < kBlack;
+}
+
+// A wallpaper that changes several times IN A ROW is animation; one re-creation of
+// a static wallpaper is not.
+inline constexpr int kSourceAnimatedStreak = 4;
+
 // The kill zone sits at the screen edge OPPOSITE the strip.
 [[nodiscard]] inline LRect killZoneRect(Anchor strip, double screenW, double screenH,
                                         double thickness) {
