@@ -400,6 +400,13 @@ add_test(NAME caption_geometry
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/caption_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/caption_check && ${CMAKE_CURRENT_BINARY_DIR}/caption_check")
 
+# The order of the passes in paint(), against the order AGENTS.md 3.4 documents.
+# The z-order is the rule, and it is written down in two places; this says they are
+# the same order.
+add_test(NAME scan_paint_order
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/paint_order_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/paint_order_check && ${CMAKE_CURRENT_BINARY_DIR}/paint_order_check ${CMAKE_SOURCE_DIR}")
+
 # The GL state fence's comparison. Reading live GL needs a context, so that half lives in
 # gl_util.hpp and runs inside the pass; the comparison is POD arithmetic, split into
 # state_fence.hpp precisely so it compiles here with no GL header at all.
