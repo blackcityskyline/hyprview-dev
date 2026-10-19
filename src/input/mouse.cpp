@@ -1,12 +1,14 @@
 #include "../config/config.hpp"
 #include "../overview.hpp"
 #include "../debug/log.hpp"
+#include "../render/geometry.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <numeric>
 #include <utility>
+#include <vector>
 
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
@@ -117,24 +119,22 @@ void Overview::onMouseMove() {
 
 int Overview::tileAt(double lx, double ly) const {
   if (carouselMode()) {
-    // Cards overlap: first-match hits the wrong one, so scan front to back.
-    int best = -1, bestDepth = 1 << 30;
+    // Cards overlap: first-match hits the wrong one, so the front-most wins.
+    std::vector<render::CarouselHitCard> cards;
     const auto &slot = m_view.slot();
     for (size_t k = 0; k < m_view.carousel().cards.size() && k < slot.size(); ++k) {
       const auto i = static_cast<int>(slot[k]);
-      if (!m_view.carousel().cards[k].visible)
-        continue;
       // slot is a cache that outlives a shrink of the tile array and can point past its end.
       if (i < 0 || i >= static_cast<int>(m_scene.tiles().size()))
         continue;
-      if (!currentBox(m_scene.tiles()[static_cast<size_t>(i)], i).contains(lx, ly))
-        continue;
-      if (m_view.carousel().cards[k].depth < bestDepth) {
-        bestDepth = m_view.carousel().cards[k].depth;
-        best = i;
-      }
+      render::CarouselHitCard card;
+      card.tile = i;
+      card.depth = m_view.carousel().cards[k].depth;
+      card.visible = m_view.carousel().cards[k].visible;
+      card.box = currentBox(m_scene.tiles()[static_cast<size_t>(i)], i);
+      cards.push_back(card);
     }
-    return best;
+    return render::carouselHit(cards, lx, ly);
   }
   const auto f = frame();
   std::vector<LRect> boxes;

@@ -471,6 +471,31 @@ static void theRunPaintsFarBeforeNear() {
   std::puts("the run: far before near, and the dim that goes with the depth");
 }
 
+// A click on the run lands on the front-most card: the cards overlap, so the first
+// match is the wrong one.
+static void aClickOnTheRunLandsOnTheFront() {
+  using hyprview::render::carouselHit;
+  using hyprview::render::CarouselHitCard;
+
+  // The focused card and its neighbour overlap; the click belongs to the focused one.
+  const std::vector<CarouselHitCard> cards{
+      {0, 0, true, LRect{400.0, 200.0, 300.0, 200.0}},
+      {1, 1, true, LRect{500.0, 200.0, 300.0, 200.0}},
+  };
+  want(carouselHit(cards, 550.0, 300.0) == 0, true, "the front card wins the overlap");
+  want(carouselHit(cards, 750.0, 300.0) == 1, true, "the far card takes what is only its own");
+  want(carouselHit(cards, 100.0, 100.0) == -1, true, "a click on nothing hits nothing");
+
+  // A card the run does not show is not there to be clicked.
+  const std::vector<CarouselHitCard> hidden{
+      {0, 0, false, LRect{400.0, 200.0, 300.0, 200.0}},
+      {1, 1, true, LRect{500.0, 200.0, 300.0, 200.0}},
+  };
+  want(carouselHit(hidden, 450.0, 300.0) == -1, true, "a hidden card is not a target");
+  want(carouselHit(hidden, 550.0, 300.0) == 1, true, "and the shown card still is");
+  std::puts("the click on the run: the front-most card, and only what is shown");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -817,6 +842,7 @@ int main() {
   theKillZoneIsOppositeTheStrip();
   theWindowMapsIntoItsTile();
   theRunPaintsFarBeforeNear();
+  aClickOnTheRunLandsOnTheFront();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

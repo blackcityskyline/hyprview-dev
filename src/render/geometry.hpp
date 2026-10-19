@@ -524,6 +524,32 @@ struct CarouselCardRef {
   return paint;
 }
 
+// A click on the run must land on the FRONT-most card: the run's cards overlap, so
+// the first match is the wrong one. The grid's rule is the opposite and lives in
+// firstHit().
+struct CarouselHitCard {
+  int tile = 0;
+  int depth = 3;
+  bool visible = false;
+  LRect box;
+};
+
+[[nodiscard]] inline int carouselHit(const std::span<const CarouselHitCard> &cards,
+                                     double lx, double ly) {
+  int best = -1, bestDepth = 0;
+  for (const auto &c : cards) {
+    if (!c.visible)
+      continue;
+    if (!c.box.contains(lx, ly))
+      continue;
+    if (best < 0 || c.depth < bestDepth) {
+      bestDepth = c.depth;
+      best = c.tile;
+    }
+  }
+  return best;
+}
+
 // The kill zone sits at the screen edge OPPOSITE the strip.
 [[nodiscard]] inline LRect killZoneRect(Anchor strip, double screenW, double screenH,
                                         double thickness) {
