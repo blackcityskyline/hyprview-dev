@@ -162,10 +162,12 @@ one on disk is from the last time that tab changed and a page restyled after
 that (dark mode, a theme add-on) would otherwise keep its first look. A page the
 browser draws itself — `about:addons`, `about:config` — cannot be photographed:
 the capture comes back as the quarter-scale stored thumbnail, so it is refused
-and the card shows the icon. A page whose root background is transparent is shot with the
-`Canvas` system colour painted on it for the duration of the capture: the browser's snapshot
-draws the document but not the canvas, and without it a dark page came back as dark controls
-on a white sheet.
+and the card shows the icon. A page whose root background is transparent is shot with a
+fixed layer of the `Canvas` system colour under its content, for the duration of the capture:
+the browser's snapshot draws the document but not the canvas, and without it a dark page came
+back as dark controls on a white sheet. A tab the extension may not photograph keeps no file:
+the stale picture under its id belongs to some other page, so it is deleted and the card keeps
+no picture.
 
 ## Config
 

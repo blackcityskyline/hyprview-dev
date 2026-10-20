@@ -204,37 +204,49 @@ async function shrink(dataUrl) {
 // for a 1366px window), and a field of blocks is worse than the icon this falls back to.
 const PRIVILEGED_URL = /^(about|chrome|moz-extension|resource|view-source):/;
 
-// The browser's snapshot draws the document but not the canvas behind it, so a page that leaves
-// its root background transparent and takes its colour from `color-scheme` comes back white:
-// measured on google.com in dark mode, dark controls on a white sheet. The system colour `Canvas`
-// resolves to exactly what the compositor paints under the page, so painting it on the root for
-// the duration of the shot restores the picture — and changes nothing on screen when it does.
+// The browser's snapshot draws the document but not the stylesheets an extension added at user
+// origin -- Dark Reader's background is one of those -- so such a page comes back with its
+// default canvas: measured on google.com, dark controls on a white sheet. getComputedStyle does
+// see those sheets, so the colour the page really shows is copied onto the root as an inline
+// style for the duration of the shot: same colour on screen, and now part of the document.
 function paintCanvas() {
-  const clear = (c) => !c || c === 'transparent' || c === 'rgba(0, 0, 0, 0)';
   const root = document.documentElement;
-  if (!root || !clear(getComputedStyle(root).backgroundColor)) return false;
-  if (document.body && !clear(getComputedStyle(document.body).backgroundColor)) return false;
-  const probe = document.createElement('div');
-  probe.style.cssText =
-    'position:fixed;left:-1px;top:-1px;width:1px;height:1px;background-color:Canvas';
-  root.appendChild(probe);
-  const canvas = getComputedStyle(probe).backgroundColor;
-  probe.remove();
-  root.style.setProperty('background-color', canvas, 'important');
+  if (!root) return false;
+  const clear = (c) => !c || c === 'transparent' || c === 'rgba(0, 0, 0, 0)';
+  const own = getComputedStyle(root).backgroundColor;
+  const body = document.body ? getComputedStyle(document.body).backgroundColor : '';
+  let color = !clear(own) ? own : !clear(body) ? body : '';
+  if (!color) {
+    const probe = document.createElement('div');
+    probe.style.cssText =
+      'position:fixed;left:-1px;top:-1px;width:1px;height:1px;background-color:Canvas';
+    root.appendChild(probe);
+    color = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+  }
+  // The root's own background IS the canvas, and the snapshot does not paint the canvas: a
+  // fixed layer under the content is an ordinary element, which it does paint.
+  const layer = document.createElement('div');
+  layer.id = '__hyprview_bg';
+  layer.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:-1;' +
+    'pointer-events:none;background:' + color;
+  (document.body || root).appendChild(layer);
   return true;
 }
 
 function unpaintCanvas() {
-  if (document.documentElement)
-    document.documentElement.style.removeProperty('background-color');
+  const layer = document.getElementById('__hyprview_bg');
+  if (layer) layer.remove();
 }
 
+// Gecko's MV2 `tabs.executeScript` takes source, not a function: `func` is a type error there
+// ("Unexpected property func"), and it is swallowed by the catch in capture(). Hence the string.
 async function inPage(tabId, fn) {
   if (api.scripting && api.scripting.executeScript) {
     const [hit] = await api.scripting.executeScript({ target: { tabId }, func: fn });
     return hit && hit.result;
   }
-  const [result] = await api.tabs.executeScript(tabId, { func: fn });
+  const [result] = await api.tabs.executeScript(tabId, { code: '(' + fn.toString() + ')()' });
   return result;
 }
 

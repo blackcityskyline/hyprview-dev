@@ -73,10 +73,11 @@ correlation.
   after it was loaded would otherwise be pictured as it looked before the restyle.
 - Refuses `about:`, `chrome:`, `moz-extension:`, `resource:` and `view-source:` pages: the
   capture of those comes back as the quarter-scale thumbnail the browser stores, and the card
-  falls back to the icon instead of showing blocks.
-- Paints the page's canvas before the shot when its root background is transparent, using the
-  `Canvas` system colour and removing it right after. The browser's snapshot draws the document
-  but not the canvas, so a page in dark mode came back as dark controls on a white sheet.
+  shows no picture instead of blocks.
+- Puts a fixed layer of the `Canvas` system colour under the page content before the shot when
+  the root background is transparent, and removes it right after. The browser's snapshot draws
+  the document but not the canvas, so a page in dark mode came back as dark controls on a white
+  sheet. A layer, not the root background: the root background is the canvas.
 - **Opens a tab on request.** The compositor writes `a <pid> <window> <tab>` under
   `$XDG_RUNTIME_DIR/hyprview`; the mediator whose parent is that pid forwards it, and the
   extension makes the tab active (reloading it if it was discarded) and focuses its window.

@@ -281,15 +281,21 @@ def handle(command, root, own_pid):
             return {"ok": False, "reason": "no-parent-pid"}
 
         merge_into(root, build_feed(command, browser_pid))
+        active = [i for i in command.get("active") or [] if isinstance(i, int)]
         shot = command.get("screenshot")
         if isinstance(shot, str) and shot.startswith("data:image/png"):
             import base64
 
             raw = base64.b64decode(shot.split(",", 1)[1])
-            for ident in command.get("active") or []:
-                if isinstance(ident, int):
-                    atomic_write(os.path.join(root, "previews", "%d.png" % ident), raw)
-        return {"ok": True, "browserPid": browser_pid, "windows": len(command.get("active") or [])}
+            for ident in active:
+                atomic_write(os.path.join(root, "previews", "%d.png" % ident), raw)
+        else:
+            # No picture: a page the extension may not shoot, or a capture that failed. The file
+            # under that id is some other page -- ids are reused across sessions -- and a stale
+            # picture reads as this tab's, so the card falls back to its icon instead.
+            for ident in active:
+                drop(os.path.join(root, "previews", "%d.png" % ident))
+        return {"ok": True, "browserPid": browser_pid, "windows": len(active)}
 
     if name == "activate_tab":
         return {"ok": False, "reason": "the browser switched the tab; nothing to do here"}
