@@ -243,9 +243,8 @@ void Backdrop::render(const BackdropFrame &f) const {
     const bool blurCacheReady = m_blur.fb && m_blur.fb->isAllocated() &&
         m_blur.fb->m_size == Vector2D(W, H);
     const auto cachedTex = blurCacheReady ? m_blur.fb->getTexture() : nullptr;
-    // "The blur EXISTS", not "the blur is LIT": a dark desktop blurs to a dark frame,
-    // and a pixel probe cannot tell that from an empty buffer -- it sent the base to
-    // the sharp source, which is the flash. What matters is that the base is blurred.
+    // "The blur EXISTS", not "the blur is LIT": a dark desktop blurs to a dark frame
+    // and a pixel probe cannot tell that from an empty buffer.
     const bool blurUsable = cachedTex && cachedTex->ok() && m_blurDrawn;
     const auto base = backdropBase(f.blurEnabled, blurUsable);
     debug::dbg(std::string("backdrop base=") +

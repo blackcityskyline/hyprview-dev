@@ -162,6 +162,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `strip_gap` | int (px) | `18` | Spacing between workspace cards |
 | `strip_card_round` | int (px) | `10` | Workspace card corner radius |
 | `backdrop_color` | color/role | `"0x73070a10"` | Dim + blur fill over the desktop |
+| `surface_color` | color/role | `"0x1e1e26"` | The plate under a carousel card: the card is a frame, the window fits inside it, and the rest is this colour |
 | `strip_band_color` | color/role | `"0x24ffffff"` | Band behind the cards |
 | `strip_band_opacity` | int `0`..`100` | `70` | Strip band opacity, in percent — the band's only alpha source; `strip_band_color` supplies RGB |
 | `strip_card_color` | color/role | `"0x3a0e131c"` | Inactive workspace card fill |

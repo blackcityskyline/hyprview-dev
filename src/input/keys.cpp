@@ -252,8 +252,7 @@ void Overview::stepAltTab(int dir) {
       const int count = static_cast<int>(n);
       const int nxt = ((cur + dir) % count + count) % count;
       m_scene.select(m_view.tileInSlot(static_cast<std::size_t>(nxt)));
-      // The step has to GLIDE: the arrow path glides and this one did not, so the
-      // cards teleported instead of moving.
+      // The step has to GLIDE: the arrow path glides, this one did not.
       relayoutCarousel();
       pinRunEdges(wasOnRun);
       damage();

@@ -164,12 +164,20 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                                 {.round = pxr(round, s), .roundingPower = roundPow});
     }
   }
+  // The card is the frame; the content is what fits in it, and the rest of the card
+  // is the plate under it.
+  const LRect content = w ? render::contentInside(box, w->sizeAnimation()->goal().x,
+                                                   w->sizeAnimation()->goal().y)
+                           : box;
+  if (look.surface && !tab)
+    safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
+                              {.round = pxr(round, s), .roundingPower = roundPow});
   if (tab) {
     if (const auto tex = tabArt(t))
       g_pHyprOpenGL->renderTexture(tex, pxb(box, s),
                                    {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
   } else {
-    renderWindowLive(w, m, pxb(box, s), pxb(box, s), f, Time::steadyNow(),
+    renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
                      contentRadiusPx(round, ringW, s, !look.contain),
                      roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
   }

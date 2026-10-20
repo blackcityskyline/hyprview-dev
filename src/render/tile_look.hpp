@@ -16,6 +16,7 @@ struct TileLook {
   bool   lift = false;
   bool   counter = false;
   bool   button = false; // the ✕; caller owns the GL_BLEND guard
+  bool   surface = false; // the plate under the card
   double tone = 0.0;
 };
 
@@ -40,6 +41,7 @@ struct TileLook {
   l.tone = tone;
   l.button = button;
   l.counter = depth == 0;
+  l.surface = true; // the run's cards are frames, and the frame has a plate
   return l;
 }
 

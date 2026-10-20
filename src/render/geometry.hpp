@@ -689,6 +689,14 @@ enum class BackdropBase { Blur, OpaqueDim, Source };
   return blurUsable ? BackdropBase::Blur : BackdropBase::OpaqueDim;
 }
 
+// The content's box inside the card: the window keeps its own aspect, and the
+// rest of the card is the plate.
+[[nodiscard]] inline LRect contentInside(const LRect &card, double windowW, double windowH) {
+  if (windowW <= 0.0 || windowH <= 0.0)
+    return card;
+  return fitInside(card, windowW / windowH);
+}
+
 // The kill zone sits at the screen edge OPPOSITE the strip: the edge the strip is
 // not on, so a dragged window never has to cross the strip to reach it.
 [[nodiscard]] inline LRect killZoneRect(Anchor strip, double screenW, double screenH,

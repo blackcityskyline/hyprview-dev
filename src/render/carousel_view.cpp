@@ -95,7 +95,7 @@ void Overview::renderCarousel() const {
                               tileCloseButtons(), cfg::look.preview_round);
     drawTile(static_cast<size_t>(i), look);
 
-    // The card that goes around the BACK of the ring is drawn twice: out and in.
+    // The card that goes around the BACK of the ring is drawn twice.
     if (t.hasIncoming) {
       const LRect in = m_place.lerpBox(t.incomingFrom, t.incomingTo, i, frame());
       TileLook inLook;

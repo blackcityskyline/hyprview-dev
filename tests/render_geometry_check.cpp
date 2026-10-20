@@ -694,6 +694,34 @@ static void thePulseAndTheDropHintAreDecisions() {
   std::puts("the pulse: the ring it grows, and the half the pointer is in");
 }
 
+// The card is the frame and the content is what fits in it. The desktop shell's
+// switcher draws it the same way: a fixed frame, the snapshot contained, the rest
+// of the frame filled.
+static void theContentKeepsItsAspectInsideTheCard() {
+  using hyprview::render::contentInside;
+
+  const LRect card{0.0, 0.0, 800.0, 500.0};
+  // A wide window in a wide card: it fills the width.
+  const auto wide = contentInside(card, 1920.0, 1080.0);
+  near(wide.w, 800.0, "a wide window fills the width");
+  near(wide.h, 450.0, "and its height follows the aspect");
+  near(wide.y, 25.0, "centred in the card");
+
+  // A tall window in a wide card: it fits the height, and the sides are the plate.
+  const auto tall = contentInside(card, 400.0, 900.0);
+  near(tall.h, 500.0, "a tall window fills the height");
+  near(tall.w, 500.0 * 400.0 / 900.0, "and its width follows the aspect");
+  near(tall.x, (800.0 - tall.w) * 0.5, "centred in the card");
+
+  // A window smaller than the card is not blown up past the card.
+  const auto small = contentInside(card, 37.0, 18.0);
+  want(small.w <= card.w && small.h <= card.h, true, "the content never leaves the card");
+
+  // Nothing to fit: the card is the content.
+  sameRect(contentInside(card, 0.0, 0.0), card, "a window with no size fills the card");
+  std::puts("the content: its own aspect inside the card, and the rest is the plate");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -1047,6 +1075,7 @@ int main() {
   theTileDecidesItsRingAndItsFrost();
   theCloseGlyphFillsItsButton();
   thePulseAndTheDropHintAreDecisions();
+  theContentKeepsItsAspectInsideTheCard();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

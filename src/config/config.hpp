@@ -175,6 +175,7 @@ struct look {
 inline look look;
 
 struct colors {
+  Color surface;
   Color border;
   Color hover_border;
   Color select_border;

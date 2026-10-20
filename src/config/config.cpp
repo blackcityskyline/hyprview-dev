@@ -219,6 +219,7 @@ constexpr StrSpec kStrs[] = {
 
 constexpr ColorSpec kColors[] = {
     {&blur.backdrop, "plugin:hyprview:backdrop_color", "0x73070a10"},
+    {&colors.surface, "plugin:hyprview:surface_color", "0x1e1e26"},
     {&colors.border, "plugin:hyprview:border_color", "0x50ffffff"},
     {&colors.close_button, "plugin:hyprview:close_button_color", "0xe6e23b3b"},
     {&colors.close_glyph, "plugin:hyprview:close_glyph_color", "0xffffffff"},
