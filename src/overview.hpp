@@ -270,6 +270,9 @@ private:
     const auto id = std::to_string(t.subj.id);
     return m_pixel.putPicture(t.subj, browserSideFile("/previews/" + id + ".png"), {});
   }
+  SP<Render::ITexture> windowIcon(const PHLWINDOW &w) const {
+    return w ? m_pixel.appIcon(w->m_class) : nullptr;
+  }
   SP<Render::ITexture> browserIcon(const model::Tile &t) const {
     if (!cardOf(t).isTab())
       return nullptr;

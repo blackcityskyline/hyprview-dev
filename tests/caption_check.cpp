@@ -162,6 +162,13 @@ static void theIconWidensTheTitlePill() {
        "the pill grows by the icon and the gap, at the card's scale");
   near(icon.pill.x, plain.pill.x - (24.0 + 6.0) * icon.kFit / 2.0,
        "and stays centred on the card");
+  near(icon.pill.h, plain.pill.h, "an icon no taller than the text leaves the pill's height alone");
+
+  // An icon taller than the text sets the pill's height, and the text stays centred in it.
+  withIcon.iconW = 36.0;
+  const auto tall = captionLayout(card, LRect{}, 1920.0, 1080.0, withIcon, style());
+  near(tall.pill.h - plain.pill.h, (36.0 - 24.0) * tall.kFit,
+       "a taller icon grows the pill by the difference");
 }
 
 // A caption with no label shows the counter instead, and one with neither shows

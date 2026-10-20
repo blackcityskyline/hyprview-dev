@@ -292,8 +292,9 @@ struct CaptionLayout {
   // The caption's scale is the CARD's scale: a long title is not a smaller title.
   const double kFit = kCard;
   const double iconW = s.hasIcon ? s.iconW + st.iconGap : 0.0;
+  const double innerH = s.hasIcon ? std::max(textH, s.iconW) : textH;
   const double pw = (textW + iconW + 2 * padX) * kFit;
-  const double ph = (textH + 2 * padY) * kFit;
+  const double ph = (innerH + 2 * padY) * kFit;
 
   const double stackGap = counterH > 0.0 ? st.stackGap : 0.0;
   const double margin   = s.hasLabel ? st.margin : st.cMargin;

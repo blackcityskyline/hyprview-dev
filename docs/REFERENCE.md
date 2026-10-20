@@ -361,6 +361,7 @@ WebExtensions не существует, `captureVisibleTab` фотографи�
 В левом нижнем углу карточки — иконка **браузера**: класс окна (`w->m_class`) → файл
 `/usr/share/applications/<класс>.desktop` → `Icon=` → PNG в hicolor/pixmaps
 (`PixelCache::appIcon`, кэш по классу). В содержимое карточки не подставляется ни одна из них.
+Выключаются порознь: `show_tab_icons` (вкладки) и `show_window_icons` (окна).
 
 ## Режим all-workspaces в браузерном виде
 

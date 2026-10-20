@@ -117,6 +117,8 @@ constexpr IntSpec kInts[] = {
     {&look.preview_round, "plugin:hyprview:preview_round", 12},
     {&look.show_border, "plugin:hyprview:show_border", 0},
     {&look.show_focus_border, "plugin:hyprview:show_focus_border", 1},
+    {&look.show_tab_icons, "plugin:hyprview:show_tab_icons", 1},
+    {&look.show_window_icons, "plugin:hyprview:show_window_icons", 1},
     {&look.border_size, "plugin:hyprview:border_size", 2},
     {&look.hover_border_size, "plugin:hyprview:hover_border_size", 3},
     {&look.select_border_size, "plugin:hyprview:select_border_size", 3},

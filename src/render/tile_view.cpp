@@ -182,20 +182,22 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
           t.label, pxb(render::contentInside(room, t.label->m_size.x, t.label->m_size.y), s),
           {.a = 0.45F * f});
     }
-    // The browser's own icon, in the corner the caption does not reach.
-    if (const auto icon = browserIcon(t)) {
-      const double side = std::clamp(box.h * 0.09, 18.0, 40.0);
-      const LRect badge{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side};
-      dropShadow(badge, s, shadowCol, side * 0.07, side * 0.3, 0.5F * f,
-                 static_cast<int>(side * 0.2), roundPow);
-      g_pHyprOpenGL->renderTexture(
-          icon, pxb(badge, s),
-          {.a = f, .round = pxr(side * 0.2, s), .roundingPower = roundPow});
-    }
   } else {
     renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
                      render::contentRadiusFor(round, content, ringW, s, !look.contain),
                      roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
+  }
+  // The card's own icon in the corner the caption does not reach: the browser for a tab,
+  // the app for a window.
+  const auto badgeIcon = tab ? browserIcon(t) : windowIcon(w);
+  if (badgeIcon && (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0) {
+    const double side = std::clamp(box.h * 0.135, 27.0, 60.0);
+    const LRect badge{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side};
+    dropShadow(badge, s, shadowCol, side * 0.07, side * 0.3, 0.5F * f,
+               static_cast<int>(side * 0.2), roundPow);
+    g_pHyprOpenGL->renderTexture(
+        badgeIcon, pxb(badge, s),
+        {.a = f, .round = pxr(side * 0.2, s), .roundingPower = roundPow});
   }
 
   if (look.tone > 0.0)
@@ -237,9 +239,10 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
     auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
     const bool hasCounter = countTex && countTex->m_size.x > 0;
     // The site's icon belongs beside the title; a tab with no title has nothing to sit next to.
-    const auto favicon = tab ? tabIcon(t) : SP<Render::ITexture>{};
+    const auto favicon = tab && cfg::look.show_tab_icons != 0 ? tabIcon(t)
+                                                              : SP<Render::ITexture>{};
     const bool hasIcon = hasLabel && favicon && favicon->m_size.x > 0;
-    const double iconSide = hasIcon ? t.label->m_size.y : 0.0;
+    const double iconSide = hasIcon ? t.label->m_size.y * 1.5 : 0.0;
     const render::CaptionSizes sizes{
         hasLabel ? t.label->m_size.x : 0.0, hasLabel ? t.label->m_size.y : 0.0,
         hasCounter ? countTex->m_size.x : 0.0, hasCounter ? countTex->m_size.y : 0.0,
@@ -311,7 +314,7 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
             t.label,
             pxb(CBox(drawn.x + (style.padX + (hasIcon ? iconSide + style.iconGap : 0.0)) *
                                     lay.kFit * pop,
-                     drawn.y + style.padY * lay.kFit * pop,
+                     drawn.y + (drawn.h - sizes.textH * lay.kFit * pop) / 2.0,
                      sizes.textW * lay.kFit * pop, sizes.textH * lay.kFit * pop), s),
             {.a = static_cast<float>(cf)});
       else

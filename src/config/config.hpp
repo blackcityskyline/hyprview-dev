@@ -139,6 +139,8 @@ struct look {
   Float preview_round_power;
   Int show_border;
   Int show_focus_border;
+  Int show_tab_icons;
+  Int show_window_icons;
   Int border_size;
   Int hover_border_size;
   Int select_border_size;

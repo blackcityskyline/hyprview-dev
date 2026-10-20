@@ -219,6 +219,8 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `hover_border_size` | int (px) | `3` | Hovered/focused preview outline thickness — `0` disables it entirely |
 | `show_focus_border` | bool (0/1) | `1` | Whether hover/selection draw `hover_border`/`select_border` at all — see "Border modes" below |
 | `show_border` | bool (0/1) | `0` | An always-on base ring on every tile, independent of hover/selection — see "Border modes" below |
+| `show_tab_icons` | bool (0/1) | `1` | Site favicon in the tab's title pill and the browser's icon in the card's corner |
+| `show_window_icons` | bool (0/1) | `1` | The window's app icon in the card's corner |
 | `border_color` | color/role | `"0x50ffffff"` | `show_border`'s ring color |
 | `border_size` | int (px) | `2` | `show_border`'s ring thickness — `0` disables it |
 | `focus_follows_mouse` | bool (0/1) | `1` | Keyboard selection tracks the hovered preview |
