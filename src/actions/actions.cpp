@@ -479,14 +479,8 @@ std::string Overview::runCommand(const std::string &args) {
   }
 
   if (tok[0] == "discarded") {
-    const bool cur = m_showDiscarded >= 0 ? m_showDiscarded != 0
-                                          : cfg::behavior.show_discarded_tabs != 0;
     const int arg = num(1);
-    m_showDiscarded = (arg < 0 ? !cur : arg != 0) ? 1 : 0;
-    if (openedOrParked()) {
-      auto oldBoxes = captureCurrentBoxes();
-      replayReflow(oldBoxes);
-    }
+    setDiscardedShown(arg < 0 ? !discardedShown() : arg != 0);
     return "";
   }
 

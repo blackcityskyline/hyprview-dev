@@ -71,8 +71,7 @@ void Overview::buildTiles() {
 
   // enumerate() puts windows on the source's alive list; an identity minted outside resolves to nobody.
   const auto mode = m_view.domain();
-  const bool showDiscarded = m_showDiscarded >= 0 ? m_showDiscarded != 0
-                                                  : cfg::behavior.show_discarded_tabs != 0;
+  const bool showDiscarded = discardedShown();
   const auto subjects = m_windows.enumerate();
 
   // From THIS enumeration: the tile a tab is built for and the window it matches cannot differ.
@@ -633,6 +632,18 @@ void Overview::startTileGlide(
     m_place.clocks.rebuild.begin();
     debug::trace::animStart("rebuild", "ghosts", "", m_place.recipes.ghost.ms, m_place.recipes.ghost.curve.c_str());
     ensureAnimPump(); // frames must keep coming while population runs
+  }
+}
+
+bool Overview::discardedShown() const {
+  return m_showDiscarded >= 0 ? m_showDiscarded != 0 : cfg::behavior.show_discarded_tabs != 0;
+}
+
+void Overview::setDiscardedShown(bool on) {
+  m_showDiscarded = on ? 1 : 0;
+  if (openedOrParked()) {
+    auto oldBoxes = captureCurrentBoxes();
+    replayReflow(oldBoxes);
   }
 }
 

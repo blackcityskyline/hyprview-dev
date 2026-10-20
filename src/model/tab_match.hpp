@@ -17,8 +17,7 @@ namespace hyprview::model {
 // A window the plugin can put a browser window into.
 struct HostWindow {
     std::uint64_t id = 0;
-    // The match -- never a title: the browser appends its own name to the window title
-    // (AGENTS.md 2.26).
+    // The match -- never a title: the browser appends its own name (AGENTS.md 2.26).
     std::uint64_t pid = 0;
 };
 

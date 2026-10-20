@@ -107,8 +107,7 @@ class TabsContentSource final : public IContentSource {
     }
 
   private:
-    // Rebuilt on adopt() rather than searched per query, because groupOf() is asked per
-    // tile per frame.
+    // Rebuilt on adopt(): groupOf() is asked per tile per frame.
     [[nodiscard]] std::optional<std::uint64_t> browserWindowOf(SubjectRef s) const {
         const auto it = windowsByTab_.find(s.id);
         if (it == windowsByTab_.end())

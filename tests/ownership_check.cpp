@@ -222,6 +222,11 @@ int main(int argc, char **argv) {
       "m_lastAnimTick",
       // one value each, owned by the coordinator because nothing else does the owning
       "m_scrollAccum", "m_killGlow", "m_lastDragBox", "m_lastFocus", "m_handle",
+      // A value type held by the coordinator, written through member calls the scan sees as
+      // one writer: buildTiles() is where a placement is made.
+      "m_place",
+      // Runtime override of show_discarded_tabs: one value, and the coordinator owns it.
+      "m_showDiscarded",
       // The browser side: what the extension wrote, and which window carries whose tabs.
       // Written by one file because loadTabs() is the only thing that may -- it reads a file
       // and re-derives the matching, and both must happen at the same moment or the two halves

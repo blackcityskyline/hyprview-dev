@@ -208,6 +208,7 @@ constexpr StrSpec kStrs[] = {
     {&keys.all_workspaces, "plugin:hyprview:key_all_workspaces", "a"},
     {&keys.carousel, "plugin:hyprview:key_carousel", "c"},
     {&keys.browser, "plugin:hyprview:key_browser", "b"},
+    {&keys.discarded, "plugin:hyprview:key_discarded", "u"},
     {&keys.workspace, "plugin:hyprview:key_workspace", "1,2,3,4,5,6,7,8,9,0"},
     {&keys.alt_tab_modifier, "plugin:hyprview:alt_tab_modifier", "alt"},
     {&behavior.preview_mode, "plugin:hyprview:preview_mode", "live"},

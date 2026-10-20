@@ -134,7 +134,8 @@ flips windows/tabs live.
 
 Only loaded tabs get a card: an unloaded (discarded) tab is still open in the
 browser but not in memory, so it is listed only when asked for
-(`show_discarded_tabs`, or the `discarded` command to flip it while running).
+(`show_discarded_tabs`, the `key_discarded` key (`u`) in the browser-tabs view, or the
+`discarded` command to flip it while running).
 Activating a tab card — Enter or a click — makes that tab the browser's active
 one, which also reloads it if it was discarded, and focuses the browser window.
 
@@ -161,7 +162,8 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `blur_passes` | int `1`..`16` | `3` | Backdrop blur gaussian iterations (more = softer) |
 | `blur_size` | int (px) | `8` | Backdrop blur radius in screen pixels |
 | `blur_resolution` | int `1`..`32` | `4` | Backdrop blur buffer = `1/N` monitor resolution (lower = sharper/cleaner, slightly more GPU; the blur is computed once per overview open, so the cost is negligible) |
-| `anchor` | `top` \| `bottom` \| `left` \| `right` | `top` | Edge the workspace strip attaches to |
+| `anchor` | `top` \| `bottom` \| `left` \| `right` | `""` (= `top`) | Edge the workspace strip attaches to |
+| `bar_position` | `top` \| `bottom` | `top` | Deprecated alias of `anchor`, used only while `anchor` is empty |
 | `strip_offset` | int (px) | `0` | Inset from the anchored edge (0 = flush, no gap) |
 | `strip_height` | int (px) | `150` | Strip band thickness, label included |
 | `strip_margin` | int (px) | `22` | Padding around the strip |
@@ -409,6 +411,7 @@ state when the view is opened from outside; the key ignores it.
 | `carousel_on_open` | bool (0/1) | `1` | Run state when the view is opened from outside |
 | `key_carousel` | key | `c` | One-workspace: all-workspaces with the run on; all-workspaces: flip the run |
 | `key_browser` | key | `b` | Flip the main area between windows and browser tabs |
+| `key_discarded` | key | `u` | Show/hide unloaded (discarded) tabs; browser-tabs view only |
 | `carousel_cards` | int | `5` | Cards in the run |
 | `carousel_card_width` | int (px) | `0` | Narrow the standard box; `0` keeps the fullscreen box |
 | `carousel_scale` | float | `1.0` | Zoom the whole run; above 1 it overflows |

@@ -367,6 +367,8 @@ private:
   void focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason);
   // A tab card has no window: the browser is asked for the tab and its host is focused.
   void activateTile(int idx, Desktop::eFocusReason reason);
+  [[nodiscard]] bool discardedShown() const;
+  void setDiscardedShown(bool on);
   void activateTab(model::SubjectRef s, Desktop::eFocusReason reason);
   bool writeTabRequest(std::uint64_t browserWindow, std::int64_t tab);
   bool crossesRealWorkspace(const PHLWINDOW &w) const;
