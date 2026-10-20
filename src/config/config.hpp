@@ -249,6 +249,7 @@ struct behavior {
   Int show_all_workspaces;
   Int show_special;
   Str tile_mode;
+  Int show_discarded_tabs;
   Int alttab_advances;
   Int hold_lift_ms;
   Str tile_layout;

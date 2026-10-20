@@ -71,6 +71,8 @@ void Overview::buildTiles() {
 
   // enumerate() puts windows on the source's alive list; an identity minted outside resolves to nobody.
   const auto mode = m_view.domain();
+  const bool showDiscarded = m_showDiscarded >= 0 ? m_showDiscarded != 0
+                                                  : cfg::behavior.show_discarded_tabs != 0;
   const auto subjects = m_windows.enumerate();
 
   // From THIS enumeration: the tile a tab is built for and the window it matches cannot differ.
@@ -110,17 +112,18 @@ void Overview::buildTiles() {
 
     // browserOf() == 0 is not a browser window; unmatched shows as a window.
     const auto bw = m_links.browserOf(reinterpret_cast<std::uintptr_t>(w.get()));
-    const auto ids = m_tabs.tabIdsFor(bw);
+    const auto ids = m_tabs.tabIdsFor(bw, showDiscarded);
+    // A browser whose every tab is filtered out must still be a window, not nothing.
+    const bool tabsShown = m_tabs.knownFor(bw) && !ids.empty();
 
-    for (const auto &entry :
-         model::entriesFor(w.get(), mode, m_tabs.knownFor(bw), ids, bw != 0)) {
+    for (const auto &entry : model::entriesFor(w.get(), mode, tabsShown, ids, bw != 0)) {
       model::Tile t;
       // tabId < 0 is the window itself; a tab id is scoped to the connection that issued it.
       t.subj = entry.tabId < 0 ? subj
                                : model::SubjectRef{static_cast<std::uint64_t>(entry.tabId),
                                                    m_tabs.generation()};
-      // A window's natural is where it sits on the desktop; a tab's is empty until startTileGlide fills it.
-      t.natural = entry.tabId < 0 ? box : LRect{};
+      // A tab's natural is its host's box: the layout needs an aspect, and its preview is of that window.
+      t.natural = box;
       if (const auto it = priorTargets.find(t.subj); it != priorTargets.end()) {
         t.target = it->second.first;
         t.parked = true;
@@ -129,7 +132,7 @@ void Overview::buildTiles() {
     }
   }
 
-  // no makeEGLCurrent() here: it raised a foreign EGL context and killed the compositor (hyprlandCrashReport41645).
+  // no makeEGLCurrent() here: it raised a foreign EGL context and killed the compositor.
   if (g_pHyprOpenGL && g_pHyprRenderer) {
     const auto lblCol = cfg::colors.title_label.get();
     for (size_t i = 0; i < m_scene.size(); ++i) {
@@ -631,6 +634,53 @@ void Overview::startTileGlide(
     debug::trace::animStart("rebuild", "ghosts", "", m_place.recipes.ghost.ms, m_place.recipes.ghost.curve.c_str());
     ensureAnimPump(); // frames must keep coming while population runs
   }
+}
+
+// Whole, then renamed: the mediator polls this file while the plugin may be writing it.
+bool Overview::writeTabRequest(std::uint64_t browserWindow, std::int64_t tab) {
+  const auto &pids = m_tabs.snapshot().pids;
+  const auto it = pids.find(browserWindow);
+  if (it == pids.end())
+    return false;
+  const std::string line = model::activateCommand(it->second, browserWindow, tab);
+  const std::string path = browserSideDir() + "/activate";
+  const std::string part = path + ".part";
+  {
+    std::ofstream out(part, std::ios::binary | std::ios::trunc);
+    if (!out)
+      return false;
+    out.write(line.data(), static_cast<std::streamsize>(line.size()));
+  }
+  return std::rename(part.c_str(), path.c_str()) == 0;
+}
+
+void Overview::activateTab(model::SubjectRef s, Desktop::eFocusReason reason) {
+  const auto group = m_tabs.groupOf(s);
+  const bool sent = group.id != 0 && writeTabRequest(group.id, static_cast<std::int64_t>(s.id));
+  const auto hostId = group.id ? m_links.hostOf(group.id) : 0;
+  const auto host = hostId ? m_windows.windowOf(model::SubjectRef{hostId, 0}) : PHLWINDOW{};
+  debug::trace::record("TABS", "activate",
+                       "tab=" + std::to_string(s.id) + "|window=" + std::to_string(group.id) +
+                           "|sent=" + std::to_string(sent ? 1 : 0) +
+                           "|host=" + std::to_string(host ? 1 : 0));
+  if (!host) {
+    close();
+    return;
+  }
+  focusAndClose(host, reason);
+}
+
+void Overview::activateTile(int idx, Desktop::eFocusReason reason) {
+  if (idx < 0 || idx >= static_cast<int>(m_scene.size())) {
+    focusAndClose({}, reason);
+    return;
+  }
+  const auto &t = m_scene.tiles()[static_cast<std::size_t>(idx)];
+  if (cardOf(t).isTab()) {
+    activateTab(t.subj, reason);
+    return;
+  }
+  focusAndClose(tileWindow(t), reason);
 }
 
 void Overview::replayReflow(

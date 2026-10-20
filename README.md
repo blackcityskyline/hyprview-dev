@@ -132,6 +132,12 @@ the window title, so the two sides do not spell it the same way. A browser
 window that has not reported yet is shown as a window; `key_browser` (`b`)
 flips windows/tabs live.
 
+Only loaded tabs get a card: an unloaded (discarded) tab is still open in the
+browser but not in memory, so it is listed only when asked for
+(`show_discarded_tabs`, or the `discarded` command to flip it while running).
+Activating a tab card — Enter or a click — makes that tab the browser's active
+one, which also reloads it if it was discarded, and focuses the browser window.
+
 ## Config
 
 All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#colors).
@@ -201,6 +207,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `strip_wallpaper` | bool (0/1) | `1` | Empty workspace cards show a cover-fit wallpaper thumbnail (the same source the backdrop uses) instead of a flat body |
 | `strip_empty_mode` | `show` \| `neighbors` \| `hide` | `show` | `show`: every numeric workspace up to the highest one in use (at least 1-10) gets a strip card, even ones that were never created — `neighbors`: only occupied workspaces plus the displayed one's immediate numeric neighbors (reveals a run of empties one hop at a time as you navigate into it) — `hide`: only occupied workspaces, no empty ones at all. `show`/`neighbors` cards for a workspace that doesn't exist yet are created lazily on click/drop, same as `+` but at that specific number. |
 | `show_special` | bool (0/1) | `0` | Include the special (scratchpad) workspace as a strip card |
+| `show_discarded_tabs` | bool (0/1) | `0` | List unloaded (discarded) browser tabs as cards too. The `discarded` command flips the same thing at runtime; a browser left with nothing to show falls back to its window card |
 | `tile_mode` | string | `"windows"` | What the main area shows: `windows` — one card per window; `tabs` — one card per browser tab: a browser not heard from yet is shown as a window, a browser that reported zero tabs contributes nothing, and non-browser windows are not shown; `both` — the window's card plus one per tab. An unrecognised value is `windows`, not `tabs` |
 | `alttab_advances` | bool (0/1) | `0` | Alt-tab: the entry is aimed at the NEXT card, so the run travels to one target from its first frame and lands on it — one motion, taking exactly the entry's own time. `0` opens on the focused window and a second press steps |
 | `strip_all_card` | bool (0/1) | `0` | Show a leading "All workspaces" card on the strip that toggles the expo view |

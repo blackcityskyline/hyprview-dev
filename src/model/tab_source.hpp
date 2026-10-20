@@ -1,7 +1,7 @@
 #pragma once
 
-// Pure: no Hyprland type appears here, so ctest reaches it without a compositor (AGENTS.md 2.20).
-// activate/close/moveTo are messages to the browser and no channel exists: each answers false.
+// Pure: no Hyprland type here, so ctest reaches it without a compositor (AGENTS.md 2.20).
+// The verbs are remote: Overview writes the mediator's request file, and they answer false.
 
 #include <cstdint>
 #include <optional>
@@ -40,8 +40,7 @@ class TabsContentSource final : public IContentSource {
     [[nodiscard]] const TabSnapshot &snapshot() const { return m_snap; }
     [[nodiscard]] bool empty() const { return m_snap.windows.empty(); }
 
-    // NOT const, same contract as WindowsContentSource::enumerate(): callers must not cache
-    // it across a reconnect, where every id is being reused.
+    // NOT const: callers must not cache it across a reconnect, where ids are reused.
     [[nodiscard]] std::vector<SubjectRef> enumerate() override {
         std::vector<SubjectRef> out;
         std::size_t total = 0;
@@ -50,8 +49,7 @@ class TabsContentSource final : public IContentSource {
         out.reserve(total);
         for (const auto &[browserWindow, reported] : m_snap.windows)
             for (const auto &[tabId, info] : reported.tabs)
-                // The epoch is the connection that issued the id: "tab 41" from last week's
-                // browser and "tab 41" from this one are different subjects.
+                // The epoch is the connection: "tab 41" from two browsers is two subjects.
                 out.push_back(
                     SubjectRef{static_cast<std::uint64_t>(tabId), m_snap.generation});
         return out;
@@ -73,27 +71,28 @@ class TabsContentSource final : public IContentSource {
         return it == titles_.end() ? std::string{} : it->second;
     }
 
-    // Always true, but load-bearing: WindowsContentSource::isTab() is false by construction,
-    // so the two differing is what lets a caller ask "which domain" once.
+    // Load-bearing: Windows' is false by construction, so the two differing name the domain.
     [[nodiscard]] bool isTab(SubjectRef s) const override {
         return s.epoch != 0 && s.epoch == m_snap.generation;
     }
 
-    // Titles stay here as strings, not string_views into the parsed text. "Heard from" is
-    // not "has tabs" -- the fallback rule (entriesFor).
+    // "Heard from" is not "has tabs" -- the fallback rule (entriesFor).
     [[nodiscard]] bool knownFor(std::uint64_t browserWindow) const {
         const auto it = m_snap.windows.find(browserWindow);
         return it != m_snap.windows.end() && it->second.known;
     }
 
-    [[nodiscard]] std::vector<std::int64_t> tabIdsFor(std::uint64_t browserWindow) const {
+    // Filtered here, not at the caller: an unlisted id is no card, not a hidden one.
+    [[nodiscard]] std::vector<std::int64_t> tabIdsFor(std::uint64_t browserWindow,
+                                                      bool showDiscarded) const {
         const auto it = m_snap.windows.find(browserWindow);
         if (it == m_snap.windows.end())
             return {};
         std::vector<std::int64_t> ids;
         ids.reserve(it->second.tabs.size());
         for (const auto &[tabId, info] : it->second.tabs)
-            ids.push_back(tabId);
+            if (showDiscarded || !info.discarded)
+                ids.push_back(tabId);
         return ids;
     }
 

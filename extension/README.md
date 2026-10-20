@@ -55,11 +55,22 @@ picture until the grant is made — a supported state, not a failure.
 One message: the tab list, which tabs are active in the focused window, and at
 most one screenshot. The mediator writes:
 
-    tabs                   g <generation> / p <pid> <window> / t <window> <tab> <active> <title>
+    tabs                   g <generation> / p <pid> <window> / t <window> <tab> <flags> <title>
     previews/<tabId>.png
+
+`flags` is one number: bit 0 active, bit 1 discarded (open, not in memory). The
+compositor lists discarded tabs only when asked (`show_discarded_tabs`).
 
 `p` is the **parent** of the mediator — the browser. That line is the whole
 correlation.
+
+## What it does
+
+- Reports the tab list, the active tabs of the focused window, and at most one screenshot.
+- **Opens a tab on request.** The compositor writes `a <pid> <window> <tab>` under
+  `$XDG_RUNTIME_DIR/hyprview`; the mediator whose parent is that pid forwards it, and the
+  extension makes the tab active (reloading it if it was discarded) and focuses its window.
+  Nothing else ever asks the extension to do anything.
 
 ## What it does not do
 

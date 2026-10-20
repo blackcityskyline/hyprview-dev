@@ -1,12 +1,12 @@
 #pragma once
 
 // Feed lines from the browser side: no quoting, no JSON dependency (AGENTS.md 1).
-//   g <generation> / p <pid> <window> / t <window> <tab> <active> <title...>
-// generation is the connection identity; tab ids are reused, so an id is meaningful only
-// under the generation that issued it -- the ABA hazard of AGENTS.md 2.9.
+//   g <generation> / p <pid> <window> / t <window> <tab> <flags> <title...>
+// Tab ids are reused: an id means something only under the generation that issued it (2.9).
 
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -16,7 +16,16 @@ namespace hyprview::model {
 struct TabInfo {
     std::string_view title;
     bool active = false;
+    // Open but not in memory; activating it is what reloads it.
+    bool discarded = false;
 };
+
+// What the plugin asks the mediator for: one tab, in the browser process it names.
+[[nodiscard]] inline std::string activateCommand(std::uint64_t pid, std::uint64_t window,
+                                                 std::int64_t tab) {
+    return "a " + std::to_string(pid) + " " + std::to_string(window) + " " +
+           std::to_string(tab) + "\n";
+}
 
 // `known` separates "reported no tabs" from "never reported" -- the whole fallback rule:
 // a browser that has not spoken yet must still be shown as a window (entriesFor).
@@ -101,20 +110,10 @@ struct TabSnapshot {
             return std::nullopt;
 
         std::size_t p    = 2;
-        std::uint64_t window = 0, tab = 0;
-        if (!number(line, p, window) || !number(line, p, tab))
+        std::uint64_t window = 0, tab = 0, flags = 0;
+        // Bit 0 active, bit 1 discarded; a word here is a disagreement, not a guess.
+        if (!number(line, p, window) || !number(line, p, tab) || !number(line, p, flags))
             return std::nullopt;
-        while (p < line.size() && line[p] == ' ')
-            ++p;
-
-        // Only 0 or 1: a 2 or a word here is a format disagreement, and guessing leaves a tab
-        // silently not active.
-        while (p < line.size() && line[p] == ' ')
-            ++p;
-        if (p >= line.size() || (line[p] != '0' && line[p] != '1'))
-            return std::nullopt;
-        const bool active = line[p] == '1';
-        ++p;
         while (p < line.size() && line[p] == ' ')
             ++p;
 
@@ -124,7 +123,8 @@ struct TabSnapshot {
 
         auto &entry = out.windows[window];
         entry.known = true;
-        entry.tabs.push_back({static_cast<std::int64_t>(tab), TabInfo{title, active}});
+        entry.tabs.push_back({static_cast<std::int64_t>(tab),
+                              TabInfo{title, (flags & 1) != 0, (flags & 2) != 0}});
     }
 
     if (!haveHeader)

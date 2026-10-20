@@ -490,7 +490,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       });
       return true;
     }
-    focusAndClose(w, Desktop::FOCUS_REASON_CLICK);
+    activateTile(press, Desktop::FOCUS_REASON_CLICK);
     return true;
   }
 

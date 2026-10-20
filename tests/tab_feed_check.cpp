@@ -13,6 +13,7 @@
 #include "../src/model/tab_feed.hpp"
 
 using hyprview::model::TabInfo;
+using hyprview::model::activateCommand;
 using hyprview::model::TabSnapshot;
 using hyprview::model::parseTabs;
 
@@ -106,7 +107,7 @@ int main() {
     refuses("\n\n", "a file of blank lines");
     refuses("t 12 41 0 x\n", "a tab with no generation");
     refuses("g\n", "a generation with no number");
-    refuses("g 1\nt 12 41 2 x\n", "an active flag that is neither 0 nor 1");
+    refuses("g 1\nt 12 41 -2 x\n", "a negative flag");
     refuses("g 1\nt 12 41 x\n", "a tab with no active flag");
     refuses("g 1\nt 12 41\n", "a tab line that stops after the id");
     refuses("g 1\nt 12x 41 0 x\n", "junk glued onto a number");
@@ -114,7 +115,6 @@ int main() {
     refuses("g 1\nt -1 41 0 x\n", "a signed id");
     refuses("g 1\ng 2\n", "two generation headers");
     refuses("g 1\nx 1 2 3\n", "a line with an unknown kind");
-    refuses("g 1\nt 1 2 3\n", "an active flag of 3");
     // Overflow: a generation that wrapped would land on a number already seen, which would
     // make two different connections look like one.
     refuses("g 99999999999999999999999\n", "a generation that overflows");
@@ -164,6 +164,30 @@ int main() {
     refuses("p abc 12\n", "a non-numeric process id");
     refuses("p 1234\n", "a process line with no window");
     std::puts("pids: per window, and shared within a browser");
+  }
+
+  // --- flags: active and discarded share one number -------------------------------------------
+  {
+    const auto &s = must(parseTabs("g 2\nt 12 41 0 plain\nt 12 42 1 active\n"
+                                   "t 12 43 2 unloaded\nt 12 44 3 both\n"),
+                         "a feed with flags");
+    const auto &tabs = s.windows.at(12).tabs;
+    want(tabs.size() == 4, true, "four tabs");
+    want(tabs[0].second.active == false && tabs[0].second.discarded == false, true,
+         "flag 0 is neither active nor discarded");
+    want(tabs[1].second.active && !tabs[1].second.discarded, true, "flag 1 is active");
+    want(!tabs[2].second.active && tabs[2].second.discarded, true, "flag 2 is discarded");
+    want(tabs[3].second.active && tabs[3].second.discarded, true, "flag 3 is both");
+    // The title is the rest of the line: a flag must not eat it, and a title that looks like a
+    // number must not be read as one.
+    const auto &n = must(parseTabs("g 2\nt 12 41 1 42\n"), "a title that is a number");
+    want(n.windows.at(12).tabs[0].second.title == "42", true, "the title is still the title");
+
+    // The request the plugin writes for the mediator: one line, the browser pid first so that
+    // only the mediator of that browser consumes it.
+    want(activateCommand(1234, 12, 42) == "a 1234 12 42\n", true,
+         "an activation names the process, the window and the tab");
+    std::puts("flags: one number, and a title that reads like one");
   }
 
   if (failures) {

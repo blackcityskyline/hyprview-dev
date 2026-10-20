@@ -13,6 +13,7 @@ checked is the wire and not a function called directly.
 
 import json
 import os
+import select
 import struct
 import subprocess
 import sys
@@ -47,6 +48,12 @@ def recv(proc, timeout=10):
     return json.loads(proc.stdout.read(length).decode("utf-8"))
 
 
+def recv_ready(proc, timeout):
+    """A frame the mediator PUSHED, or None. An unpublished frame must not hang the test."""
+    ready, _, _ = select.select([proc.stdout], [], [], timeout)
+    return recv(proc) if ready else None
+
+
 def start(root):
     # A real child process, so /proc/<pid>/stat has this test as the parent. That is the whole
     # mechanism: the browser starts the mediator, the mediator's parent is the browser.
@@ -63,6 +70,16 @@ TABS = [
     {"id": 42, "windowId": 12, "title": "read | the docs"},
     {"id": 7, "windowId": 13, "title": ""},
 ]
+
+
+def mediator_module():
+    """The mediator as a module, for the rules that are older-than-something and not timing."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("hyprview_mediator", MEDIATOR)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def main():
@@ -103,6 +120,41 @@ def main():
         want(os.path.exists(shot), "the screenshot lands under the active tab id")
         if os.path.exists(shot):
             want(open(shot, "rb").read().startswith(b"\x89PNG"), "and it is the PNG")
+
+        # --- unloaded tabs: one flag number, bit 1 -------------------------------------------
+        send(proc, {"name": "report",
+                    "tabs": [{"id": 51, "windowId": 20, "title": "loaded"},
+                             {"id": 52, "windowId": 20, "title": "unloaded",
+                              "discarded": True}],
+                    "active": [51]})
+        want(recv(proc).get("ok") is True, "a report with an unloaded tab is accepted")
+        rows = open(feed_path, "rb").read().decode().split("\n")
+        want("t 20 51 1 loaded" in rows, "an active loaded tab is flag 1")
+        want("t 20 52 2 unloaded" in rows, "an unloaded one is flag 2")
+
+        # --- an activation the compositor asked for, pushed without being asked ---------------
+        # The plugin writes the file; only the mediator whose browser it names may consume it,
+        # because a tab id means nothing in another browser.
+        request = os.path.join(root, "activate")
+        open(request, "w").write("a %d 12 42\n" % os.getpid())
+        pushed = recv_ready(proc, 3)
+        want(pushed == {"name": "activate", "window": 12, "tab": 42},
+             "a request for this browser reaches the extension: %r" % pushed)
+        want(not os.path.exists(request), "and the request is consumed")
+
+        open(request, "w").write("a %d 12 42\n" % (os.getpid() + 1))
+        want(recv_ready(proc, 0.6) is None, "another browser's request is not answered here")
+        want(os.path.exists(request), "and is left on disk for its own mediator")
+        os.unlink(request)
+
+
+        # A request nobody is in any more is dropped rather than fired on a later start.
+        stale = mediator_module()
+        stale_request = os.path.join(root, "activate")
+        open(stale_request, "w").write("a %d 12 42\n" % os.getpid())
+        os.utime(stale_request, (0, 0))
+        want(stale.pop_activation(root, os.getpid()) is None, "a stale request is not forwarded")
+        want(not os.path.exists(stale_request), "and it is dropped")
 
         # --- a second browser into the same document ---------------------------------------------
         send(proc, {"name": "report", "tabs": [{"id": 1, "windowId": 9, "title": "b"}],

@@ -173,6 +173,7 @@ private:
   // Browser side, read in rather than dialled: a file under XDG_RUNTIME_DIR, no socket and no thread (AGENTS.md 1).
   model::TabsContentSource m_tabs;
   model::BrowserLinks m_links;
+  int m_showDiscarded = -1;
   // The window behind a tile; null for a tab or a gone window (resolution lives here, not on Tile).
   PHLWINDOW tileWindow(const model::Tile &t) const { return m_windows.windowOf(t.subj); }
 
@@ -364,6 +365,10 @@ private:
   void activateSelection();
   // A target off the DISPLAYED workspace collapses onto it BEFORE the glide, so it aims at the real final position.
   void focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason);
+  // A tab card has no window: the browser is asked for the tab and its host is focused.
+  void activateTile(int idx, Desktop::eFocusReason reason);
+  void activateTab(model::SubjectRef s, Desktop::eFocusReason reason);
+  bool writeTabRequest(std::uint64_t browserWindow, std::int64_t tab);
   bool crossesRealWorkspace(const PHLWINDOW &w) const;
   void closeTileWindow(int i);
   LRect killZoneRect() const;

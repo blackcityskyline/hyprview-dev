@@ -45,7 +45,9 @@ function connect() {
   }
   console.log('hyprview: native port opened to ' + NATIVE_APP);
   port.onMessage.addListener((reply) => {
-    if (reply && reply.ok === false)
+    if (reply && reply.name === 'activate')
+      activate(reply);
+    else if (reply && reply.ok === false)
       console.warn('hyprview mediator refused:', reply.reason);
   });
   // The handler is GIVEN the port, and that port carries the reason. Reading only "it
@@ -65,7 +67,23 @@ function connect() {
 // Everything the mediator needs, in one message. Asking for the window list too is deliberate:
 // the pid is per-browser but the windows are per-profile, and the two are not always the same
 // set once private windows are involved.
+// One report at a time. A capture is a screenshot encode, and it routinely outlasts the
+// debounce above; without this the next event starts a second capture over the first, they
+// finish out of order and the pile grows for as long as the page keeps updating.
+let reporting = false;
+
 async function report() {
+  if (reporting)
+    return;
+  reporting = true;
+  try {
+    await reportOnce();
+  } finally {
+    reporting = false;
+  }
+}
+
+async function reportOnce() {
   if (!port)
     connect(); // the event page may have been restarted with no port and no top-level run
   if (!port)
@@ -112,7 +130,26 @@ async function report() {
 function simplify(tabs) {
   return tabs
     .filter((t) => typeof t.id === 'number' && typeof t.windowId === 'number')
-    .map((t) => ({ id: t.id, windowId: t.windowId, title: t.title || '' }));
+    .map((t) => ({
+      id: t.id,
+      windowId: t.windowId,
+      title: t.title || '',
+      // Unloaded: still open, not in memory. The compositor hides these unless asked.
+      discarded: t.discarded === true,
+    }));
+}
+
+// The compositor picked a tab card. Making the tab active is also what reloads a discarded
+// tab; focusing the window is what puts the browser in front of the user.
+async function activate(command) {
+  try {
+    const tab = await api.tabs.update(command.tab, { active: true });
+    const windowId = tab && typeof tab.windowId === 'number' ? tab.windowId : command.window;
+    if (typeof windowId === 'number')
+      await api.windows.update(windowId, { focused: true });
+  } catch (e) {
+    console.error('hyprview: activate failed:', e && e.message ? e.message : e);
+  }
 }
 
 // A picture of what this window is showing right now.

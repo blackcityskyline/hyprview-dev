@@ -126,17 +126,17 @@ int main() {
     std::puts("clear: titles do not outlive the run");
   }
 
-  // --- the verbs have no transport, and say so ------------------------------------------------------
+  // --- the verbs are remote, and the source is not the one who writes ------------------------------
   {
     TabsContentSource s;
     s.adopt(snap("g 7\nt 12 41 1 GitHub\n"));
     const SubjectRef tab{41, 7};
     // False is the interface's own word for "it did not happen". Anything else here -- a true,
     // or a crash -- would make a caller animate towards a tab that never moved.
-    want(s.activate(tab), false, "activating a tab is remote and has no channel yet");
+    want(s.activate(tab), false, "activating a tab goes through the mediator, not the source");
     want(s.close(tab), false, "closing a tab is remote too");
     want(s.moveTo(tab, GroupRef{12, 7}), false, "moving a tab is remote as well");
-    std::puts("verbs: no transport, so no, and no pretending");
+    std::puts("verbs: remote, and the source stays pure");
   }
 
   // --- answering by browser window, which is what a tile builder asks ---------------------------
@@ -146,19 +146,32 @@ int main() {
     want(s.knownFor(12), true, "a reported window is known");
     want(s.knownFor(13), true, "and so is the other one");
     want(s.knownFor(14), false, "a window nobody mentioned is not");
-    const auto ids = s.tabIdsFor(12);
+    const auto ids = s.tabIdsFor(12, /*showDiscarded=*/true);
     want(ids.size() == 2, true, "two tabs in window 12");
     want(ids[0] == 41 && ids[1] == 42, true, "in the order reported");
-    want(s.tabIdsFor(13).size() == 1, true, "one in window 13");
-    want(s.tabIdsFor(14).empty(), true, "and none for an unheard-of window");
+    want(s.tabIdsFor(13, true).size() == 1, true, "one in window 13");
+    want(s.tabIdsFor(14, true).empty(), true, "and none for an unheard-of window");
     // The distinction the fallback rule is made of: never heard from is not the same as heard
     // from and empty. A check that only counted ids would not tell them apart, and the wrong
     // one drops every window until the extension connects.
     TabsContentSource empty;
     empty.adopt(snap("g 3\n"));
     want(empty.knownFor(12), false, "a connection that has not reported a window yet");
-    want(empty.tabIdsFor(12).empty(), true, "no tabs for it either");
+    want(empty.tabIdsFor(12, true).empty(), true, "no tabs for it either");
     std::puts("by window: known and ids, and unheard-from stays distinct from empty");
+  }
+
+  // --- unloaded tabs: reported always, listed only when asked for ------------------------------
+  {
+    TabsContentSource s;
+    s.adopt(snap("g 7\nt 12 41 1 loaded\nt 12 42 2 unloaded\nt 12 43 3 active-unloaded\n"));
+    const auto hidden = s.tabIdsFor(12, /*showDiscarded=*/false);
+    want(hidden.size() == 1 && hidden[0] == 41, true,
+         "the default listing is the loaded tabs only");
+    const auto shown = s.tabIdsFor(12, /*showDiscarded=*/true);
+    want(shown.size() == 3, true, "the toggle adds the unloaded ones");
+    want(shown[1] == 42 && shown[2] == 43, true, "in the order reported");
+    std::puts("unloaded: hidden by default, listed on request");
   }
 
   if (failures) {

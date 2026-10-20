@@ -33,8 +33,10 @@ refuses and a feed the parser rejects.
 
 import json
 import os
+import select
 import struct
 import sys
+import time
 
 # Tab ids are reused -- close 41, 41 exists again a moment later pointing at another page -- so
 # an id is only meaningful under the connection that issued it. This is the connection.
@@ -140,7 +142,9 @@ def build_feed(command, browser_pid):
             lines.append("p %d %d" % (browser_pid, window))
         # A title is the rest of the line and must not carry the grammar's own separators.
         title = (tab.get("title") or "").replace("|", " ").replace("\n", " ").replace("\r", " ")
-        lines.append("t %d %d %d %s" % (window, ident, 1 if ident in active else 0, title))
+        # Bit 0 active, bit 1 discarded -- one number, so the title stays the rest of the line.
+        flags = (1 if ident in active else 0) | (2 if tab.get("discarded") is True else 0)
+        lines.append("t %d %d %d %s" % (window, ident, flags, title))
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
@@ -198,6 +202,42 @@ def merge_into(root, incoming):
         if line.strip():
             out.append(line)
     atomic_write(path, b"\n".join(out) + b"\n")
+
+
+# A request the plugin wrote: "a <browser-pid> <window> <tab>". Consumed only by the mediator
+# whose browser it names -- tab ids are per browser, and two mediators share one directory.
+# Older than a few seconds and it is a request for a state nobody is in any more.
+ACTIVATE_MAX_AGE = 5.0
+
+
+def drop(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass  # another browser's mediator took it, or the plugin is rewriting it
+
+
+def pop_activation(root, browser_pid):
+    path = os.path.join(root, "activate")
+    try:
+        age = time.time() - os.path.getmtime(path)
+        with open(path, "rb") as f:
+            line = f.read(200).decode("utf-8", "replace").strip()
+    except OSError:
+        return None
+    parts = line.split()
+    try:
+        pid, window, tab = (int(v) for v in parts[1:])
+    except (IndexError, ValueError):
+        pid, window, tab = 0, 0, 0
+    if age > ACTIVATE_MAX_AGE or len(parts) != 4 or parts[0] != "a":
+        log("dropping a malformed or stale activation: %r" % line)
+        drop(path)
+        return None
+    if pid != browser_pid:
+        return None  # another browser's tab: its own mediator is the one that can open it
+    drop(path)
+    return {"name": "activate", "window": window, "tab": tab}
 
 
 def handle(command, root, own_pid):
@@ -285,7 +325,17 @@ def main():
     log("ARGS=%r CWD=%s" % (sys.argv[1:], os.getcwd()))
     log("started, pid %d, parent %s, writing %s" % (own, parent_pid(own), directory))
 
+    browser = parent_pid(own)
     while True:
+        # Idle time is when a request from the compositor is picked up: native messaging is a
+        # two-way stream, so the host may speak without being asked.
+        ready, _, _ = select.select([stdin], [], [], 0.2)
+        if not ready:
+            request = pop_activation(directory, browser) if browser else None
+            if request:
+                log("pushing an activation: %r" % request)
+                write_frame(stdout, request)
+            continue
         log("waiting for a command")
         command = read_frame(stdin)
         if command is None:

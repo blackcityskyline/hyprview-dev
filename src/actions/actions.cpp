@@ -258,7 +258,10 @@ std::string Overview::runCommand(const std::string &args) {
                       std::to_string(showAllWorkspaces()) + "|carousel=" +
                       std::to_string(carouselMode()) + "|run=" +
                       std::to_string(m_view.run() ? m_view.carousel().cards.size() : 0) +
-                      "|pos=" + std::to_string(runPosition()) + "|ccx=" +
+                      "|pos=" + std::to_string(runPosition()) + "|disc=" +
+                      std::to_string(m_showDiscarded >= 0 ? m_showDiscarded
+                                                          : cfg::behavior.show_discarded_tabs != 0 ? 1 : 0) +
+                      "|ccx=" +
                       std::to_string(static_cast<int>(m_view.carousel().area.x +
                                                      m_view.carousel().originX +
                                                      m_view.carousel().area.w / 2.0));
@@ -467,6 +470,23 @@ std::string Overview::runCommand(const std::string &args) {
     const bool want = num(1) != 0;
     if (want != carouselMode())
       toggleCarousel();
+    return "";
+  }
+
+  if (tok[0] == "activate") {
+    activateSelection();
+    return "";
+  }
+
+  if (tok[0] == "discarded") {
+    const bool cur = m_showDiscarded >= 0 ? m_showDiscarded != 0
+                                          : cfg::behavior.show_discarded_tabs != 0;
+    const int arg = num(1);
+    m_showDiscarded = (arg < 0 ? !cur : arg != 0) ? 1 : 0;
+    if (openedOrParked()) {
+      auto oldBoxes = captureCurrentBoxes();
+      replayReflow(oldBoxes);
+    }
     return "";
   }
 

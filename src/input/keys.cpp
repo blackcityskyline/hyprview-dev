@@ -295,9 +295,7 @@ void Overview::pinRunEdges(const std::vector<char> &wasOnRun) {
   }
 }
 
-void Overview::activateSelection() {
-  focusAndClose(tileWindow({m_scene.focusedSubject()}), Desktop::FOCUS_REASON_KEYBIND);
-}
+void Overview::activateSelection() { activateTile(m_scene.focused(), Desktop::FOCUS_REASON_KEYBIND); }
 
 
 } // namespace hyprview

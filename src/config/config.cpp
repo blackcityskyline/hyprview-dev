@@ -136,6 +136,7 @@ constexpr IntSpec kInts[] = {
     {&behavior.switch_on_new_workspace, "plugin:hyprview:switch_on_new_workspace", 1},
     {&behavior.show_all_workspaces, "plugin:hyprview:show_all_workspaces", 0},
     {&behavior.show_special, "plugin:hyprview:show_special", 0},
+    {&behavior.show_discarded_tabs, "plugin:hyprview:show_discarded_tabs", 0},
     {&behavior.alttab_advances, "plugin:hyprview:alttab_advances", 0},
     {&behavior.hold_lift_ms, "plugin:hyprview:hold_lift_ms", 400},
     {&layer.hide_top, "plugin:hyprview:hide_top_layers", 0},
