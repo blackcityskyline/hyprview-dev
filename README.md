@@ -167,8 +167,10 @@ fixed layer of the `Canvas` system colour under its content, for the duration of
 the browser's snapshot draws the document but not the canvas, and without it a dark page came
 back as dark controls on a white sheet. A tab the extension may not photograph keeps no file:
 the stale picture under its id belongs to some other page, so it is deleted and the card keeps
-no picture. A tab without one shows its title, plus the site's favicon in the corner: the
+no picture. A tab without one shows its title. The site's favicon sits in the title pill: the
 extension fetches it, normalises it to a 32px PNG and the mediator writes `icons/<tabId>.png`.
+The corner of the card carries the browser's own icon, looked up from the window class's
+desktop entry.
 
 ## Config
 

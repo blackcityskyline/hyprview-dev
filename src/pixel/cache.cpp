@@ -1,6 +1,8 @@
 #include "cache.hpp"
 
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
 
 #include "png.hpp"
 
@@ -104,6 +106,46 @@ SP<Render::ITexture> PixelCache::putIcon(const model::SubjectRef &s, const std::
   else
     m_subjectIcon.erase(s);
   return tex;
+}
+
+namespace {
+// The desktop entry names the icon, the theme directories hold it; a class naming no entry has none.
+std::string appIconPath(const std::string &windowClass) {
+    std::ifstream entry("/usr/share/applications/" + windowClass + ".desktop");
+    std::string line;
+    std::string name;
+    while (std::getline(entry, line))
+        if (line.rfind("Icon=", 0) == 0) {
+            name = line.substr(5);
+            break;
+        }
+    if (name.empty())
+        return {};
+    if (name.front() == '/')
+        return name;
+    const char *home = std::getenv("HOME");
+    const std::string roots[] = {std::string(home ? home : "") + "/.local/share/icons/hicolor/",
+                                 "/usr/share/icons/hicolor/"};
+    for (const auto &root : roots)
+        for (const char *size : {"256x256", "128x128", "64x64", "48x48", "32x32", "16x16"}) {
+            const std::string path = root + size + "/apps/" + name + ".png";
+            if (std::filesystem::exists(path))
+                return path;
+        }
+    const std::string pixmap = "/usr/share/pixmaps/" + name + ".png";
+    return std::filesystem::exists(pixmap) ? pixmap : std::string{};
+}
+} // namespace
+
+SP<Render::ITexture> PixelCache::appIcon(const std::string &windowClass) {
+    if (windowClass.empty())
+        return nullptr;
+    const auto hit = m_appIcons.find(windowClass);
+    if (hit != m_appIcons.end())
+        return hit->second;
+    auto tex = loadPng(appIconPath(windowClass));
+    m_appIcons[windowClass] = tex; // a miss is cached too: one lookup per class, not per frame
+    return tex;
 }
 
 SP<Render::ITexture> PixelCache::picture(const model::SubjectRef &s) const {

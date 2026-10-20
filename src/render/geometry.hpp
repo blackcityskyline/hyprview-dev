@@ -251,6 +251,8 @@ struct CaptionSizes {
   double countW = 0.0, countH = 0.0;
   bool hasLabel = false;
   bool hasCounter = false;
+  double iconW = 0.0; // the site's favicon, inside the pill before the text
+  bool hasIcon = false;
 };
 
 struct CaptionStyle {
@@ -264,6 +266,7 @@ struct CaptionStyle {
   double gridGapMin = 1.0;
   bool below = true;        // title hangs off the card's bottom edge
   bool counterBelow = true; // counter hangs off the card's bottom edge
+  double iconGap = 6.0;     // between the favicon and the first glyph
 };
 
 struct CaptionLayout {
@@ -288,7 +291,8 @@ struct CaptionLayout {
   const double kCard = cardScale(box.w, st.cardRefW);
   // The caption's scale is the CARD's scale: a long title is not a smaller title.
   const double kFit = kCard;
-  const double pw = (textW + 2 * padX) * kFit;
+  const double iconW = s.hasIcon ? s.iconW + st.iconGap : 0.0;
+  const double pw = (textW + iconW + 2 * padX) * kFit;
   const double ph = (textH + 2 * padY) * kFit;
 
   const double stackGap = counterH > 0.0 ? st.stackGap : 0.0;

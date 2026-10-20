@@ -225,8 +225,7 @@ void Overview::moveSelection(int dx, int dy) {
 
 // Steps the order the user SEES: slot order in the run, array order in the grid; the run is MRU-first.
 // One step along the run, in the order the cards STAND in. The arrows, the wheel
-// and the alt-tab all step this way, so the counter, the motion and the picture
-// cannot disagree about which card is next.
+// and the alt-tab all step this way, so the counter, the motion and the picture cannot disagree about which card is next.
 bool Overview::stepRun(int dir) {
   const auto &slot = m_view.slot();
   if (!m_scene.hasSelection() || slot.size() != m_scene.size())

@@ -134,8 +134,7 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
         if (!s || !s->m_current.texture || s->m_current.size.x < 1 ||
             s->m_current.size.y < 1)
           return;
-        // ponytail: the offset is fitted, the box Hyprland derives for a subsurface
-        // from its resource size is not -- a popup previews at real size.
+        // ponytail: the offset is fitted, the box Hyprland derives for a subsurface from its resource size is not -- a popup previews at real size.
         data.localPos    = offset * fit.scale;
         data.texture     = s->m_current.texture;
         data.surface     = s;

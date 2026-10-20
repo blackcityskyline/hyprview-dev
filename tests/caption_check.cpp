@@ -149,6 +149,21 @@ static void aCaptionIsSizedWithItsCard() {
   std::puts("the caption: sized with its card, and clamped to the screen");
 }
 
+// The site's favicon rides inside the title's pill, so the pill grows by the icon and the
+// gap between them; the text keeps its size, and the pill stays centred on the card.
+static void theIconWidensTheTitlePill() {
+  const LRect card{100.0, 100.0, 400.0, 300.0};
+  const auto plain = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, false), style());
+  auto withIcon = sizes(true, false);
+  withIcon.iconW = 24.0;
+  withIcon.hasIcon = true;
+  const auto icon = captionLayout(card, LRect{}, 1920.0, 1080.0, withIcon, style());
+  near(icon.pill.w - plain.pill.w, (24.0 + 6.0) * icon.kFit,
+       "the pill grows by the icon and the gap, at the card's scale");
+  near(icon.pill.x, plain.pill.x - (24.0 + 6.0) * icon.kFit / 2.0,
+       "and stays centred on the card");
+}
+
 // A caption with no label shows the counter instead, and one with neither shows
 // nothing at all -- a zero-width pill is the signal, not a special case.
 static void aCaptionWithoutALabel() {
@@ -226,6 +241,7 @@ int main() {
   theCounterIsTheOuterPill();
   aCaptionIsSizedWithItsCard();
   aCaptionWithoutALabel();
+  theIconWidensTheTitlePill();
   aCaptionLeavesACardThatReachedIt();
   theStripLeavesItsBand();
   std::puts("caption geometry ok");

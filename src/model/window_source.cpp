@@ -82,8 +82,7 @@ bool WindowsContentSource::close(SubjectRef s) {
     const auto w = windowOf(s);
     if (!w)
         return false;
-    // No flight here: the card flies out BEFORE this is called and the caller draws it -- a
-    // source that animated would have to know where the card is.
+    // No flight here: the card flies out BEFORE this is called and the caller draws it -- a source that animated would have to know where the card is.
     w->sendClose();
     return true;
 }

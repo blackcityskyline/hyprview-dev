@@ -42,8 +42,7 @@ void Overview::renderStrip() const {
   const float roundPow     = cfg::look.preview_round_power;
 
 
-    // Chrome, not backdrop: blurAlpha() is pinned to 1.0 on a close, so the way out fades on
-    // exitT(), the same number the cards leave on.
+    // Chrome, not backdrop: blurAlpha() is pinned to 1.0 on a close, so the way out fades on exitT(), the same number the cards leave on.
   const double bandE = opening() ? stripE : exitT();
   auto bandCol = cfg::colors.strip_band.get(bandE);
   bandCol.a = render::stripBandAlpha(cfg::strip.band_opacity.get(), bandE);

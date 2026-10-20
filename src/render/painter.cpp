@@ -226,8 +226,7 @@ void Overview::paint() {
       draggedTile() >= 0 ||
       (m_drag.press() == model::Drag::Press::StripWin && m_drag.lifted());
   if (dragging) {
-    // Kill zone FIRST, then the preview over it: drawing it after stacked the 1px glow lines
-    // over the very card being dragged.
+    // Kill zone FIRST, then the preview over it: drawing it after stacked the 1px glow lines over the very card being dragged.
     renderKillZone();
     renderDragTile();
     renderDragWindow();

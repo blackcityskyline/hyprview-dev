@@ -181,8 +181,8 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
           t.label, pxb(render::contentInside(room, t.label->m_size.x, t.label->m_size.y), s),
           {.a = 0.45F * f});
     }
-    // The site's own icon, in the corner the caption does not reach.
-    if (const auto icon = tabIcon(t)) {
+    // The browser's own icon, in the corner the caption does not reach.
+    if (const auto icon = browserIcon(t)) {
       const double side = std::clamp(box.h * 0.09, 18.0, 40.0);
       g_pHyprOpenGL->renderTexture(
           icon, pxb(LRect{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side}, s),
@@ -232,10 +232,14 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
     const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
     auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
     const bool hasCounter = countTex && countTex->m_size.x > 0;
+    // The site's icon belongs beside the title; a tab with no title has nothing to sit next to.
+    const auto favicon = tab ? tabIcon(t) : SP<Render::ITexture>{};
+    const bool hasIcon = hasLabel && favicon && favicon->m_size.x > 0;
+    const double iconSide = hasIcon ? t.label->m_size.y : 0.0;
     const render::CaptionSizes sizes{
         hasLabel ? t.label->m_size.x : 0.0, hasLabel ? t.label->m_size.y : 0.0,
         hasCounter ? countTex->m_size.x : 0.0, hasCounter ? countTex->m_size.y : 0.0,
-        hasLabel, hasCounter};
+        hasLabel, hasCounter, iconSide, hasIcon};
     const bool titleBelow = cfg::look.title_position.get() != "top";
     const std::string cpos = cfg::look.counter_position.get();
     const render::CaptionStyle style{
@@ -289,10 +293,18 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
                                {.round = pxr(render::pillRadius(cfg::look.title_round, drawn.w,
                                                                  drawn.h), s),
                                 .roundingPower = roundPow});
+      if (hasIcon)
+        g_pHyprOpenGL->renderTexture(
+            favicon,
+            pxb(CBox(drawn.x + style.padX * lay.kFit * pop,
+                     drawn.y + (drawn.h - iconSide * lay.kFit * pop) / 2.0,
+                     iconSide * lay.kFit * pop, iconSide * lay.kFit * pop), s),
+            {.a = static_cast<float>(cf)});
       if (hasLabel)
         g_pHyprOpenGL->renderTexture(
             t.label,
-            pxb(CBox(drawn.x + style.padX * lay.kFit * pop,
+            pxb(CBox(drawn.x + (style.padX + (hasIcon ? iconSide + style.iconGap : 0.0)) *
+                                    lay.kFit * pop,
                      drawn.y + style.padY * lay.kFit * pop,
                      sizes.textW * lay.kFit * pop, sizes.textH * lay.kFit * pop), s),
             {.a = static_cast<float>(cf)});

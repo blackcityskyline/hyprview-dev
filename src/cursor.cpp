@@ -21,8 +21,7 @@ void CCursorModule::onClose() {
 bool CCursorModule::hasHardwareCursor(PHLMONITOR monitor) const {
     if (!monitor || !Pointer::mgr())
         return false;
-    // Read the config where it is used, every time (AGENTS.md 2.16): caching it made this the one
-    // setting that needed the overview reopened.
+    // Read the config where it is used, every time (AGENTS.md 2.16): caching it made this the one setting that needed the overview reopened.
     if (cfg::behavior.cursor_mode.get() == "software")
         return false;
     return Pointer::mgr()->hasVisibleHWCursor(monitor);

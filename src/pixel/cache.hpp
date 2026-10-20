@@ -80,12 +80,15 @@ class PixelCache {
 
     [[nodiscard]] SP<Render::ITexture> putIcon(const model::SubjectRef &s,
                                               const std::string &path);
+    [[nodiscard]] SP<Render::ITexture> appIcon(const std::string &windowClass);
 
   private:
     std::unordered_map<model::SubjectRef, std::int64_t> m_artStamp;
     // A site changes its favicon far less often than its page: icons are cached apart.
     std::unordered_map<model::SubjectRef, SP<Render::ITexture>> m_subjectIcon;
     std::unordered_map<model::SubjectRef, std::int64_t> m_iconStamp;
+    // By window class, not by window: every browser window of one browser wears one icon.
+    std::unordered_map<std::string, SP<Render::ITexture>> m_appIcons;
 
     template <typename Map, typename T>
     SP<Render::ITexture> labelIn(Map &map, const CWeakPointer<T> &owner,

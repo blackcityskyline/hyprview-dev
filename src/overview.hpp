@@ -270,11 +270,18 @@ private:
     const auto id = std::to_string(t.subj.id);
     return m_pixel.putPicture(t.subj, browserSideFile("/previews/" + id + ".png"), {});
   }
+  SP<Render::ITexture> browserIcon(const model::Tile &t) const {
+    if (!cardOf(t).isTab())
+      return nullptr;
+    const auto group = m_tabs.groupOf(t.subj);
+    const auto hostId = group.id ? m_links.hostOf(group.id) : 0;
+    const auto host = hostId ? m_windows.windowOf(model::SubjectRef{hostId, 0}) : PHLWINDOW{};
+    return host ? m_pixel.appIcon(host->m_class) : nullptr;
+  }
   SP<Render::ITexture> tabIcon(const model::Tile &t) const {
     if (!cardOf(t).isTab())
       return nullptr;
-    return m_pixel.putIcon(t.subj, browserSideFile("/icons/tab-" + std::to_string(t.subj.id) +
-                                                   ".png"));
+    return m_pixel.putIcon(t.subj, browserSideFile("/icons/" + std::to_string(t.subj.id) + ".png"));
   }
   void renderSwapFX() const;
   // Every box this window flies to on one surface, shared with the trace so drawn and reported cannot differ.
