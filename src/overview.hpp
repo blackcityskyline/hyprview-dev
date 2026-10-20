@@ -263,12 +263,13 @@ private:
     return m_fx.swapActive(s, strip);
   }
 
-  // A tab's art is its icon or its caption; a preview photo is never one tab.
+  // A tab's art is the page as it was last seen, else its icon, else its caption.
   SP<Render::ITexture> tabArt(const model::Tile &t) const {
     if (!cardOf(t).isTab())
       return nullptr;
-    return m_pixel.putPicture(t.subj, "", browserSideFile("/icons/tab-" +
-                                                               std::to_string(t.subj.id) + ".png"));
+    const auto id = std::to_string(t.subj.id);
+    return m_pixel.putPicture(t.subj, browserSideFile("/previews/" + id + ".png"),
+                              browserSideFile("/icons/tab-" + id + ".png"));
   }
   void renderSwapFX() const;
   // Every box this window flies to on one surface, shared with the trace so drawn and reported cannot differ.

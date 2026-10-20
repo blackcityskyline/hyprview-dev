@@ -148,6 +148,13 @@ browser but not in memory, so it is listed only when asked for
 Activating a tab card — Enter or a click — makes that tab the browser's active
 one, which also reloads it if it was discarded, and focuses the browser window.
 
+A tab card shows the page as the browser last showed it. A WebExtension can
+photograph only the visible tab of a window, so the picture of a background tab
+comes from the browser's own thumbnail store (one PNG per address in its local
+profile); the mediator copies the matching one in, and the visible tab keeps a
+live screenshot on top. A tab that has not been left since it was opened has no
+stored picture and falls back to its icon.
+
 ## Config
 
 All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#colors).

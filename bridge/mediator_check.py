@@ -11,6 +11,7 @@ The extension is driven over the same stdio a browser would use, in the same fra
 checked is the wire and not a function called directly.
 """
 
+import hashlib
 import json
 import os
 import select
@@ -30,6 +31,15 @@ def want(ok, what):
     if not ok:
         failures += 1
         print("FAIL: %s" % what)
+
+
+def read_bytes(path, default=b""):
+    """A missing file is evidence, not an exception: the check has to say FAIL, not crash."""
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except OSError:
+        return default
 
 
 def send(proc, message):
@@ -84,6 +94,11 @@ def mediator_module():
 
 def main():
     root = tempfile.mkdtemp(prefix="hyprview_mediator_")
+    # The browser's own thumbnail store: a real directory the mediator is told about, because
+    # finding it from the parent process would be guessing at a profile layout.
+    thumbs = os.path.join(root, "thumbs")
+    os.makedirs(thumbs, exist_ok=True)
+    os.environ["HYPRVIEW_THUMB_DIRS"] = thumbs
     proc = start(root)
     try:
         # --- a report -----------------------------------------------------------------------
@@ -140,6 +155,35 @@ def main():
         rows = open(feed_path, "rb").read().decode().split("\n")
         want("t 20 51 1 loaded" in rows, "an active loaded tab is flag 1")
         want("t 20 52 2 unloaded" in rows, "an unloaded one is flag 2")
+
+        # --- a picture for a tab the browser will not photograph ----------------------------
+        page = b"\x89PNG\r\n\x1a\nstored-page"
+        leaf = hashlib.md5(b"https://example.com/a").hexdigest() + ".png"
+        with open(os.path.join(thumbs, leaf), "wb") as f:
+            f.write(page)
+        store_tabs = [
+            {"id": 61, "windowId": 30, "title": "a", "url": "https://example.com/a"},
+            {"id": 62, "windowId": 30, "title": "b", "url": "https://example.com/b"},
+            {"id": 63, "windowId": 30, "title": "c"},
+        ]
+        send(proc, {"name": "report", "tabs": store_tabs, "active": [61]})
+        want(recv(proc).get("ok") is True, "a report carrying addresses is accepted")
+        got = read_bytes(os.path.join(root, "previews", "61.png"))
+        want(got == page,
+             "a background tab gets the picture the browser stored for its address: %r" % got)
+        want(not os.path.exists(os.path.join(root, "previews", "62.png")),
+             "an address with no stored thumbnail writes no picture")
+        want(not os.path.exists(os.path.join(root, "previews", "63.png")),
+             "a tab with no address writes no picture")
+
+        shown = "data:image/png;base64," + __import__("base64").b64encode(
+            b"\x89PNG\r\n\x1a\nlive-now"
+        ).decode()
+        send(proc, {"name": "report", "tabs": store_tabs, "active": [61], "screenshot": shown})
+        want(recv(proc).get("ok") is True, "the same report with a live screenshot is accepted")
+        got = read_bytes(os.path.join(root, "previews", "61.png"))
+        want(got.endswith(b"live-now"),
+             "the visible tab keeps its live screenshot over the stored one: %r" % got)
 
         # --- an activation the compositor asked for, pushed without being asked ---------------
         # The plugin writes the file; only the mediator whose browser it names may consume it,

@@ -340,6 +340,7 @@ void Overview::hardClose() {
   m_scene.clear();
   m_strip.clear();
   m_pixel.clearSnapshots();
+  m_pixel.clearArt();
   m_scene.clearHover();
   m_scene.select(-1);
   m_focusOutside.reset();
@@ -515,6 +516,7 @@ void Overview::deactivate() {
   m_scene.clear();
   m_strip.clear();
   m_pixel.clearSnapshots();
+  m_pixel.clearArt();
   m_scene.clearHover();
   m_scene.select(-1);
   damage();

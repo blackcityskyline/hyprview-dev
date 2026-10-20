@@ -71,6 +71,7 @@ class PixelCache {
     void putSnapshot(const PHLWINDOW &win, const SP<Render::ITexture> &tex);
     [[nodiscard]] SP<Render::ITexture> snapshot(const PHLWINDOW &win) const;
     void clearSnapshots() { m_snapshots.clear(); }
+    void clearArt() { m_subjectArt.clear(); }
 
   private:
     template <typename Map, typename T>

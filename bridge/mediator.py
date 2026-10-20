@@ -24,13 +24,17 @@ Hyprland window carries that same pid. Exact, with nothing heuristic about it.
 Writes, all under --dir (default $XDG_RUNTIME_DIR/hyprview):
 
     tabs                   the feed src/model/tab_feed.hpp parses
-    previews/<tabId>.png   a screenshot of what is on screen
+    previews/<tabId>.png   the page as the browser last showed it, else a screenshot of the
+                           active tab -- a WebExtension cannot photograph a background tab,
+                           so the browser's own thumbnail store is the only source for those
 
 Every write is atomic -- written beside the target and renamed over it -- because the plugin
 reads these while they change, and a reader catching a file mid-write sees a picture cairo
 refuses and a feed the parser rejects.
 """
 
+import glob
+import hashlib
 import json
 import os
 import select
@@ -249,6 +253,50 @@ def pop_activation(root, browser_pid):
     return {"name": "activate", "window": window, "tab": tab}
 
 
+def thumb_dirs():
+    """The tab-thumbnail stores of the Firefox family, plus whatever HYPRVIEW_THUMB_DIRS says.
+
+    PathUtils.localProfileDir is the cache-side profile, so the store lives under
+    $XDG_CACHE_HOME rather than beside the profile. Several profiles in one tree is normal;
+    the leaf name is an MD5 of the address, so a file found anywhere it is the right file.
+    """
+    dirs = [d for d in os.environ.get("HYPRVIEW_THUMB_DIRS", "").split(":") if d]
+    cache = os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
+    for pattern in ("zen/*/thumbnails", "mozilla/firefox/*/thumbnails",
+                    "mozilla/zen/*/thumbnails"):
+        dirs.extend(sorted(glob.glob(os.path.join(cache, pattern))))
+    return dirs
+
+
+def fill_previews(root, command):
+    """Give every tab that has one the picture the browser already stores for its page.
+
+    Firefox keeps thumbnails/<md5(url)>.png for pages it has shown and then left
+    (PageThumbsStorageService), and Zen's Ctrl+Tab panel paints exactly those. Copying one in
+    is the only way a card for a background tab gets a picture at all: tabs.captureTab() does
+    not exist in a WebExtension, and captureVisibleTab() photographs one tab per window.
+    """
+    for tab in command.get("tabs") or []:
+        ident, url = tab.get("id"), tab.get("url")
+        if not isinstance(ident, int) or not isinstance(url, str) or not url:
+            continue
+        leaf = hashlib.md5(url.encode("utf-8")).hexdigest() + ".png"
+        dst = os.path.join(root, "previews", "%d.png" % ident)
+        for directory in thumb_dirs():
+            src = os.path.join(directory, leaf)
+            try:
+                if not os.path.isfile(src):
+                    continue
+                if os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
+                    break
+                with open(src, "rb") as f:
+                    raw = f.read()
+            except OSError:
+                continue
+            atomic_write(dst, raw)
+            break
+
+
 def handle(command, root, own_pid):
     """One command in, one reply out. Never raises: the channel is the connection, and a
     mediator that dies on a malformed report takes the whole run of tabs with it."""
@@ -263,6 +311,7 @@ def handle(command, root, own_pid):
             return {"ok": False, "reason": "no-parent-pid"}
 
         merge_into(root, build_feed(command, browser_pid))
+        fill_previews(root, command)
         shot = command.get("screenshot")
         if isinstance(shot, str) and shot.startswith("data:image/png"):
             import base64

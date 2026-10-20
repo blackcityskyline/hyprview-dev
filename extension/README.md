@@ -37,6 +37,10 @@ window title (AGENTS.md 2.26).
 A temporary add-on in a release Firefox build cannot open a native-messaging
 port; that needs the installed XPI.
 
+Each report carries the tab's address as well as its title, because the mediator
+finds a background tab's picture by hashing that address against the browser's
+own thumbnail store. The address is hashed and never written to disk.
+
 ## Permissions
 
 | Permission | Why | Without it |
