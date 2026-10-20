@@ -79,9 +79,10 @@ void hkDamageSurface(void *thisptr, SP<CWLSurfaceResource> pSurface, double x,
         if (w) {
           const auto mon = g_overview->monitor();
           if (g_overview->shouldHideWindow(w, mon)) {
-            // live tile previews MUST keep damage (video)
-            if (g_overview->snapshotMode() || !g_overview->isTileWindow(w))
-              return;
+            // The union of hidden windows IS the output: damage the previews, not the windows.
+            if (!g_overview->snapshotMode())
+              g_overview->damageWindowPreview(w);
+            return;
           }
         }
       }

@@ -124,6 +124,8 @@ public:
 
   bool shouldHideWindow(const PHLWINDOW &w, const PHLMONITOR &m) const;
   [[nodiscard]] bool isTileWindow(const PHLWINDOW &w) const;
+  // Where this window's preview actually is: the tile box and the strip cards that show it.
+  void damageWindowPreview(const PHLWINDOW &w) const;
 
   // Three axes, not refinements of one another (AGENTS.md 3.3).
   [[nodiscard]] bool active() const { return m_life.active(); }

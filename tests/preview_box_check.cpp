@@ -1,5 +1,6 @@
 // The reported box must be the DRAWN one: Hyprland clips damage to getTexBox(), which
 // ignores renderModif, so a modif'ed preview kept only the band over the window's spot.
+// And the damage itself must land there, or the preview freezes.
 
 #include <cmath>
 #include <cstdio>
@@ -35,7 +36,6 @@ int main(int argc, char **argv) {
 
   const std::string root = argc > 1 ? argv[1] : ".";
 
-  // The artifact's scene: a 331x374 window at (687,388) in a 579x325 card 293px away.
   {
     const WindowFitInput in{394, 263, 579, 325, 687, 388, 331, 374, 0, 0, 1.0,
                             true, true, 0.0};
@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
       return fail("the box is not centred on the card -- damage clips the preview to the window");
   }
 
-  // Cover (no contain): the drawn box is the overlarge window, centred on the card.
+  // Cover: the drawn box is the overlarge window, centred on the card.
   {
     const WindowFitInput in{100, 100, 400, 200, 0, 0, 800, 200, 0, 0, 1.0, true, false, 0.0};
     const auto fit = windowFit(in);
@@ -61,8 +61,7 @@ int main(int argc, char **argv) {
       return fail("the cover box is not centred on the card");
   }
 
-  // A scaled monitor and a monitor that does not start at 0,0: pos is global logical, so
-  // the pixel box is ((box - monitor) * scale).
+  // A scaled monitor, not at 0,0: pos is global, so the pixel box is ((box - mon) * scale).
   {
     const WindowFitInput in{50, 20, 875, 500, 2500, 30, 700, 400, 1920, 0, 1.5, true, false, 0.0};
     const auto fit = windowFit(in);
@@ -84,6 +83,13 @@ int main(int argc, char **argv) {
       src.find("renderModif =") != std::string::npos)
     return fail("the preview draws through a renderModif again -- damage then clips it "
                 "to the window's real spot");
+
+  const auto hooks = slurp(root + "/src/session/hooks.cpp");
+  if (hooks.empty())
+    return fail("cannot read src/session/hooks.cpp");
+  if (hooks.find("damageWindowPreview(") == std::string::npos)
+    return fail("a hidden window's damage is not routed to its preview -- the preview "
+                "freezes while the window's real place is repainted");
 
   std::printf("preview box: the drawn box, centred on the card\n");
   return 0;

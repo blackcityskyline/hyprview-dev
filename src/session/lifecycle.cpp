@@ -393,6 +393,39 @@ bool Overview::isTileWindow(const PHLWINDOW &w) const {
     return false;
 }
 
+// A hidden window is drawn at its preview's box, not at its own place: damage at the window's
+// place repaints what the preview never covers and leaves the preview stale.
+void Overview::damageWindowPreview(const PHLWINDOW &w) const {
+  const auto m = m_monitor.lock();
+  if (!m || !g_pHyprRenderer || !w)
+    return;
+  auto hit = [m](LRect b) {
+    b.grow(48.0);
+    g_pHyprRenderer->damageBox(CBox{b.x + m->m_position.x, b.y + m->m_position.y, b.w, b.h});
+  };
+  int boxes = 0;
+  for (std::size_t i = 0; i < m_scene.tiles().size(); ++i) {
+    if (tileWindow(m_scene.tiles()[i]) != w)
+      continue;
+    hit(currentBox(m_scene.tiles()[i], static_cast<int>(i)));
+    ++boxes;
+  }
+  for (std::size_t i = 0; i < m_strip.size(); ++i) {
+    bool shows = false;
+    for (const auto &sw : m_strip[i].wins)
+      if (m_windows.windowOf(sw.subj) == w) {
+        shows = true;
+        break;
+      }
+    if (!shows)
+      continue;
+    hit(stripCardAt(i));
+    ++boxes;
+  }
+  debug::trace::emitState("DMGPREV|win=" + std::to_string(reinterpret_cast<std::uintptr_t>(w.get())) +
+                          "|boxes=" + std::to_string(boxes));
+}
+
 void Overview::syncRecency() {
   if (active())
     return;
