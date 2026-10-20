@@ -174,6 +174,13 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
     if (const auto tex = tabArt(t))
       g_pHyprOpenGL->renderTexture(tex, pxb(box, s),
                                    {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
+    else if (t.label && t.label->m_size.x > 0) {
+      // No picture: the title, centred and dim, is all the card can say about the page.
+      const LRect room{box.x + box.w * 0.1, box.y + box.h * 0.35, box.w * 0.8, box.h * 0.3};
+      g_pHyprOpenGL->renderTexture(
+          t.label, pxb(render::contentInside(room, t.label->m_size.x, t.label->m_size.y), s),
+          {.a = 0.45F * f});
+    }
   } else {
     renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
                      render::contentRadiusFor(round, content, ringW, s, !look.contain),

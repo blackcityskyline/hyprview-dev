@@ -540,9 +540,8 @@ struct CarouselCardRef {
   return paint;
 }
 
-// A click on the run must land on the FRONT-most card: the run's cards overlap, so
-// the first match is the wrong one. The grid's rule is the opposite and lives in
-// firstHit().
+// A click on the run must land on the FRONT-most card: the run overlaps, so the
+// first match is the wrong one; the grid's opposite rule lives in firstHit().
 struct CarouselHitCard {
   int tile = 0;
   int depth = 3;
