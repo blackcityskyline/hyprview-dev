@@ -185,8 +185,11 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
     // The browser's own icon, in the corner the caption does not reach.
     if (const auto icon = browserIcon(t)) {
       const double side = std::clamp(box.h * 0.09, 18.0, 40.0);
+      const LRect badge{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side};
+      dropShadow(badge, s, shadowCol, side * 0.07, side * 0.3, 0.5F * f,
+                 static_cast<int>(side * 0.2), roundPow);
       g_pHyprOpenGL->renderTexture(
-          icon, pxb(LRect{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side}, s),
+          icon, pxb(badge, s),
           {.a = f, .round = pxr(side * 0.2, s), .roundingPower = roundPow});
     }
   } else {
@@ -294,13 +297,15 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
                                {.round = pxr(render::pillRadius(cfg::look.title_round, drawn.w,
                                                                  drawn.h), s),
                                 .roundingPower = roundPow});
-      if (hasIcon)
-        g_pHyprOpenGL->renderTexture(
-            favicon,
-            pxb(CBox(drawn.x + style.padX * lay.kFit * pop,
-                     drawn.y + (drawn.h - iconSide * lay.kFit * pop) / 2.0,
-                     iconSide * lay.kFit * pop, iconSide * lay.kFit * pop), s),
-            {.a = static_cast<float>(cf)});
+      if (hasIcon) {
+        const LRect at{drawn.x + style.padX * lay.kFit * pop,
+                       drawn.y + (drawn.h - iconSide * lay.kFit * pop) / 2.0,
+                       iconSide * lay.kFit * pop, iconSide * lay.kFit * pop};
+        dropShadow(at, s, cfg::colors.shadow.get(1.0), iconSide * 0.05, iconSide * 0.18,
+                   0.4F * static_cast<float>(cf), static_cast<int>(iconSide * 0.2), roundPow);
+        g_pHyprOpenGL->renderTexture(favicon, pxb(at, s),
+                                     {.a = static_cast<float>(cf)});
+      }
       if (hasLabel)
         g_pHyprOpenGL->renderTexture(
             t.label,
