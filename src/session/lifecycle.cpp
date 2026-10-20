@@ -83,9 +83,19 @@ void Overview::toggleCarousel() {
 void Overview::switchDomain(model::Domain d) {
   if (d == m_view.domain())
     return;
+  const bool wasTabs = model::showsTabs(m_view.domain());
+  const bool nowTabs = model::showsTabs(d);
   m_view.setDomain(d);
   if (!openedOrParked())
     return;
+  // Browser view covers every desktop: force all-workspaces, and put it back on the way out.
+  if (nowTabs && !wasTabs && !showAllWorkspaces()) {
+    m_allForced = 0;
+    m_view.setAllOverride(1);
+  } else if (wasTabs && !nowTabs && m_allForced >= 0) {
+    m_view.setAllOverride(m_allForced);
+    m_allForced = -1;
+  }
   // A rebuild, not a relayout: the cards are DIFFERENT SUBJECTS now (lifecycle.cpp:218 re-reads tile_mode).
   loadTabs();
   m_view.setWsSlideDir( 0);
@@ -198,6 +208,10 @@ void Overview::open() {
   releaseNewWorkspaces();
 
   m_view.setDomain(model::parseDomain(cfg::behavior.tile_mode.get()));
+  if (model::showsTabs(m_view.domain()) && !showAllWorkspaces()) {
+    m_allForced = 0;
+    m_view.setAllOverride(1);
+  }
   loadTabs();
   buildTiles();
   buildStrip();
@@ -493,6 +507,7 @@ void Overview::deactivate() {
   dropFocusFromWindows();
   m_view.setDesktop( false);
   m_view.setAllOverride( -1);
+  m_allForced = -1;
   m_altTabbing = false;
   m_newCardAnim = false;
   m_newCardId = 0;

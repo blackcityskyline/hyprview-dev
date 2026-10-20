@@ -174,6 +174,7 @@ private:
   model::TabsContentSource m_tabs;
   model::BrowserLinks m_links;
   int m_showDiscarded = -1;
+  int m_allForced = -1;
   // The window behind a tile; null for a tab or a gone window (resolution lives here, not on Tile).
   PHLWINDOW tileWindow(const model::Tile &t) const { return m_windows.windowOf(t.subj); }
 

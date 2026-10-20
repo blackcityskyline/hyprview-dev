@@ -9,6 +9,7 @@ can confirm, because the change was in the paint path and the input path:
   - a strip that loses a card mid-scroll pulls its offset back (scroll: setMax re-clamps)
   - a drag release produces exactly one DRAG| branch record, and the group of records
     matches what the mouse did
+  - browser view forces all-workspaces and restores the mode it found on the way out
   - DRAG| and LIFE| lines parse with the same grammar as ANIM|
 
 Each check states what it expects and what it would mean if the expectation failed, so a
@@ -252,6 +253,35 @@ def close_is_quiet(c):
         return c.fail("after close the state still reads open=%s pending=%s"
                       % (f.get("open"), f.get("pending")))
     return c.ok("after close: open=0 pending=0")
+
+
+# --- browser ------------------------------------------------------------------------
+
+@check("browser")
+def tabs_force_all_workspaces(c):
+    """Browser view is about every browser, not the desktop the overview opened on:
+    entering it turns all-workspaces on, and leaving it restores the mode it found. A
+    check that only read the tabs would pass with the mode left on, and the next open
+    would be an expo nobody asked for."""
+    cmd("open", settle=0.6)
+    cmd("allws 0", settle=0.4)
+    cmd("domain tabs", settle=0.8)
+    after_tabs = records(cmd("state", settle=0.3), "STATE")
+    cmd("domain windows", settle=0.8)
+    after_windows = records(cmd("state", settle=0.3), "STATE")
+    cmd("close", settle=0.6)
+    c.saw(len(after_tabs) + len(after_windows))
+    if not after_tabs or not after_windows:
+        return c.skip("no STATE| record -- enable debug_trace, or the plugin is not loaded")
+    on = fields(after_tabs[-1], 1)
+    off = fields(after_windows[-1], 1)
+    if on.get("allws") != "1":
+        return c.fail("browser view left all-workspaces off: allws=%s -- tabs of browsers "
+                      "on other desktops stay unreachable" % on.get("allws"))
+    if off.get("allws") != "0":
+        return c.fail("leaving browser view did not restore allws=0: got allws=%s -- a "
+                      "toggle out of 1-ws no longer returns to 1-ws" % off.get("allws"))
+    return c.ok("browser view: allws=1 on entry, back to 0 on exit")
 
 
 # --- scroll -------------------------------------------------------------------------

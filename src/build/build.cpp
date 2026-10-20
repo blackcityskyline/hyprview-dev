@@ -713,6 +713,9 @@ void Overview::replayReflow(
 void Overview::syncTiles() {
   if (!m_life.openingNow() || m_life.deactivating())
     return;
+  // A tabs deck is not a window count: comparing them rebuilds and restarts the entry every frame.
+  if (m_view.domain() != model::Domain::Windows)
+    return;
   const auto ws = m_workspace.lock();
   if (!ws)
     return;

@@ -132,6 +132,11 @@ the window title, so the two sides do not spell it the same way. A browser
 window that has not reported yet is shown as a window; `key_browser` (`b`)
 flips windows/tabs live.
 
+The browser view covers every desktop, not only the one the overview opened on:
+entering it turns all-workspaces on, and leaving it puts the mode back the way it
+was (`tile_mode = tabs` therefore opens with all-workspaces on as well). A browser
+on another workspace is still a browser.
+
 Only loaded tabs get a card: an unloaded (discarded) tab is still open in the
 browser but not in memory, so it is listed only when asked for
 (`show_discarded_tabs`, the `key_discarded` key (`u`) in the browser-tabs view, or the
