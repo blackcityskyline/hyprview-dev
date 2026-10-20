@@ -204,16 +204,65 @@ async function shrink(dataUrl) {
 // for a 1366px window), and a field of blocks is worse than the icon this falls back to.
 const PRIVILEGED_URL = /^(about|chrome|moz-extension|resource|view-source):/;
 
+// The browser's snapshot draws the document but not the canvas behind it, so a page that leaves
+// its root background transparent and takes its colour from `color-scheme` comes back white:
+// measured on google.com in dark mode, dark controls on a white sheet. The system colour `Canvas`
+// resolves to exactly what the compositor paints under the page, so painting it on the root for
+// the duration of the shot restores the picture — and changes nothing on screen when it does.
+function paintCanvas() {
+  const clear = (c) => !c || c === 'transparent' || c === 'rgba(0, 0, 0, 0)';
+  const root = document.documentElement;
+  if (!root || !clear(getComputedStyle(root).backgroundColor)) return false;
+  if (document.body && !clear(getComputedStyle(document.body).backgroundColor)) return false;
+  const probe = document.createElement('div');
+  probe.style.cssText =
+    'position:fixed;left:-1px;top:-1px;width:1px;height:1px;background-color:Canvas';
+  root.appendChild(probe);
+  const canvas = getComputedStyle(probe).backgroundColor;
+  probe.remove();
+  root.style.setProperty('background-color', canvas, 'important');
+  return true;
+}
+
+function unpaintCanvas() {
+  if (document.documentElement)
+    document.documentElement.style.removeProperty('background-color');
+}
+
+async function inPage(tabId, fn) {
+  if (api.scripting && api.scripting.executeScript) {
+    const [hit] = await api.scripting.executeScript({ target: { tabId }, func: fn });
+    return hit && hit.result;
+  }
+  const [result] = await api.tabs.executeScript(tabId, { func: fn });
+  return result;
+}
+
 async function capture(windowId) {
+  if (typeof api.tabs.captureVisibleTab !== 'function') return null;
+  const here = await api.tabs.query({ active: true, windowId });
+  const tab = here[0];
+  if (PRIVILEGED_URL.test((tab && tab.url) || '')) return null;
+  let painted = false;
   try {
-    if (typeof api.tabs.captureVisibleTab !== 'function') return null;
-    const here = await api.tabs.query({ active: true, windowId });
-    if (PRIVILEGED_URL.test((here[0] && here[0].url) || '')) return null;
+    try {
+      painted = !!(await inPage(tab.id, paintCanvas));
+    } catch (e) {
+      painted = false; // no host permission for this tab: shoot it as it is
+    }
     const url = await api.tabs.captureVisibleTab(windowId, { format: 'png' });
     if (typeof url !== 'string' || !url.startsWith('data:image/png')) return null;
     return await shrink(url);
   } catch (e) {
     return null;
+  } finally {
+    if (painted) {
+      try {
+        await inPage(tab.id, unpaintCanvas);
+      } catch (e) {
+        // the tab is gone; its inline style went with it
+      }
+    }
   }
 }
 

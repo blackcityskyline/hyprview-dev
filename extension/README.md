@@ -74,6 +74,9 @@ correlation.
 - Refuses `about:`, `chrome:`, `moz-extension:`, `resource:` and `view-source:` pages: the
   capture of those comes back as the quarter-scale thumbnail the browser stores, and the card
   falls back to the icon instead of showing blocks.
+- Paints the page's canvas before the shot when its root background is transparent, using the
+  `Canvas` system colour and removing it right after. The browser's snapshot draws the document
+  but not the canvas, so a page in dark mode came back as dark controls on a white sheet.
 - **Opens a tab on request.** The compositor writes `a <pid> <window> <tab>` under
   `$XDG_RUNTIME_DIR/hyprview`; the mediator whose parent is that pid forwards it, and the
   extension makes the tab active (reloading it if it was discarded) and focuses its window.
