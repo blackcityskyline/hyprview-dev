@@ -79,11 +79,6 @@ struct CarouselLayout {
         bool   visible = false;
         int    depth = 3;      // 0 = selected (the one that gets the caption), 1 = near, 2+ farther
         double x = 0.0, y = 0.0, w = 0.0, h = 0.0;
-        // The card that goes around the BACK comes in on the other side.
-        bool   hasIncoming = false;
-        int    incomingDepth = 3;
-        LRect  incomingFrom;
-        LRect  incomingTo;
     };
     std::vector<Card> cards;
     int    visibleCards = 0;

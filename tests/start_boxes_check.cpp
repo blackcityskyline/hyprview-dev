@@ -83,13 +83,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // The second place is a flag on the tile, and a flag that outlives its rebuild
-  // draws the card twice, forever.
-  if (src.find("t.hasIncoming = c.hasIncoming;") == std::string::npos) {
-    std::printf("FAIL: the incoming flag is only set, never assigned -- a card that "
-                "once had a second place keeps it\n");
-    return 1;
-  }
 
   std::printf("start boxes: one pure function, asked for every tile\n");
   return 0;

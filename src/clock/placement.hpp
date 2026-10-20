@@ -58,10 +58,6 @@ class Placement {
 
     [[nodiscard]] LRect box(const model::Tile &t, int i, const Frame &f) const;
 
-    // The same motion for a pair of boxes that is not the tile's own.
-    [[nodiscard]] LRect lerpBox(const LRect &from, const LRect &to, int i,
-                               const Frame &f) const;
-
     // t.landed is the flag, entryProgress the clock; a landed tile must not read it.
     [[nodiscard]] double entryNow(const model::Tile &t, int i,
                                   const model::Scene &scene) const;

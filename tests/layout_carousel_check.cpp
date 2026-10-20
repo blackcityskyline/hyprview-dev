@@ -246,35 +246,6 @@ void sectionE_wrappingAndEdges() {
       near(c.w, 0.0, "off-run card has no width");
 }
 
-// The card that goes around the BACK of the ring is the card that comes in on the
-// other side, and one box cannot be in two places: it gets a second place, and
-// that place is where it comes in from.
-void sectionG_theCardThatGoesAroundTheBackHasASecondPlace() {
-  const auto mt = defaults();
-  // Four cards in a four-wide window: the ring is exactly the window, so the card
-  // that leaves is the card that comes in.
-  const auto L = computeCarousel(4, 0, LRect{0, 0, kUsableW, kUsableH}, mt);
-  int withSecond = 0;
-  for (const auto &c : L.cards)
-    if (c.hasIncoming)
-      ++withSecond;
-  yes(withSecond == 1, "exactly one card goes around the back");
-  for (const auto &c : L.cards) {
-    if (!c.hasIncoming)
-      continue;
-    yes(c.incomingTo.w > 0.0, "the second place has a size");
-    yes(c.incomingTo.x > c.x, "and it is on the other side of the run");
-    yes(c.incomingFrom.x > c.incomingTo.x, "coming in from further out");
-  }
-  // A roomy ring: the card that goes around the back is further out, off the
-  // window, and it is the one that has no second place yet.
-  const auto R = computeCarousel(9, 4, LRect{0, 0, kUsableW, kUsableH}, mt);
-  int second = 0;
-  for (const auto &c : R.cards)
-    if (c.hasIncoming)
-      ++second;
-  yes(second == 0, "a roomy ring has no card on both sides at once");
-}
 
 // One card, zoom 2: no ladder, so the fit barely shrinks and the zoom is unopposed —
 // the card came out at ~2592px on a 1366px screen.
@@ -300,7 +271,6 @@ int main() {
   sectionC_userZoom();
   sectionD_selectionDoesNotMoveTheRun();
   sectionE_wrappingAndEdges();
-  sectionG_theCardThatGoesAroundTheBackHasASecondPlace();
   sectionF_singleCardZoomStaysOnScreen();
 
   if (g_failed) {

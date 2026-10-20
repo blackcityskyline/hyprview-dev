@@ -210,15 +210,10 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     }
     // The cards just OUTSIDE the window get a box as well: a card about to leave
     // needs somewhere to slide from, one about to come in somewhere to slide to.
-    int incomingIdx = -1;
     for (const int rel : {-leftSlots - 1, rightSlots + 1}) {
         const int idx = ((sel + rel) % count + count) % count;
-        if (slotOf[static_cast<size_t>(idx)] != 99) {
-            // The ring: the card that leaves on one edge is the card that comes
-            // in on the other. It needs a second place, and one box is not two.
-            incomingIdx = static_cast<int>(idx);
+        if (slotOf[static_cast<size_t>(idx)] != 99)
             continue;
-        }
         slotOf[static_cast<size_t>(idx)] = rel;
         idxOfSlot.push_back(idx);
     }
@@ -271,17 +266,6 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     for (const int idx : idxOfSlot) {
         const int slot = slotOf[static_cast<size_t>(idx)];
         placeAt(slot, L.cards[static_cast<size_t>(idx)]);
-    }
-    if (incomingIdx >= 0) {
-        // The second place: it comes in from beyond the edge to the edge.
-        CarouselLayout::Card& c = L.cards[static_cast<size_t>(incomingIdx)];
-        CarouselLayout::Card spot;
-        placeAt(rightSlots + 2, spot);
-        c.incomingFrom = LRect{spot.x, spot.y, spot.w, spot.h};
-        placeAt(rightSlots + 1, spot);
-        c.incomingTo = LRect{spot.x, spot.y, spot.w, spot.h};
-        c.incomingDepth = rightSlots + 1;
-        c.hasIncoming = true;
     }
     return L;
 }
