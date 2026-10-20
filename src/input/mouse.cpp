@@ -208,6 +208,9 @@ void Overview::updateHover() {
           return;
         LRect b = currentBox(m_scene.tiles()[idx], idx);
         b.grow(48.0);
+        debug::trace::emitState("DAMAGE|tile=" + std::to_string(idx) + "|box=" +
+                               std::to_string(b.x) + "," + std::to_string(b.y) + "," +
+                               std::to_string(b.w) + "," + std::to_string(b.h));
         g_pHyprRenderer->damageBox(
             CBox{b.x + m->m_position.x, b.y + m->m_position.y, b.w, b.h});
       };
