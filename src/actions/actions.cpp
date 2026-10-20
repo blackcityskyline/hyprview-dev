@@ -256,7 +256,8 @@ std::string Overview::runCommand(const std::string &args) {
                       std::to_string(m_scene.size()) + "|strip=" +
                       std::to_string(m_strip.size()) + "|allws=" +
                       std::to_string(showAllWorkspaces()) + "|carousel=" +
-                      std::to_string(carouselMode()) + "|ccx=" +
+                      std::to_string(carouselMode()) + "|run=" +
+                      std::to_string(m_view.run() ? m_view.carousel().cards.size() : 0) + "|ccx=" +
                       std::to_string(static_cast<int>(m_view.carousel().area.x +
                                                      m_view.carousel().originX +
                                                      m_view.carousel().area.w / 2.0));
@@ -445,6 +446,16 @@ std::string Overview::runCommand(const std::string &args) {
     if (t == m_scene.selected() && m_scene.size() > 1)
       m_scene.select(static_cast<int>(t % (m_scene.size() - 1)));
     closeTileWindow(t);
+    return "";
+  }
+
+  // The two ways a step along the run is asked for: the arrows and the alt-tab.
+  if (tok[0] == "altstep") {
+    stepAltTab(num(1) >= 0 ? 1 : -1);
+    return "";
+  }
+  if (tok[0] == "step") {
+    moveSelection(num(1), 0);
     return "";
   }
 

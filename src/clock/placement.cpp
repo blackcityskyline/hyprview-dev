@@ -133,6 +133,14 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   return LRect{cx - r.w * k / 2.0, cy - r.h * k / 2.0, r.w * k, r.h * k};
 }
 
+LRect Placement::lerpBox(const LRect &from, const LRect &to, int i, const Frame &f) const {
+  const std::string &curve =
+      clocks.tileCurve.empty() ? recipes.glide.curve : clocks.tileCurve;
+  const double e = curves::eval(curve, tileProgress(i, f.view, f.opening, f.scene));
+  return LRect{lerp(from.x, to.x, e), lerp(from.y, to.y, e), lerp(from.w, to.w, e),
+                lerp(from.h, to.h, e)};
+}
+
 std::vector<std::pair<model::SubjectRef, LRect>>
 Placement::capture(const Frame &f, model::SubjectRef exclude) const {
   std::vector<std::pair<model::SubjectRef, LRect>> out;

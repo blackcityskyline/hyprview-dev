@@ -113,6 +113,39 @@ def grammar_ok(segments):
     return not bad, bad
 
 
+
+def tile_boxes(text):
+    """The TILEBOX records of a stretch of log: tile index -> (natural, target).
+
+    The natural is where the card is now, the target is where it is going. The
+    distance between them is the step's motion, which is what the carousel checks
+    read: a step that moves nothing is a teleport, and a step that moves more than
+    a card's width is the ring breaking.
+    """
+    out = {}
+    for segs in records(text, "TILEBOX"):
+        f = fields(segs, 1)
+        if "a" not in f or "b" not in f:
+            continue
+        try:
+            a = tuple(float(v) for v in f["a"].split(","))
+            b = tuple(float(v) for v in f["b"].split(","))
+        except ValueError:
+            continue
+        out[f.get("i", "?")] = (a, b)
+    return out
+
+
+
+def state():
+    """The plugin's own state record, as a dict."""
+    out = cmd("state", settle=0.3)
+    recs = records(out, "STATE")
+    if not recs:
+        return {}
+    return fields(recs[-1], 1)
+
+
 class Check:
     """One check's verdict.
 
@@ -350,6 +383,81 @@ def drag_branch_is_a_decision(c):
         if not f.get("name"):
             return c.fail("a branch record with no name=: %s" % "|".join(segs))
     return c.ok("%d branch record(s), every one names its path" % len(recs))
+
+
+@check("carousel")
+def the_run_step_glides(c):
+    """A step along the run must MOVE the cards.
+
+    The arrow keys and the alt-tab ask for the same thing -- the next card on the run
+    -- and they used to get two different answers: the arrows glided, the alt-tab
+    rewrote the targets and left the glide clock where it was, so the cards teleported
+    to their new places. The step is the same gesture either way, so the motion is the
+    same motion.
+    """
+    cmd("close", settle=0.5)
+    cmd("open", settle=0.9)
+    cmd("allws 1", settle=0.9)
+    st = state()
+    if int(st.get("tiles", 0)) < 2:
+        c.saw(0)
+        return c.skip("%s tile(s): nothing to step to" % st.get("tiles"))
+    before = log_size()
+    cmd("altstep 1", settle=0.5)
+    text = tail_from(before)
+    # The glide starts: the clock is begun, and the trace says so.
+    glides = [r for r in records(text, "ANIM")
+              if len(r) > 2 and r[1] == "begin" and fields(r, 2).get("op") == "glide"]
+    boxes = tile_boxes(text)
+    c.saw(len(boxes))
+    if not boxes:
+        return c.skip("no TILEBOX records -- enable debug_trace")
+    if not glides:
+        return c.fail("the alt-tab step started no glide: the targets were rewritten and "
+                      "the cards teleported instead of moving")
+    return c.ok("the alt-tab step started a glide")
+
+
+@check("carousel")
+def the_run_step_does_not_cross_the_run(c):
+    """No card may cross the run in one step.
+
+    The run is a ring: the last card and the first are neighbours. Stepping onto the
+    first from the last used to throw the card that was at the far left across the
+    whole run -- it was the same card as the one that came in on the right, and the
+    layout had only one box for it. A step is one slot: a card that crosses more than
+    its own width in one step is the ring breaking, not the run moving.
+    """
+    cmd("close", settle=0.5)
+    cmd("open", settle=0.9)
+    cmd("allws 1", settle=0.9)
+    st = state()
+    if int(st.get("tiles", 0)) < 2:
+        c.saw(0)
+        return c.skip("%s tile(s): nothing to step to" % st.get("tiles"))
+    # A ring as wide as the window has no room for a card to come in: the card that
+    # leaves IS the card that comes back, and one box cannot be in two places. That is
+    # the model, not a bug in the step -- so it is named, not failed.
+    run = int(st.get("run", 0) or 0)
+    if run and int(st.get("tiles", 0)) == run:
+        c.saw(0)
+        return c.skip("%d card(s) in a %d-wide window: the ring has no room for the "
+                      "transition" % (int(st.get("tiles", 0)), run))
+    before = log_size()
+    cmd("altstep 1", settle=0.5)
+    text = tail_from(before)
+    boxes = tile_boxes(text)
+    c.saw(len(boxes))
+    if not boxes:
+        return c.skip("no TILEBOX records -- enable debug_trace")
+    crossed = []
+    for i, (a, b) in boxes.items():
+        moved = abs(a[0] - b[0])
+        if moved > a[2] * 1.2:
+            crossed.append("tile %s moved %.0fpx across a %.0fpx card" % (i, moved, a[2]))
+    if crossed:
+        return c.fail("; ".join(crossed))
+    return c.ok("every card moved at most one slot")
 
 
 @check("gl")

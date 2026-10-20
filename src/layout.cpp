@@ -206,6 +206,15 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
         slotOf[static_cast<size_t>(idx)] = rel;
         idxOfSlot.push_back(idx);
     }
+    // The cards just OUTSIDE the window get a box as well: a card about to leave
+    // needs somewhere to slide from, one about to come in somewhere to slide to.
+    for (const int rel : {-leftSlots - 1, rightSlots + 1}) {
+        const int idx = ((sel + rel) % count + count) % count;
+        if (slotOf[static_cast<size_t>(idx)] != 99)
+            continue;
+        slotOf[static_cast<size_t>(idx)] = rel;
+        idxOfSlot.push_back(idx);
+    }
 
     const double boxW = std::max(1.0, mt.boxW);
     const double boxH = std::max(1.0, mt.boxH);
