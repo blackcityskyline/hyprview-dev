@@ -187,8 +187,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                      render::contentRadiusFor(round, content, ringW, s, !look.contain),
                      roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
   }
-  // The card's own icon in the corner the caption does not reach: the browser for a tab,
-  // the app for a window.
+  // The card's own icon in the corner the caption does not reach: the browser for a tab, the app for a window.
   const auto badgeIcon = tab ? browserIcon(t) : windowIcon(w);
   if (badgeIcon && (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0) {
     const double side = std::clamp(box.h * 0.135, 27.0, 60.0);

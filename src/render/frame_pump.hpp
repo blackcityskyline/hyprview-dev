@@ -20,8 +20,7 @@ class FramePump {
 
     void ensure(bool busy, const PHLMONITOR &m);
 
-    // Cancels AND removes the timer, leaving the last shared pointer alone: the timer must
-    // never fire against a destroyed owner (onTimerFire walks a COPY of its timer list).
+    // Cancels AND removes the timer, leaving the last shared pointer alone: the timer must never fire against a destroyed owner (onTimerFire walks a COPY of its timer list).
     void stop();
 
     // The stall guard reads this, compensating for a hole in the frame stream.

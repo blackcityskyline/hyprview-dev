@@ -16,8 +16,7 @@ class WindowsContentSource final : public IContentSource {
 
     [[nodiscard]] std::vector<SubjectRef> enumerate() override;
 
-    // Never rebuilt from the id: that is a use-after-free and it took the compositor down
-    // once (CSharedPointer<CWindow>::_delete -> ~CSharedPointer -> Overview::buildTiles).
+    // Never rebuilt from the id: that is a use-after-free and it took the compositor down once (CSharedPointer<CWindow>::_delete -> ~CSharedPointer -> Overview::buildTiles).
     [[nodiscard]] PHLWINDOW windowOf(SubjectRef s) const;
 
     void release() { m_alive.clear(); }

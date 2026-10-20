@@ -21,6 +21,9 @@ pkg_check_modules(CAIRO REQUIRED cairo)
 string(REPLACE ";" " " CAIRO_FLAGS "${CAIRO_CFLAGS};${CAIRO_LDFLAGS}")
 # Raw GL (glCreateShader/glDrawArrays…) for the plugin's own blur shader.
 pkg_check_modules(GLES REQUIRED glesv2)
+# Optional: an icon shipped only as SVG has no PNG to load. Without librsvg that app keeps no
+# corner icon; nothing else changes.
+pkg_check_modules(RSVG IMPORTED_TARGET librsvg-2.0)
 # Lua's pkg-config module name varies by distro: `lua` (Arch), `lua5.4`/`lua-5.4`
 # (Debian/Nix), or `luajit` (what Hyprland itself links). Take the first that exists.
 pkg_search_module(LUA REQUIRED lua lua5.4 lua-5.4 lua54 luajit)
@@ -74,6 +77,10 @@ endforeach()
 
 target_link_directories(hyprview PRIVATE ${HYPR_DEPS_LIBRARY_DIRS} ${LUA_LIBRARY_DIRS} ${GLES_LIBRARY_DIRS})
 target_link_libraries(hyprview PRIVATE ${HYPR_DEPS_LIBRARIES} ${LUA_LIBRARIES} ${GLES_LIBRARIES})
+if(RSVG_FOUND)
+  target_link_libraries(hyprview PRIVATE PkgConfig::RSVG)
+  target_compile_definitions(hyprview PRIVATE HYPRVIEW_HAVE_RSVG)
+endif()
 
 install(TARGETS hyprview LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
@@ -397,6 +404,12 @@ add_test(NAME layer_names
 add_test(NAME render_geometry
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/render_geometry_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/render_geometry_check && ${CMAKE_CURRENT_BINARY_DIR}/render_geometry_check")
+
+# Which desktop entry and which icon file a window class resolves to. Pure filesystem, so the
+# test points HOME and XDG at a tree of its own.
+add_test(NAME app_icon
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/app_icon_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/app_icon_check && ${CMAKE_CURRENT_BINARY_DIR}/app_icon_check")
 
 # The caption's own decision: where the pills land, which edge the band thickens,
 # how far the caption leaves a card that reached it. Six fixes landed inline in

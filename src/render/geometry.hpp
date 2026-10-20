@@ -705,8 +705,7 @@ inline constexpr float kSeamPadPx = 1.5F;
   return contentRadiusPx(clampRound(round, content.w, content.h), border, scale, overCovers);
 }
 
-// What the backdrop puts UNDER the tiles (AGENTS.md 2.28): with the blur on, the
-// sharp source is not an answer.
+// What the backdrop puts UNDER the tiles (AGENTS.md 2.28): with the blur on, the sharp source is not an answer.
 enum class BackdropBase { Blur, OpaqueDim, Source };
 
 [[nodiscard]] inline BackdropBase backdropBase(bool blurEnabled, bool blurUsable) {
@@ -766,8 +765,7 @@ struct KillRampStep {
   return ramp;
 }
 
-// The flight of a swap: four kinds, one answer each. A swap on the vertical axis
-// is NOT a slide on Y -- it arcs up and comes down on the other card.
+// The flight of a swap: four kinds, one answer each. A swap on the vertical axis is NOT a slide on Y -- it arcs up and comes down on the other card.
 struct SwapFlight {
   LRect box;
   double alpha = 1.0;

@@ -36,11 +36,9 @@ struct ReportedTabs {
 
 struct TabSnapshot {
     std::uint32_t generation = 0;
-    // Browser window id -> OS pid: what a browser window is matched BY, never by title --
-    // the browser appends its own name to the window title (AGENTS.md 2.19).
+    // Browser window id -> OS pid: what a browser window is matched BY, never by title -- the browser appends its own name to the window title (AGENTS.md 2.19).
     std::unordered_map<std::uint64_t, std::uint64_t> pids;
-    // Window id -> its tabs, in report order. Absent means NOT heard from, which must never
-    // collapse into "has no tabs".
+    // Window id -> its tabs, in report order. Absent means NOT heard from, which must never collapse into "has no tabs".
     std::unordered_map<std::uint64_t, ReportedTabs> windows;
 };
 

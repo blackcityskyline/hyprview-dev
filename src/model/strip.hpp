@@ -23,8 +23,7 @@ class Strip {
     [[nodiscard]] const_iterator begin() const { return m_items.begin(); }
     [[nodiscard]] const_iterator end() const { return m_items.end(); }
 
-    // Non-const iteration is how the layout pass assigns each card its box: geometry only,
-    // nothing here may add, remove or reorder a card.
+    // Non-const iteration is how the layout pass assigns each card its box: geometry only, nothing here may add, remove or reorder a card.
     using iterator = std::vector<StripItem>::iterator;
     [[nodiscard]] iterator begin() { return m_items.begin(); }
     [[nodiscard]] iterator end() { return m_items.end(); }

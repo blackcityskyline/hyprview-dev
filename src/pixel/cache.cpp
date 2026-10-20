@@ -1,14 +1,16 @@
 #include "cache.hpp"
 
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
+#include <algorithm>
+#include <cmath>
 
+#include "app_icon.hpp"
 #include "png.hpp"
 
-#include <algorithm>
-
 #include <hyprland/src/render/Renderer.hpp>
+
+#ifdef HYPRVIEW_HAVE_RSVG
+#include <librsvg/rsvg.h>
+#endif
 
 namespace hyprview::pixel {
 
@@ -109,43 +111,66 @@ SP<Render::ITexture> PixelCache::putIcon(const model::SubjectRef &s, const std::
 }
 
 namespace {
-// The desktop entry names the icon, the theme directories hold it; a class naming no entry has none.
-std::string appIconPath(const std::string &windowClass) {
-    std::ifstream entry("/usr/share/applications/" + windowClass + ".desktop");
-    std::string line;
-    std::string name;
-    while (std::getline(entry, line))
-        if (line.rfind("Icon=", 0) == 0) {
-            name = line.substr(5);
-            break;
-        }
-    if (name.empty())
-        return {};
-    if (name.front() == '/')
-        return name;
-    const char *home = std::getenv("HOME");
-    const std::string roots[] = {std::string(home ? home : "") + "/.local/share/icons/hicolor/",
-                                 "/usr/share/icons/hicolor/"};
-    for (const auto &root : roots)
-        for (const char *size : {"256x256", "128x128", "64x64", "48x48", "32x32", "16x16"}) {
-            const std::string path = root + size + "/apps/" + name + ".png";
-            if (std::filesystem::exists(path))
-                return path;
-        }
-    const std::string pixmap = "/usr/share/pixmaps/" + name + ".png";
-    return std::filesystem::exists(pixmap) ? pixmap : std::string{};
+
+// A badge is at most 60 logical pixels; a rasteriser asked for more than 128 stores pixels no
+// card can show.
+constexpr int kAppIconPx = 128;
+
+SP<Render::ITexture> loadSvg(const std::string &path, int side) {
+#ifdef HYPRVIEW_HAVE_RSVG
+  if (!g_pHyprRenderer)
+    return nullptr;
+  GError *err = nullptr;
+  RsvgHandle *handle = rsvg_handle_new_from_file(path.c_str(), &err);
+  if (!handle) {
+    if (err)
+      g_error_free(err);
+    return nullptr;
+  }
+  double w = side;
+  double h = side;
+  if (!rsvg_handle_get_intrinsic_size_in_pixels(handle, &w, &h) || w <= 0.0 || h <= 0.0) {
+    w = side;
+    h = side;
+  }
+  const double k = side / std::max(w, h);
+  const int tw = std::max(1, static_cast<int>(std::ceil(w * k)));
+  const int th = std::max(1, static_cast<int>(std::ceil(h * k)));
+  cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, tw, th);
+  cairo_t *cr = cairo_create(surface);
+  const RsvgRectangle viewport{0.0, 0.0, static_cast<double>(tw), static_cast<double>(th)};
+  const bool drawn = rsvg_handle_render_document(handle, cr, &viewport, &err);
+  cairo_destroy(cr);
+  g_object_unref(handle);
+  SP<Render::ITexture> tex;
+  if (drawn) {
+    cairo_surface_flush(surface);
+    tex = g_pHyprRenderer->createTexture(surface);
+  } else if (err)
+    g_error_free(err);
+  cairo_surface_destroy(surface);
+  return tex;
+#else
+  (void)path;
+  (void)side;
+  return nullptr; // no rasteriser: an SVG-only app keeps no corner icon
+#endif
 }
+
 } // namespace
 
 SP<Render::ITexture> PixelCache::appIcon(const std::string &windowClass) {
-    if (windowClass.empty())
-        return nullptr;
-    const auto hit = m_appIcons.find(windowClass);
-    if (hit != m_appIcons.end())
-        return hit->second;
-    auto tex = loadPng(appIconPath(windowClass));
-    m_appIcons[windowClass] = tex; // a miss is cached too: one lookup per class, not per frame
-    return tex;
+  if (windowClass.empty())
+    return nullptr;
+  const auto hit = m_appIcons.find(windowClass);
+  if (hit != m_appIcons.end())
+    return hit->second;
+  const auto path = app_icon::appIconFile(windowClass);
+  auto tex = path.empty()                       ? SP<Render::ITexture>{}
+             : path.ends_with(".svg")           ? loadSvg(path, kAppIconPx)
+                                                : loadPng(path);
+  m_appIcons[windowClass] = tex; // a miss is cached too: one lookup per class, not per frame
+  return tex;
 }
 
 SP<Render::ITexture> PixelCache::picture(const model::SubjectRef &s) const {

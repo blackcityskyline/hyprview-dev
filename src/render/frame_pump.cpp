@@ -19,8 +19,7 @@ void FramePump::stop() {
   m_timer->cancel();
   if (g_pEventLoopManager)
     g_pEventLoopManager->removeTimer(m_timer);
-  // NOT reset(): dropping the last shared pointer destroys the timer, and this object is
-  // reachable from its callback -- SIGSEGV 2026-10-13, _delete -> nudgeTimers.
+  // NOT reset(): dropping the last shared pointer destroys the timer, and this object is reachable from its callback -- SIGSEGV 2026-10-13, _delete -> nudgeTimers.
 }
 
 void FramePump::damage(const PHLMONITOR &m) const {
