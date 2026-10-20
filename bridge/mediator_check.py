@@ -110,6 +110,15 @@ def main():
         want(len([l for l in lines if l.startswith("p ")]) == 2,
              "each window is named once: %r" % [l for l in lines if l.startswith("p ")])
 
+        # --- the same report again ------------------------------------------------------------
+        send(proc, {"name": "report", "tabs": TABS, "active": [41]})
+        want(recv(proc).get("ok") is True, "a repeated report is accepted")
+        lines = open(feed_path, "rb").read().decode().strip().split("\n")
+        ps = [l for l in lines if l.startswith("p ")]
+        want(len(ps) == 2, "re-reporting does not append a 'p' per window: %r" % ps)
+        want(len([l for l in lines if l.startswith("t ")]) == 3,
+             "and does not duplicate the tabs: %r" % lines)
+
         # --- a screenshot --------------------------------------------------------------------
         png = "data:image/png;base64," + __import__("base64").b64encode(
             b"\x89PNG\r\n\x1a\npayload"

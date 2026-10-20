@@ -183,12 +183,21 @@ def merge_into(root, incoming):
             parts = line.split(b" ", 2)
             if len(parts) >= 3:
                 covered.add(parts[1])
+        elif line.startswith(b"p "):
+            parts = line.split(b" ", 2)
+            if len(parts) >= 3:
+                covered.add(parts[2])
 
     out = [header] if header else []
     for line in body:
         parts = line.split(b" ", 2)
-        # A tab line is "t <window> <tab> <active> <title>"; its window is field 2.
-        window = parts[1] if (line.startswith(b"t ") and len(parts) >= 3) else None
+        # "t <window> <tab> <flags> <title>" names its window at field 1,
+        # "p <pid> <window>" at field 2.
+        window = None
+        if line.startswith(b"t ") and len(parts) >= 3:
+            window = parts[1]
+        elif line.startswith(b"p ") and len(parts) >= 3:
+            window = parts[2]
         if window is not None and window in covered:
             continue  # this browser window just told us what it actually has
         out.append(line)
