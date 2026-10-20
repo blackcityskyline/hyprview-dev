@@ -324,5 +324,5 @@ python3 tools/anim_matrix.py [--quick] [--scenarios]
 | Ховер-заливка плиток/карточек | не подтверждена кодом |
 | Истинный халф-сплит при вставке | упирается в API Hyprland: `assignToSpace` делает `splitBeside`, layout-insert API нет. Пока не появится — не трогать |
 | Своп на гриде из пустого воркспейса | доведён по трейсу, не проверен на глаз после последней правки |
-| Покрытие hit-testing (`input/mouse.cpp`, `input/keys.cpp`) | юнитов нет |
+| Покрытие hit-testing (`input/mouse.cpp`, `input/keys.cpp`) | юнитов нет, кроме карусели: `carouselHit` (передняя карточка) |
 | Покрытие кэшей текстур (`pixel/cache.hpp`, `BlurCache`) | юнитов нет |
