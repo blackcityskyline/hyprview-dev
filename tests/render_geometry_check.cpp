@@ -660,6 +660,40 @@ static void theCloseGlyphFillsItsButton() {
   std::puts("the close glyph: one rule, and the knob means something");
 }
 
+// The pulse ring, and the half of a slot the pointer is in.
+static void thePulseAndTheDropHintAreDecisions() {
+  using hyprview::render::dwindleHalf;
+  using hyprview::render::pulseRing;
+  using hyprview::render::pulseRingWidth;
+
+  // The ring is the tile's box, grown.
+  const LRect tile{100.0, 100.0, 200.0, 100.0};
+  const auto still = pulseRing(tile, 0.0);
+  sameRect(still, tile, "with no pulse the ring is the box");
+  const auto grown = pulseRing(tile, 0.5);
+  near(grown.w, 200.0 * 2.0, "the ring grows by the pulse");
+  near(grown.h, 100.0 * 2.0, "the ring grows by the pulse");
+  near(grown.cx(), tile.cx(), "about the same centre");
+
+  // The ring's own thickness grows with it, and never below a hairline.
+  near(pulseRingWidth(4, 0.0), 4.0, "the ring is as thick as the tile's");
+  want(pulseRingWidth(4, 1.0) > 4, true, "and thicker while it grows");
+  want(pulseRingWidth(0, 1.0) >= 2, true, "and never thinner than a hairline");
+
+  // The drop hint shows the half the pointer is in: the half it will fill.
+  const LRect slot{0.0, 0.0, 100.0, 50.0};
+  const auto left = dwindleHalf(slot, 10.0, 25.0);
+  near(left.x, 0.0, "the left half");
+  near(left.w, 50.0, "the left half");
+  const auto right = dwindleHalf(slot, 90.0, 25.0);
+  near(right.x, 50.0, "the right half");
+  near(right.w, 50.0, "the right half");
+  const auto tall = dwindleHalf(LRect{0.0, 0.0, 50.0, 100.0}, 25.0, 90.0);
+  near(tall.y, 50.0, "a tall slot splits the other way");
+  near(tall.h, 50.0, "a tall slot splits the other way");
+  std::puts("the pulse: the ring it grows, and the half the pointer is in");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -1012,6 +1046,7 @@ int main() {
   theGlArithmeticIsReachable();
   theTileDecidesItsRingAndItsFrost();
   theCloseGlyphFillsItsButton();
+  thePulseAndTheDropHintAreDecisions();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

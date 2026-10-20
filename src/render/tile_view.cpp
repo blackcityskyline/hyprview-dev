@@ -323,9 +323,7 @@ void Overview::renderGhosts() const {
     if (!w || !w->m_isMapped || w->isHidden())
       continue;
     const double k  = 1.0 - 0.3 * eOut;
-    const double cx = g.box.x + g.box.w / 2.0, cy = g.box.y + g.box.h / 2.0;
-    const LRect box{cx - g.box.w * k / 2.0, cy - g.box.h * k / 2.0,
-                    g.box.w * k, g.box.h * k};
+    const LRect box = render::scaledAboutCentre(g.box, k);
     LRect slidBox = box;
     float gAlpha = static_cast<float>((1.0 - eOut) * 0.85);
     // Same three branches as the entry: branch on style fields, never by equality.

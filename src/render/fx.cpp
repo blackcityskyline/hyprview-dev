@@ -215,13 +215,11 @@ void Overview::renderPulses(bool strip) const {
 
 void Overview::drawPulseRing(const CBox &boxPx, int round, float roundPow,
                              const CHyprColor &col, double p) const {
-  const double k  = curves::eval(anim::cfg(anim::Id::Pulse).curve, p) *
+  const double k = curves::eval(anim::cfg(anim::Id::Pulse).curve, p) *
                   anim::param(anim::Param::PulseScale);
-  const double cx = boxPx.x + boxPx.w / 2.0, cy = boxPx.y + boxPx.h / 2.0;
-  const CBox ring{cx - boxPx.w * (0.5 + k), cy - boxPx.h * (0.5 + k),
-                  boxPx.w * (1.0 + 2.0 * k), boxPx.h * (1.0 + 2.0 * k)};
-  strokeRingPx(ring, col, static_cast<float>((1.0 - p) * 0.9),
-               static_cast<int>(std::max(2.0, round + round * 0.5 * k)),
+  const auto ring = render::pulseRing(LRect{boxPx.x, boxPx.y, boxPx.w, boxPx.h}, k);
+  strokeRingPx(CBox{ring.x, ring.y, ring.w, ring.h}, col,
+               static_cast<float>((1.0 - p) * 0.9), render::pulseRingWidth(round, k),
                roundPow);
 }
 

@@ -87,8 +87,7 @@ void Overview::renderCarousel() const {
     if (!opening() && anim::cardHides(card.depth, frame().goesHome(t))) {
       const double k =
           anim::hideShrink(exitT(), anim::param(anim::Param::Collapse));
-      const double cx = box.cx(), cy = box.cy();
-      box = LRect{cx - box.w * k * 0.5, cy - box.h * k * 0.5, box.w * k, box.h * k};
+      box = render::scaledAboutCentre(box, k);
     }
     const auto look = runLook(box, card.depth,
                               render::carouselTone(card.depth, nearTone(), farTone(),

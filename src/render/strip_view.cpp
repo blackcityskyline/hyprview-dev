@@ -299,16 +299,7 @@ void Overview::renderStripButtons() const {
           slotFound = true;
           const int sr = clampRound(cfg::look.preview_round, sl.w, sl.h);
           if (dwindle) {
-            LRect half = sl;
-            if (sl.w >= sl.h) {
-              half.w = sl.w / 2.0;
-              if (m_drag.x() >= sl.cx())
-                half.x = sl.cx();
-            } else {
-              half.h = sl.h / 2.0;
-              if (m_drag.y() >= sl.cy())
-                half.y = sl.cy();
-            }
+            const LRect half = render::dwindleHalf(sl, m_drag.x(), m_drag.y());
             const int hr = clampRound(cfg::look.preview_round, half.w, half.h);
             safeRenderRect("dwindlehalf",
                            pxb(CBox{half.x, half.y, half.w, half.h}, s),

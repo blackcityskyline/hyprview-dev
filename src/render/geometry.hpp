@@ -583,6 +583,34 @@ struct CoverFit {
 // a static wallpaper is not.
 inline constexpr int kSourceAnimatedStreak = 4;
 
+// The pulse ring: the tile's box, grown by the pulse. k is the pulse's own
+// progress, already scaled.
+[[nodiscard]] inline LRect pulseRing(const LRect &box, double k) {
+  const double cx = box.cx(), cy = box.cy();
+  return LRect{cx - box.w * (0.5 + k), cy - box.h * (0.5 + k), box.w * (1.0 + 2.0 * k),
+                box.h * (1.0 + 2.0 * k)};
+}
+
+// The ring's own thickness grows with the pulse.
+[[nodiscard]] inline int pulseRingWidth(int round, double k) {
+  return static_cast<int>(std::max(2.0, round + round * 0.5 * k));
+}
+
+// The half of a slot the pointer is in: the drop hint shows the half it will fill.
+[[nodiscard]] inline LRect dwindleHalf(const LRect &slot, double px, double py) {
+  LRect half = slot;
+  if (slot.w >= slot.h) {
+    half.w = slot.w / 2.0;
+    if (px >= slot.cx())
+      half.x = slot.cx();
+  } else {
+    half.h = slot.h / 2.0;
+    if (py >= slot.cy())
+      half.y = slot.cy();
+  }
+  return half;
+}
+
 // The ✕ glyph inside its button: it fills the button by `fill` of the tighter side,
 // and it is centred. ONE rule for every surface that draws it -- the strip used a
 // hardcoded fraction, so the knob meant nothing there.
