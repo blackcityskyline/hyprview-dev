@@ -71,9 +71,14 @@ class PixelCache {
     void putSnapshot(const PHLWINDOW &win, const SP<Render::ITexture> &tex);
     [[nodiscard]] SP<Render::ITexture> snapshot(const PHLWINDOW &win) const;
     void clearSnapshots() { m_snapshots.clear(); }
-    void clearArt() { m_subjectArt.clear(); }
+    void clearArt() {
+      m_subjectArt.clear();
+      m_artStamp.clear();
+    }
 
   private:
+    std::unordered_map<model::SubjectRef, std::int64_t> m_artStamp;
+
     template <typename Map, typename T>
     SP<Render::ITexture> labelIn(Map &map, const CWeakPointer<T> &owner,
                                  const std::string &text, const CHyprColor &col,

@@ -47,6 +47,8 @@ function connect() {
   port.onMessage.addListener((reply) => {
     if (reply && reply.name === 'activate')
       activate(reply);
+    else if (reply && reply.name === 'shot')
+      repicture();
     else if (reply && reply.ok === false)
       console.warn('hyprview mediator refused:', reply.reason);
   });
@@ -72,6 +74,19 @@ function connect() {
 // finish out of order and the pile grows for as long as the page keeps updating.
 let reporting = false;
 
+// The overview opened, so the picture of the tab on screen has to be of the page as it looks
+// now, not as it looked when the tab last changed. A report already in flight must not swallow
+// the request, hence the flag rather than a bare call.
+let repicturePending = false;
+
+function repicture() {
+  if (reporting) {
+    repicturePending = true;
+    return;
+  }
+  report();
+}
+
 async function report() {
   if (reporting)
     return;
@@ -80,6 +95,10 @@ async function report() {
     await reportOnce();
   } finally {
     reporting = false;
+    if (repicturePending) {
+      repicturePending = false;
+      report();
+    }
   }
 }
 
@@ -181,9 +200,15 @@ async function shrink(dataUrl) {
   }
 }
 
+// Pages the browser draws itself come back as the quarter-scale thumbnail it stores (300px
+// for a 1366px window), and a field of blocks is worse than the icon this falls back to.
+const PRIVILEGED_URL = /^(about|chrome|moz-extension|resource|view-source):/;
+
 async function capture(windowId) {
   try {
     if (typeof api.tabs.captureVisibleTab !== 'function') return null;
+    const here = await api.tabs.query({ active: true, windowId });
+    if (PRIVILEGED_URL.test((here[0] && here[0].url) || '')) return null;
     const url = await api.tabs.captureVisibleTab(windowId, { format: 'png' });
     if (typeof url !== 'string' || !url.startsWith('data:image/png')) return null;
     return await shrink(url);

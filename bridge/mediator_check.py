@@ -165,6 +165,21 @@ def main():
         want(stale.pop_activation(root, os.getpid()) is None, "a stale request is not forwarded")
         want(not os.path.exists(stale_request), "and it is dropped")
 
+        # --- a fresh picture asked for when the overview opens ---------------------------------
+        shot = os.path.join(root, "shot.%d" % os.getpid())
+        open(shot, "w").close()
+        pushed = recv_ready(proc, 3)
+        want(pushed == {"name": "shot"},
+             "a request for a fresh picture reaches the extension: %r" % pushed)
+        want(not os.path.exists(shot), "and the picture request is consumed")
+
+        stale_shot = os.path.join(root, "shot.%d" % os.getpid())
+        open(stale_shot, "w").close()
+        os.utime(stale_shot, (0, 0))
+        want(mediator_module().pop_shot(root, os.getpid()) is None,
+             "a stale picture request is not forwarded")
+        want(not os.path.exists(stale_shot), "and it is dropped")
+
         # --- a second browser into the same document ---------------------------------------------
         send(proc, {"name": "report", "tabs": [{"id": 1, "windowId": 9, "title": "b"}],
                     "active": []})

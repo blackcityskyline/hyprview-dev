@@ -38,8 +38,7 @@ bool Overview::closeOnDoubleClick() const {
   return cfg::look.close_trigger.get() == "doubleclick";
 }
 
-// One rule for every layout, read by the hit-test too, so the ✕ never appears where a click
-// will not close.
+// One rule for every layout, read by the hit-test too: the ✕ never appears where a click won't close.
 bool Overview::tileCloseButtons() const {
   return !closeOnDoubleClick() && (m_view.desktop() || closeButtonsAlwaysOn());
 }
@@ -164,8 +163,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                                 {.round = pxr(round, s), .roundingPower = roundPow});
     }
   }
-  // The card is the frame; the content is what fits in it, and the rest of the card
-  // is the plate under it.
+  // The card is the frame; the content fits in it and the rest is the plate under it.
   const LRect content = w ? render::contentInside(box, w->sizeAnimation()->goal().x,
                                                    w->sizeAnimation()->goal().y)
                            : box;

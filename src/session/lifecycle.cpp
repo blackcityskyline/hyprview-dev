@@ -98,6 +98,8 @@ void Overview::switchDomain(model::Domain d) {
   }
   // A rebuild, not a relayout: the cards are DIFFERENT SUBJECTS now (lifecycle.cpp:218 re-reads tile_mode).
   loadTabs();
+  if (nowTabs)
+    requestTabShots();
   m_view.setWsSlideDir( 0);
   m_view.setExpoFlip( 0);
   auto oldBoxes = captureCurrentBoxes();
@@ -213,6 +215,8 @@ void Overview::open() {
     m_view.setAllOverride(1);
   }
   loadTabs();
+  if (model::showsTabs(m_view.domain()))
+    requestTabShots();
   buildTiles();
   buildStrip();
   if (m_scene.tiles().empty() && m_strip.size() <= 1)

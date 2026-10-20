@@ -1,5 +1,7 @@
 #include "cache.hpp"
 
+#include <filesystem>
+
 #include "png.hpp"
 
 #include <algorithm>
@@ -55,16 +57,30 @@ SP<Render::ITexture> PixelCache::windowLabel(const PHLWINDOW &win,
   return labelIn(m_winLabels, PHLWINDOWREF{win}, text, col, size, maxW);
 }
 
+namespace {
+std::int64_t fileStamp(const std::string &path) {
+  std::error_code ec;
+  const auto t = std::filesystem::last_write_time(path, ec);
+  return ec ? 0 : static_cast<std::int64_t>(t.time_since_epoch().count());
+}
+} // namespace
+
 SP<Render::ITexture> PixelCache::putPicture(const model::SubjectRef &s,
                                            const std::string &screenshotPath,
                                            const std::string &iconPath) {
-  if (const auto *hit = m_subjectArt.find(s))
-    return *hit;
+  const auto stamp = fileStamp(screenshotPath);
+  if (const auto *hit = m_subjectArt.find(s)) {
+    const auto it = m_artStamp.find(s);
+    if (it != m_artStamp.end() && it->second == stamp)
+      return *hit;
+  }
   auto tex = loadPng(screenshotPath);
   if (!tex && !iconPath.empty())
     tex = loadPng(iconPath);
-  if (tex)
+  if (tex) {
     m_subjectArt.put(s, tex);
+    m_artStamp[s] = stamp;
+  }
   return tex;
 }
 

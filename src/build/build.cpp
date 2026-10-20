@@ -665,6 +665,20 @@ bool Overview::writeTabRequest(std::uint64_t browserWindow, std::int64_t tab) {
   return std::rename(part.c_str(), path.c_str()) == 0;
 }
 
+// The picture on disk is from when the tab was last active; a page restyled since keeps that look.
+void Overview::requestTabShots() {
+  for (const auto &entry : m_tabs.snapshot().pids) {
+    const std::string path = browserSideDir() + "/shot." + std::to_string(entry.second);
+    const std::string part = path + ".part";
+    {
+      std::ofstream out(part, std::ios::binary | std::ios::trunc);
+      if (!out)
+        continue;
+    }
+    std::rename(part.c_str(), path.c_str());
+  }
+}
+
 void Overview::activateTab(model::SubjectRef s, Desktop::eFocusReason reason) {
   const auto group = m_tabs.groupOf(s);
   const bool sent = group.id != 0 && writeTabRequest(group.id, static_cast<std::int64_t>(s.id));

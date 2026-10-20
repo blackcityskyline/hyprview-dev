@@ -373,6 +373,7 @@ private:
   void setDiscardedShown(bool on);
   void activateTab(model::SubjectRef s, Desktop::eFocusReason reason);
   bool writeTabRequest(std::uint64_t browserWindow, std::int64_t tab);
+  void requestTabShots();
   bool crossesRealWorkspace(const PHLWINDOW &w) const;
   void closeTileWindow(int i);
   LRect killZoneRect() const;

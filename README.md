@@ -157,6 +157,13 @@ shows its icon.
 The screenshot needs `<all_urls>`: Gecko grants `activeTab` only to an extension
 the user clicked, and this one has no button.
 
+Opening the overview asks for a fresh picture of the tab on screen, because the
+one on disk is from the last time that tab changed and a page restyled after
+that (dark mode, a theme add-on) would otherwise keep its first look. A page the
+browser draws itself — `about:addons`, `about:config` — cannot be photographed:
+the capture comes back as the quarter-scale stored thumbnail, so it is refused
+and the card shows the icon.
+
 ## Config
 
 All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#colors).

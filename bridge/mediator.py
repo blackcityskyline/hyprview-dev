@@ -249,6 +249,24 @@ def pop_activation(root, browser_pid):
     return {"name": "activate", "window": window, "tab": tab}
 
 
+SHOT_MAX_AGE = 3.0
+
+
+def pop_shot(root, browser_pid):
+    """A fresh picture was asked for: the plugin writes shot.<pid> when the overview opens.
+
+    The file on disk is a picture of the tab the last time it was on screen, and a page that a
+    style-changing extension painted after that would keep its first look for good.
+    """
+    path = os.path.join(root, "shot.%d" % browser_pid)
+    try:
+        age = time.time() - os.path.getmtime(path)
+    except OSError:
+        return None
+    drop(path)
+    return {"name": "shot"} if age <= SHOT_MAX_AGE else None
+
+
 def handle(command, root, own_pid):
     """One command in, one reply out. Never raises: the channel is the connection, and a
     mediator that dies on a malformed report takes the whole run of tabs with it."""
@@ -340,7 +358,9 @@ def main():
         # two-way stream, so the host may speak without being asked.
         ready, _, _ = select.select([stdin], [], [], 0.2)
         if not ready:
-            request = pop_activation(directory, browser) if browser else None
+            request = None
+            if browser:
+                request = pop_shot(directory, browser) or pop_activation(directory, browser)
             if request:
                 log("pushing an activation: %r" % request)
                 write_frame(stdout, request)

@@ -68,6 +68,12 @@ correlation.
 ## What it does
 
 - Reports the tab list, the active tabs of the focused window, and at most one screenshot.
+- **Takes the picture again on request.** The compositor writes `shot.<pid>` when the overview
+  opens; the message is `{"name": "shot"}` and the answer is an ordinary report. A page restyled
+  after it was loaded would otherwise be pictured as it looked before the restyle.
+- Refuses `about:`, `chrome:`, `moz-extension:`, `resource:` and `view-source:` pages: the
+  capture of those comes back as the quarter-scale thumbnail the browser stores, and the card
+  falls back to the icon instead of showing blocks.
 - **Opens a tab on request.** The compositor writes `a <pid> <window> <tab>` under
   `$XDG_RUNTIME_DIR/hyprview`; the mediator whose parent is that pid forwards it, and the
   extension makes the tab active (reloading it if it was discarded) and focuses its window.
