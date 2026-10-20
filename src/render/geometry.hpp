@@ -550,7 +550,6 @@ struct CarouselHitCard {
 }
 
 // The wallpaper covers the monitor: scaled to fill, centred, the overflow cut off.
-// One axis is scaled to fit, the other is centred.
 struct CoverFit {
   double scale = 1.0;
   double x = 0.0;
@@ -671,11 +670,18 @@ struct FrostUV {
 inline constexpr float kSeamPadPx = 1.5F;
 
 // The radius a tile's CONTENT carries so its arc lands on the ring's outer edge; +1,
-// Hyprland subtracts one. overCovers false = a contained window.
+// Hyprland subtracts one. The radius is the CONTENT's own: a radius past half the
+// content's side turns the shape inside out.
 [[nodiscard]] inline int contentRadiusPx(int round, int width, double scale,
                                          bool overCovers = true) {
   return pxr(round, scale) + static_cast<int>(std::lround(width * scale)) +
          (overCovers ? static_cast<int>(kSeamPadPx) : 0) + 1;
+}
+
+// The content's radius, clamped to the content's own box.
+[[nodiscard]] inline int contentRadiusFor(int round, const LRect &content, int border,
+                                         double scale, bool overCovers = true) {
+  return contentRadiusPx(clampRound(round, content.w, content.h), border, scale, overCovers);
 }
 
 // What the backdrop puts UNDER the tiles (AGENTS.md 2.28): with the blur on, the

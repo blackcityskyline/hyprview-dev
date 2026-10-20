@@ -178,7 +178,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                                    {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
   } else {
     renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
-                     contentRadiusPx(round, ringW, s, !look.contain),
+                     render::contentRadiusFor(round, content, ringW, s, !look.contain),
                      roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
   }
 
