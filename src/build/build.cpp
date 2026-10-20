@@ -541,11 +541,16 @@ void Overview::layoutTiles() {
       const auto &c = m_view.carousel().cards[static_cast<std::size_t>(k)];
       auto &t = m_scene.tileAt(static_cast<size_t>(i));
       // Zero target = off-run: nothing paints it, and a zeroed box keeps the glide from resizing the card.
-      t.target = c.visible ? LRect{usable.x + m_view.carousel().originX + c.x,
-                                  usable.y + m_view.carousel().originY +
-                                      m_view.carousel().stripY + c.y,
-                                  c.w, c.h}
-                           : LRect{};
+      const double ox = usable.x + m_view.carousel().originX;
+      const double oy = usable.y + m_view.carousel().originY + m_view.carousel().stripY;
+      t.target = c.visible ? LRect{ox + c.x, oy + c.y, c.w, c.h} : LRect{};
+      if (c.hasIncoming) {
+        t.hasIncoming = true;
+        t.incomingFrom = LRect{ox + c.incomingFrom.x, oy + c.incomingFrom.y,
+                                c.incomingFrom.w, c.incomingFrom.h};
+        t.incomingTo = LRect{ox + c.incomingTo.x, oy + c.incomingTo.y, c.incomingTo.w,
+                             c.incomingTo.h};
+      }
       // Caption cut to the card width HERE, where it is known; paint only reads.
       if (c.visible && !t.labelText.empty()) {
         const auto maxW =

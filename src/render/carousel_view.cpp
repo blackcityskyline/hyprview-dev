@@ -94,6 +94,19 @@ void Overview::renderCarousel() const {
                                                    depthTaper()),
                               tileCloseButtons(), cfg::look.preview_round);
     drawTile(static_cast<size_t>(i), look);
+
+    // The card that goes around the BACK of the ring is drawn twice: out and in.
+    if (t.hasIncoming) {
+      const LRect in = m_place.lerpBox(t.incomingFrom, t.incomingTo, i, frame());
+      TileLook inLook;
+      inLook.box = in;
+      inLook.round = clampRound(cfg::look.preview_round, in.w, in.h);
+      inLook.contain = true;
+      inLook.tone = render::carouselTone(m_view.carousel().cards[static_cast<size_t>(k)].incomingDepth,
+                                        nearTone(), farTone(), depthTaper());
+      inLook.button = tileCloseButtons();
+      drawTile(static_cast<size_t>(i), inLook);
+    }
   }
 }
 

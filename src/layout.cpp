@@ -203,15 +203,22 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     idxOfSlot.reserve(static_cast<size_t>(shown));
     for (int rel = -leftSlots; rel <= rightSlots; ++rel) {
         const int idx = ((sel + rel) % count + count) % count;
+        if (slotOf[static_cast<size_t>(idx)] != 99)
+            continue; // the first placement of a card wins
         slotOf[static_cast<size_t>(idx)] = rel;
         idxOfSlot.push_back(idx);
     }
     // The cards just OUTSIDE the window get a box as well: a card about to leave
     // needs somewhere to slide from, one about to come in somewhere to slide to.
+    int incomingIdx = -1;
     for (const int rel : {-leftSlots - 1, rightSlots + 1}) {
         const int idx = ((sel + rel) % count + count) % count;
-        if (slotOf[static_cast<size_t>(idx)] != 99)
+        if (slotOf[static_cast<size_t>(idx)] != 99) {
+            // The ring: the card that leaves on one edge is the card that comes
+            // in on the other. It needs a second place, and one box is not two.
+            incomingIdx = static_cast<int>(idx);
             continue;
+        }
         slotOf[static_cast<size_t>(idx)] = rel;
         idxOfSlot.push_back(idx);
     }
@@ -249,17 +256,32 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     L.originX = 0.0;
     L.originY = std::round((screen.h - L.panelH) * 0.5);
 
-    for (const int idx : idxOfSlot) {
-        const int slot = slotOf[static_cast<size_t>(idx)];
-        CarouselLayout::Card& c = L.cards[static_cast<size_t>(idx)];
+    const auto placeAt = [&](int slot, CarouselLayout::Card& c) {
+        const int depth = std::abs(slot);
         c.visible = true;
-        c.depth = std::abs(slot);
-        c.w = boxW * sizeAt(std::abs(slot)) * kCard;
-        c.h = boxH * sizeAt(std::abs(slot)) * kCard;
+        c.depth = depth;
+        c.w = boxW * sizeAt(depth) * kCard;
+        c.h = boxH * sizeAt(depth) * kCard;
         // x reads c.w, so it has to come after it.
         c.x = (screen.w - c.w) * 0.5 +
-              static_cast<double>(slot) * pitchAt(std::abs(slot)) * kCard;
-            c.y = (boxH * kCard - c.h) * 0.5;
+              static_cast<double>(slot) * pitchAt(depth) * kCard;
+        c.y = (boxH * kCard - c.h) * 0.5;
+    };
+
+    for (const int idx : idxOfSlot) {
+        const int slot = slotOf[static_cast<size_t>(idx)];
+        placeAt(slot, L.cards[static_cast<size_t>(idx)]);
+    }
+    if (incomingIdx >= 0) {
+        // The second place: it comes in from beyond the edge to the edge.
+        CarouselLayout::Card& c = L.cards[static_cast<size_t>(incomingIdx)];
+        CarouselLayout::Card spot;
+        placeAt(rightSlots + 2, spot);
+        c.incomingFrom = LRect{spot.x, spot.y, spot.w, spot.h};
+        placeAt(rightSlots + 1, spot);
+        c.incomingTo = LRect{spot.x, spot.y, spot.w, spot.h};
+        c.incomingDepth = rightSlots + 1;
+        c.hasIncoming = true;
     }
     return L;
 }

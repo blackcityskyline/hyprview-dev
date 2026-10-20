@@ -435,14 +435,6 @@ def the_run_step_does_not_cross_the_run(c):
     if int(st.get("tiles", 0)) < 2:
         c.saw(0)
         return c.skip("%s tile(s): nothing to step to" % st.get("tiles"))
-    # A ring as wide as the window has no room for a card to come in: the card that
-    # leaves IS the card that comes back, and one box cannot be in two places. That is
-    # the model, not a bug in the step -- so it is named, not failed.
-    run = int(st.get("run", 0) or 0)
-    if run and int(st.get("tiles", 0)) == run:
-        c.saw(0)
-        return c.skip("%d card(s) in a %d-wide window: the ring has no room for the "
-                      "transition" % (int(st.get("tiles", 0)), run))
     before = log_size()
     cmd("altstep 1", settle=0.5)
     text = tail_from(before)
@@ -452,6 +444,8 @@ def the_run_step_does_not_cross_the_run(c):
         return c.skip("no TILEBOX records -- enable debug_trace")
     crossed = []
     for i, (a, b) in boxes.items():
+        if b[2] < 1:
+            continue  # the card left the run: it has no target to cross to
         moved = abs(a[0] - b[0])
         if moved > a[2] * 1.2:
             crossed.append("tile %s moved %.0fpx across a %.0fpx card" % (i, moved, a[2]))

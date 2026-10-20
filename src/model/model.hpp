@@ -27,6 +27,11 @@ struct Tile {
   SubjectRef subj;
   LRect natural;
   LRect target;
+  // The card that goes around the BACK of the ring comes in on the other side; one
+  // box cannot be in two places, so these are its second place.
+  bool hasIncoming = false;
+  LRect incomingFrom;
+  LRect incomingTo;
   bool parked = false;
   std::string labelText;
   double landed = 1.0; // 0 = still coming in; ghosts reverse it

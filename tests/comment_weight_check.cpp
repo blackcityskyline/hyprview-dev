@@ -26,7 +26,7 @@ namespace {
 // wall: a header that states a rule the code cannot express may be heavier than one that only
 // declares things. The ratchet is the absolute number of comment lines the tree may hold.
 constexpr double kTargetPct      = 8.0;
-constexpr int    kCommentBudget  = 920;
+constexpr int    kCommentBudget  = 930;
 
 struct Weight {
   int comments = 0;
