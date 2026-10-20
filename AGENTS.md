@@ -325,7 +325,7 @@ python3 tools/anim_matrix.py [--quick] [--scenarios]
 | Падение 2026-10-10 16:27 (`CScreenshareFrame::renderWindow()`, SEGV) | не проверено, был ли активен wf-recorder/screenshare |
 | Падение 2026-10-13 20:09 (SEGV, PID 92712) | crash-отчёт Hyprland без стека; стек — `coredumpctl info 92712`. Механизм найден в коде: `deactivate()` и `hardClose()` роняли `SP<CEventLoopTimer>` (`reset()`) из того объекта, чей колбэк выполнялся, — `CSharedPointer<CEventLoopTimer>::_delete` → `nudgeTimers`. Оба зовут `FramePump::stop()`: `cancel()` + `removeTimer()`, последний указатель не роняется. Не воспроизведено. Проверка: прогон `unload`/`load` под ASAN в nested |
 | `m_focusOutside` | поле не присваивается никогда. Не удалено: «на чём должен действовать passthrough-бинд» — продуктовое решение |
-| Ховер-заливка плиток/карточек | не подтверждена кодом |
+| Ховер-заливка плиток/карточек | закрыт: ховер — только `strokeRing`, заливки нет и по README |
 | Истинный халф-сплит при вставке | упирается в API Hyprland: `assignToSpace` делает `splitBeside`, layout-insert API нет. Пока не появится — не трогать |
 | Своп на гриде из пустого воркспейса | доведён по трейсу, не проверен на глаз после последней правки |
 | Покрытие hit-testing (`input/mouse.cpp`, `input/keys.cpp`) | юнитов нет, кроме карусели: `carouselHit` (передняя карточка) |
