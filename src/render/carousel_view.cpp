@@ -42,7 +42,7 @@ void Overview::relayoutCarousel() {
     return;
   auto shown = captureCurrentBoxes();
   layoutTiles();
-  startTileGlide(shown);
+  startTileGlide(shown, frame().monW);
 }
 
 void Overview::renderCarousel() const {

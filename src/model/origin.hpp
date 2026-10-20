@@ -7,6 +7,7 @@
 #include "../layout.hpp"
 #include "subject.hpp"
 
+#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -54,9 +55,11 @@ struct StartBox {
   double landed = 1.0;
 };
 
+// seamRunW: the width a card may cross before it is the ring's seam and not a step. A seam
+// card starts where it lands -- sliding it across the run is the card flying over the row.
 [[nodiscard]] inline std::vector<StartBox> startBoxes(
     const std::vector<std::pair<SubjectRef, LRect>> &oldBoxes,
-    const std::vector<TileStart> &tiles, bool onRun) {
+    const std::vector<TileStart> &tiles, bool onRun, double seamRunW = 0.0) {
   std::vector<StartBox> out;
   out.reserve(tiles.size());
   for (const auto &t : tiles) {
@@ -66,10 +69,11 @@ struct StartBox {
         drawn = &oldBox;
         break;
       }
-    out.push_back(StartBox{
-        outgoingBox(t.hasWindow, onRun, /*revealed=*/oldBoxes.empty(),
-                    drawn ? *drawn : noPlace(), t.ownPlace, t.target),
-        drawn ? 1.0 : 0.0});
+    LRect natural = outgoingBox(t.hasWindow, onRun, /*revealed=*/oldBoxes.empty(),
+                                drawn ? *drawn : noPlace(), t.ownPlace, t.target);
+    if (onRun && seamRunW > 0.0 && std::abs(natural.x - t.target.x) > seamRunW * 0.5)
+      natural = t.target;
+    out.push_back(StartBox{natural, drawn ? 1.0 : 0.0});
   }
   return out;
 }

@@ -201,7 +201,8 @@ private:
   view::State m_view;
   mutable std::chrono::steady_clock::time_point m_lastAnimTick{};
   void startTileGlide(
-      const std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes);
+      const std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes,
+      double seamRunW = 0.0);
   PHLMONITORREF m_monitor;
   PHLWORKSPACEREF m_workspace;
   PHLWORKSPACEREF m_liveWsAtOpen; // for exit_on_switch

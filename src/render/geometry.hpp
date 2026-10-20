@@ -489,9 +489,7 @@ struct WindowFit {
   return fit;
 }
 
-// The drawn box, global logical: Hyprland clips damage to getTexBox(), which ignores
-// renderModif (SurfacePassElement.cpp:31), so a modif'ed preview keeps only the pixels
-// over the window's real spot.
+// The drawn box, global logical: damage is clipped to getTexBox() (SurfacePassElement.cpp:31).
 struct WindowBox {
   double x = 0.0, y = 0.0, w = 0.0, h = 0.0;
 };

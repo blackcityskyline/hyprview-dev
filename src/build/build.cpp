@@ -592,7 +592,8 @@ Overview::captureCurrentBoxes(PHLWINDOW exclude) const {
 
 // oldBoxes = the shown boxes (pre-rebuild); empty = fresh naturals, so a plain open starts from the real boxes.
 void Overview::startTileGlide(
-    const std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes) {
+    const std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes,
+    double seamRunW) {
   // The start boxes come from ONE pure function, asked for EVERY tile (AGENTS.md 2.29).
   std::vector<model::TileStart> tiles;
   tiles.reserve(m_scene.size());
@@ -600,7 +601,7 @@ void Overview::startTileGlide(
     const auto &t = m_scene.tiles()[i];
     tiles.push_back(model::TileStart{t.subj, t.natural, t.target, cardOf(t).hasWindow()});
   }
-  const auto starts = model::startBoxes(oldBoxes, tiles, m_view.run());
+  const auto starts = model::startBoxes(oldBoxes, tiles, m_view.run(), seamRunW);
   bool newcomers = false;
   for (size_t i = 0; i < m_scene.size(); ++i) {
     auto &t = m_scene.tileAt(i);

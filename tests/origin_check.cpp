@@ -188,6 +188,31 @@ void aCardJoiningAnEmptySceneStartsAtItsSlot() {
   want(rebuilt.at(1).landed, 0.0, "and it enters");
 }
 
+// 8. The ring's seam. Stepping off the last card puts the card next to it on the far side of
+// the run; sliding it there is a card flying over the row, so it starts where it lands. One
+// slot is not a seam, and the rule is off outside the run.
+void theSeamCardStartsWhereItLands() {
+  const SubjectRef a{1, 0};
+  const SubjectRef b{2, 0};
+  const std::vector<std::pair<SubjectRef, LRect>> oldBoxes{{a, LRect{-81, 352, 259, 146}}};
+  const LRect farSide{822, 302, 440, 247};
+  const auto seam = startBoxes(oldBoxes, {{a, LRect{-81, 352, 259, 146}, farSide, true}},
+                               /*onRun=*/true, /*seamRunW=*/1366.0);
+  expect("a card crossing the seam starts where it lands, not across the run", seam.at(0).natural,
+         farSide);
+
+  const LRect step{104, 302, 440, 247};
+  const auto plain = startBoxes(oldBoxes, {{a, LRect{-81, 352, 259, 146}, step, true}},
+                                /*onRun=*/true, /*seamRunW=*/1366.0);
+  expect("one slot is a step: the card starts where it was", plain.at(0).natural,
+         LRect{-81, 352, 259, 146});
+
+  const auto grid = startBoxes(oldBoxes, {{a, LRect{-81, 352, 259, 146}, farSide, true}},
+                               /*onRun=*/false, /*seamRunW=*/1366.0);
+  expect("off the run nothing snaps", grid.at(0).natural, LRect{-81, 352, 259, 146});
+  (void)b;
+}
+
 } // namespace
 
 int main() {
@@ -199,6 +224,7 @@ int main() {
   naturalIsEvidenceForAWindowAndNotForATab();
   nothingGrowsOutOfTheCorner();
   aCardJoiningAnEmptySceneStartsAtItsSlot();
+  theSeamCardStartsWhereItLands();
 
   if (failures) {
     std::printf("origin_check: %d failure(s)\n", failures);

@@ -1,6 +1,5 @@
-// The reported box must be the DRAWN one: Hyprland clips damage to getTexBox(), which
-// ignores renderModif, so a modif'ed preview kept only the band over the window's spot.
-// And the damage itself must land there, or the preview freezes.
+// The reported box is the DRAWN one: Hyprland clips damage to getTexBox(), which ignores
+// renderModif. The damage route must land there too, or the preview freezes.
 
 #include <cmath>
 #include <cstdio>
@@ -50,7 +49,6 @@ int main(int argc, char **argv) {
       return fail("the box is not centred on the card -- damage clips the preview to the window");
   }
 
-  // Cover: the drawn box is the overlarge window, centred on the card.
   {
     const WindowFitInput in{100, 100, 400, 200, 0, 0, 800, 200, 0, 0, 1.0, true, false, 0.0};
     const auto fit = windowFit(in);
@@ -61,7 +59,6 @@ int main(int argc, char **argv) {
       return fail("the cover box is not centred on the card");
   }
 
-  // A scaled monitor, not at 0,0: pos is global, so the pixel box is ((box - mon) * scale).
   {
     const WindowFitInput in{50, 20, 875, 500, 2500, 30, 700, 400, 1920, 0, 1.5, true, false, 0.0};
     const auto fit = windowFit(in);
