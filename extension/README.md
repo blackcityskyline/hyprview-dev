@@ -37,6 +37,11 @@ window title (AGENTS.md 2.26).
 A temporary add-on in a release Firefox build cannot open a native-messaging
 port; that needs the installed XPI.
 
+5. Firefox and Zen: copy the `zen-mod/` directory to
+   `<profile>/chrome/sine-mods/hyprview-previews/` and restart. Without it only
+   tabs you have switched away from have a picture, because Firefox writes a
+   tab's thumbnail when you leave it.
+
 Each report carries the tab's address as well as its title, because the mediator
 finds a background tab's picture by hashing that address against the browser's
 own thumbnail store. The address is hashed and never written to disk.
@@ -48,11 +53,12 @@ own thumbnail store. The address is hashed and never written to disk.
 | `tabs` | tab ids, window ids and titles | no cards at all |
 | `nativeMessaging` | reaching the mediator | nothing is reported |
 | `activeTab` | screenshot in Chromium | no screenshot there |
-| `<all_urls>` (optional) | screenshot in **Firefox MV3** | no screenshot anywhere in Firefox |
+| `<all_urls>` (optional) | live screenshot in **Firefox MV3** | the stored picture stands alone |
 
 Firefox will not hand an extension a screenshot of a page until the user grants
-`<all_urls>`. In Firefox an active tab therefore shows its caption with no
-picture until the grant is made — a supported state, not a failure.
+`<all_urls>`. That removes the freshest picture of the visible tab, not the
+picture itself: the mediator still copies what the browser stored, which the
+companion mod keeps current for every loaded tab.
 
 ## What it sends
 

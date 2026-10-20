@@ -1,0 +1,15 @@
+{
+  "id": "hyprview-previews",
+  "name": "HyprView tab previews",
+  "description": "Stores a thumbnail of every loaded tab, so the HyprView compositor plugin has a picture for tabs a WebExtension cannot photograph.",
+  "author": "hyprview",
+  "version": "1.0.0",
+  "createdAt": "2026-10-20",
+  "updatedAt": "2026-10-20",
+  "fork": ["zen"],
+  "scripts": {
+    "hyprview-previews.uc.js": {
+      "include": ["chrome://browser/content/browser.xhtml"]
+    }
+  }
+}

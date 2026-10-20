@@ -152,8 +152,12 @@ A tab card shows the page as the browser last showed it. A WebExtension can
 photograph only the visible tab of a window, so the picture of a background tab
 comes from the browser's own thumbnail store (one PNG per address in its local
 profile); the mediator copies the matching one in, and the visible tab keeps a
-live screenshot on top. A tab that has not been left since it was opened has no
-stored picture and falls back to its icon.
+live screenshot on top.
+
+Firefox and Zen write that store entry when a tab is left, which leaves the tab
+on screen without a picture. `zen-mod/` — a small Sine mod — asks for the
+same entry for every loaded tab, exactly what Zen's own Ctrl+Tab panel does. Without it, or on Chromium, a tab you have never left
+falls back to its icon.
 
 ## Config
 
