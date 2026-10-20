@@ -419,6 +419,12 @@ add_test(NAME scan_backdrop_base
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/backdrop_base_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/backdrop_base_check && ${CMAKE_CURRENT_BINARY_DIR}/backdrop_base_check ${CMAKE_SOURCE_DIR}")
 
+# How a tile is drawn: the grid, the run, the dragged card. Three builders, so a
+# field set in one path and forgotten in another is impossible.
+add_test(NAME tile_look
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/tile_look_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tile_look_check && ${CMAKE_CURRENT_BINARY_DIR}/tile_look_check")
+
 # The GL state fence's comparison. Reading live GL needs a context, so that half lives in
 # gl_util.hpp and runs inside the pass; the comparison is POD arithmetic, split into
 # state_fence.hpp precisely so it compiles here with no GL header at all.

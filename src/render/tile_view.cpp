@@ -303,10 +303,7 @@ void Overview::renderTiles() const {
       if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w, false))
         continue; // flying via a landing: its slot is painted by renderSwapFX
     }
-    TileLook look;
-    look.box = tileRect(i);
-    look.button = wantButtons;
-    drawTile(i, look);
+    drawTile(i, gridLook(tileRect(i), cfg::look.preview_round, wantButtons));
   }
 
   glBlendFuncSeparate(srcRGB, dstRGB, srcA, dstA);

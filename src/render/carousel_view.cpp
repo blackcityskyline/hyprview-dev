@@ -81,25 +81,19 @@ void Overview::renderCarousel() const {
     if (swapfxActive(tileWindow(t), false))
       continue;
 
-    TileLook look;
-    look.box = currentBox(t, i);
+    LRect box = currentBox(t, i);
     // progress.raw() runs DOWN on close; every exit fraction reads it through exitT.
     // The deck's ONE hide rule, same predicate as the grid's: a cancel takes the whole deck out.
     if (!opening() && anim::cardHides(card.depth, frame().goesHome(t))) {
       const double k =
           anim::hideShrink(exitT(), anim::param(anim::Param::Collapse));
-      const double cx = look.box.cx(), cy = look.box.cy();
-      look.box = LRect{cx - look.box.w * k * 0.5, cy - look.box.h * k * 0.5,
-                       look.box.w * k, look.box.h * k};
+      const double cx = box.cx(), cy = box.cy();
+      box = LRect{cx - box.w * k * 0.5, cy - box.h * k * 0.5, box.w * k, box.h * k};
     }
-    // Clamped to the shrinking box: a radius past half the shorter side does not round at all.
-    look.round = clampRound(cfg::look.preview_round, look.box.w, look.box.h);
-    look.frame = card.depth == 0;         // only the centred card is framed
-    look.contain = true;
-    look.tone = render::carouselTone(card.depth, nearTone(), farTone(), depthTaper());
-    look.button = tileCloseButtons();
-    // The counter is drawn with the centred card's pill and pushed with it: one owner, one push.
-    look.counter = card.depth == 0;
+    const auto look = runLook(box, card.depth,
+                              render::carouselTone(card.depth, nearTone(), farTone(),
+                                                   depthTaper()),
+                              tileCloseButtons(), cfg::look.preview_round);
     drawTile(static_cast<size_t>(i), look);
   }
 }

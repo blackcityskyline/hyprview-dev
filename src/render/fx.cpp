@@ -74,11 +74,9 @@ void Overview::renderDragTile() const {
       drawDragStripChrome();
     return;
   }
-  TileLook look;
-  look.box   = dragVisualBox();
-  look.lift  = true;
-  look.round = clampRound(cfg::look.preview_round, look.box.w, look.box.h);
-  drawTile(static_cast<size_t>(dragIdx), look);
+  const auto box = dragVisualBox();
+  drawTile(static_cast<size_t>(dragIdx),
+           dragLook(box, clampRound(cfg::look.preview_round, box.w, box.h)));
 }
 
 void Overview::drawDragStripChrome() const {
