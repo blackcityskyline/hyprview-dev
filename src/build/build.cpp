@@ -544,8 +544,9 @@ void Overview::layoutTiles() {
       const double ox = usable.x + m_view.carousel().originX;
       const double oy = usable.y + m_view.carousel().originY + m_view.carousel().stripY;
       t.target = c.visible ? LRect{ox + c.x, oy + c.y, c.w, c.h} : LRect{};
+      // Assigned every time: a flag that outlives its rebuild draws the card twice.
+      t.hasIncoming = c.hasIncoming;
       if (c.hasIncoming) {
-        t.hasIncoming = true;
         t.incomingFrom = LRect{ox + c.incomingFrom.x, oy + c.incomingFrom.y,
                                 c.incomingFrom.w, c.incomingFrom.h};
         t.incomingTo = LRect{ox + c.incomingTo.x, oy + c.incomingTo.y, c.incomingTo.w,
