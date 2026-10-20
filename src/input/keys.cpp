@@ -186,8 +186,8 @@ void Overview::moveSelection(int dx, int dy) {
     return;
   }
   if (carouselMode()) {
-    if (dx != 0) {
-      m_scene.stepSelection(dx);
+    if (dx != 0 && stepRun(dx)) {
+      relayoutCarousel();
       damage();
     }
     return;
@@ -221,6 +221,27 @@ void Overview::moveSelection(int dx, int dy) {
 }
 
 // Steps the order the user SEES: slot order in the run, array order in the grid; the run is MRU-first.
+// One step along the run, in the order the cards STAND in. The arrows, the wheel
+// and the alt-tab all step this way, so the counter, the motion and the picture
+// cannot disagree about which card is next.
+bool Overview::stepRun(int dir) {
+  const auto &slot = m_view.slot();
+  if (!m_scene.hasSelection() || slot.size() != m_scene.size())
+    return false;
+  const int cur = m_view.slotOf(static_cast<std::size_t>(m_scene.selected()));
+  if (cur < 0)
+    return false;
+  const int count = static_cast<int>(m_scene.size());
+  const int nxt = ((cur + dir) % count + count) % count;
+  m_scene.select(m_view.tileInSlot(static_cast<std::size_t>(nxt)));
+  return true;
+}
+
+int Overview::runPosition() const {
+  const int slot = m_view.slotOf(static_cast<std::size_t>(m_scene.focused()));
+  return slot >= 0 ? slot : m_scene.focused();
+}
+
 void Overview::stepAltTab(int dir) {
   const std::size_t n = m_scene.size();
   if (n == 0)
@@ -245,19 +266,12 @@ void Overview::stepAltTab(int dir) {
                                             t.natural, t.target));
     }
 
-  const auto &slot = m_view.slot();
-  if (carouselMode() && m_scene.hasSelection() && slot.size() == n) {
-    const int cur = m_view.slotOf(static_cast<std::size_t>(m_scene.selected()));
-    if (cur >= 0) {
-      const int count = static_cast<int>(n);
-      const int nxt = ((cur + dir) % count + count) % count;
-      m_scene.select(m_view.tileInSlot(static_cast<std::size_t>(nxt)));
-      // The step has to GLIDE: the arrow path glides, this one did not.
-      relayoutCarousel();
-      pinRunEdges(wasOnRun);
-      damage();
-      return;
-    }
+  if (carouselMode() && stepRun(dir)) {
+    // The step has to GLIDE: the arrow path glides, this one did not.
+    relayoutCarousel();
+    pinRunEdges(wasOnRun);
+    damage();
+    return;
   }
   m_scene.stepSelection(dir);
   if (carouselMode()) {

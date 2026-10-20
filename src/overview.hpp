@@ -377,6 +377,10 @@ private:
   void restoreLayers();
   void restoreFill();
   void stepAltTab(int dir);
+  bool stepRun(int dir);
+  // Where the selected card stands in the run: the counter counts THIS, not the
+  // tile index -- the run's order is the order of recent focus, and the two differ.
+  [[nodiscard]] int runPosition() const;
   // A card that joined or left the run has no slot to glide between. See keys.cpp.
   void pinRunEdges(const std::vector<char> &wasOnRun);
   int tileOf(const PHLWINDOW &w) const;

@@ -444,7 +444,7 @@ void Overview::layoutTiles() {
   if (m_view.run() && m_scene.size() > 1) {
     const auto tex = m_pixel.fixedLabel(
         pixel::Slot::CarouselCount,
-        std::to_string(m_scene.focused() + 1) + " / " + std::to_string(m_scene.size()),
+        std::to_string(runPosition() + 1) + " / " + std::to_string(m_scene.size()),
         cfg::colors.counter_label.get(1.0), cfg::look.counter_font_size.get());
     if (tex && tex->m_size.y > 0)
       countCapH = tex->m_size.y + 2 * cfg::look.counter_pad_y;
@@ -560,7 +560,7 @@ void Overview::layoutTiles() {
       if (c.visible && c.depth == 0 && m_scene.size() > 1)
         t.countLabel = m_pixel.fixedLabel(
             pixel::Slot::CarouselCount,
-            std::to_string(m_scene.focused() + 1) + " / " +
+            std::to_string(runPosition() + 1) + " / " +
                 std::to_string(m_scene.size()),
             cfg::colors.counter_label.get(1.0),
             cfg::look.counter_font_size.get());

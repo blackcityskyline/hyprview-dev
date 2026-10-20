@@ -257,7 +257,8 @@ std::string Overview::runCommand(const std::string &args) {
                       std::to_string(m_strip.size()) + "|allws=" +
                       std::to_string(showAllWorkspaces()) + "|carousel=" +
                       std::to_string(carouselMode()) + "|run=" +
-                      std::to_string(m_view.run() ? m_view.carousel().cards.size() : 0) + "|ccx=" +
+                      std::to_string(m_view.run() ? m_view.carousel().cards.size() : 0) +
+                      "|pos=" + std::to_string(runPosition()) + "|ccx=" +
                       std::to_string(static_cast<int>(m_view.carousel().area.x +
                                                      m_view.carousel().originX +
                                                      m_view.carousel().area.w / 2.0));
@@ -270,6 +271,7 @@ std::string Overview::runCommand(const std::string &args) {
         if (k >= 0 && static_cast<std::size_t>(k) < m_view.carousel().cards.size())
           depth = m_view.carousel().cards[static_cast<std::size_t>(k)].depth;
       }
+      const int slot = m_view.slotOf(i);
       out += "\nTILE|" + std::to_string(i) + "|" +
              (w ? w->m_class : std::string("gone")) + "|" +
              (w && w->m_workspace ? std::to_string(w->m_workspace->m_id) : std::string("-")) +
@@ -277,7 +279,9 @@ std::string Overview::runCommand(const std::string &args) {
              "," + std::to_string(static_cast<int>(t.target.y)) +
              "," + std::to_string(static_cast<int>(t.target.w)) +
              "," + std::to_string(static_cast<int>(t.target.h)) +
-             "|d=" + std::to_string(depth);
+             "|d=" + std::to_string(depth) +
+             "|slot=" + std::to_string(slot) +
+             "|sel=" + std::to_string(static_cast<int>(i) == m_scene.focused() ? 1 : 0);
     }
     for (std::size_t i = 0; i < m_strip.size(); ++i) {
       const auto &it = m_strip[i];
