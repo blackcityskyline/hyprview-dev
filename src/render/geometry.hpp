@@ -375,8 +375,7 @@ struct CaptionLayout {
   return std::clamp(opacityPct / 100.0, 0.0, 1.0) * bandE;
 }
 
-// The label's box: in the band ABOVE the card, shrunk to what the card plus the
-// extra allows. The band's space for it is reserved in buildStrip().
+// The label's box: in the band ABOVE the card, shrunk to what the card allows.
 [[nodiscard]] inline LRect stripLabelBox(const LRect &card, double labelW, double labelH,
                                           double labelBand, double labelExtra) {
   const double maxW = card.w + labelExtra;
@@ -427,8 +426,7 @@ struct AllGlyph {
   return g;
 }
 
-// The wallpaper crop: cover-fit, so the card shows the image whole and never
-// stretched. The crop is on the texture's own axis.
+// The wallpaper crop: cover-fit, so the card shows the image whole.
 struct CoverUV {
   double u0 = 0.0, v0 = 0.0, u1 = 1.0, v1 = 1.0;
 };

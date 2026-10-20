@@ -237,9 +237,11 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
                                            style);
     if (lay.pill.w > 0.0) {
       const LRect pill = lay.pill;
-      const Vector2D push = pushOut(pill);
-      const double pop = render::captionRemains(std::hypot(push.x, push.y), pill.w, pill.h,
-                                                exitT(), opening());
+      const Vector2D push = look.push ? pushOut(pill) : Vector2D{0.0, 0.0};
+      const double pop =
+          look.push ? render::captionRemains(std::hypot(push.x, push.y), pill.w, pill.h,
+                                             exitT(), opening())
+                    : 1.0;
       const double cf = e * f;
       LRect drawn = render::scaledAboutCentre(pill, pop);
       drawn.x += push.x;
