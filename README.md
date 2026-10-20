@@ -151,15 +151,11 @@ one, which also reloads it if it was discarded, and focuses the browser window.
 A tab card shows the page that tab was showing the last time it was on screen:
 every report carries a screenshot of the visible tab, and the mediator keeps it
 under that tab's id. A tab is visible when it is opened, so this covers a tab
-that has never been switched to as well. A card with no such picture copies
-whatever thumbnail the browser stored for its address; with neither, it shows
-the icon.
+that has never been switched to as well; a tab the extension has never seen
+shows its icon.
 
 The screenshot needs `<all_urls>`: Gecko grants `activeTab` only to an extension
-the user clicked, and this one has no button. `zen-mod/` can fill the browser's
-own store for tabs the browser never drew itself, but it needs a chrome-JS mod
-loader — Zen's built-in mods are CSS only — so it does nothing until Sine or an
-equivalent is installed.
+the user clicked, and this one has no button.
 
 ## Config
 

@@ -134,9 +134,6 @@ function simplify(tabs) {
       id: t.id,
       windowId: t.windowId,
       title: t.title || '',
-      // The mediator needs the address to find the page in the browser's own thumbnail store;
-      // it never leaves this machine and is only ever hashed.
-      url: t.url || '',
       // Unloaded: still open, not in memory. The compositor hides these unless asked.
       discarded: t.discarded === true,
     }));

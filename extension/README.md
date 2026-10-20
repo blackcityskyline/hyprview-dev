@@ -37,15 +37,6 @@ window title (AGENTS.md 2.26).
 A temporary add-on in a release Firefox build cannot open a native-messaging
 port; that needs the installed XPI.
 
-5. Optional, Firefox and Zen: copy the `zen-mod/` directory to
-   `<profile>/chrome/sine-mods/hyprview-previews/` and restart. It fills the
-   browser's thumbnail store for tabs the extension cannot photograph, but it
-   runs only under a chrome-JS mod loader (Sine); Zen's own mods are CSS only.
-
-Each report carries the tab's address as well as its title, because the mediator
-finds a background tab's picture by hashing that address against the browser's
-own thumbnail store. The address is hashed and never written to disk.
-
 ## Permissions
 
 | Permission | Why | Without it |
