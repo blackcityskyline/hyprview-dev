@@ -1,7 +1,6 @@
 #include "window_content.hpp"
 
 #include <algorithm>
-#include <any>
 #include <chrono>
 #include <cmath>
 
@@ -15,7 +14,6 @@
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/render/pass/SurfacePassElement.hpp>
-#include <hyprutils/utils/ScopeGuard.hpp>
 
 #include "../overview.hpp"
 #include "../config/config.hpp"
@@ -93,32 +91,16 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   const auto fit = render::windowFit(fitIn);
   if (!fit.valid)
     return;
-  const float scaleMod = static_cast<float>(fit.scale);
-  const Vector2D translate{fit.translate.x, fit.translate.y};
-
-  Render::SRenderModifData modif;
-  modif.modifs.push_back(
-      {Render::SRenderModifData::eRenderModifType::RMOD_TYPE_TRANSLATE,
-       std::any(translate)});
-  modif.modifs.push_back(
-      {Render::SRenderModifData::eRenderModifType::RMOD_TYPE_SCALE,
-       std::any(scaleMod)});
-  modif.enabled = true;
-
-  // Never m_renderPass.add(): the painter iterates that vector right now.
-  Render::SRenderModifData savedModif =
-      g_pHyprRenderer->m_renderData.renderModif;
-  g_pHyprRenderer->m_renderData.renderModif = modif;
-  Hyprutils::Utils::CScopeGuard reset([&] {
-    g_pHyprRenderer->m_renderData.renderModif = savedModif;
-  });
+  const auto box = render::previewBox(fitIn, fit);
+  if (!(box.w > 0 && box.h > 0))
+    return;
 
   CSurfacePassElement::SRenderData data{};
   data.pMonitor = mon;
   data.when     = when;
-  data.pos      = logicalTL;
-  data.w        = std::max(size.x, 5.0);
-  data.h        = std::max(size.y, 5.0);
+  data.pos      = Vector2D{box.x, box.y};
+  data.w        = box.w;
+  data.h        = box.h;
   data.surface  = w->wlSurface()->resource();
   data.dontRound      = false;
   // The window's own rule opacity; the surface's alphaModifier and overallOpacity still apply on top.
@@ -128,7 +110,9 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   data.rounding       = roundPx;
   data.roundingPower  = roundingPower;
   data.blur           = false;
-  data.pWindow        = w;
+  // No pWindow: calculateUVForSurface crops to RATIO = box / reported size (
+  // ElementRenderer.cpp:98) instead of stretching -- the preview became a band.
+  data.pWindow        = nullptr;
   data.clipBox        = clipPx;
   data.squishOversized = true;
   data.surfaceCounter = 0;
@@ -145,12 +129,14 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   }
 
   w->wlSurface()->resource()->breadthfirst(
-      [&data, &w, &destPx](SP<CWLSurfaceResource> s, const Vector2D &offset,
-                           void *) {
+      [&data, &w, &fit](SP<CWLSurfaceResource> s, const Vector2D &offset,
+                                 void *) {
         if (!s || !s->m_current.texture || s->m_current.size.x < 1 ||
             s->m_current.size.y < 1)
           return;
-        data.localPos    = offset;
+        // ponytail: the offset is fitted, the box Hyprland derives for a subsurface
+        // from its resource size is not -- a popup previews at real size.
+        data.localPos    = offset * fit.scale;
         data.texture     = s->m_current.texture;
         data.surface     = s;
         data.mainSurface = s == w->wlSurface()->resource();

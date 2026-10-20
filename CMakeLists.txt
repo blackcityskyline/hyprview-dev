@@ -419,6 +419,13 @@ add_test(NAME scan_backdrop_base
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/backdrop_base_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/backdrop_base_check && ${CMAKE_CURRENT_BINARY_DIR}/backdrop_base_check ${CMAKE_SOURCE_DIR}")
 
+# The box a preview's surface element reports: the drawn box. Hyprland clips damage to
+# the element's own box, which ignores a render modif, so the preview kept only the part
+# lying over the window's real spot.
+add_test(NAME scan_preview_box
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/preview_box_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/preview_box_check && ${CMAKE_CURRENT_BINARY_DIR}/preview_box_check ${CMAKE_SOURCE_DIR}")
+
 # How a tile is drawn: the grid, the run, the dragged card. Three builders, so a
 # field set in one path and forgotten in another is impossible.
 add_test(NAME tile_look

@@ -489,6 +489,25 @@ struct WindowFit {
   return fit;
 }
 
+// The drawn box, global logical: Hyprland clips damage to getTexBox(), which ignores
+// renderModif (SurfacePassElement.cpp:31), so a modif'ed preview keeps only the pixels
+// over the window's real spot.
+struct WindowBox {
+  double x = 0.0, y = 0.0, w = 0.0, h = 0.0;
+};
+
+[[nodiscard]] inline WindowBox previewBox(const WindowFitInput &in, const WindowFit &fit) {
+  if (!fit.valid)
+    return {};
+  const double s = in.monScale > 0.0 ? in.monScale : 1.0;
+  const double tlX = (in.logicalX - in.monX) * s;
+  const double tlY = (in.logicalY - in.monY) * s;
+  return WindowBox{in.monX + (tlX + fit.translate.x) * fit.scale / s,
+                   in.monY + (tlY + fit.translate.y) * fit.scale / s,
+                   std::max(in.logicalW * fit.scale, 5.0),
+                   std::max(in.logicalH * fit.scale, 5.0)};
+}
+
 // The run's dim: the focused card is clear, the next one takes the near tone, and
 // every step past it is the far tone tapered.
 [[nodiscard]] inline double carouselTone(int depth, double nearTone, double farTone,
