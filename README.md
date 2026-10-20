@@ -88,6 +88,10 @@ see `alt_tab_*` below). The hyprctl equivalents are `hyprview` / `hyprviewclose`
 confirms that card (switches to its workspace and focuses it — the same thing Enter does),
 and open with nothing focused it cancels. Use `hyprview:close` for an unconditional cancel.
 
+A card's caption is the window title — or, for a tab, the page title — cut at 50
+characters with `...` at the end, the dots included. The limit counts characters, so a
+Cyrillic title is cut between letters and not through one.
+
 Lua:
 
 ```lua

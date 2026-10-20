@@ -1,5 +1,7 @@
 #include "window_source.hpp"
 
+#include "title_text.hpp"
+
 #include <hyprland/src/desktop/state/GlobalWindowController.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/helpers/WLClasses.hpp>
@@ -13,7 +15,6 @@ std::string classBase(const std::string &cls) {
     return dot == std::string::npos ? cls : cls.substr(0, dot);
 }
 
-constexpr std::size_t kMaxLabel = 80;
 
 } // namespace
 
@@ -64,9 +65,7 @@ std::string WindowsContentSource::label(SubjectRef s) const {
     auto text = w->m_title;
     if (text.empty())
         text = classBase(w->m_class);
-    if (text.size() > kMaxLabel)
-        text = text.substr(0, kMaxLabel - 1) + "…";
-    return text;
+    return truncateTitle(text);
 }
 
 bool WindowsContentSource::isTab(SubjectRef) const {

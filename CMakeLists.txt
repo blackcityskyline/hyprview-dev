@@ -107,6 +107,12 @@ add_test(NAME carousel_exit
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/carousel_exit_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/exit_check && ${CMAKE_CURRENT_BINARY_DIR}/exit_check")
 
+# The caption limit counts characters, not bytes, and the dots are inside it: both were
+# the way to get a 50-character caption that renders as half a broken letter.
+add_test(NAME title_text
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/title_text_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/title_text_check && ${CMAKE_CURRENT_BINARY_DIR}/title_text_check")
+
 # Naming: `scan_*` targets read this repository's own source text and match it against a
 # rule. They are static analysis, and they were named like tests -- so a ctest run read as
 # "everything here executes logic on real data" when three of seventeen never ran any.

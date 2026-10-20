@@ -3,6 +3,7 @@
 #include "../overview.hpp"
 #include "../model/entries.hpp"
 #include "../model/origin.hpp"
+#include "../model/title_text.hpp"
 #include "../render/gl_util.hpp"
 
 #include <algorithm>
@@ -139,7 +140,7 @@ void Overview::buildTiles() {
       std::string text;
       SP<Render::ITexture> tex;
       if (cardOf(t).isTab()) {
-        text = m_tabs.label(t.subj);
+        text = model::truncateTitle(m_tabs.label(t.subj));
         tex  = m_pixel.subjectLabel(t.subj, text, lblCol, cfg::look.title_font_size.get());
       } else {
         const auto w = tileWindow(t);
@@ -148,8 +149,7 @@ void Overview::buildTiles() {
         text = w->m_title;
         if (text.empty())
           text = w->m_class;
-        if (text.size() > 80)
-          text = text.substr(0, 79) + "…";
+        text = model::truncateTitle(text);
         tex = m_pixel.windowLabel(w, text, lblCol, cfg::look.title_font_size.get());
       }
       t.labelText = text;
