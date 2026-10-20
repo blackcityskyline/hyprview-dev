@@ -611,6 +611,32 @@ static void theGlArithmeticIsReachable() {
   std::puts("the GL arithmetic: the radius, the ring's edge, and the content under it");
 }
 
+// The ring on top of a tile, and the part of the backdrop that shows through the
+// frost. Both were arithmetic at the draw site.
+static void theTileDecidesItsRingAndItsFrost() {
+  using hyprview::render::focusRingWidth;
+  using hyprview::render::frostUV;
+
+  // The hover ring wins over the selection ring, and the base ring shows when
+  // neither does.
+  near(focusRingWidth(true, true, true, 3, 5, 2), 3.0, "the hover ring is on top");
+  near(focusRingWidth(true, false, true, 3, 5, 2), 5.0, "the selection ring under it");
+  near(focusRingWidth(true, false, false, 3, 5, 2), 2.0, "the base ring under that");
+  near(focusRingWidth(false, true, true, 3, 5, 2), 0.0,
+       "with the focus border off there is no focus ring");
+
+  // The frost shows the backdrop under the tile: the tile's own box, normalized.
+  const auto uv = frostUV(100.0, 50.0, 200.0, 100.0, 1000.0, 500.0);
+  near(uv.u0, 0.1, "the left edge");
+  near(uv.v0, 0.1, "the top edge");
+  near(uv.u1, 0.3, "the right edge");
+  near(uv.v1, 0.3, "the bottom edge");
+  const auto full = frostUV(0.0, 0.0, 1000.0, 500.0, 1000.0, 500.0);
+  near(full.u1, 1.0, "the whole monitor");
+  near(full.v1, 1.0, "the whole monitor");
+  std::puts("the tile: the ring on top, and the frost under it");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -961,6 +987,7 @@ int main() {
   theWallpaperCoversTheMonitor();
   theBackdropNeverShowsTheSharpDesktopUnderBlur();
   theGlArithmeticIsReachable();
+  theTileDecidesItsRingAndItsFrost();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

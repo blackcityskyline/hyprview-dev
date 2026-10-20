@@ -112,9 +112,10 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
   const bool selected = static_cast<int>(i) == m_scene.focused() && !look.lift;
   const bool focused  = cfg::look.show_focus_border != 0 && (framed || selected);
   // Whichever ring ends up on top is the one the content has to tuck under.
-  const int ringW = focused ? (framed ? cfg::look.hover_border_size
-                                      : cfg::look.select_border_size)
-                            : cfg::look.border_size;
+  const int ringW = render::focusRingWidth(cfg::look.show_focus_border != 0, framed,
+                                           selected, cfg::look.hover_border_size,
+                                           cfg::look.select_border_size,
+                                           cfg::look.border_size);
 
   dropShadow(box, s, shadowCol,
              look.lift ? cfg::look.shadow_radius_lift : cfg::look.shadow_radius,
@@ -144,6 +145,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
       const double pxW = static_cast<double>(m->m_pixelSize.x);
       const double pxH = static_cast<double>(m->m_pixelSize.y);
       const CBox  boxPx = pxb(box, s);
+      const auto  uv = render::frostUV(boxPx.x, boxPx.y, boxPx.width, boxPx.height, pxW, pxH);
       CTexPassElement::SRenderData td{};
       td.tex           = btex;
       td.box           = boxPx;
@@ -153,9 +155,8 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
       td.allowCustomUV = true;
       auto &uvTL = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
       auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
-      uvTL = Vector2D{boxPx.x / pxW, boxPx.y / pxH};
-      uvBR = Vector2D{(boxPx.x + boxPx.width) / pxW,
-                      (boxPx.y + boxPx.height) / pxH};
+      uvTL = Vector2D{uv.u0, uv.v0};
+      uvBR = Vector2D{uv.u1, uv.v1};
       g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
       uvTL = Vector2D{-1.0, -1.0};
       uvBR = Vector2D{-1.0, -1.0};

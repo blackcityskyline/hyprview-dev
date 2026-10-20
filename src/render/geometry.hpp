@@ -583,6 +583,33 @@ struct CoverFit {
 // a static wallpaper is not.
 inline constexpr int kSourceAnimatedStreak = 4;
 
+// The ring on top of a tile: hover over selection over base.
+[[nodiscard]] inline int focusRingWidth(bool showFocusBorder, bool framed, bool selected,
+                                        int hoverWidth, int selectWidth, int baseWidth) {
+  if (!showFocusBorder)
+    return 0;
+  if (framed)
+    return hoverWidth;
+  if (selected)
+    return selectWidth;
+  return baseWidth;
+}
+
+// The part of the backdrop that shows through a frost: the tile's box, normalized.
+struct FrostUV {
+  double u0 = 0.0, v0 = 0.0, u1 = 0.0, v1 = 0.0;
+};
+
+[[nodiscard]] inline FrostUV frostUV(double x, double y, double w, double h, double pxW,
+                                     double pxH) {
+  FrostUV uv;
+  uv.u0 = x / pxW;
+  uv.v0 = y / pxH;
+  uv.u1 = (x + w) / pxW;
+  uv.v1 = (y + h) / pxH;
+  return uv;
+}
+
 // The GL layer's own arithmetic, pure: the radii and the pixel conversion. They
 // lived in gl_util.hpp, which pulls GL in, so no test could reach them.
 [[nodiscard]] inline int pxr(double round, double s) { return static_cast<int>(round * s); }
