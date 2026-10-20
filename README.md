@@ -148,16 +148,18 @@ browser but not in memory, so it is listed only when asked for
 Activating a tab card — Enter or a click — makes that tab the browser's active
 one, which also reloads it if it was discarded, and focuses the browser window.
 
-A tab card shows the page as the browser last showed it. A WebExtension can
-photograph only the visible tab of a window, so the picture of a background tab
-comes from the browser's own thumbnail store (one PNG per address in its local
-profile); the mediator copies the matching one in, and the visible tab keeps a
-live screenshot on top.
+A tab card shows the page that tab was showing the last time it was on screen:
+every report carries a screenshot of the visible tab, and the mediator keeps it
+under that tab's id. A tab is visible when it is opened, so this covers a tab
+that has never been switched to as well. A card with no such picture copies
+whatever thumbnail the browser stored for its address; with neither, it shows
+the icon.
 
-Firefox and Zen write that store entry when a tab is left, which leaves the tab
-on screen without a picture. `zen-mod/` — a small Sine mod — asks for the
-same entry for every loaded tab, exactly what Zen's own Ctrl+Tab panel does. Without it, or on Chromium, a tab you have never left
-falls back to its icon.
+The screenshot needs `<all_urls>`: Gecko grants `activeTab` only to an extension
+the user clicked, and this one has no button. `zen-mod/` can fill the browser's
+own store for tabs the browser never drew itself, but it needs a chrome-JS mod
+loader — Zen's built-in mods are CSS only — so it does nothing until Sine or an
+equivalent is installed.
 
 ## Config
 

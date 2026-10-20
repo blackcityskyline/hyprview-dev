@@ -157,15 +157,39 @@ async function activate(command) {
 
 // A picture of what this window is showing right now.
 //
-// In Chromium this works with `activeTab`. In Firefox MV3 it is `undefined` until the user
-// grants the optional `<all_urls>` permission, and there is no way to negotiate past that — so
-// this can return nothing forever, which is why the card falls back to its caption rather than
-// treating a missing picture as a bug.
+// Gecko hands out a screenshot only to an extension holding `<all_urls>`: `activeTab` is
+// granted by a click on the extension and this one has no button. So the manifest asks for it
+// up front, and a browser that refuses anyway returns nothing -- the card then shows a picture
+// from the browser's thumbnail store or its caption, never a bug.
+const SHOT_WIDTH = 960;
+
+// A page at full resolution is routinely past a megabyte, base64 adds a third of that, and a
+// card is a few hundred pixels wide. Scaling down keeps one report well inside the size a
+// native message can carry.
+async function shrink(dataUrl) {
+  // A Chromium MV3 worker has no DOM and therefore no canvas; there the picture goes as it is.
+  if (typeof document === 'undefined') return dataUrl;
+  try {
+    const img = new Image();
+    img.src = dataUrl;
+    await img.decode();
+    if (!img.naturalWidth || img.naturalWidth <= SHOT_WIDTH) return dataUrl;
+    const canvas = document.createElement('canvas');
+    canvas.width = SHOT_WIDTH;
+    canvas.height = Math.round(img.naturalHeight * (SHOT_WIDTH / img.naturalWidth));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/png');
+  } catch (e) {
+    return dataUrl;
+  }
+}
+
 async function capture(windowId) {
   try {
     if (typeof api.tabs.captureVisibleTab !== 'function') return null;
     const url = await api.tabs.captureVisibleTab(windowId, { format: 'png' });
-    return typeof url === 'string' && url.startsWith('data:image/png') ? url : null;
+    if (typeof url !== 'string' || !url.startsWith('data:image/png')) return null;
+    return await shrink(url);
   } catch (e) {
     return null;
   }
