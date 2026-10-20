@@ -148,11 +148,11 @@ browser but not in memory, so it is listed only when asked for
 Activating a tab card — Enter or a click — makes that tab the browser's active
 one, which also reloads it if it was discarded, and focuses the browser window.
 
-A tab card shows the page that tab was showing the last time it was on screen:
-every report carries a screenshot of the visible tab, and the mediator keeps it
-under that tab's id. A tab is visible when it is opened, so this covers a tab
-that has never been switched to as well; a tab the extension has never seen
-shows its icon.
+A tab card shows the page that tab was showing when the overview last opened on
+it: the picture is taken when the compositor asks for one, and the mediator
+keeps it under that tab's id. Shooting on every tab event would mean painting a
+layer over the page each time, which reads as a flash on every load and switch;
+an event report carries the tab list only.
 
 The screenshot needs `<all_urls>`: Gecko grants `activeTab` only to an extension
 the user clicked, and this one has no button.
@@ -165,9 +165,9 @@ the capture comes back as the quarter-scale stored thumbnail, so it is refused
 and the card keeps no picture. A page whose root background is transparent is shot with a
 fixed layer of the `Canvas` system colour under its content, for the duration of the capture:
 the browser's snapshot draws the document but not the canvas, and without it a dark page came
-back as dark controls on a white sheet. A tab the extension may not photograph keeps no file:
-the stale picture under its id belongs to some other page, so it is deleted and the card keeps
-no picture. A tab without one shows its title. The site's favicon sits in the title pill: the
+back as dark controls on a white sheet. A tab that navigated, and a tab the extension may not
+photograph, is named in the report's `drop` list: the picture under that id is of another page,
+so it is deleted and the card keeps no picture. A tab without one shows its title. The site's favicon sits in the title pill: the
 extension fetches it, normalises it to a 32px PNG and the mediator writes `icons/<tabId>.png`.
 The corner of the card carries the browser's own icon, looked up from the window class's
 desktop entry.

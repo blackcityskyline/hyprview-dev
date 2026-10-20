@@ -47,8 +47,10 @@ function connect() {
   port.onMessage.addListener((reply) => {
     if (reply && reply.name === 'activate')
       activate(reply);
-    else if (reply && reply.name === 'shot')
+    else if (reply && reply.name === 'shot') {
+      shotPending = true;
       repicture();
+    }
     else if (reply && reply.ok === false)
       console.warn('hyprview mediator refused:', reply.reason);
   });
@@ -78,6 +80,22 @@ let reporting = false;
 // now, not as it looked when the tab last changed. A report already in flight must not swallow
 // the request, hence the flag rather than a bare call.
 let repicturePending = false;
+
+// A picture is taken only when the compositor asks for one: the shoot paints a layer under the
+// page for as long as the capture runs, and shooting on every event made that layer a visible
+// flash on every load and every switch. An event report carries the tab list and nothing else.
+let shotPending = false;
+
+// A tab that navigated shows another page now, so the picture on disk is of a page this tab no
+// longer holds. Ids are named here and dropped by the mediator; the overview's own shot takes a
+// fresh one the next time the tab is on screen.
+const navigated = new Set();
+
+function noteNavigation(tabId, change) {
+  if (typeof tabId === 'number' && (change.url || change.status === 'loading'))
+    navigated.add(tabId);
+  schedule();
+}
 
 function repicture() {
   if (reporting) {
@@ -123,17 +141,25 @@ async function reportOnce() {
   } catch (e) {
     return;
   }
+  const wantShot = shotPending;
+  shotPending = false;
+  const drop = Array.from(navigated);
+  navigated.clear();
   if (active.length === 0) {
     // No focused tab means nothing is being shown, so there is nothing to photograph. Sending
     // an empty active list is correct and is not a failure state worth retrying.
     try {
-      port.postMessage({ name: 'report', tabs: simplify(tabs), active: [] });
+      port.postMessage({ name: 'report', tabs: simplify(tabs), active: [], drop });
     } catch (e) {
       console.error('hyprview: postMessage failed:', e && e.message ? e.message : e);
     }
     return;
   }
-  const screenshot = await capture(focused.id);
+  const screenshot = wantShot ? await capture(focused.id) : null;
+  // Asked for a picture and got none: the page is one the browser will not let an extension
+  // shoot. Whatever is under that id is some other page, and it must not be shown as this one.
+  if (wantShot && !screenshot)
+    for (const id of active) drop.push(id);
   const favicons = await iconMap(tabs);
   try {
     port.postMessage({
@@ -141,6 +167,7 @@ async function reportOnce() {
       tabs: simplify(tabs),
       active,
       icons: Object.keys(favicons).length ? favicons : undefined,
+      drop: drop.length ? drop : undefined,
       screenshot: screenshot || undefined,
     });
   } catch (e) {
@@ -353,7 +380,7 @@ connect();
 
 api.tabs.onCreated.addListener(schedule);
 api.tabs.onRemoved.addListener(schedule);
-api.tabs.onUpdated.addListener(schedule);
+api.tabs.onUpdated.addListener(noteNavigation);
 api.tabs.onActivated.addListener(schedule);
 api.windows.onFocusChanged.addListener(schedule);
 api.windows.onRemoved.addListener(schedule);

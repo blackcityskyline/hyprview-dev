@@ -130,11 +130,16 @@ def main():
         if os.path.exists(shot):
             want(open(shot, "rb").read().startswith(b"\x89PNG"), "and it is the PNG")
 
-        # A report that carries no picture is a page the extension may not shoot (about:, or a
-        # capture that failed). The file under that id belongs to some other page and must go.
+        # An event report carries no picture and no drop list: the extension only shoots when
+        # the compositor asks, so the picture already on disk is still the best one it has.
         send(proc, {"name": "report", "tabs": TABS, "active": [41]})
         want(recv(proc).get("ok") is True, "a report without a screenshot is accepted")
-        want(not os.path.exists(shot), "and the stale picture for the active tab is dropped")
+        want(os.path.exists(shot), "and leaves the picture it already has alone")
+
+        # A page that navigated puts another page under the same id. The extension names it.
+        send(proc, {"name": "report", "tabs": TABS, "active": [41], "drop": [41]})
+        want(recv(proc).get("ok") is True, "a report naming a stale picture is accepted")
+        want(not os.path.exists(shot), "and the named picture is dropped")
 
         # --- a favicon, keyed by the same tab id ----------------------------------------------
         icon = "data:image/png;base64," + __import__("base64").b64encode(

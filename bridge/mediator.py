@@ -295,6 +295,11 @@ def handle(command, root, own_pid):
                                  base64.b64decode(data.split(",", 1)[1]))
 
         active = [i for i in command.get("active") or [] if isinstance(i, int)]
+        # Pictures the extension knows to be of another page: a tab that navigated, or a shot
+        # the browser refused. Dropped before the write below, so a fresh shot wins.
+        for ident in command.get("drop") or []:
+            if isinstance(ident, int):
+                drop(os.path.join(root, "previews", "%d.png" % ident))
         shot = command.get("screenshot")
         if isinstance(shot, str) and shot.startswith("data:image/png"):
             import base64
@@ -302,12 +307,6 @@ def handle(command, root, own_pid):
             raw = base64.b64decode(shot.split(",", 1)[1])
             for ident in active:
                 atomic_write(os.path.join(root, "previews", "%d.png" % ident), raw)
-        else:
-            # No picture: a page the extension may not shoot, or a capture that failed. The file
-            # under that id is some other page -- ids are reused across sessions -- and a stale
-            # picture reads as this tab's, so the card falls back to its icon instead.
-            for ident in active:
-                drop(os.path.join(root, "previews", "%d.png" % ident))
         return {"ok": True, "browserPid": browser_pid, "windows": len(active)}
 
     if name == "activate_tab":
