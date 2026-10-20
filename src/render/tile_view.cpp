@@ -167,12 +167,13 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   const LRect content = w ? render::contentInside(box, w->sizeAnimation()->goal().x,
                                                    w->sizeAnimation()->goal().y)
                            : box;
-  if (look.surface && !tab)
+  const auto tabTex = tab ? tabArt(t) : SP<Render::ITexture>{};
+  if ((look.surface && !tab) || (tab && !tabTex))
     safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
                               {.round = pxr(round, s), .roundingPower = roundPow});
   if (tab) {
-    if (const auto tex = tabArt(t))
-      g_pHyprOpenGL->renderTexture(tex, pxb(box, s),
+    if (tabTex)
+      g_pHyprOpenGL->renderTexture(tabTex, pxb(box, s),
                                    {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
     else if (t.label && t.label->m_size.x > 0) {
       // No picture: the title, centred and dim, is all the card can say about the page.
