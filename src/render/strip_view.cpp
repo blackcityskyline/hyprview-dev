@@ -329,12 +329,9 @@ void Overview::renderStripButtons() const {
           {.round = pxr(rad, s)});
       const auto closeGlyph = m_pixel.closeGlyph();
       if (closeGlyph && closeGlyph->m_size.x > 0) {
-        const double gw = closeGlyph->m_size.x * 0.62,
-                     gh = closeGlyph->m_size.y * 0.62;
-        g_pHyprOpenGL->renderTexture(
-            closeGlyph,
-            pxb(CBox(br.cx() - gw / 2.0, br.cy() - gh / 2.0, gw, gh), s),
-            {.a = static_cast<float>(e)});
+        const auto glyph = render::glyphRect(br, closeGlyph->m_size.x, closeGlyph->m_size.y,
+                                             cfg::look.close_glyph_fill);
+        g_pHyprOpenGL->renderTexture(closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});
       }
     }
   }

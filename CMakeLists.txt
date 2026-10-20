@@ -425,6 +425,11 @@ add_test(NAME tile_look
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/tile_look_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tile_look_check && ${CMAKE_CURRENT_BINARY_DIR}/tile_look_check")
 
+# The close glyph is drawn by one rule, on every surface that draws it.
+add_test(NAME scan_close_glyph
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/close_glyph_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/close_glyph_check && ${CMAKE_CURRENT_BINARY_DIR}/close_glyph_check ${CMAKE_SOURCE_DIR}")
+
 # The GL state fence's comparison. Reading live GL needs a context, so that half lives in
 # gl_util.hpp and runs inside the pass; the comparison is POD arithmetic, split into
 # state_fence.hpp precisely so it compiles here with no GL header at all.
