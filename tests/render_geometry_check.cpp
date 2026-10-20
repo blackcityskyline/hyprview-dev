@@ -722,6 +722,27 @@ static void theContentKeepsItsAspectInsideTheCard() {
   std::puts("the content: its own aspect inside the card, and the rest is the plate");
 }
 
+// The caption's size and its place do not depend on how long the title is: a long
+// title is a long one, not a small one, and it runs under the cards beside it.
+static void theCaptionDoesNotShrinkWithTheTitle() {
+  using hyprview::render::CaptionSizes;
+  using hyprview::render::CaptionStyle;
+  using hyprview::render::captionLayout;
+
+  const LRect card{100.0, 200.0, 400.0, 300.0};
+  const CaptionStyle style{11.0, 5.0, 11.0, 5.0, 10.0, 8.0, 6.0, 6.0, 400.0, 34.0, true, true};
+  const auto shortTitle = captionLayout(card, LRect{}, 1920.0, 1080.0,
+                                       CaptionSizes{120.0, 24.0, 0.0, 0.0, true, false}, style);
+  const auto longTitle = captionLayout(card, LRect{}, 1920.0, 1080.0,
+                                       CaptionSizes{900.0, 24.0, 0.0, 0.0, true, false}, style);
+
+  near(longTitle.pill.h, shortTitle.pill.h, "the pill is as tall for a long title");
+  near(longTitle.pill.y, shortTitle.pill.y, "and it sits at the same place");
+  want(longTitle.pill.w > shortTitle.pill.w, true, "a long title is a wider pill");
+  near(longTitle.kFit, shortTitle.kFit, "and neither is scaled down to fit");
+  std::puts("the caption: the same size and place, whatever the title's length");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -1076,6 +1097,7 @@ int main() {
   theCloseGlyphFillsItsButton();
   thePulseAndTheDropHintAreDecisions();
   theContentKeepsItsAspectInsideTheCard();
+  theCaptionDoesNotShrinkWithTheTitle();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

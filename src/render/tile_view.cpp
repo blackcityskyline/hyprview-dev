@@ -83,7 +83,7 @@ LRect Overview::tileRect(size_t i) const {
 }
 
 // THE tile: shadow, ring, focus ring, frost, content, pill, ✕ — each under the next.
-void Overview::drawTile(size_t i, const TileLook &look) const {
+void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const {
   const auto m = m_monitor.lock();
   if (!m || i >= m_scene.tiles().size())
     return;
@@ -186,6 +186,34 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
                               {.round = pxr(round, s), .roundingPower = roundPow});
 
+  if (withCaption)
+    drawTileCaption(i, look);
+
+  const auto closeGlyph = m_pixel.closeGlyph();
+    if (look.button && !look.lift && closeGlyph && closeGlyph->m_size.x > 0) {
+    const LRect br = closeButtonRect(box);
+    safeRenderRect("tile", pxb(br, s), cfg::colors.close_button.get(e),
+                              {.round = pxr(br.h / 2.0, s)});
+    const auto glyph = render::glyphRect(br, closeGlyph->m_size.x, closeGlyph->m_size.y,
+                                         cfg::look.close_glyph_fill);
+    g_pHyprOpenGL->renderTexture(closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});
+  }
+}
+
+// The caption: the title pill and the counter, in a pass of its own.
+void Overview::drawTileCaption(int i, const TileLook &look) const {
+  const auto m = m_monitor.lock();
+  if (!m)
+    return;
+  const auto &t = m_scene.tiles()[i];
+  const bool tab = cardOf(t).isTab();
+  const bool framed = static_cast<int>(i) == m_scene.hoveredTile() || look.lift;
+  const bool selected = static_cast<int>(i) == m_scene.focused() && !look.lift;
+  const double s = m->m_scale;
+  const double e = eased();
+  const float f = static_cast<float>(entryFade(i));
+  const float roundPow = cfg::look.preview_round_power;
+  const LRect box = look.box;
   // A tab's title IS the card: an uncaptioned tab card is invisible.
   if ((framed || selected || tab) && !look.lift) {
     const bool hasLabel = t.label && t.label->m_size.x > 0;
@@ -262,16 +290,6 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                       sizes.countW * lay.kFit, sizes.countH * lay.kFit}, s),
             {.a = static_cast<float>(cf)});
     }
-  }
-
-  const auto closeGlyph = m_pixel.closeGlyph();
-    if (look.button && !look.lift && closeGlyph && closeGlyph->m_size.x > 0) {
-    const LRect br = closeButtonRect(box);
-    safeRenderRect("tile", pxb(br, s), cfg::colors.close_button.get(e),
-                              {.round = pxr(br.h / 2.0, s)});
-    const auto glyph = render::glyphRect(br, closeGlyph->m_size.x, closeGlyph->m_size.y,
-                                         cfg::look.close_glyph_fill);
-    g_pHyprOpenGL->renderTexture(closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});
   }
 }
 

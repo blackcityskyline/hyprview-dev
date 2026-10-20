@@ -324,7 +324,8 @@ private:
   LRect dragVisualBox() const;
   int draggedTile() const;
   void dropLiftIfNotMoved();
-  void drawTile(size_t i, const TileLook &look) const;
+  void drawTile(size_t i, const TileLook &look, bool withCaption = true) const;
+  void drawTileCaption(int i, const TileLook &look) const;
   LRect tileBox(size_t i, const LRect &slot) const;
   void switchToWorkspace(const model::StripItem &it, bool instant = false);
   void dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it);

@@ -64,6 +64,8 @@ void Overview::renderCarousel() const {
     refs.push_back(ref);
   }
   const auto paint = render::carouselPaintOrder(refs);
+  std::vector<std::pair<int, TileLook>> looks;
+  looks.reserve(paint.size());
 
   for (const int i : paint) {
     const int k = m_view.slotOf(static_cast<std::size_t>(i));
@@ -93,9 +95,14 @@ void Overview::renderCarousel() const {
                               render::carouselTone(card.depth, nearTone(), farTone(),
                                                    depthTaper()),
                               tileCloseButtons(), cfg::look.preview_round);
-    drawTile(static_cast<size_t>(i), look);
-
+    looks.emplace_back(i, look);
   }
+
+  // The captions first, the cards after: the cards cover a long title.
+  for (const auto &[i, look] : looks)
+    drawTileCaption(i, look);
+  for (const auto &[i, look] : looks)
+    drawTile(static_cast<size_t>(i), look, /*withCaption=*/false);
 }
 
 } // namespace hyprview

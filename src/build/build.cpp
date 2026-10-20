@@ -546,8 +546,8 @@ void Overview::layoutTiles() {
       t.target = c.visible ? LRect{ox + c.x, oy + c.y, c.w, c.h} : LRect{};
       // Caption cut to the card width HERE, where it is known; paint only reads.
       if (c.visible && !t.labelText.empty()) {
-        const auto maxW =
-            static_cast<int>(std::max(1.0, tileBox(i, t.target).w - 28.0));
+        // Not cut: a long title runs under the cards beside it, and they cover it.
+        const auto maxW = 0;
         if (const auto w = tileWindow(t))
           t.label = m_pixel.windowLabel(w, t.labelText,
                                         cfg::colors.title_label.get(1.0),

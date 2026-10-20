@@ -286,7 +286,8 @@ struct CaptionLayout {
   const double counterH = s.hasLabel && s.hasCounter ? s.countH + 2 * st.cPadY : 0.0;
 
   const double kCard = cardScale(box.w, st.cardRefW);
-  const double kFit  = std::min(kCard, pillScale(box.w, st.gridGapMin, textW + 2 * padX));
+  // The caption's scale is the CARD's scale: a long title is not a smaller title.
+  const double kFit = kCard;
   const double pw = (textW + 2 * padX) * kFit;
   const double ph = (textH + 2 * padY) * kFit;
 
@@ -689,8 +690,7 @@ enum class BackdropBase { Blur, OpaqueDim, Source };
   return blurUsable ? BackdropBase::Blur : BackdropBase::OpaqueDim;
 }
 
-// The content's box inside the card: the window keeps its own aspect, and the
-// rest of the card is the plate.
+// The content's box inside the card: the window keeps its own aspect.
 [[nodiscard]] inline LRect contentInside(const LRect &card, double windowW, double windowH) {
   if (windowW <= 0.0 || windowH <= 0.0)
     return card;
