@@ -190,13 +190,17 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   // The card's own icon in the corner the caption does not reach: the browser for a tab, the app for a window.
   const auto badgeIcon = tab ? browserIcon(t) : windowIcon(w);
   if (badgeIcon && (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0) {
-    const double side = std::clamp(box.h * 0.135, 27.0, 60.0);
+    const double side = std::clamp(box.h * 0.12825, 25.65, 57.0);
     const LRect badge{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side};
-    dropShadow(badge, s, shadowCol, side * 0.07, side * 0.3, 0.5F * f,
-               static_cast<int>(side * 0.2), roundPow);
-    g_pHyprOpenGL->renderTexture(
-        badgeIcon, pxb(badge, s),
-        {.a = f, .round = pxr(side * 0.2, s), .roundingPower = roundPow});
+    // The rim matches the icon's own corner, so the back plate reads as thickness instead of a square halo peeking out of transparent corners. The icon is unclipped: its alpha is its
+    // shape, and rounding a downscaled 128px file is what left the edges dirty.
+    const double rim = side * 0.04;
+    const LRect plate{badge.x - rim, badge.y - rim, side + 2 * rim, side + 2 * rim};
+    dropShadow(plate, s, shadowCol, side * 0.06, side * 0.26, 0.55F * f,
+               static_cast<int>(plate.w * 0.24), roundPow);
+    safeRenderRect("tile", pxb(plate, s), cfg::colors.shadow.get(0.5F * f),
+                   {.round = pxr(plate.w * 0.24, s), .roundingPower = roundPow});
+    g_pHyprOpenGL->renderTexture(badgeIcon, pxb(badge, s), {.a = f});
   }
 
   if (look.tone > 0.0)

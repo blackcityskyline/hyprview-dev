@@ -27,8 +27,7 @@ struct TabInfo {
            std::to_string(tab) + "\n";
 }
 
-// `known` separates "reported no tabs" from "never reported" -- the whole fallback rule:
-// a browser that has not spoken yet must still be shown as a window (entriesFor).
+// `known` separates "reported no tabs" from "never reported" -- the whole fallback rule: a browser that has not spoken yet must still be shown as a window (entriesFor).
 struct ReportedTabs {
     bool known = false;
     std::vector<std::pair<std::int64_t, TabInfo>> tabs;
