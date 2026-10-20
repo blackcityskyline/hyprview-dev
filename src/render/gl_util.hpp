@@ -13,9 +13,17 @@
 
 #include "../debug/log.hpp"
 #include "../layout.hpp"
+#include "geometry.hpp"
 #include "state_fence.hpp"
 
 namespace hyprview {
+
+// The pure arithmetic of the GL layer, under the names the call sites use.
+using render::clampRound;
+using render::contentRadiusPx;
+using render::kSeamPadPx;
+using render::outerRoundPx;
+using render::pxr;
 
 // round(): pixman truncates the border's scissor
 inline CBox pxb(const CBox &b, double s) {
@@ -24,21 +32,6 @@ inline CBox pxb(const CBox &b, double s) {
 inline CBox pxb(const LRect &r, double s) {
   return CBox{r.x * s, r.y * s, r.w * s, r.h * s}.round();
 }
-// truncate, never round: must match the shader's radius
-inline int pxr(double round, double s) { return static_cast<int>(round * s); }
-
-inline int outerRoundPx(double round, double borderSize, double roundingPower,
-                        double scale) {
-  const double correction =
-      borderSize * (M_SQRT2 - 1.0) * std::max(2.0 - roundingPower, 0.0);
-  return static_cast<int>((round + borderSize - correction) * scale);
-}
-
-inline int clampRound(int round, double w, double h) {
-  return static_cast<int>(
-      std::clamp(static_cast<double>(round), 0.0, std::min(w, h) * 0.5));
-}
-
 // --- GL state fence ---------------------------------------------------------------------
 // Reads live state back (a pipeline sync), so behind debug_trace and bracketed by paint().
 [[nodiscard]] inline render::GLState readGLState() {
@@ -136,18 +129,6 @@ inline void strokeRing(const LRect &lb, double s, const CHyprColor &col,
        .a = 1.0F,
        .outerRound = outerRoundPx(round, size, roundPow, s)});
   restoreScissorAfterBorder();
-}
-
-// PIXELS, not logical: window_content.cpp adds it to a pixel width. renderWindowLive
-// over-covers by this much so sub-pixel snapping cannot open a seam.
-inline constexpr float kSeamPadPx = 1.5F;
-
-// The radius a tile's CONTENT carries so its arc lands on the ring's outer edge; +1, Hyprland
-// subtracts one. overCovers false = a contained window, whose arc does not walk outward.
-inline int contentRadiusPx(int round, int width, float roundPow, double scale,
-                           bool overCovers = true) {
-  return pxr(round, scale) + static_cast<int>(std::lround(width * scale)) +
-         (overCovers ? static_cast<int>(kSeamPadPx) : 0) + 1;
 }
 
 inline void strokeRingPx(const CBox &b, const CHyprColor &col, float alpha,

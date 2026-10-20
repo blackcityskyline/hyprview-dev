@@ -583,6 +583,35 @@ struct CoverFit {
 // a static wallpaper is not.
 inline constexpr int kSourceAnimatedStreak = 4;
 
+// The GL layer's own arithmetic, pure: the radii and the pixel conversion. They
+// lived in gl_util.hpp, which pulls GL in, so no test could reach them.
+[[nodiscard]] inline int pxr(double round, double s) { return static_cast<int>(round * s); }
+
+[[nodiscard]] inline int outerRoundPx(double round, double borderSize,
+                                      double roundingPower, double scale) {
+  const double correction =
+      borderSize * (M_SQRT2 - 1.0) * std::max(2.0 - roundingPower, 0.0);
+  return static_cast<int>((round + borderSize - correction) * scale);
+}
+
+// A radius past half the shorter side inverts the shape, so it clamps.
+[[nodiscard]] inline int clampRound(int round, double w, double h) {
+  return static_cast<int>(
+      std::clamp(static_cast<double>(round), 0.0, std::min(w, h) * 0.5));
+}
+
+// PIXELS, not logical: renderWindowLive over-covers by this much so sub-pixel
+// snapping cannot open a seam.
+inline constexpr float kSeamPadPx = 1.5F;
+
+// The radius a tile's CONTENT carries so its arc lands on the ring's outer edge; +1,
+// Hyprland subtracts one. overCovers false = a contained window.
+[[nodiscard]] inline int contentRadiusPx(int round, int width, double scale,
+                                         bool overCovers = true) {
+  return pxr(round, scale) + static_cast<int>(std::lround(width * scale)) +
+         (overCovers ? static_cast<int>(kSeamPadPx) : 0) + 1;
+}
+
 // What the backdrop puts UNDER the tiles (AGENTS.md 2.28): with the blur on, the
 // sharp source is not an answer.
 enum class BackdropBase { Blur, OpaqueDim, Source };

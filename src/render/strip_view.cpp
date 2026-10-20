@@ -221,7 +221,7 @@ void Overview::renderStripWindows() const {
       // Grab ring or plain border: whichever is on top, the content radius follows it.
       const int ringW = stripSlotGrabbed(i, j) ? 2 : cfg::look.border_size;
       renderWindowLive(w, m, slotPx, cardPx, static_cast<float>(e), when,
-                       contentRadiusPx(round, ringW, roundPow, scale),
+                       contentRadiusPx(round, ringW, scale),
                        roundPow, true);
     }
   }

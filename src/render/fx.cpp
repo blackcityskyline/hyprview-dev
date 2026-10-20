@@ -120,12 +120,10 @@ void Overview::renderDragWindow() const {
   const int    round = clampRound(cfg::look.preview_round, lb.w, lb.h);
   const CBox   px    = pxb(lb, scale);
   renderWindowLive(w, m, px, px, static_cast<float>(eased()), Time::steadyNow(),
-                   contentRadiusPx(round, cfg::look.hover_border_size, roundPow,
-                                   scale),
+                   contentRadiusPx(round, cfg::look.hover_border_size, scale),
                    roundPow);
 }
 
-// The zone sits at the screen edge OPPOSITE the strip; brightness follows cursor distance.
 LRect Overview::killZoneRect() const {
   const auto m = m_monitor.lock();
   if (!m)
@@ -300,7 +298,7 @@ void Overview::renderSwapFX() const {
       dropShadow(box, s, cfg::colors.shadow.get(), 6.0, 16.0,
                  static_cast<float>(0.18 * alpha), lr, roundPow);
     renderWindowLive(w, m, px, px, alpha, when,
-                     contentRadiusPx(round, cfg::look.border_size, roundPow, s),
+                     contentRadiusPx(round, cfg::look.border_size, s),
                      roundPow, true);
     }
   }

@@ -575,6 +575,42 @@ static void theBackdropNeverShowsTheSharpDesktopUnderBlur() {
   std::puts("the backdrop base: the blur or the dim, never the sharp source under blur");
 }
 
+// The GL layer's own arithmetic: the radius a ring draws with, the radius the
+// CONTENT carries under it, and the pixel conversion. They were in a GL header,
+// where no test could reach them.
+static void theGlArithmeticIsReachable() {
+  using hyprview::render::clampRound;
+  using hyprview::render::contentRadiusPx;
+  using hyprview::render::outerRoundPx;
+  using hyprview::render::pxr;
+
+  // Truncate, never round: the shader's radius must match it exactly.
+  near(pxr(2.5, 1.0), 2.0, "truncated, not rounded");
+  near(pxr(3.0, 1.5), 4.0, "truncated, not rounded");
+  near(pxr(0.0, 2.0), 0.0, "no radius, no pixels");
+
+  // A radius past half the shorter side does not round at all: it inverts the shape.
+  near(clampRound(40, 100.0, 60.0), 30.0, "clamped at half the short side");
+  near(clampRound(20, 100.0, 60.0), 20.0, "a radius inside it passes through");
+  near(clampRound(10, 100.0, 60.0), 10.0, "in range passes through");
+  near(clampRound(-5, 100.0, 60.0), 0.0, "a negative radius is no radius");
+
+  // The ring's outer edge: the radius plus the border, minus what the border eats
+  // at this rounding power.
+  near(outerRoundPx(10.0, 2.0, 2.0, 1.0), 12.0, "the ring grows by its border");
+  near(outerRoundPx(10.0, 2.0, 2.0, 2.0), 24.0, "and scales with the monitor");
+  want(outerRoundPx(10.0, 2.0, 1.0, 1.0) < 12.0, true,
+       "a squarer curve eats less of the border");
+
+  // The CONTENT's radius: the ring's, plus the border, plus the seam pad, plus the
+  // one Hyprland subtracts.
+  near(contentRadiusPx(10, 2, 1.0), 14.0, "the content tucks under the ring");
+  near(contentRadiusPx(10, 2, 1.0, /*overCovers=*/false), 13.0,
+       "a contained window does not over-cover");
+  near(contentRadiusPx(10, 2, 2.0), 26.0, "and it scales with the monitor");
+  std::puts("the GL arithmetic: the radius, the ring's edge, and the content under it");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -924,6 +960,7 @@ int main() {
   aClickOnTheRunLandsOnTheFront();
   theWallpaperCoversTheMonitor();
   theBackdropNeverShowsTheSharpDesktopUnderBlur();
+  theGlArithmeticIsReachable();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

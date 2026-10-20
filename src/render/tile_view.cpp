@@ -169,7 +169,7 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                                    {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
   } else {
     renderWindowLive(w, m, pxb(box, s), pxb(box, s), f, Time::steadyNow(),
-                     contentRadiusPx(round, ringW, roundPow, s, !look.contain),
+                     contentRadiusPx(round, ringW, s, !look.contain),
                      roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
   }
 
@@ -345,7 +345,7 @@ void Overview::renderGhosts() const {
     const CBox px = pxb(slidBox, scale);
     renderWindowLive(w, m, px, px, gAlpha, when,
                      contentRadiusPx(cfg::look.preview_round,
-                                     cfg::look.border_size, roundPow, scale),
+                                     cfg::look.border_size, scale),
                      roundPow, true);
   }
 }
