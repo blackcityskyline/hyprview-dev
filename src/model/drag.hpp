@@ -98,8 +98,7 @@ public:
     return m_holdFrom;
   }
 
-  // Squared because every caller compares against a squared threshold -- 64 is 8px of slop
-  // (mouse.cpp:148), not 64px.
+  // Squared: callers compare squared -- 64 is 8px of slop (mouse.cpp:148), not 64px.
   [[nodiscard]] double travelSq() const {
     const double dx = m_x - m_pressX, dy = m_y - m_pressY;
     return dx * dx + dy * dy;

@@ -281,6 +281,19 @@ def handle(command, root, own_pid):
             return {"ok": False, "reason": "no-parent-pid"}
 
         merge_into(root, build_feed(command, browser_pid))
+        icons = command.get("icons")
+        if isinstance(icons, dict):
+            import base64
+
+            for key, data in icons.items():
+                try:
+                    ident = int(key)
+                except (TypeError, ValueError):
+                    continue
+                if isinstance(data, str) and data.startswith("data:image/png"):
+                    atomic_write(os.path.join(root, "icons", "%d.png" % ident),
+                                 base64.b64decode(data.split(",", 1)[1]))
+
         active = [i for i in command.get("active") or [] if isinstance(i, int)]
         shot = command.get("screenshot")
         if isinstance(shot, str) and shot.startswith("data:image/png"):
@@ -351,6 +364,7 @@ def main():
         else:
             i += 1
     os.makedirs(os.path.join(directory, "previews"), exist_ok=True)
+    os.makedirs(os.path.join(directory, "icons"), exist_ok=True)
     open_log(directory)
 
     own = os.getpid()

@@ -134,11 +134,13 @@ async function reportOnce() {
     return;
   }
   const screenshot = await capture(focused.id);
+  const favicons = await iconMap(tabs);
   try {
     port.postMessage({
       name: 'report',
       tabs: simplify(tabs),
       active,
+      icons: Object.keys(favicons).length ? favicons : undefined,
       screenshot: screenshot || undefined,
     });
   } catch (e) {
@@ -156,6 +158,61 @@ function simplify(tabs) {
       // Unloaded: still open, not in memory. The compositor hides these unless asked.
       discarded: t.discarded === true,
     }));
+}
+
+// The compositor draws a favicon in the corner of a tab card and cannot fetch one itself. The
+// URL a tab reports is not always an image a page may load (page-icon:, chrome:), so it is
+// fetched here, normalised to a square PNG and cached by URL: a tab changes its title far more
+// often than its icon, and a failed fetch is remembered too rather than retried on every event.
+const ICON_PX = 32;
+const icons = new Map();
+
+async function iconFor(tab) {
+  const url = tab && tab.favIconUrl;
+  if (!url) return null;
+  if (icons.has(url)) return icons.get(url);
+  let data = null;
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const object = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      img.src = object;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = ICON_PX;
+      canvas.height = ICON_PX;
+      const ctx = canvas.getContext('2d');
+      const k = Math.min(ICON_PX / img.width, ICON_PX / img.height);
+      const w = img.width * k;
+      const h = img.height * k;
+      ctx.drawImage(img, (ICON_PX - w) / 2, (ICON_PX - h) / 2, w, h);
+      data = canvas.toDataURL('image/png');
+    } finally {
+      URL.revokeObjectURL(object);
+    }
+  } catch (e) {
+    data = null;
+  }
+  icons.set(url, data);
+  return data;
+}
+
+// One entry per tab that has an icon, keyed by tab id: the compositor's ids and ours are the
+// same numbers when the feed is written from the same report.
+async function iconMap(tabs) {
+  const out = {};
+  await Promise.all(
+    tabs.map(async (t) => {
+      const data = await Promise.race([
+        iconFor(t),
+        new Promise((r) => setTimeout(() => r(null), 1500)),
+      ]);
+      if (data && typeof t.id === 'number') out[t.id] = data;
+    })
+  );
+  return out;
 }
 
 // The compositor picked a tab card. Making the tab active is also what reloads a discarded

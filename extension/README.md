@@ -58,6 +58,7 @@ most one screenshot. The mediator writes:
 
     tabs                   g <generation> / p <pid> <window> / t <window> <tab> <flags> <title>
     previews/<tabId>.png
+    icons/<tabId>.png
 
 `flags` is one number: bit 0 active, bit 1 discarded (open, not in memory). The
 compositor lists discarded tabs only when asked (`show_discarded_tabs`).
@@ -67,7 +68,9 @@ correlation.
 
 ## What it does
 
-- Reports the tab list, the active tabs of the focused window, and at most one screenshot.
+- Reports the tab list, the active tabs of the focused window, at most one screenshot, and a
+  32px favicon per tab. The favicon is fetched here and normalised to PNG because the compositor
+  cannot fetch a URL and the URL a tab reports (`page-icon:`) is not one a page may load.
 - **Takes the picture again on request.** The compositor writes `shot.<pid>` when the overview
   opens; the message is `{"name": "shot"}` and the answer is an ordinary report. A page restyled
   after it was loaded would otherwise be pictured as it looked before the restyle.

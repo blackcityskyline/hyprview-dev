@@ -84,6 +84,28 @@ SP<Render::ITexture> PixelCache::putPicture(const model::SubjectRef &s,
   return tex;
 }
 
+SP<Render::ITexture> PixelCache::putIcon(const model::SubjectRef &s, const std::string &path) {
+  const auto stamp = fileStamp(path);
+  if (stamp == 0) {
+    m_iconStamp[s] = 0;
+    m_subjectIcon.erase(s);
+    return nullptr;
+  }
+  const auto it = m_iconStamp.find(s);
+  if (it != m_iconStamp.end() && it->second == stamp) {
+    const auto hit = m_subjectIcon.find(s);
+    if (hit != m_subjectIcon.end())
+      return hit->second;
+  }
+  auto tex = loadPng(path);
+  m_iconStamp[s] = stamp;
+  if (tex)
+    m_subjectIcon[s] = tex;
+  else
+    m_subjectIcon.erase(s);
+  return tex;
+}
+
 SP<Render::ITexture> PixelCache::picture(const model::SubjectRef &s) const {
   const auto *hit = m_subjectArt.find(s);
   return hit ? *hit : nullptr;

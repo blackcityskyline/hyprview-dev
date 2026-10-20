@@ -136,6 +136,14 @@ def main():
         want(recv(proc).get("ok") is True, "a report without a screenshot is accepted")
         want(not os.path.exists(shot), "and the stale picture for the active tab is dropped")
 
+        # --- a favicon, keyed by the same tab id ----------------------------------------------
+        icon = "data:image/png;base64," + __import__("base64").b64encode(
+            b"\x89PNG\r\n\x1a\nicon").decode()
+        send(proc, {"name": "report", "tabs": TABS, "active": [41], "icons": {"41": icon}})
+        want(recv(proc).get("ok") is True, "a report with a favicon is accepted")
+        icon_path = os.path.join(root, "icons", "41.png")
+        want(os.path.exists(icon_path), "the favicon lands under its tab id")
+
         # --- unloaded tabs: one flag number, bit 1 -------------------------------------------
         send(proc, {"name": "report",
                     "tabs": [{"id": 51, "windowId": 20, "title": "loaded"},

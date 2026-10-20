@@ -38,8 +38,7 @@ class Placement {
     struct Frame {
       const view::State &view;
       const model::Scene &scene;
-      // Where the run returns to: that tile flies home, any other fades; a default landing
-      // means home. Asked through the contract, not a window handle.
+      // Where the run returns to: that tile flies home, any other fades; asked through the contract.
       const model::IContentSource &src;
       model::GroupRef landing;
       bool opening;

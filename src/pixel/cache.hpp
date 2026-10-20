@@ -74,10 +74,18 @@ class PixelCache {
     void clearArt() {
       m_subjectArt.clear();
       m_artStamp.clear();
+      m_subjectIcon.clear();
+      m_iconStamp.clear();
     }
+
+    [[nodiscard]] SP<Render::ITexture> putIcon(const model::SubjectRef &s,
+                                              const std::string &path);
 
   private:
     std::unordered_map<model::SubjectRef, std::int64_t> m_artStamp;
+    // A site changes its favicon far less often than its page: icons are cached apart.
+    std::unordered_map<model::SubjectRef, SP<Render::ITexture>> m_subjectIcon;
+    std::unordered_map<model::SubjectRef, std::int64_t> m_iconStamp;
 
     template <typename Map, typename T>
     SP<Render::ITexture> labelIn(Map &map, const CWeakPointer<T> &owner,

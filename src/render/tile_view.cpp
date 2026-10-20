@@ -181,6 +181,13 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
           t.label, pxb(render::contentInside(room, t.label->m_size.x, t.label->m_size.y), s),
           {.a = 0.45F * f});
     }
+    // The site's own icon, in the corner the caption does not reach.
+    if (const auto icon = tabIcon(t)) {
+      const double side = std::clamp(box.h * 0.09, 18.0, 40.0);
+      g_pHyprOpenGL->renderTexture(
+          icon, pxb(LRect{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side}, s),
+          {.a = f, .round = pxr(side * 0.2, s), .roundingPower = roundPow});
+    }
   } else {
     renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
                      render::contentRadiusFor(round, content, ringW, s, !look.contain),
