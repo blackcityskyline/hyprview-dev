@@ -637,6 +637,29 @@ static void theTileDecidesItsRingAndItsFrost() {
   std::puts("the tile: the ring on top, and the frost under it");
 }
 
+// The ✕ glyph inside its button. One rule for every surface that draws it: the
+// strip used a hardcoded fraction, so the knob meant nothing there and the glyph
+// did not match its button.
+static void theCloseGlyphFillsItsButton() {
+  using hyprview::render::glyphRect;
+
+  const LRect button{100.0, 100.0, 24.0, 24.0};
+  const auto g = glyphRect(button, 32.0, 32.0, 0.62);
+  near(g.w, 24.0 * 0.62, "the glyph fills the button by the knob");
+  near(g.h, 24.0 * 0.62, "the glyph fills the button by the knob");
+  near(g.cx(), button.cx(), "and it is centred");
+  near(g.cy(), button.cy(), "and it is centred");
+
+  // A wider button: the tighter side decides, so the glyph never overflows.
+  const auto wide = glyphRect(LRect{0.0, 0.0, 40.0, 20.0}, 32.0, 32.0, 0.62);
+  near(wide.h, 20.0 * 0.62, "the tight side decides");
+  want(wide.w <= 40.0, true, "and it stays inside the button");
+
+  // The knob means something: a bigger fill is a bigger glyph.
+  want(glyphRect(button, 32.0, 32.0, 0.9).w > g.w, true, "the knob is the knob");
+  std::puts("the close glyph: one rule, and the knob means something");
+}
+
 int main() {
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -988,6 +1011,7 @@ int main() {
   theBackdropNeverShowsTheSharpDesktopUnderBlur();
   theGlArithmeticIsReachable();
   theTileDecidesItsRingAndItsFrost();
+  theCloseGlyphFillsItsButton();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;

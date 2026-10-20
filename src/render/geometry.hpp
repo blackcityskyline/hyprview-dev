@@ -583,6 +583,18 @@ struct CoverFit {
 // a static wallpaper is not.
 inline constexpr int kSourceAnimatedStreak = 4;
 
+// The ✕ glyph inside its button: it fills the button by `fill` of the tighter side,
+// and it is centred. ONE rule for every surface that draws it -- the strip used a
+// hardcoded fraction, so the knob meant nothing there.
+[[nodiscard]] inline LRect glyphRect(const LRect &button, double glyphW, double glyphH,
+                                     double fill) {
+  const double scale =
+      std::min((button.w * fill) / std::max(1.0, glyphW),
+                (button.h * fill) / std::max(1.0, glyphH));
+  const double w = glyphW * scale, h = glyphH * scale;
+  return LRect{button.x + (button.w - w) / 2.0, button.y + (button.h - h) / 2.0, w, h};
+}
+
 // The ring on top of a tile: hover over selection over base.
 [[nodiscard]] inline int focusRingWidth(bool showFocusBorder, bool framed, bool selected,
                                         int hoverWidth, int selectWidth, int baseWidth) {

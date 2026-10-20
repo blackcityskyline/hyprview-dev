@@ -261,14 +261,9 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
     const LRect br = closeButtonRect(box);
     safeRenderRect("tile", pxb(br, s), cfg::colors.close_button.get(e),
                               {.round = pxr(br.h / 2.0, s)});
-    const double gw = closeGlyph->m_size.x, gh = closeGlyph->m_size.y;
-    const double gs = std::min((br.w * cfg::look.close_glyph_fill) / std::max(1.0, gw),
-                               (br.h * cfg::look.close_glyph_fill) / std::max(1.0, gh));
-    g_pHyprOpenGL->renderTexture(
-        closeGlyph,
-        pxb(LRect{br.x + (br.w - gw * gs) / 2.0, br.y + (br.h - gh * gs) / 2.0,
-                  gw * gs, gh * gs}, s),
-        {.a = static_cast<float>(e)});
+    const auto glyph = render::glyphRect(br, closeGlyph->m_size.x, closeGlyph->m_size.y,
+                                         cfg::look.close_glyph_fill);
+    g_pHyprOpenGL->renderTexture(closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});
   }
 }
 
