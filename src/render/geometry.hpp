@@ -287,6 +287,16 @@ enum class CardContent { Window, Picture, PlateAndTitle };
   return LRect{cx - w / 2.0, cy - h / 2.0, w, h};
 }
 
+[[nodiscard]] inline double badgeSide(double cardH) {
+  return std::clamp(cardH * 0.12825, 25.65, 57.0);
+}
+
+// The badge's own square: the corner the caption does not reach.
+[[nodiscard]] inline LRect badgeBox(const LRect &card, double side, double pop) {
+  return scaledAboutCentre(
+      LRect{card.x + side * 0.6, card.y + card.h - side * 1.6, side, side}, pop);
+}
+
 // One answer per caption: where the pills land, and what decides it.
 struct CaptionSizes {
   double textW = 0.0, textH = 0.0;

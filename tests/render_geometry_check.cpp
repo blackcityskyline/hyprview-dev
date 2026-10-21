@@ -28,7 +28,9 @@
 
 using hyprview::LRect;
 using hyprview::render::badgeK;
+using hyprview::render::badgeBox;
 using hyprview::render::badgePx;
+using hyprview::render::badgeSide;
 using hyprview::render::cardContent;
 using hyprview::render::CardContent;
 using hyprview::render::CardKind;
@@ -817,8 +819,27 @@ static void theCardSaysWhatItShows() {
        "a tab without one shows the plate and the title");
 }
 
+// The badge's square: in the corner of the card that the caption does not reach, and inside
+// the card at any size.
+static void theBadgeSitsInTheCorner() {
+  const LRect card{100.0, 100.0, 400.0, 300.0};
+  const double side = badgeSide(card.h);
+  const auto badge = badgeBox(card, side, 1.0);
+  want(badge.x >= card.x && badge.x + badge.w <= card.x + card.w, true,
+       "the badge is inside the card, horizontally");
+  want(badge.y >= card.y && badge.y + badge.h <= card.y + card.h, true,
+       "and vertically");
+  want(badge.x + badge.w / 2.0 < card.x + card.w / 2.0, true, "the badge is in the left half");
+  want(badge.y + badge.h / 2.0 > card.y + card.h / 2.0, true, "and in the lower half");
+
+  const auto small = badgeBox(card, side, 0.65);
+  want(small.w < badge.w, true, "a badge that shrinks gets smaller");
+  want(small.x + small.w / 2.0 == badge.x + badge.w / 2.0, true, "about its centre");
+}
+
 int main() {
   theCardSaysWhatItShows();
+  theBadgeSitsInTheCorner();
   theBadgeIsPlayedInBothDirections();
   theBadgeHasItsOwnWindow();
   theBadgeSizeIsQuantised();

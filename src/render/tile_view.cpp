@@ -197,12 +197,11 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
       break;
   }
   // The card's own icon in the corner the caption does not reach: the browser for a tab, the app for a window.
-  const double iconSide = std::clamp(box.h * 0.12825, 25.65, 57.0);
+  const double iconSide = render::badgeSide(box.h);
   const int badgePx = render::badgePx(iconSide, s);
   const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
-  // The badge pops a fifth and shrinks away; the open plays the same schedule backwards. It has
-  // its own window, and the icon arrives WITH the run: held back to the end of the open it was
-  // the card that was already in place before its own icon appeared.
+  // The badge pops a fifth and shrinks away; the open plays the same schedule backwards, in its
+  // own window, and the icon arrives WITH the run.
   constexpr double kBadgeSpan = 0.28;
   const double badgeK = render::badgeK(openT(), exitT(), opening(), kBadgeSpan);
   const auto pose = render::badgePose(badgeK);
@@ -212,9 +211,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   const double badgeSide = badgePx / s; // the icon's own quantum, so the shadow caches with it
   if (badgeIcon && badgeA > 0.0F &&
       (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0) {
-    const LRect badge = render::scaledAboutCentre(
-        LRect{box.x + iconSide * 0.6, box.y + box.h - iconSide * 1.6, iconSide, iconSide},
-        iconPop);
+    const LRect badge = render::badgeBox(box, iconSide, iconPop);
     auto spec = render::iconShadowSpec(badgeSide, cfg::look.icon_shadow_offset,
                                         cfg::look.icon_shadow_blur);
     spec.r = shadowCol.r;
