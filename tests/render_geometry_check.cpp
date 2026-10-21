@@ -28,6 +28,10 @@
 
 using hyprview::LRect;
 using hyprview::render::badgeK;
+using hyprview::render::badgePx;
+using hyprview::render::cardContent;
+using hyprview::render::CardContent;
+using hyprview::render::CardKind;
 using hyprview::render::badgePose;
 using hyprview::render::closeButtonRect;
 using hyprview::render::cardScale;
@@ -787,9 +791,37 @@ static void theBadgeHasItsOwnWindow() {
        "the icon arrives with the run, not at the end of it");
 }
 
+// The badge's texture size: steps of eight. A card that grows during a glide asks for a size
+// every frame, and a size it does not have is a decode of the icon -- a hitch per frame.
+static void theBadgeSizeIsQuantised() {
+  near(badgePx(30.0, 1.0), 32, "30px is drawn at 32");
+  near(badgePx(33.0, 1.0), 40, "33px is drawn at 40");
+  near(badgePx(5.0, 1.0), 16, "a tiny icon is still 16");
+  near(badgePx(30.0, 2.0), 64, "at scale 2 the same icon is 64");
+  for (double side = 1.0; side < 60.0; side += 0.37) {
+    const int px = badgePx(side, 1.0);
+    want(px % 8 == 0, true, "every badge size is a multiple of eight");
+    want(px >= 16, true, "and never smaller than 16");
+  }
+}
+
+// What a card shows in its frame. A tab with no picture shows the plate and the dim title,
+// never the picture of another page and never a bare frost.
+static void theCardSaysWhatItShows() {
+  want(cardContent(CardKind::Window, false) == CardContent::Window, true,
+       "a window card is the window");
+  want(cardContent(CardKind::Window, true) == CardContent::Window, true, "and never a picture");
+  want(cardContent(CardKind::Tab, true) == CardContent::Picture, true,
+       "a tab with a picture shows it");
+  want(cardContent(CardKind::Tab, false) == CardContent::PlateAndTitle, true,
+       "a tab without one shows the plate and the title");
+}
+
 int main() {
+  theCardSaysWhatItShows();
   theBadgeIsPlayedInBothDirections();
   theBadgeHasItsOwnWindow();
+  theBadgeSizeIsQuantised();
 
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {

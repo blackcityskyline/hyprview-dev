@@ -168,30 +168,37 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                                                    w->sizeAnimation()->goal().y)
                            : box;
   const auto tabTex = tab ? tabArt(t) : SP<Render::ITexture>{};
-  if ((look.surface && !tab) || (tab && !tabTex))
+  const auto what = render::cardContent(tab ? render::CardKind::Tab : render::CardKind::Window,
+                                         tabTex != nullptr);
+  if (look.surface && !tab)
     safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
                               {.round = pxr(round, s), .roundingPower = roundPow});
-  if (tab) {
-    if (tabTex)
+  switch (what) {
+    case render::CardContent::Picture:
       g_pHyprOpenGL->renderTexture(tabTex, pxb(box, s),
                                    {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
-    else if (t.label && t.label->m_size.x > 0) {
-      // No picture: the title, centred and dim, is all the card can say about the page.
-      const LRect room{box.x + box.w * 0.1, box.y + box.h * 0.35, box.w * 0.8, box.h * 0.3};
-      g_pHyprOpenGL->renderTexture(
-          t.label, pxb(render::contentInside(room, t.label->m_size.x, t.label->m_size.y), s),
-          {.a = 0.45F * f});
+      break;
+    case render::CardContent::PlateAndTitle: {
+      safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
+                              {.round = pxr(round, s), .roundingPower = roundPow});
+      if (t.label && t.label->m_size.x > 0) {
+        // No picture: the title, centred and dim, is all the card can say about the page.
+        const LRect room{box.x + box.w * 0.1, box.y + box.h * 0.35, box.w * 0.8, box.h * 0.3};
+        g_pHyprOpenGL->renderTexture(
+            t.label, pxb(render::contentInside(room, t.label->m_size.x, t.label->m_size.y), s),
+            {.a = 0.45F * f});
+      }
+      break;
     }
-  } else {
-    renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
-                     render::contentRadiusFor(round, content, ringW, s, !look.contain),
-                     roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
+    case render::CardContent::Window:
+      renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
+                       render::contentRadiusFor(round, content, ringW, s, !look.contain),
+                       roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
+      break;
   }
   // The card's own icon in the corner the caption does not reach: the browser for a tab, the app for a window.
   const double iconSide = std::clamp(box.h * 0.12825, 25.65, 57.0);
-  // Steps of eight: the card's box moves every frame of a carousel glide, and an exact size per
-  // frame meant a new decode of the source file per frame.
-  const int badgePx = std::max(16, (static_cast<int>(std::lround(iconSide * s)) + 7) / 8 * 8);
+  const int badgePx = render::badgePx(iconSide, s);
   const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
   // The badge pops a fifth and shrinks away; the open plays the same schedule backwards. It has
   // its own window, and the icon arrives WITH the run: held back to the end of the open it was

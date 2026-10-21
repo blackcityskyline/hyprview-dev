@@ -265,6 +265,22 @@ struct BadgePose {
                  : std::clamp(1.0 - exitT / span, 0.0, 1.0);
 }
 
+// What a card shows in its frame: a tab with no picture shows the plate and the dim title.
+enum class CardKind { Window, Tab };
+enum class CardContent { Window, Picture, PlateAndTitle };
+
+[[nodiscard]] inline CardContent cardContent(CardKind kind, bool hasPicture) {
+  if (kind == CardKind::Window)
+    return CardContent::Window;
+  return hasPicture ? CardContent::Picture : CardContent::PlateAndTitle;
+}
+
+// The badge's texture size: steps of eight, so a growing card reuses the icon it has.
+[[nodiscard]] inline int badgePx(double side, double scale) {
+  const int px = static_cast<int>(std::lround(side * scale));
+  return std::max(16, (px + 7) / 8 * 8);
+}
+
 [[nodiscard]] inline LRect scaledAboutCentre(const LRect &r, double k) {
   const double cx = r.x + r.w / 2.0, cy = r.y + r.h / 2.0;
   const double w = r.w * k, h = r.h * k;
