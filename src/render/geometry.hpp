@@ -239,6 +239,24 @@ struct Escape {
   return std::min(byShove, std::clamp(1.0 - exitFrac, 0.0, 1.0));
 }
 
+// The badge has one schedule, played in both directions: k == 0 is gone, k == 1 is at rest. The
+// pop peaks just before the shape settles, so the close plays it down and the open plays it up.
+struct BadgePose {
+  double pop = 1.0;
+  double alpha = 1.0;
+};
+
+[[nodiscard]] inline BadgePose badgePose(double k) {
+  constexpr double kPopPeak = 0.77; // where the overshoot sits, as a share of k
+  constexpr double kFadeIn = 0.81;  // alpha reaches 1 a touch after the peak
+  const double t = std::clamp(k, 0.0, 1.0);
+  BadgePose out;
+  out.pop = t >= kPopPeak ? 1.0 + 0.2 * (1.0 - t) / (1.0 - kPopPeak)
+                          : 0.65 + 0.55 * t / kPopPeak;
+  out.alpha = std::min(1.0, t / kFadeIn);
+  return out;
+}
+
 [[nodiscard]] inline LRect scaledAboutCentre(const LRect &r, double k) {
   const double cx = r.x + r.w / 2.0, cy = r.y + r.h / 2.0;
   const double w = r.w * k, h = r.h * k;

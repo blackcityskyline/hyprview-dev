@@ -240,6 +240,7 @@ private:
   double entryFade(size_t i) const;
   // How far the close has run, 0 -> 1; every exit fraction reads it through this.
   double exitT() const;
+  double openT() const;
   [[nodiscard]] clock::Placement::Frame frame() const;
   // Clears ws alpha / fullscreen alpha / visibleRegion, or an off-ws window previews empty; restore undoes it.
   void forcePreviewVisibility();

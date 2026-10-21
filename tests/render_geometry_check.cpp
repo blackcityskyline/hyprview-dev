@@ -27,6 +27,7 @@
 #include "../src/render/geometry.hpp"
 
 using hyprview::LRect;
+using hyprview::render::badgePose;
 using hyprview::render::closeButtonRect;
 using hyprview::render::cardScale;
 using hyprview::render::captionRemains;
@@ -743,7 +744,37 @@ static void theCaptionDoesNotShrinkWithTheTitle() {
   std::puts("the caption: the same size and place, whatever the title's length");
 }
 
+// The badge leaves and arrives on one schedule, so the open is the close played backwards.
+// Constant pop or constant alpha both redden here: the peak is the point, and a badge that is
+// simply there on frame one is what this replaced.
+static void theBadgeIsPlayedInBothDirections() {
+  const auto gone = badgePose(0.0);
+  near(gone.pop, 0.65, "k=0 is small, not zero: the shape stays readable while it goes");
+  near(gone.alpha, 0.0, "and invisible");
+  const auto rest = badgePose(1.0);
+  near(rest.pop, 1.0, "at rest the badge is its own size");
+  near(rest.alpha, 1.0, "and opaque");
+
+  double peak = 0.0;
+  double previousAlpha = 0.0;
+  double previousPop = 0.0;
+  for (int i = 0; i <= 100; ++i) {
+    const auto p = badgePose(i / 100.0);
+    peak = std::max(peak, p.pop);
+    want(p.alpha >= previousAlpha, true, "alpha rises with k");
+    if (i <= 77)
+      want(p.pop >= previousPop, true, "the pop rises up to the peak");
+    previousAlpha = p.alpha;
+    previousPop = p.pop;
+  }
+  near(peak, 1.2, "the overshoot is a fifth");
+  // Past the peak the shape shrinks back: that half is what the close reads.
+  want(badgePose(0.9).pop < badgePose(0.77).pop, true, "the pop settles after the peak");
+}
+
 int main() {
+  theBadgeIsPlayedInBothDirections();
+
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
     const LRect zone{0.0, 900.0, 1920.0, 120.0}; // bottom band, as on a 1920x1080 monitor

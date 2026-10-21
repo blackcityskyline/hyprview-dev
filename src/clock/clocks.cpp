@@ -37,6 +37,9 @@ anim::Id Overview::glideLeaf() const {
 // progress.raw() runs DOWN on a close, so every exit fraction reads it here, not on its own.
 double Overview::exitT() const { return m_place.progress.exit(opening()); }
 
+// The same number on the way in, so one schedule can be played in both directions.
+double Overview::openT() const { return opening() ? m_place.progress.raw() : 1.0; }
+
 // Hold the backdrop until our tiles are done AND Hyprland has spent its forced full frames.
 bool Overview::backdropSettled() const {
   const auto m = m_monitor.lock();
