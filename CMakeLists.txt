@@ -439,6 +439,11 @@ add_test(NAME scan_start_boxes
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/start_boxes_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/start_boxes_check && ${CMAKE_CURRENT_BINARY_DIR}/start_boxes_check ${CMAKE_SOURCE_DIR}")
 
+# The strip band fades on the cards' own number, never on the exit progress.
+add_test(NAME scan_strip_band
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/strip_band_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/strip_band_check && ${CMAKE_CURRENT_BINARY_DIR}/strip_band_check ${CMAKE_SOURCE_DIR}")
+
 # A cold class icon: resolved while the scene is built, never inside paint.
 add_test(NAME scan_icon_warm
          COMMAND ${CMAKE_COMMAND} -E env sh -c
