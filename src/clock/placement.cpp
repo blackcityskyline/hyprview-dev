@@ -85,7 +85,7 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   const std::string &curve =
       clocks.tileCurve.empty() ? recipes.glide.curve : clocks.tileCurve;
   const double e = curves::eval(curve, tileProgress(i, f.view, f.opening, f.scene));
-  // The closed end of the flight: where the card belongs.
+  // The closed end of the flight: the place the card belongs to.
   const auto &a = f.opening ? t.natural : t.home;
   const auto &b = t.target;
   LRect r{lerp(a.x, b.x, e), lerp(a.y, b.y, e), lerp(a.w, b.w, e),

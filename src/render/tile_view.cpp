@@ -136,8 +136,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                  ringW, round, roundPow);
   }
 
-  // Frost: the cached blur at CONSTANT alpha (fading it leaks C*e*(1-e) of the sharp desktop)
-  // plus the dim at the global e. A tab ALWAYS needs it: its card is this frost or nothing.
+  // Frost: the cached blur at CONSTANT alpha, plus the dim at the global e. A tab ALWAYS needs it.
   const double apNow = entryNow(t, static_cast<int>(i));
   if (tab || (opening() && (e < 0.999 || apNow < 0.999))) {
     if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
@@ -330,8 +329,18 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
         const LRect at{drawn.x + style.padX * lay.kFit * pop,
                        drawn.y + (drawn.h - iconSide * lay.kFit * pop) / 2.0,
                        iconSide * lay.kFit * pop, iconSide * lay.kFit * pop};
-        dropShadow(at, s, cfg::colors.shadow.get(1.0), iconSide * 0.05, iconSide * 0.18,
-                   0.4F * static_cast<float>(cf), static_cast<int>(iconSide * 0.2), roundPow);
+        // The icon's shadow is the plugin's own: Hyprland's shader divides by the shape.
+        auto spec = render::iconShadowSpec(iconSide, cfg::look.icon_shadow_offset,
+                                            cfg::look.icon_shadow_blur);
+        const auto shadowCol = cfg::colors.shadow.get(1.0);
+        spec.r = shadowCol.r;
+        spec.g = shadowCol.g;
+        spec.b = shadowCol.b;
+        if (const auto sh = m_pixel.shadow(spec, at.w, at.h, at.w * 0.2, s); sh.tex)
+          g_pHyprOpenGL->renderTexture(
+              sh.tex,
+              pxb(LRect{at.x - sh.pad, at.y - sh.pad, at.w + 2 * sh.pad, at.h + 2 * sh.pad}, s),
+              {.a = static_cast<float>(cfg::look.icon_shadow_alpha * cf)});
         g_pHyprOpenGL->renderTexture(favicon, pxb(at, s),
                                      {.a = static_cast<float>(cf)});
       }

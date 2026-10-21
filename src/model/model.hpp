@@ -23,7 +23,7 @@ class ITexture;
 namespace hyprview::model {
 
 struct Tile {
-  // A subject, not a window handle -- a tab has none. The identity carries no refcount.
+  // A subject, not a window handle: a tab has none.
   SubjectRef subj;
   LRect natural;
   LRect home;
@@ -32,7 +32,7 @@ struct Tile {
   std::string labelText;
   double landed = 1.0; // 0 = still coming in; ghosts reverse it
   SP<Render::ITexture> label;
-  // Captured at build time: paint only reads; rendering it there would allocate mid-pass.
+  // Captured at build time: paint only reads.
   SP<Render::ITexture> countLabel;
 };
 

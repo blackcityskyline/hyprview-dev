@@ -322,6 +322,11 @@ add_test(NAME scan_card_kind
 add_test(NAME mediator
          COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/mediator_check.py)
 
+# The caption's icon shadow is the plugin's own: Hyprland's shader divides by the shape.
+add_test(NAME scan_caption_shadow
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/caption_shadow_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/caption_shadow_check && ${CMAKE_CURRENT_BINARY_DIR}/caption_shadow_check ${CMAKE_SOURCE_DIR}")
+
 # A card returns to the place it belongs to: the home the build records, not the slot a step
 # overwrote the natural with.
 add_test(NAME scan_card_home
