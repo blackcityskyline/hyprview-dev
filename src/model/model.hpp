@@ -32,7 +32,6 @@ struct Tile {
   std::string labelText;
   double landed = 1.0; // 0 = still coming in; ghosts reverse it
   SP<Render::ITexture> label;
-  // Captured at build time: paint only reads.
   SP<Render::ITexture> countLabel;
 };
 

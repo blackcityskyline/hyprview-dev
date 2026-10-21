@@ -173,10 +173,13 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
     safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
                               {.round = pxr(round, s), .roundingPower = roundPow});
   switch (what) {
-    case render::CardContent::Picture:
-      g_pHyprOpenGL->renderTexture(tabTex, pxb(box, s),
+    case render::CardContent::Picture: {
+      // The picture keeps its aspect: the card is a frame, the picture sits inside it.
+      const LRect pic = render::contentInside(box, tabTex->m_size.x, tabTex->m_size.y);
+      g_pHyprOpenGL->renderTexture(tabTex, pxb(pic, s),
                                    {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
       break;
+    }
     case render::CardContent::PlateAndTitle: {
       safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
                               {.round = pxr(round, s), .roundingPower = roundPow});
