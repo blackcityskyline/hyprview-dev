@@ -75,6 +75,7 @@ int main(int argc, char **argv) {
       {"model/recency.hpp", "recency"},
       {"clock/clock.cpp", "dismiss"},
       {"view/state.hpp", "carousel_layout"},
+      {"model/effects.hpp", "effects"},
   };
 
   for (const auto &[rel, test] : pure) {

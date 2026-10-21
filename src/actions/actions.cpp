@@ -130,7 +130,7 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
       target = State::workspaceState()->create(it.id, m->m_id);
     if (target) {
       target->setPersistent(true);
-      m_fx.addNewWorkspace(target);
+      m_newWs.push_back(target);
       m_newCardId = it.id;
       m_place.clocks.newCard.begin();
     debug::trace::animStart("new_card", "card", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
@@ -706,7 +706,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
       return;
     ws->setPersistent(
         true);
-    m_fx.addNewWorkspace(ws);
+    m_newWs.push_back(ws);
   } else if (const auto target = it.ws.lock()) {
     ws = target;
     if (ws == m_workspace.lock())
@@ -831,7 +831,7 @@ void Overview::addWorkspace() {
     return;
   // Persistent, or a new empty workspace is reaped within a frame.
   ws->setPersistent(true);
-  m_fx.addNewWorkspace(ws);
+  m_newWs.push_back(ws);
   m_newCardId = id;
   m_place.clocks.newCard.begin();
     debug::trace::animStart("new_card", "card", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());

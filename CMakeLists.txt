@@ -322,6 +322,12 @@ add_test(NAME scan_card_kind
 add_test(NAME mediator
          COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/mediator_check.py)
 
+# The effects: a pulse is replaced, a flight stands down one surface. The file is a header
+# without a compositor, which it only became when the workspace list left it.
+add_test(NAME effects
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/effects_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/effects_check && ${CMAKE_CURRENT_BINARY_DIR}/effects_check")
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll

@@ -527,10 +527,10 @@ void Overview::deactivate() {
 }
 
 void Overview::releaseNewWorkspaces() {
-  for (const auto &wref : m_fx.newWorkspaces())
+  for (const auto &wref : m_newWs)
     if (const auto ws = wref.lock())
       ws->setPersistent(false);
-  m_fx.clearNewWorkspaces();
+  m_newWs.clear();
 }
 
 

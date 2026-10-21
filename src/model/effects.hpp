@@ -1,13 +1,44 @@
 #pragma once
 
-#include "model.hpp"
+#include "subject.hpp"
 
+#include "../anim_types.hpp"
+#include "../clock/clocks.hpp"
+#include "../layout.hpp"
+
+#include <chrono>
+#include <string>
 #include <utility>
 #include <vector>
 
 namespace hyprview::model {
 
-// The scene is REBUILT; these are appended to and pruned.
+struct Ghost {
+  SubjectRef subj;
+  LRect box;
+};
+
+// `p` accrues per FRAME, not wall-clock
+struct WinPulse {
+  SubjectRef subj;
+  double p = 0.0;
+  std::chrono::steady_clock::time_point last;
+};
+
+struct SwapFX {
+  SubjectRef subj;
+  LRect from;
+  // One live flight per surface: a window in the all-workspaces view is drawn twice at once.
+  bool        toStrip = false;
+  anim::Move  style{};
+  double ms = 320;
+  std::string curve = "easeinout";
+  anim::Tween clock;
+  // Pairs ANIM|begin with ANIM|end; 0 = tracing off, or the flight had nowhere to land.
+  int         traceSeq = 0;
+  std::chrono::steady_clock::time_point traceStart{};
+};
+
 class Effects {
   public:
     [[nodiscard]] const std::vector<Ghost> &ghosts() const { return m_ghosts; }
@@ -30,19 +61,10 @@ class Effects {
       dropPulse([s](const WinPulse &p) { return p.subj == s; });
       addPulse(model::WinPulse{s, 0.0, std::chrono::steady_clock::now()});
     }
-    [[nodiscard]] const std::vector<PHLWORKSPACEREF> &newWorkspaces() const {
-      return m_newWorkspaces;
-    }
-
     void addGhost(const Ghost &g) { m_ghosts.push_back(g); }
     void addPulse(const WinPulse &p) { m_pulses.push_back(p); }
     void addSwap(SwapFX &&fx) { m_swapfx.push_back(std::move(fx)); }
-    void addNewWorkspace(const PHLWORKSPACEREF &ws) {
-      m_newWorkspaces.push_back(ws);
-    }
-
     void clearGhosts() { m_ghosts.clear(); }
-    void clearNewWorkspaces() { m_newWorkspaces.clear(); }
 
     // beginSwapFX() may reuse a slot rather than append, so the caller that knows the real
     // origin pins it afterwards.
@@ -72,7 +94,6 @@ class Effects {
     std::vector<Ghost> m_ghosts;
     std::vector<WinPulse> m_pulses;
     std::vector<SwapFX> m_swapfx;
-    std::vector<PHLWORKSPACEREF> m_newWorkspaces;
 };
 
 } // namespace hyprview::model

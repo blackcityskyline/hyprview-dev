@@ -16,6 +16,7 @@ class ITexture;
 }
 #include "../layout.hpp"
 #include "drag.hpp"
+#include "effects.hpp"
 #include "lifecycle.hpp"
 #include "scroll.hpp"
 
@@ -54,37 +55,11 @@ struct StripItem {
   SP<Render::ITexture> label;
 };
 
-struct Ghost {
-  SubjectRef subj;
-  LRect box;
-};
-
-// `p` accrues per FRAME, not wall-clock
-struct WinPulse {
-  SubjectRef subj;
-  double p = 0.0;
-  std::chrono::steady_clock::time_point last;
-};
-
 // Keeps the FSM free of hyprland/ and reachable from tests/drag_check.cpp; subject, not window.
 using Drag = DragT<SubjectRef>;
 
 using Move = anim::Move;
 
 #include <chrono>
-
-struct SwapFX {
-  SubjectRef subj;
-  LRect from;
-  // One live flight per surface: a window in the all-workspaces view is drawn twice at once.
-  bool        toStrip = false;
-  Move        style{};
-  double ms = 320;
-  std::string curve = "easeinout";
-  anim::Tween clock;
-  // Pairs ANIM|begin with ANIM|end; 0 = tracing off, or the flight had nowhere to land.
-  int         traceSeq = 0;
-  std::chrono::steady_clock::time_point traceStart{};
-};
 
 }

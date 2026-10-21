@@ -200,6 +200,8 @@ private:
              : model::SubjectRef{};
   }
   model::Effects m_fx;
+  // The workspaces this overview made persistent, released when it closes.
+  std::vector<PHLWORKSPACEREF> m_newWs;
   view::State m_view;
   mutable std::chrono::steady_clock::time_point m_lastAnimTick{};
   void startTileGlide(

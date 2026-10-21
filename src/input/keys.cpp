@@ -123,7 +123,7 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
       if (justCreated) {
         // Persistent, or a new empty workspace is reaped within a frame.
         ws->setPersistent(true);
-        m_fx.addNewWorkspace(ws);
+        m_newWs.push_back(ws);
         m_newCardId =
             id;
         m_place.clocks.newCard.begin();
