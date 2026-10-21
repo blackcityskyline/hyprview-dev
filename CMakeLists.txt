@@ -322,6 +322,11 @@ add_test(NAME scan_card_kind
 add_test(NAME mediator
          COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/mediator_check.py)
 
+# The card's hide motion: written once, in the placement. The run used to carry its own copy.
+add_test(NAME scan_hide_motion
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/hide_motion_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/hide_motion_check && ${CMAKE_CURRENT_BINARY_DIR}/hide_motion_check ${CMAKE_SOURCE_DIR}")
+
 # The extension: it asks for every page, and it paints the canvas around the shot.
 add_test(NAME extension
          COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/extension_check.py)

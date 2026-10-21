@@ -72,6 +72,16 @@ class State {
       return -1;
     }
 
+    // The tile's depth in the run: 0 is the front card. Off the run, 0 -- the grid's depth.
+    [[nodiscard]] int carouselDepth(std::size_t tile) const {
+      if (!m_run)
+        return 0;
+      const int k = slotOf(tile);
+      if (k < 0 || static_cast<std::size_t>(k) >= m_carousel.cards.size())
+        return 0;
+      return m_carousel.cards[static_cast<std::size_t>(k)].depth;
+    }
+
     // The carousel reads depth as cards[slotOf(tile)].depth, so swapping slots is the geometry.
     void swapSlots(std::size_t a, std::size_t b) {
       const auto pos = [this](std::size_t tile) {

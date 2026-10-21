@@ -83,14 +83,8 @@ void Overview::renderCarousel() const {
     if (swapfxActive(tileWindow(t), false))
       continue;
 
-    LRect box = currentBox(t, i);
-    // progress.raw() runs DOWN on close; every exit fraction reads it through exitT.
-    // The deck's ONE hide rule, same predicate as the grid's: a cancel takes the whole deck out.
-    if (!opening() && anim::cardHides(card.depth, frame().goesHome(t))) {
-      const double k =
-          anim::hideShrink(exitT(), anim::param(anim::Param::Collapse));
-      box = render::scaledAboutCentre(box, k);
-    }
+    // The hide motion is the placement's: one rule for the grid and the run.
+    const LRect box = currentBox(t, i);
     const auto look = runLook(box, card.depth,
                               render::carouselTone(card.depth, nearTone(), farTone(),
                                                    depthTaper()),

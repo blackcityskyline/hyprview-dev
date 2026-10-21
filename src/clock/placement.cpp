@@ -96,7 +96,8 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   if (a.w < 1.0 && b.w >= 1.0)
     r = b;
   // The deck's hide motion, in the grid as well as the run: close() pins a card that cannot land.
-  if (!f.view.run() && !f.opening && anim::cardHides(0, f.goesHome(t))) {
+  if (!f.opening && anim::cardHides(f.view.carouselDepth(static_cast<std::size_t>(i)),
+                                    f.goesHome(t))) {
     const double k = anim::hideShrink(exit(f.opening), anim::param(anim::Param::Collapse));
     const double cx = r.cx(), cy = r.cy();
     r = LRect{cx - r.w * k * 0.5, cy - r.h * k * 0.5, r.w * k, r.h * k};
