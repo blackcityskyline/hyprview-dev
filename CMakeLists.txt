@@ -322,6 +322,12 @@ add_test(NAME scan_card_kind
 add_test(NAME mediator
          COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/mediator_check.py)
 
+# The pump disarms its timer, never resets it: a reset drops the last shared pointer inside
+# the callback that owns it.
+add_test(NAME scan_frame_pump
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/frame_pump_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/frame_pump_check && ${CMAKE_CURRENT_BINARY_DIR}/frame_pump_check ${CMAKE_SOURCE_DIR}")
+
 # The effects: a pulse is replaced, a flight stands down one surface. The file is a header
 # without a compositor, which it only became when the workspace list left it.
 add_test(NAME effects
