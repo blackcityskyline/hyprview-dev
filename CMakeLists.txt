@@ -439,6 +439,11 @@ add_test(NAME scan_start_boxes
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/start_boxes_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/start_boxes_check && ${CMAKE_CURRENT_BINARY_DIR}/start_boxes_check ${CMAKE_SOURCE_DIR}")
 
+# A cold class icon: resolved while the scene is built, never inside paint.
+add_test(NAME scan_icon_warm
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/icon_warm_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/icon_warm_check && ${CMAKE_CURRENT_BINARY_DIR}/icon_warm_check ${CMAKE_SOURCE_DIR}")
+
 # The backdrop's base: the blur, the dim, or the sharp source only with the blur off.
 # A sharp frame under a transparent window was the one-frame flash of the desktop.
 add_test(NAME scan_backdrop_base

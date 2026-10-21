@@ -223,6 +223,8 @@ _cairo_surface *PixelCache::appSurface(const std::string &windowClass) {
   return surface;
 }
 
+void PixelCache::warmAppIcon(const std::string &windowClass) { (void)appSurface(windowClass); }
+
 SP<Render::ITexture> PixelCache::appIcon(const std::string &windowClass, int px) {
   if (windowClass.empty() || px <= 0 || !g_pHyprRenderer)
     return nullptr;

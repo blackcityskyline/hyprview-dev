@@ -86,6 +86,7 @@ class PixelCache {
     [[nodiscard]] SP<Render::ITexture> putIcon(const model::SubjectRef &s,
                                               const std::string &path);
     [[nodiscard]] SP<Render::ITexture> appIcon(const std::string &windowClass, int px);
+    void warmAppIcon(const std::string &windowClass);
 
     struct ShadowTex {
       SP<Render::ITexture> tex;

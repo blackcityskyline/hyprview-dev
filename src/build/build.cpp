@@ -146,6 +146,9 @@ void Overview::buildTiles() {
         const auto w = tileWindow(t);
         if (!w)
           continue;
+        // Cold decode here costs the open a few ms; in paint it costs the entry a few dropped frames.
+        if (cfg::look.show_window_icons != 0)
+          m_pixel.warmAppIcon(w->m_class);
         text = w->m_title;
         if (text.empty())
           text = w->m_class;
