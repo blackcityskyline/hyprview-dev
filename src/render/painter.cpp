@@ -204,6 +204,17 @@ void Overview::paint() {
     primeBackdrop();
     return;
   }
+  // A slow frame gets named, not guessed at: gap is the time OUTSIDE this paint (compositor,
+  // driver, GPU queue), paint is ours on the CPU, gpu waits for the whole queue.
+  const auto frameStart = std::chrono::steady_clock::now();
+  const auto msSince = [](const std::chrono::steady_clock::time_point &t) {
+    return std::chrono::duration<double, std::milli>(
+               std::chrono::steady_clock::now() - t).count();
+  };
+  static std::chrono::steady_clock::time_point lastStart{};
+  static std::chrono::steady_clock::time_point lastProbe{};
+  const double gap = lastStart.time_since_epoch().count() > 0 ? msSince(lastStart) : 0.0;
+  lastStart = frameStart;
   const render::GLState glEnter = readGLState();
   glStateFence("paint");
   renderBackdrop();
@@ -244,6 +255,20 @@ void Overview::paint() {
     activateSelection();
   }
   finishPendingDeactivate();
+
+  const double cpu = msSince(frameStart);
+  // At most two probes a second: the finish itself must not keep the next frame slow.
+  // gap above 200 ms is "nothing was being painted", not a dropped frame.
+  const bool dropped = gap > 22.0 && gap < 200.0;
+  if (debug::enabled() && (dropped || cpu > 12.0) && msSince(lastProbe) > 500.0) {
+    lastProbe = std::chrono::steady_clock::now();
+    glFinish();
+    debug::dbg("SLOW gap=" + std::to_string(gap).substr(0, 5) + " paint=" +
+               std::to_string(cpu).substr(0, 5) + " gpu=" + std::to_string(msSince(frameStart)).substr(0, 5) +
+               " k=" + std::to_string(eased()).substr(0, 5) + " op=" + std::to_string(opening()) +
+               " tiles=" + std::to_string(m_scene.tiles().size()) + " strip=" +
+               std::to_string(m_strip.size()));
+  }
 }
 
 void Overview::renderCursorOnTop() const {
