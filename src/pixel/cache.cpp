@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 #include "app_icon.hpp"
 #include "png.hpp"
@@ -19,7 +20,7 @@ namespace {
 // U+2026, added by hand because renderText clips instead of ellipsizing.
 constexpr char kEllipsis[] = "\xE2\x80\xA6";
 
-} // namespace
+}
 
 SP<Render::ITexture> PixelCache::render(const std::string &s,
                                         const CHyprColor &col, int size) {
@@ -67,7 +68,7 @@ std::int64_t fileStamp(const std::string &path) {
   const auto t = std::filesystem::last_write_time(path, ec);
   return ec ? 0 : static_cast<std::int64_t>(t.time_since_epoch().count());
 }
-} // namespace
+}
 
 SP<Render::ITexture> PixelCache::putPicture(const model::SubjectRef &s,
                                            const std::string &screenshotPath,
@@ -173,12 +174,35 @@ SP<Render::ITexture> loadSvg(const std::string &path, int side) {
 #endif
 }
 
-} // namespace
+}
 
 PixelCache::~PixelCache() {
   for (auto &[cls, surface] : m_appIconSrc)
     if (surface)
       cairo_surface_destroy(surface);
+}
+
+PixelCache::ShadowTex PixelCache::shadow(const render::ShadowSpec &spec, double w, double h,
+                                         double round, double scale) {
+  if (w <= 0.0 || h <= 0.0 || scale <= 0.0 || !g_pHyprRenderer)
+    return {};
+  const int wDev = std::max(1, static_cast<int>(std::lround(w * scale)));
+  const int hDev = std::max(1, static_cast<int>(std::lround(h * scale)));
+  const int roundDev = std::max(0, static_cast<int>(std::lround(round * scale)));
+  char key[192];
+  std::snprintf(key, sizeof key, "%.3f|%.3f|%.3f|%.3f|%.3f|%.3f|%d|%d|%d|%.3f", spec.dy, spec.blur,
+                spec.spread, spec.r, spec.g, spec.b, wDev, hDev, roundDev, scale);
+  const double pad = render::shadowPad(spec, scale) / scale;
+  if (const auto hit = m_shadows.find(key); hit != m_shadows.end())
+    return {hit->second, pad};
+  auto *surface = render::shadowMask(spec, wDev, hDev, roundDev, scale);
+  SP<Render::ITexture> tex;
+  if (surface) {
+    tex = g_pHyprRenderer->createTexture(surface);
+    cairo_surface_destroy(surface);
+  }
+  m_shadows[key] = tex; // a miss is cached too
+  return {tex, pad};
 }
 
 _cairo_surface *PixelCache::appSurface(const std::string &windowClass) {
@@ -306,4 +330,4 @@ SP<Render::ITexture> PixelCache::snapshot(const PHLWINDOW &win) const {
   return it->second.tex;
 }
 
-} // namespace hyprview
+}

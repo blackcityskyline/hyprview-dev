@@ -65,6 +65,7 @@ add_library(hyprview SHARED
   src/render/carousel_view.cpp
   src/render/strip_view.cpp
   src/render/fx.cpp
+  src/render/shadow.cpp
 )
 set_target_properties(hyprview PROPERTIES PREFIX "")  # produce hyprview.so, not libhyprview.so
 
@@ -410,6 +411,12 @@ add_test(NAME render_geometry
 add_test(NAME app_icon
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/app_icon_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/app_icon_check && ${CMAKE_CURRENT_BINARY_DIR}/app_icon_check")
+
+# A shadow is a blurred silhouette: the check reads the mask itself, so a blur that was skipped
+# (a hard ring) and a colour in the wrong channel both redden here.
+add_test(NAME shadow_mask
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/shadow_check.cpp ${CMAKE_SOURCE_DIR}/src/render/shadow.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/shadow_check $(pkg-config --cflags --libs cairo) && ${CMAKE_CURRENT_BINARY_DIR}/shadow_check")
 
 # The caption's own decision: where the pills land, which edge the band thickens,
 # how far the caption leaves a card that reached it. Six fixes landed inline in

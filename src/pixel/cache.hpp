@@ -1,6 +1,7 @@
 #pragma once
 
 #include "subject_cache.hpp"
+#include "../render/shadow.hpp"
 
 #include <cstdint>
 
@@ -17,7 +18,7 @@ struct _cairo_surface;
 namespace Render {
 class ITexture;
 class IFramebuffer;
-} // namespace Render
+}
 
 namespace hyprview::pixel {
 
@@ -86,6 +87,15 @@ class PixelCache {
                                               const std::string &path);
     [[nodiscard]] SP<Render::ITexture> appIcon(const std::string &windowClass, int px);
 
+    struct ShadowTex {
+      SP<Render::ITexture> tex;
+      double pad = 0.0; // logical px, on every side of the box the mask was made for
+    };
+    // The mask is cached at full alpha: intensity and the exit fade are drawn, not baked, or a
+    // fading badge would ask for a new texture every frame.
+    [[nodiscard]] ShadowTex shadow(const render::ShadowSpec &spec, double w, double h,
+                                   double round, double scale);
+
   private:
     std::unordered_map<model::SubjectRef, std::int64_t> m_artStamp;
     // A site changes its favicon far less often than its page: icons are cached apart.
@@ -97,6 +107,7 @@ class PixelCache {
     std::unordered_map<std::string, SP<Render::ITexture>> m_appIcons;
     std::unordered_map<std::string, std::string> m_appIconPath;
     std::unordered_map<std::string, _cairo_surface *> m_appIconSrc; // owned
+    std::unordered_map<std::string, SP<Render::ITexture>> m_shadows;
     [[nodiscard]] _cairo_surface *appSurface(const std::string &windowClass);
 
     template <typename Map, typename T>
@@ -150,4 +161,4 @@ class PixelCache {
     std::string m_glyphIcon;
 };
 
-} // namespace hyprview
+}

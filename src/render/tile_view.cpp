@@ -28,7 +28,7 @@ namespace hyprview {
 namespace {
 
 
-} // namespace
+}
 
 bool Overview::closeButtonsAlwaysOn() const {
   return cfg::look.close_button_visibility.get() == "always";
@@ -193,24 +193,25 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   // frame meant a new decode of the source file per frame.
   const int badgePx = std::max(16, (static_cast<int>(std::lround(iconSide * s)) + 7) / 8 * 8);
   const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
-  // The badge pops out before the card: 75ms of the exit, in whatever progress the exit runs at.
-  const double iconFade =
-      opening() ? 1.0 : std::clamp(1.0 - exitT() * animDuration() / 75.0, 0.0, 1.0);
+  // The badge leaves on its own schedule: it grows a fifth while it fades over the first half of
+  // the close. 75ms of the exit was four frames, which reads as a drop, not as an animation.
+  const double iconFade = opening() ? 1.0 : std::clamp(1.0 - exitT() * 2.0, 0.0, 1.0);
   const double iconPop = 1.0 + 0.2 * (1.0 - iconFade);
   const float badgeA = static_cast<float>(f * iconFade);
+  const double badgeSide = badgePx / s; // the icon's own quantum, so the shadow caches with it
   if (badgeIcon && badgeA > 0.0F &&
       (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0) {
-    const double side = iconSide;
     const LRect badge = render::scaledAboutCentre(
-        LRect{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side}, iconPop);
-    // The rim matches the icon's own corner, so the back plate reads as thickness instead of a square halo peeking out of transparent corners. The icon is unclipped: its alpha is its
-    // shape, and rounding a downscaled 128px file is what left the edges dirty.
-    const double rim = badge.w * 0.04;
-    const LRect plate{badge.x - rim, badge.y - rim, badge.w + 2 * rim, badge.h + 2 * rim};
-    dropShadow(plate, s, shadowCol, side * 0.035, side * 0.13, 0.4F * badgeA,
-               static_cast<int>(plate.w * 0.24), roundPow);
-    safeRenderRect("tile", pxb(plate, s), cfg::colors.shadow.get(0.45F * badgeA),
-                   {.round = pxr(plate.w * 0.24, s), .roundingPower = roundPow});
+        LRect{box.x + iconSide * 0.6, box.y + box.h - iconSide * 1.6, iconSide, iconSide},
+        iconPop);
+    const render::ShadowSpec spec{.dy = badgeSide * 0.045, .blur = badgeSide * 0.10,
+                                  .spread = 0.0, .r = shadowCol.r, .g = shadowCol.g,
+                                  .b = shadowCol.b};
+    if (const auto sh = m_pixel.shadow(spec, badgeSide, badgeSide, badgeSide * 0.24, s); sh.tex)
+      g_pHyprOpenGL->renderTexture(
+          sh.tex, pxb(LRect{badge.x - sh.pad, badge.y - sh.pad, badge.w + 2 * sh.pad,
+                            badge.h + 2 * sh.pad}, s),
+          {.a = static_cast<float>(0.55 * badgeA)});
     g_pHyprOpenGL->renderTexture(badgeIcon, pxb(badge, s), {.a = badgeA});
   }
 
@@ -416,4 +417,4 @@ void Overview::renderGhosts() const {
   }
 }
 
-} // namespace hyprview
+}
