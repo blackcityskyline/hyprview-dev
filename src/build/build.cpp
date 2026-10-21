@@ -683,22 +683,6 @@ void Overview::requestTabShots() {
   }
 }
 
-void Overview::activateTab(model::SubjectRef s, Desktop::eFocusReason reason) {
-  const auto group = m_tabs.groupOf(s);
-  m_landingGroup = group;
-  const bool sent = group.id != 0 && writeTabRequest(group.id, static_cast<std::int64_t>(s.id));
-  const auto hostId = group.id ? m_links.hostOf(group.id) : 0;
-  const auto host = hostId ? m_windows.windowOf(model::SubjectRef{hostId, 0}) : PHLWINDOW{};
-  debug::trace::record("TABS", "activate",
-                       "tab=" + std::to_string(s.id) + "|window=" + std::to_string(group.id) +
-                           "|sent=" + std::to_string(sent ? 1 : 0) +
-                           "|host=" + std::to_string(host ? 1 : 0));
-  if (!host) {
-    close();
-    return;
-  }
-  focusAndClose(host, reason);
-}
 
 void Overview::activateTile(int idx, Desktop::eFocusReason reason) {
   if (idx < 0 || idx >= static_cast<int>(m_scene.size())) {
@@ -706,12 +690,19 @@ void Overview::activateTile(int idx, Desktop::eFocusReason reason) {
     return;
   }
   const auto &t = m_scene.tiles()[static_cast<std::size_t>(idx)];
+  // The card belongs to a window: its own, or the browser a tab lives in. One action for both.
   if (cardOf(t).isTab()) {
-    activateTab(t.subj, reason);
+    const auto group = m_tabs.groupOf(t.subj);
+    m_landingGroup = group; // the card goes to the browser it lives in
+    const auto host = ownerWindow(t);
+    debug::trace::record("TABS", "activate",
+                         "tab=" + std::to_string(t.subj.id) + "|window=" +
+                             std::to_string(group.id) + "|host=" + std::to_string(host ? 1 : 0));
+    focusAndClose(host, reason, t.subj, group.id);
     return;
   }
   m_landingGroup = m_windows.groupOf(t.subj);
-  focusAndClose(tileWindow(t), reason);
+  focusAndClose(ownerWindow(t), reason);
 }
 
 void Overview::replayReflow(

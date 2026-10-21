@@ -201,7 +201,7 @@ void Overview::open() {
   m->m_forceFullFrames = 8;
 
   m_drag = {};
-  m_pendingFocus.reset();
+  m_pending = {};
   cancelPendingClick();
   m_altTabbing = false;
   m_view.setDesktop( false);
@@ -412,8 +412,7 @@ bool Overview::isTileWindow(const PHLWINDOW &w) const {
     return false;
 }
 
-// A hidden window is drawn at its preview's box, not at its own place: damage at the window's
-// place repaints what the preview never covers and leaves the preview stale.
+// A hidden window is drawn at its preview's box, not at its own place.
 void Overview::damageWindowPreview(const PHLWINDOW &w) const {
   const auto m = m_monitor.lock();
   if (!m || !g_pHyprRenderer || !w)
@@ -498,10 +497,20 @@ void Overview::deactivate() {
     }
   }
 
-  // re-assert committed focus LAST (stale auto-focus)
-  if (const auto pw = m_pendingFocus.lock(); pw && pw->m_isMapped && !pw->isHidden())
+  // The tab switches here, with the focus: the overlay is gone and the card has landed.
+  if (m_pending.tabGroup != 0) {
+    const bool sent =
+        writeTabRequest(m_pending.tabGroup, static_cast<std::int64_t>(m_pending.tab.id));
+    debug::trace::record("TABS", "switch",
+                         "tab=" + std::to_string(m_pending.tab.id) + "|window=" +
+                             std::to_string(m_pending.tabGroup) + "|sent=" +
+                             std::to_string(sent ? 1 : 0));
+    m_pending.tab = model::SubjectRef{};
+    m_pending.tabGroup = 0;
+  }
+  if (const auto pw = m_pending.window.lock(); pw && pw->m_isMapped && !pw->isHidden())
     Desktop::focusState()->fullWindowFocus(pw, Desktop::FOCUS_REASON_KEYBIND);
-  m_pendingFocus.reset();
+  m_pending.window.reset();
 
   debug::dbg("deactivate (natural close end)");
   m_pump.stop();

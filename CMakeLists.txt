@@ -322,6 +322,11 @@ add_test(NAME scan_card_kind
 add_test(NAME mediator
          COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/mediator_check.py)
 
+# One action for a window and for a tab: the tab switches with the focus, not before it.
+add_test(NAME scan_pending_activate
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/pending_activate_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/pending_activate_check && ${CMAKE_CURRENT_BINARY_DIR}/pending_activate_check ${CMAKE_SOURCE_DIR}")
+
 # The caption's icon shadow is the plugin's own: Hyprland's shader divides by the shape.
 add_test(NAME scan_caption_shadow
          COMMAND ${CMAKE_COMMAND} -E env sh -c

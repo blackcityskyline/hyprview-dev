@@ -649,8 +649,8 @@ bool Overview::crossesRealWorkspace(const PHLWINDOW &w) const {
   return w && m && w->m_workspace && w->m_workspace != m->m_activeWorkspace;
 }
 
-void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
-  // Cross-workspace commit must not focus here; m_pendingFocus defers to deactivate(), after the overlay is gone.
+void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason,
+                              model::SubjectRef tab, std::uint64_t tabGroup) {
   const bool deferFocus = crossesRealWorkspace(w);
   if (w) {
     if (const auto ws = w->m_workspace;
@@ -673,7 +673,9 @@ void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
       }
     }
   }
-  m_pendingFocus = w;
+  m_pending.window = w;
+  m_pending.tab = tab;
+  m_pending.tabGroup = tabGroup;
   close();
   if (w && !deferFocus)
     Desktop::focusState()->fullWindowFocus(w, reason);
