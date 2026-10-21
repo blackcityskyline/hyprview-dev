@@ -322,6 +322,10 @@ add_test(NAME scan_card_kind
 add_test(NAME mediator
          COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/mediator_check.py)
 
+# The extension: it asks for every page, and it paints the canvas around the shot.
+add_test(NAME extension
+         COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/extension_check.py)
+
 # The pump disarms its timer, never resets it: a reset drops the last shared pointer inside
 # the callback that owns it.
 add_test(NAME scan_frame_pump
