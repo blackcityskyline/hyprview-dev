@@ -18,6 +18,11 @@ struct ShadowSpec {
   double b = 0.0;
 };
 
+// The icon's shadow: its units are shares of the icon's side, so it grows with the icon.
+[[nodiscard]] inline ShadowSpec iconShadowSpec(double side, double offset, double blur) {
+  return ShadowSpec{.dy = side * offset, .blur = side * blur};
+}
+
 // Padding, device px: the drawn box is this much larger on every side. Same inputs, same answer
 // as the mask, or the shadow would be drawn against a texture that ends before it fades out.
 [[nodiscard]] int shadowPad(const ShadowSpec &spec, double scale);

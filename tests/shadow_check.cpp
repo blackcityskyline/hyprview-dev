@@ -2,6 +2,7 @@
 // hard ring, which is what the badge had) and the colour lands in the wrong channel (blue icons
 // with an orange shadow). Both are visible in the mask itself, so no GL is needed.
 
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -13,6 +14,7 @@
 using hyprview::render::ShadowSpec;
 using hyprview::render::shadowMask;
 using hyprview::render::shadowPad;
+using hyprview::render::iconShadowSpec;
 
 static int failures = 0;
 
@@ -24,6 +26,13 @@ static void want(bool ok, const std::string &what) {
 }
 
 int main() {
+  // The icon's shadow: its units are shares of the icon's side, so it scales with the icon.
+  {
+    const auto icon = iconShadowSpec(40.0, 0.045, 0.1);
+    want(std::abs(icon.dy - 1.8) < 1e-9, "the drop is a share of the icon's side");
+    want(std::abs(icon.blur - 4.0) < 1e-9, "and so is the falloff");
+  }
+
   const ShadowSpec spec{.dy = 0.0, .blur = 6.0, .spread = 0.0, .r = 0.2, .g = 0.4, .b = 0.8};
   const int pad = shadowPad(spec, 1.0);
   const int W = 40 + 2 * pad;

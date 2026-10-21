@@ -257,6 +257,14 @@ struct BadgePose {
   return out;
 }
 
+// The badge's own window of the run: in at the front of the open, out at the end of the close.
+[[nodiscard]] inline double badgeK(double openT, double exitT, bool opening, double span) {
+  if (span <= 0.0)
+    return 1.0;
+  return opening ? std::clamp(openT / span, 0.0, 1.0)
+                 : std::clamp(1.0 - exitT / span, 0.0, 1.0);
+}
+
 [[nodiscard]] inline LRect scaledAboutCentre(const LRect &r, double k) {
   const double cx = r.x + r.w / 2.0, cy = r.y + r.h / 2.0;
   const double w = r.w * k, h = r.h * k;

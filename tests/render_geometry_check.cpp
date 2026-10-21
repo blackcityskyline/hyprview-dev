@@ -27,6 +27,7 @@
 #include "../src/render/geometry.hpp"
 
 using hyprview::LRect;
+using hyprview::render::badgeK;
 using hyprview::render::badgePose;
 using hyprview::render::closeButtonRect;
 using hyprview::render::cardScale;
@@ -772,8 +773,23 @@ static void theBadgeIsPlayedInBothDirections() {
   want(badgePose(0.9).pop < badgePose(0.77).pop, true, "the pop settles after the peak");
 }
 
+// The badge's own window of the run: it arrives with the run, not after it, and it leaves
+// inside the last stretch of the close. The span is a number, so the schedule is a number too.
+static void theBadgeHasItsOwnWindow() {
+  constexpr double span = 0.28;
+  near(badgeK(0.0, 0.0, true, span), 0.0, "on the way in the badge starts out gone");
+  near(badgeK(span, 0.0, true, span), 1.0, "and is at rest after its own span");
+  near(badgeK(span * 0.5, 0.0, true, span), 0.5, "half of the span is half of the badge");
+  near(badgeK(0.0, 0.0, false, span), 1.0, "on the way out it starts at rest");
+  near(badgeK(0.0, span, false, span), 0.0, "and is gone after its own span");
+  near(badgeK(0.0, 0.0, true, 0.0), 1.0, "a span of zero leaves the badge alone");
+  want(badgeK(0.0, 0.0, true, span) < badgeK(span, 0.0, true, span), true,
+       "the icon arrives with the run, not at the end of it");
+}
+
 int main() {
   theBadgeIsPlayedInBothDirections();
+  theBadgeHasItsOwnWindow();
 
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {

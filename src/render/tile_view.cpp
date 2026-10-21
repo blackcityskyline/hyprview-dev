@@ -193,14 +193,11 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   // frame meant a new decode of the source file per frame.
   const int badgePx = std::max(16, (static_cast<int>(std::lround(iconSide * s)) + 7) / 8 * 8);
   const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
-  // The badge pops a fifth and shrinks away; the open plays the same schedule backwards, so the
-  // icon arrives small, overshoots and settles instead of simply being there. Own window, not the
-  // whole animation: a pop needs a fifth of a run to read, and any more is time the icon spends
-  // moving for no reason. The icon arrives WITH the run: held back to the end of the open it was
+  // The badge pops a fifth and shrinks away; the open plays the same schedule backwards. It has
+  // its own window, and the icon arrives WITH the run: held back to the end of the open it was
   // the card that was already in place before its own icon appeared.
   constexpr double kBadgeSpan = 0.28;
-  const double badgeK = opening() ? std::clamp(openT() / kBadgeSpan, 0.0, 1.0)
-                                  : std::clamp(1.0 - exitT() / kBadgeSpan, 0.0, 1.0);
+  const double badgeK = render::badgeK(openT(), exitT(), opening(), kBadgeSpan);
   const auto pose = render::badgePose(badgeK);
   const double iconPop = pose.pop;
   const double iconFade = pose.alpha;
@@ -211,10 +208,11 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
     const LRect badge = render::scaledAboutCentre(
         LRect{box.x + iconSide * 0.6, box.y + box.h - iconSide * 1.6, iconSide, iconSide},
         iconPop);
-    const render::ShadowSpec spec{.dy = badgeSide * cfg::look.icon_shadow_offset,
-                                  .blur = badgeSide * cfg::look.icon_shadow_blur,
-                                  .spread = 0.0, .r = shadowCol.r, .g = shadowCol.g,
-                                  .b = shadowCol.b};
+    auto spec = render::iconShadowSpec(badgeSide, cfg::look.icon_shadow_offset,
+                                        cfg::look.icon_shadow_blur);
+    spec.r = shadowCol.r;
+    spec.g = shadowCol.g;
+    spec.b = shadowCol.b;
     if (const auto sh = m_pixel.shadow(spec, badgeSide, badgeSide, badgeSide * 0.24, s); sh.tex)
       g_pHyprOpenGL->renderTexture(
           sh.tex, pxb(LRect{badge.x - sh.pad, badge.y - sh.pad, badge.w + 2 * sh.pad,
