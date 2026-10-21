@@ -191,9 +191,9 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   const double iconSide = std::clamp(box.h * 0.12825, 25.65, 57.0);
   const int badgePx = std::max(1, static_cast<int>(std::lround(iconSide * s)));
   const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
-  // The badge leaves before the card: 300ms of the exit, in whatever progress the exit runs at.
+  // The badge leaves before the card: 150ms of the exit, in whatever progress the exit runs at.
   const double iconFade =
-      opening() ? 1.0 : std::clamp(1.0 - exitT() * animDuration() / 300.0, 0.0, 1.0);
+      opening() ? 1.0 : std::clamp(1.0 - exitT() * animDuration() / 150.0, 0.0, 1.0);
   const float badgeA = static_cast<float>(f * iconFade);
   if (badgeIcon && badgeA > 0.0F &&
       (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0) {
