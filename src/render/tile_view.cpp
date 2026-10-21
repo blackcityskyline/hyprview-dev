@@ -191,18 +191,20 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   const double iconSide = std::clamp(box.h * 0.12825, 25.65, 57.0);
   const int badgePx = std::max(1, static_cast<int>(std::lround(iconSide * s)));
   const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
-  // The badge leaves before the card: 75ms of the exit, in whatever progress the exit runs at.
+  // The badge pops out before the card: 75ms of the exit, in whatever progress the exit runs at.
   const double iconFade =
       opening() ? 1.0 : std::clamp(1.0 - exitT() * animDuration() / 75.0, 0.0, 1.0);
+  const double iconPop = 1.0 + 0.2 * (1.0 - iconFade);
   const float badgeA = static_cast<float>(f * iconFade);
   if (badgeIcon && badgeA > 0.0F &&
       (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0) {
     const double side = iconSide;
-    const LRect badge{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side};
+    const LRect badge = render::scaledAboutCentre(
+        LRect{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side}, iconPop);
     // The rim matches the icon's own corner, so the back plate reads as thickness instead of a square halo peeking out of transparent corners. The icon is unclipped: its alpha is its
     // shape, and rounding a downscaled 128px file is what left the edges dirty.
-    const double rim = side * 0.04;
-    const LRect plate{badge.x - rim, badge.y - rim, side + 2 * rim, side + 2 * rim};
+    const double rim = badge.w * 0.04;
+    const LRect plate{badge.x - rim, badge.y - rim, badge.w + 2 * rim, badge.h + 2 * rim};
     dropShadow(plate, s, shadowCol, side * 0.035, side * 0.13, 0.4F * badgeA,
                static_cast<int>(plate.w * 0.24), roundPow);
     safeRenderRect("tile", pxb(plate, s), cfg::colors.shadow.get(0.45F * badgeA),
