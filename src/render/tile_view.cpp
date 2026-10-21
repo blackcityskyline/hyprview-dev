@@ -193,10 +193,12 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   // frame meant a new decode of the source file per frame.
   const int badgePx = std::max(16, (static_cast<int>(std::lround(iconSide * s)) + 7) / 8 * 8);
   const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
-  // The badge leaves on its own schedule: it grows a fifth while it fades over the first half of
-  // the close. 75ms of the exit was four frames, which reads as a drop, not as an animation.
-  const double iconFade = opening() ? 1.0 : std::clamp(1.0 - exitT() * 2.0, 0.0, 1.0);
-  const double iconPop = 1.0 + 0.2 * (1.0 - iconFade);
+  // The badge pops a fifth, then shrinks away: the growth fills the first eighth of the close and
+  // the fade rides the shrink, so the icon is still solid while it is visibly getting smaller.
+  const double exitNow = opening() ? 0.0 : exitT();
+  const double iconPop = 1.0 + 0.2 * std::clamp(exitNow / 0.12, 0.0, 1.0) -
+                         0.55 * std::clamp((exitNow - 0.12) / 0.38, 0.0, 1.0);
+  const double iconFade = std::clamp(1.0 - (exitNow - 0.10) / 0.42, 0.0, 1.0);
   const float badgeA = static_cast<float>(f * iconFade);
   const double badgeSide = badgePx / s; // the icon's own quantum, so the shadow caches with it
   if (badgeIcon && badgeA > 0.0F &&
