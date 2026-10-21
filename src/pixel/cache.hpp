@@ -80,7 +80,7 @@ class PixelCache {
 
     [[nodiscard]] SP<Render::ITexture> putIcon(const model::SubjectRef &s,
                                               const std::string &path);
-    [[nodiscard]] SP<Render::ITexture> appIcon(const std::string &windowClass);
+    [[nodiscard]] SP<Render::ITexture> appIcon(const std::string &windowClass, int px);
 
   private:
     std::unordered_map<model::SubjectRef, std::int64_t> m_artStamp;

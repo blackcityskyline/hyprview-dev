@@ -112,9 +112,32 @@ SP<Render::ITexture> PixelCache::putIcon(const model::SubjectRef &s, const std::
 
 namespace {
 
-// A badge is at most 60 logical pixels; a rasteriser asked for more than 128 stores pixels no
-// card can show.
-constexpr int kAppIconPx = 128;
+// The icon is prepared at the size the badge is drawn at: drawn at another size, a light
+// one-pixel rim in the artwork lands between texels and comes out dashed.
+SP<Render::ITexture> loadPngAt(const std::string &path, int px) {
+  if (!g_pHyprRenderer)
+    return nullptr;
+  cairo_surface_t *src = readPngSurface(path);
+  if (!src)
+    return nullptr;
+  const int w = cairo_image_surface_get_width(src);
+  const int h = cairo_image_surface_get_height(src);
+  cairo_surface_t *dst = src;
+  if (std::max(w, h) > px && w > 0 && h > 0) {
+    dst = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, px, px);
+    cairo_t *cr = cairo_create(dst);
+    cairo_scale(cr, static_cast<double>(px) / w, static_cast<double>(px) / h);
+    cairo_set_source_surface(cr, src, 0, 0);
+    cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_BEST);
+    cairo_paint(cr);
+    cairo_destroy(cr);
+  }
+  auto tex = g_pHyprRenderer->createTexture(dst);
+  if (dst != src)
+    cairo_surface_destroy(dst);
+  cairo_surface_destroy(src);
+  return tex;
+}
 
 SP<Render::ITexture> loadSvg(const std::string &path, int side) {
 #ifdef HYPRVIEW_HAVE_RSVG
@@ -159,17 +182,18 @@ SP<Render::ITexture> loadSvg(const std::string &path, int side) {
 
 } // namespace
 
-SP<Render::ITexture> PixelCache::appIcon(const std::string &windowClass) {
-  if (windowClass.empty())
+SP<Render::ITexture> PixelCache::appIcon(const std::string &windowClass, int px) {
+  if (windowClass.empty() || px <= 0)
     return nullptr;
-  const auto hit = m_appIcons.find(windowClass);
+  const std::string key = windowClass + "/" + std::to_string(px);
+  const auto hit = m_appIcons.find(key);
   if (hit != m_appIcons.end())
     return hit->second;
   const auto path = app_icon::appIconFile(windowClass);
-  auto tex = path.empty()                       ? SP<Render::ITexture>{}
-             : path.ends_with(".svg")           ? loadSvg(path, kAppIconPx)
-                                                : loadPng(path);
-  m_appIcons[windowClass] = tex; // a miss is cached too: one lookup per class, not per frame
+  auto tex = path.empty()             ? SP<Render::ITexture>{}
+             : path.ends_with(".svg") ? loadSvg(path, px)
+                                      : loadPngAt(path, px);
+  m_appIcons[key] = tex; // a miss is cached too: one lookup per class and size, not per frame
   return tex;
 }
 

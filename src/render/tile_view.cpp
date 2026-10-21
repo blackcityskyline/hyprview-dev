@@ -188,9 +188,11 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                      roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
   }
   // The card's own icon in the corner the caption does not reach: the browser for a tab, the app for a window.
-  const auto badgeIcon = tab ? browserIcon(t) : windowIcon(w);
+  const double iconSide = std::clamp(box.h * 0.12825, 25.65, 57.0);
+  const int badgePx = std::max(1, static_cast<int>(std::lround(iconSide * s)));
+  const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
   if (badgeIcon && (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0) {
-    const double side = std::clamp(box.h * 0.12825, 25.65, 57.0);
+    const double side = iconSide;
     const LRect badge{box.x + side * 0.6, box.y + box.h - side * 1.6, side, side};
     // The rim matches the icon's own corner, so the back plate reads as thickness instead of a square halo peeking out of transparent corners. The icon is unclipped: its alpha is its
     // shape, and rounding a downscaled 128px file is what left the edges dirty.
