@@ -161,12 +161,12 @@ static void chromeTakesTheAxisThatKeepsItWithItsCard() {
 static void aCaptionIsGoneWhenItsCardIs() {
   // Nothing wrong with it: it stays whole, whatever the exit fraction says while opening.
   near(captionRemains(0.0, 300.0, 27.0, 1.0, /*opening=*/true), 1.0,
-       "a caption that is not being shoved is whole, even mid-open");
-  // Shoved a quarter of its own width: gone. A tenth of it: nearly whole. The rate is the
+       "a caption that nothing covers is whole, even mid-open");
+  // Covered a quarter of its own width: gone. A tenth of it: nearly whole. The rate is the
   // point -- at its full width it was still shrinking when it arrived at the strip.
   near(captionRemains(75.0, 300.0, 27.0, 0.0, true), 0.0, "gone over a quarter of its width");
   want(captionRemains(10.0, 300.0, 27.0, 0.0, true) > 0.8, true,
-       "barely shoved leaves it nearly whole");
+       "barely covered leaves it nearly whole");
   // Its card leaving: it leaves with the card, and never outlives it.
   near(captionRemains(0.0, 300.0, 27.0, 1.0, false), 0.0, "gone when the card is gone");
   want(captionRemains(0.0, 300.0, 27.0, 0.5, false) < 0.6, true, "half out with a half-gone card");

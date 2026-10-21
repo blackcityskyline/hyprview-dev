@@ -200,7 +200,6 @@ private:
              : model::SubjectRef{};
   }
   model::Effects m_fx;
-  // The workspaces this overview made persistent, released when it closes.
   std::vector<PHLWORKSPACEREF> m_newWs;
   view::State m_view;
   mutable std::chrono::steady_clock::time_point m_lastAnimTick{};
@@ -318,7 +317,7 @@ private:
   Vector2D stripPush(const LRect &band) const;
   // THE strip displacement: band, cards, their window previews and the hit-test all go through this.
   Vector2D stripOffset(double e) const;
-  Vector2D pushOut(const LRect &r) const;
+  std::vector<LRect> coveringCards() const;
   Vector2D stripScroll() const;
   LRect stripCardAt(size_t i) const;
   int stripItemAt(double lx, double ly) const;
@@ -410,8 +409,7 @@ private:
   void restoreFill();
   void stepAltTab(int dir);
   bool stepRun(int dir);
-  // Where the selected card stands in the run: the counter counts THIS, not the
-  // tile index -- the run's order is the order of recent focus, and the two differ.
+  // Where the selected card stands in the run: the counter counts THIS, not the tile index.
   [[nodiscard]] int runPosition() const;
   // A card that joined or left the run has no slot to glide between. See keys.cpp.
   void pinRunEdges(const std::vector<char> &wasOnRun);

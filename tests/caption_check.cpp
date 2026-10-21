@@ -30,6 +30,7 @@ using hyprview::render::CaptionLayout;
 using hyprview::render::CaptionSizes;
 using hyprview::render::CaptionStyle;
 using hyprview::render::captionLayout;
+using hyprview::render::placeCaption;
 using hyprview::render::pushOut;
 using hyprview::render::stripPush;
 
@@ -80,6 +81,65 @@ CaptionStyle style(bool below = true, bool counterBelow = true) {
 } // namespace
 
 // The band is part of the edge margin, and only on the edge it is drawn on.
+// THE RULE: a card that has the caption OUTRIGHT takes it away -- the caption pops, in every
+// view. A card that only grazes it lets it run under, whole. The slide aside is a policy of
+// the view, not of the rule.
+static void theCaptionIsTakenOrLeft() {
+  const LRect home{600.0, 200.0, 120.0, 30.0};
+
+  {
+    const LRect covers[1]{};
+    const auto cap = placeCaption({home, covers, true, 0.0, true});
+    want(cap.scale == 1.0, true, "an uncovered caption is whole");
+    want(cap.box.x == home.x && cap.box.y == home.y, true, "and where it was");
+    want(cap.covered, false, "and not covered");
+  }
+
+  {
+    const LRect covers[1]{LRect{0.0, 0.0, 1366.0, 768.0}};
+    const auto cap = placeCaption({home, covers, true, 0.0, true});
+    want(cap.covered, true, "a card with the caption inside it has covered it");
+    want(cap.scale == 0.0, true, "and the caption is gone, not shrunk to a sliver");
+  }
+
+  {
+    const LRect covers[1]{LRect{0.0, 0.0, 1366.0, 768.0}};
+    const auto cap = placeCaption({home, covers, false, 0.0, true});
+    want(cap.scale == 0.0, true, "a caption that may not slide still pops");
+    want(cap.box.x == home.x && cap.box.y == home.y, true, "and it does not move");
+  }
+
+  // A caption at the card's very edge: it shrinks, it does not vanish.
+  {
+    const LRect covers[1]{LRect{560.0, 180.0, 400.0, 400.0}};
+    const auto cap = placeCaption({home, covers, true, 0.0, true});
+    want(cap.covered, true, "the card has the caption inside it");
+    want(cap.scale > 0.0 && cap.scale < 1.0, true, "and the caption is half gone, not whole");
+  }
+
+  {
+    const LRect covers[1]{LRect{600.0, 225.0, 400.0, 400.0}};
+    const auto cap = placeCaption({home, covers, false, 0.0, true});
+    want(cap.covered, false, "a card that only grazes the caption has not covered it");
+    want(cap.scale == 1.0, true, "and the caption is whole -- a long title does not shrink");
+    want(cap.box.y == home.y, true, "and it does not move");
+  }
+
+  {
+    const LRect covers[1]{LRect{600.0, 225.0, 400.0, 400.0}};
+    const auto cap = placeCaption({home, covers, true, 0.0, true});
+    want(cap.shove.y != 0.0, true, "a caption that may slide steps aside");
+    want(cap.scale == 1.0, true, "and stays whole while it steps");
+  }
+
+  {
+    const LRect covers[1]{};
+    const auto cap = placeCaption({home, covers, true, 0.5, false});
+    want(cap.scale <= 0.5, true, "half out is half left");
+  }
+  std::puts("the caption: taken by a card that has it, left by a card that grazes it");
+}
+
 static void theBandIsPartOfTheMargin() {
   // A card near the top edge: its caption above it is held off the edge by the
   // margin, and the band on that edge thickens the margin.
@@ -244,6 +304,7 @@ static void theStripLeavesItsBand() {
 }
 
 int main() {
+  theCaptionIsTakenOrLeft();
   theBandIsPartOfTheMargin();
   theCounterIsTheOuterPill();
   aCaptionIsSizedWithItsCard();

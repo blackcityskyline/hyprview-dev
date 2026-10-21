@@ -136,8 +136,8 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                  ringW, round, roundPow);
   }
 
-  // Frost: the cached blur at CONSTANT alpha (fading it leaks C*e*(1-e) of the sharp desktop),
-  // plus the dim at the global e. A tab needs it ALWAYS: its card is this frost or nothing.
+  // Frost: the cached blur at CONSTANT alpha (fading it leaks C*e*(1-e) of the sharp desktop)
+  // plus the dim at the global e. A tab ALWAYS needs it: its card is this frost or nothing.
   const double apNow = entryNow(t, static_cast<int>(i));
   if (tab || (opening() && (e < 0.999 || apNow < 0.999))) {
     if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
@@ -200,8 +200,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   const double iconSide = render::badgeSide(box.h);
   const int badgePx = render::badgePx(iconSide, s);
   const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
-  // The badge pops a fifth and shrinks away; the open plays the same schedule backwards, in its
-  // own window, and the icon arrives WITH the run.
+  // The badge pops a fifth and shrinks away; the open plays the same schedule backwards.
   constexpr double kBadgeSpan = 0.28;
   const double badgeK = render::badgeK(openT(), exitT(), opening(), kBadgeSpan);
   const auto pose = render::badgePose(badgeK);
@@ -285,27 +284,28 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
                                            style);
     if (lay.pill.w > 0.0) {
       const LRect pill = lay.pill;
-      const Vector2D push = look.push ? pushOut(pill) : Vector2D{0.0, 0.0};
-      const double pop =
-          look.push ? render::captionRemains(std::hypot(push.x, push.y), pill.w, pill.h,
-                                             exitT(), opening())
-                    : 1.0;
+      // One owner for the caption; the view only says whether it may slide aside.
+      const auto covers = coveringCards();
+      const auto title = render::placeCaption(
+          {pill, covers, look.push, exitT(), opening()});
+      const auto count = lay.counter.h > 0.0
+                             ? render::placeCaption({lay.counter, covers, look.push, exitT(),
+                                                     opening()})
+                             : render::Caption{};
+      const double pop = title.scale;
       const double cf = e * f;
-      LRect drawn = render::scaledAboutCentre(pill, pop);
-      drawn.x += push.x;
-      drawn.y += push.y;
+      LRect drawn = render::scaledAboutCentre(title.box, pop);
       Vector2D cPush{};
       LRect cAt{};
       if (lay.counter.h > 0.0) {
-        cPush = pushOut(lay.counter);
-        cAt = render::scaledAboutCentre(lay.counter, pop);
-        cAt.x += cPush.x;
-        cAt.y += cPush.y;
+        cPush = Vector2D{count.shove.x, count.shove.y};
+        cAt = render::scaledAboutCentre(count.box, count.scale);
       }
       debug::trace::ring("title_pill", pill,
                          pxr(render::pillRadius(cfg::look.title_round, pill.w, pill.h), s), cf);
       debug::trace::ring("counter_pill", lay.counter, 0, cf);
-      debug::trace::ring("caption_push", LRect{push.x, push.y, cPush.x, cPush.y}, 0, cf);
+      debug::trace::ring("caption_push", LRect{title.shove.x, title.shove.y, cPush.x, cPush.y},
+                         0, cf);
       debug::trace::ring("title_pill_drawn", drawn,
                          pxr(render::pillRadius(cfg::look.title_round, drawn.w, drawn.h), s), cf);
       if (cAt.h > 0.0) {
@@ -313,11 +313,12 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
                                cfg::colors.counter_pill.get(cf),
                                {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
                                 .roundingPower = roundPow});
+        const double cPop = count.scale;
         g_pHyprOpenGL->renderTexture(
             countTex,
-            pxb(LRect{cAt.x + (cAt.w - sizes.countW * pop) / 2.0,
-                      cAt.y + (cAt.h - sizes.countH * pop) / 2.0,
-                      sizes.countW * pop, sizes.countH * pop}, s),
+            pxb(LRect{cAt.x + (cAt.w - sizes.countW * cPop) / 2.0,
+                      cAt.y + (cAt.h - sizes.countH * cPop) / 2.0,
+                      sizes.countW * cPop, sizes.countH * cPop}, s),
             {.a = static_cast<float>(cf)});
       }
       safeRenderRect("tile", pxb(CBox(drawn.x, drawn.y, drawn.w, drawn.h), s),
@@ -343,11 +344,12 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
                      sizes.textW * lay.kFit * pop, sizes.textH * lay.kFit * pop), s),
             {.a = static_cast<float>(cf)});
       else
+        // The counter rides INSIDE the pill, so it pops with it.
         g_pHyprOpenGL->renderTexture(
             countTex,
-            pxb(LRect{pill.x + push.x + style.cPadX * lay.kFit,
-                      pill.y + push.y + style.cPadY * lay.kFit,
-                      sizes.countW * lay.kFit, sizes.countH * lay.kFit}, s),
+            pxb(LRect{drawn.x + style.cPadX * lay.kFit * pop,
+                      drawn.y + (drawn.h - sizes.countH * lay.kFit * pop) / 2.0,
+                      sizes.countW * lay.kFit * pop, sizes.countH * lay.kFit * pop}, s),
             {.a = static_cast<float>(cf)});
     }
   }

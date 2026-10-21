@@ -94,7 +94,8 @@ Vector2D Overview::stripPush(const LRect &band) const {
   return Vector2D{v.x, v.y};
 }
 
-Vector2D Overview::pushOut(const LRect &r) const {
+// The cards that can cover chrome: the rule that uses them lives in render::caption.
+std::vector<LRect> Overview::coveringCards() const {
   std::vector<LRect> covers;
   const auto &tiles = m_scene.tiles();
   for (size_t i = 0; i < tiles.size(); ++i) {
@@ -106,8 +107,7 @@ Vector2D Overview::pushOut(const LRect &r) const {
       continue;
     covers.push_back(b);
   }
-  const LVec2 v = render::pushOut(r, covers);
-  return Vector2D{v.x, v.y};
+  return covers;
 }
 
 bool Overview::blurEnabled() const { return blurStrength() > 0.0F; }

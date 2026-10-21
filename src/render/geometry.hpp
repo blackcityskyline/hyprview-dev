@@ -9,6 +9,7 @@
 
 #include "../anim_types.hpp"
 #include "../layout.hpp"
+#include "caption.hpp"
 
 // Pure geometry, monitor-local LOGICAL px: no GL, no Hyprland, no config reads (AGENTS.md 2.15).
 
@@ -102,43 +103,8 @@ enum class Anchor {
     return LRect{cx - b.w * s / 2.0, cy - b.h * s / 2.0 + dy, b.w * s, b.h * s};
 }
 
-[[nodiscard]] inline double captionPillY(double cardY, double cardH, double pillH,
-                                         double gap, bool below, double screenH,
-                                         double margin) {
-    return below ? std::min(cardY + cardH + gap, screenH - pillH - margin)
-                 : std::max(margin, cardY - gap - pillH);
-}
-
-// Both pills on ONE card edge; the counter is the OUTER pill either way.
-struct CaptionPills {
-    double titleY;
-    double counterY;
-};
-
-[[nodiscard]] inline CaptionPills captionPills(double cardY, double cardH, double titleH,
-                                               double counterH, double cardGap,
-                                               double stackGap, bool below, double screenH,
-                                               double margin) {
-    const double top = captionPillY(cardY, cardH, titleH + stackGap + counterH, cardGap,
-                                    below, screenH, margin);
-    return below ? CaptionPills{top, top + titleH + stackGap}      // card, title, counter
-                 : CaptionPills{top + counterH + stackGap, top};   // counter, title, card
-}
-
-// Negative configured = a capsule; capped at half the shorter side, or the shape turns inside out.
-[[nodiscard]] inline int pillRadius(double configured, double w, double h) {
-    const double cap = std::min(w, h) * 0.5;
-    const double want = configured < 0.0 ? cap : std::min(configured, cap);
-    return static_cast<int>(std::max(0.0, want));
-}
 
 // Keep a box inside a screen, with an inset. std::clamp requires lo <= hi and does not check it:
-// a caption sized off a window title can be wider than the screen minus both insets.
-[[nodiscard]] inline double insetWithin(double x, double size, double screenW,
-                                        double inset) {
-    const double hi = screenW - size - inset;
-    return hi < inset ? screenW * 0.5 : std::clamp(x, inset, hi);
-}
 
 // First match wins: the GRID hit-test, deliberately NOT the carousel's, which needs front-most.
 [[nodiscard]] inline int firstHit(double lx, double ly, const LRect *boxes,
@@ -194,53 +160,12 @@ struct CaptionPills {
     return std::min(1.0, std::max(cardW - inset, 1.0) / pillW);
 }
 
-// How far a caption comes down with its card. refW is the CENTRED card, the one scale 1.0 belongs to.
-[[nodiscard]] inline double cardScale(double cardW, double refW) {
-    if (refW <= 0.0 || cardW <= 0.0)
-        return 1.0;
-    return std::clamp(cardW / refW, 0.45, 1.0);
-}
 
 
-struct Escape {
-  double dx = 0.0;
-  double dy = 0.0;
-  double depth = 0.0;
-};
-
-[[nodiscard]] inline Escape escapeFrom(const LRect &self, const LRect &cover, double ox,
-                                       double oy) {
-  Escape e;
-  if (ox < oy) {
-    e.dx = std::copysign(1.0, self.cx() - cover.cx());
-    e.depth = ox;
-    return e;
-  }
-  e.depth = oy;
-  const double up = std::copysign(1.0, self.cy() - cover.cy());
-  if (up < 0.0 && self.y + self.h <= cover.y) {
-    e.dx = std::copysign(1.0, self.cx() - cover.cx());
-    e.depth = ox;
-    return e;
-  }
-  e.dy = up;
-  return e;
-}
 
 
-// 1.0 all of it, 0.0 gone: min() of shoved / card leaving, in ONE place; exitFrac ignored while opening.
-[[nodiscard]] inline double captionRemains(double shove, double pillW, double pillH,
-                                          double exitFrac, bool opening) {
-  constexpr double kGoneOver = 0.25; // of its own width
-  const double byShove =
-      1.0 - std::clamp(shove / std::max(std::max(pillW, pillH) * kGoneOver, 1.0), 0.0, 1.0);
-  if (opening)
-    return byShove;
-  return std::min(byShove, std::clamp(1.0 - exitFrac, 0.0, 1.0));
-}
 
-// The badge has one schedule, played in both directions: k == 0 is gone, k == 1 is at rest. The
-// pop peaks just before the shape settles, so the close plays it down and the open plays it up.
+// The badge has one schedule, played in both directions: k == 0 is gone, k == 1 is at rest.
 struct BadgePose {
   double pop = 1.0;
   double alpha = 1.0;
@@ -297,134 +222,8 @@ enum class CardContent { Window, Picture, PlateAndTitle };
       LRect{card.x + side * 0.6, card.y + card.h - side * 1.6, side, side}, pop);
 }
 
-// One answer per caption: where the pills land, and what decides it.
-struct CaptionSizes {
-  double textW = 0.0, textH = 0.0;
-  double countW = 0.0, countH = 0.0;
-  bool hasLabel = false;
-  bool hasCounter = false;
-  double iconW = 0.0; // the site's favicon, inside the pill before the text
-  bool hasIcon = false;
-};
 
-struct CaptionStyle {
-  double padX = 0.0, padY = 0.0;
-  double cPadX = 0.0, cPadY = 0.0;
-  double cardGap = 0.0;
-  double stackGap = 0.0;
-  double margin = 0.0;
-  double cMargin = 0.0;
-  double cardRefW = 0.0; // the centred card, the one scale 1.0 belongs to
-  double gridGapMin = 1.0;
-  bool below = true;        // title hangs off the card's bottom edge
-  bool counterBelow = true; // counter hangs off the card's bottom edge
-  double iconGap = 6.0;     // between the favicon and the first glyph
-};
 
-struct CaptionLayout {
-  LRect pill;     // pre-push, pre-collapse
-  LRect counter;  // pre-push, pre-collapse; h == 0 when there is no counter
-  double kFit = 1.0;
-};
-
-[[nodiscard]] inline CaptionLayout captionLayout(const LRect &box, const LRect &band,
-                                                 double screenW, double screenH,
-                                                 const CaptionSizes &s,
-                                                 const CaptionStyle &st) {
-  // Nothing to label: nothing to draw, not an empty pill with padding around it.
-  if (!s.hasLabel && !s.hasCounter)
-    return CaptionLayout{};
-  const double textW = s.hasLabel ? s.textW : s.countW;
-  const double textH = s.hasLabel ? s.textH : s.countH;
-  const double padX  = s.hasLabel ? st.padX  : st.cPadX;
-  const double padY  = s.hasLabel ? st.padY  : st.cPadY;
-  const double counterH = s.hasLabel && s.hasCounter ? s.countH + 2 * st.cPadY : 0.0;
-
-  const double kCard = cardScale(box.w, st.cardRefW);
-  // The caption's scale is the CARD's scale: a long title is not a smaller title.
-  const double kFit = kCard;
-  const double iconW = s.hasIcon ? s.iconW + st.iconGap : 0.0;
-  const double innerH = s.hasIcon ? std::max(textH, s.iconW) : textH;
-  const double pw = (textW + iconW + 2 * padX) * kFit;
-  const double ph = (innerH + 2 * padY) * kFit;
-
-  const double stackGap = counterH > 0.0 ? st.stackGap : 0.0;
-  const double margin   = s.hasLabel ? st.margin : st.cMargin;
-
-  // The band is part of the edge margin: on its edge it thickens it, elsewhere not.
-  const bool bandOnTop = band.y < screenH * 0.5;
-  const double marginTop    = margin + (bandOnTop ? band.h : 0.0);
-  const double marginBottom = margin + (bandOnTop ? 0.0 : band.h);
-  const bool sameEdge = counterH <= 0.0 || st.counterBelow == st.below;
-
-  const double cW = s.countW + 2 * st.cPadX;
-  CaptionLayout lay;
-  lay.kFit = kFit;
-  lay.pill = LRect{insetWithin(box.cx() - pw / 2.0, pw, screenW, 6.0), 0.0, pw, ph};
-  lay.counter = LRect{insetWithin(screenW / 2.0 - cW / 2.0, cW, screenW, 6.0), 0.0, cW, counterH};
-  if (counterH <= 0.0) {
-    lay.pill.y = captionPillY(box.y, box.h, ph, st.cardGap, st.below, screenH,
-                              st.below ? marginBottom : marginTop);
-    return lay;
-  }
-  if (sameEdge) {
-    const CaptionPills pos =
-        captionPills(box.y, box.h, ph, counterH, st.cardGap, stackGap, st.below, screenH,
-                     st.below ? marginBottom : marginTop);
-    lay.pill.y = pos.titleY;
-    lay.counter.y = pos.counterY;
-  } else {
-    lay.pill.y = captionPillY(box.y, box.h, ph, st.cardGap, st.below, screenH,
-                              st.below ? marginBottom : marginTop);
-    lay.counter.y = captionPillY(box.y, box.h, counterH, st.cardGap, st.counterBelow, screenH,
-                                 st.cMargin);
-  }
-  return lay;
-}
-
-// The escape push: out from under every cover, by the deepest overlap.
-[[nodiscard]] inline LVec2 pushOut(const LRect &r, const std::span<const LRect> &covers) {
-  double best = 0.0;
-  LVec2 dir{0.0, 0.0};
-  for (const auto &b : covers) {
-    const double ox = std::min(b.x + b.w, r.x + r.w) - std::max(b.x, r.x);
-    const double oy = std::min(b.y + b.h, r.y + r.h) - std::max(b.y, r.y);
-    if (ox <= 0.0 || oy <= 0.0)
-      continue;
-
-    // SWALLOWED: no cheaper axis to leave by -- eject toward the nearest edge instead.
-    LVec2 d{0.0, 0.0};
-    double depth = 0.0;
-    if (ox >= r.w && oy >= r.h) {
-      double near = r.x - b.x;
-      d = LVec2{-1.0, 0.0};
-      if (b.x + b.w - (r.x + r.w) < near) {
-        near = b.x + b.w - (r.x + r.w);
-        d = LVec2{1.0, 0.0};
-      }
-      if (r.y - b.y < near) {
-        near = r.y - b.y;
-        d = LVec2{0.0, -1.0};
-      }
-      if (b.y + b.h - (r.y + r.h) < near) {
-        near = b.y + b.h - (r.y + r.h);
-        d = LVec2{0.0, 1.0};
-      }
-      depth = near;
-    } else {
-      const Escape esc = escapeFrom(r, b, ox, oy);
-      depth = esc.depth;
-      d = LVec2{esc.dx, esc.dy};
-    }
-    if (depth > best) {
-      best = depth;
-      dir = d;
-    }
-  }
-  if (best <= 0.0)
-    return {};
-  return LVec2{dir.x * best, dir.y * best};
-}
 
 // The band's alpha has ONE source: the knob is the band, and the band's own clock scales it. The colour string's alpha is not a second source.
 [[nodiscard]] inline double stripBandAlpha(double opacityPct, double bandE) {
@@ -505,8 +304,7 @@ struct CoverUV {
 }
 
 // How a window's own surface maps into the tile it is drawn in: one scale, one
-// translation. Over-cover from the CENTER -- fitting exactly shows the backing as
-// seams -- unless the tile is settled or the content is contained.
+// translation. Over-cover from the CENTER -- fitting exactly shows the backing as seams.
 struct WindowFitInput {
   double destX = 0.0, destY = 0.0, destW = 0.0, destH = 0.0;
   double logicalX = 0.0, logicalY = 0.0, logicalW = 0.0, logicalH = 0.0;
@@ -678,8 +476,7 @@ inline constexpr int kSourceAnimatedStreak = 4;
 }
 
 // The ✕ glyph inside its button: it fills the button by `fill` of the tighter side,
-// and it is centred. ONE rule for every surface that draws it -- the strip used a
-// hardcoded fraction, so the knob meant nothing there.
+// and it is centred. ONE rule for every surface that draws it.
 [[nodiscard]] inline LRect glyphRect(const LRect &button, double glyphW, double glyphH,
                                      double fill) {
   const double scale =
