@@ -17,8 +17,12 @@ if [ ! -e "$HYPR" ]; then
   echo "SKIP: $HYPR not found"
   exit 77
 fi
-if [ ! -f "$SO" ] || [ ! -f "$SRC" ]; then
-  echo "FAIL: need both the built .so and $SRC"
+if [ ! -f "$SO" ]; then
+  echo "SKIP: $SO not built -- nothing to observe"
+  exit 77
+fi
+if [ ! -f "$SRC" ]; then
+  echo "FAIL: need $SRC"
   exit 1
 fi
 

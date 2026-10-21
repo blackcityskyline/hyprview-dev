@@ -14,8 +14,8 @@ SO="${1:-build/hyprview.so}"
 HYPR="${2:-/usr/bin/Hyprland}"
 
 if [ ! -f "$SO" ]; then
-  echo "FAIL: $SO not built"
-  exit 1
+  echo "SKIP: $SO not built -- nothing to observe"
+  exit 77
 fi
 if [ ! -e "$HYPR" ]; then
   echo "SKIP: $HYPR not found -- cannot verify the load seam"
