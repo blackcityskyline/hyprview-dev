@@ -196,11 +196,11 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   // The badge pops a fifth and shrinks away; the open plays the same schedule backwards, so the
   // icon arrives small, overshoots and settles instead of simply being there. Own window, not the
   // whole animation: a pop needs a fifth of a run to read, and any more is time the icon spends
-  // moving for no reason.
+  // moving for no reason. The icon arrives WITH the run: held back to the end of the open it was
+  // the card that was already in place before its own icon appeared.
   constexpr double kBadgeSpan = 0.28;
-  const double badgeK = opening()
-                            ? std::clamp((openT() - (1.0 - kBadgeSpan)) / kBadgeSpan, 0.0, 1.0)
-                            : std::clamp(1.0 - exitT() / kBadgeSpan, 0.0, 1.0);
+  const double badgeK = opening() ? std::clamp(openT() / kBadgeSpan, 0.0, 1.0)
+                                  : std::clamp(1.0 - exitT() / kBadgeSpan, 0.0, 1.0);
   const auto pose = render::badgePose(badgeK);
   const double iconPop = pose.pop;
   const double iconFade = pose.alpha;
