@@ -521,8 +521,7 @@ struct WindowBox {
   return base * std::pow(taper, static_cast<double>(depth - 1));
 }
 
-// The run paints far -> near by DEPTH, and the cards the run does not show paint
-// first, behind everything. The focused card and its ring end up on top.
+// The run paints far -> near by DEPTH, and the cards the run does not show paint first, behind everything. The focused card and its ring end up on top.
 struct CarouselCardRef {
   int tile = 0;
   int depth = 3;
