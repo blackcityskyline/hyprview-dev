@@ -152,6 +152,10 @@ struct look {
   Float shadow_radius;
   Float shadow_radius_lift;
   Float shadow_alpha;
+  // Shares of the badge's side, not px: the badge itself is 26..57px depending on the card.
+  Float icon_shadow_offset;
+  Float icon_shadow_blur;
+  Float icon_shadow_alpha;
   Float title_pad_x;
   Float title_pad_y;
   Int title_font_size;

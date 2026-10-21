@@ -211,14 +211,15 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
     const LRect badge = render::scaledAboutCentre(
         LRect{box.x + iconSide * 0.6, box.y + box.h - iconSide * 1.6, iconSide, iconSide},
         iconPop);
-    const render::ShadowSpec spec{.dy = badgeSide * 0.045, .blur = badgeSide * 0.10,
+    const render::ShadowSpec spec{.dy = badgeSide * cfg::look.icon_shadow_offset,
+                                  .blur = badgeSide * cfg::look.icon_shadow_blur,
                                   .spread = 0.0, .r = shadowCol.r, .g = shadowCol.g,
                                   .b = shadowCol.b};
     if (const auto sh = m_pixel.shadow(spec, badgeSide, badgeSide, badgeSide * 0.24, s); sh.tex)
       g_pHyprOpenGL->renderTexture(
           sh.tex, pxb(LRect{badge.x - sh.pad, badge.y - sh.pad, badge.w + 2 * sh.pad,
                             badge.h + 2 * sh.pad}, s),
-          {.a = static_cast<float>(0.55 * badgeA)});
+          {.a = static_cast<float>(cfg::look.icon_shadow_alpha * badgeA)});
     g_pHyprOpenGL->renderTexture(badgeIcon, pxb(badge, s), {.a = badgeA});
   }
 

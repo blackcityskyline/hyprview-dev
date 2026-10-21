@@ -284,6 +284,9 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `shadow_radius` | float | `6` | tile shadow blur at rest |
 | `shadow_radius_lift` | float | `14` | tile shadow blur while dragged |
 | `shadow_alpha` | float | `0.18` | tile shadow opacity multiplier |
+| `icon_shadow_offset` | float | `0.045` | card icon shadow drop, as a share of the icon's side (colour is `shadow_color`) |
+| `icon_shadow_blur` | float | `0.1` | card icon shadow falloff, as a share of the icon's side |
+| `icon_shadow_alpha` | float | `0.55` | card icon shadow opacity |
 | `title_pad_x` | float | `11` | horizontal padding inside the title pill |
 | `title_pad_y` | float | `5` | vertical padding inside the title pill |
 | `title_gap` | float | `10` | gap between a tile and its title pill |
