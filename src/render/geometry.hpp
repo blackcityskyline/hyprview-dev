@@ -374,8 +374,7 @@ struct CaptionLayout {
   return LVec2{dir.x * best, dir.y * best};
 }
 
-// The band's alpha has ONE source: the knob is the band, and the band's own clock
-// scales it. The colour string's alpha is not a second source.
+// The band's alpha has ONE source: the knob is the band, and the band's own clock scales it. The colour string's alpha is not a second source.
 [[nodiscard]] inline double stripBandAlpha(double opacityPct, double bandE) {
   return std::clamp(opacityPct / 100.0, 0.0, 1.0) * bandE;
 }
@@ -589,15 +588,13 @@ struct CoverFit {
   return f;
 }
 
-// The black check: a frame that is black everywhere is not a backdrop. The
-// threshold is low on purpose -- a dark frame of a video wallpaper IS the wallpaper.
+// The black check: a frame that is black everywhere is not a backdrop. The threshold is low on purpose -- a dark frame of a video wallpaper IS the wallpaper.
 [[nodiscard]] inline bool looksBlack(unsigned char r, unsigned char g, unsigned char b) {
   constexpr unsigned char kBlack = 8;
   return r < kBlack && g < kBlack && b < kBlack;
 }
 
-// A wallpaper that changes several times IN A ROW is animation; one re-creation of
-// a static wallpaper is not.
+// A wallpaper that changes several times IN A ROW is animation; one re-creation of a static wallpaper is not.
 inline constexpr int kSourceAnimatedStreak = 4;
 
 // The pulse ring: the tile's box, grown by the pulse. k is the pulse's own
@@ -688,8 +685,7 @@ struct FrostUV {
 // snapping cannot open a seam.
 inline constexpr float kSeamPadPx = 1.5F;
 
-// The radius a tile's CONTENT carries so its arc lands on the ring's outer edge; +1,
-// Hyprland subtracts one. The radius is the CONTENT's own: a radius past half the
+// The radius a tile's CONTENT carries so its arc lands on the ring's outer edge; +1, Hyprland subtracts one. The radius is the CONTENT's own: a radius past half the
 // content's side turns the shape inside out.
 [[nodiscard]] inline int contentRadiusPx(int round, int width, double scale,
                                          bool overCovers = true) {
@@ -719,8 +715,7 @@ enum class BackdropBase { Blur, OpaqueDim, Source };
   return fitInside(card, windowW / windowH);
 }
 
-// The kill zone sits at the screen edge OPPOSITE the strip: the edge the strip is
-// not on, so a dragged window never has to cross the strip to reach it.
+// The kill zone sits at the screen edge OPPOSITE the strip: the edge the strip is not on, so a dragged window never has to cross the strip to reach it.
 [[nodiscard]] inline LRect killZoneRect(Anchor strip, double screenW, double screenH,
                                         double thickness) {
   switch (strip) {
@@ -824,8 +819,7 @@ struct SwapFlightInput {
   return f;
 }
 
-// How far the strip assembly leaves the band's edge: the deepest card penetration,
-// along the anchor axis only. The caller applies it to band AND cards together.
+// How far the strip assembly leaves the band's edge: the deepest card penetration, along the anchor axis only. The caller applies it to band AND cards together.
 [[nodiscard]] inline LVec2 stripPush(const LRect &band, Anchor a,
                                      const std::span<const LRect> &covers) {
   double deepest = 0.0;

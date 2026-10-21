@@ -12,6 +12,8 @@
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
+struct _cairo_surface;
+
 namespace Render {
 class ITexture;
 class IFramebuffer;
@@ -26,6 +28,8 @@ enum Slot : int { All = -2, CarouselCount = -1 };
 // Hyprland recycles cannot hand one object's texture to another (AGENTS.md 2.9).
 class PixelCache {
   public:
+    ~PixelCache();
+
     struct LabelEntry {
       std::string text;
       int maxW = 0;
@@ -88,7 +92,12 @@ class PixelCache {
     std::unordered_map<model::SubjectRef, SP<Render::ITexture>> m_subjectIcon;
     std::unordered_map<model::SubjectRef, std::int64_t> m_iconStamp;
     // By window class, not by window: every browser window of one browser wears one icon.
+    // Path and working surface are cached per class: a lookup walks the applications directory
+    // (1.5-3ms) and a 1024px decode costs ~45ms, while the texture key's size moves every frame.
     std::unordered_map<std::string, SP<Render::ITexture>> m_appIcons;
+    std::unordered_map<std::string, std::string> m_appIconPath;
+    std::unordered_map<std::string, _cairo_surface *> m_appIconSrc; // owned
+    [[nodiscard]] _cairo_surface *appSurface(const std::string &windowClass);
 
     template <typename Map, typename T>
     SP<Render::ITexture> labelIn(Map &map, const CWeakPointer<T> &owner,

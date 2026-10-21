@@ -112,31 +112,24 @@ SP<Render::ITexture> PixelCache::putIcon(const model::SubjectRef &s, const std::
 
 namespace {
 
-// The icon is prepared at the size the badge is drawn at: drawn at another size, a light
-// one-pixel rim in the artwork lands between texels and comes out dashed.
-SP<Render::ITexture> loadPngAt(const std::string &path, int px) {
-  if (!g_pHyprRenderer)
-    return nullptr;
-  cairo_surface_t *src = readPngSurface(path);
-  if (!src)
-    return nullptr;
+// One working surface per icon: 256 keeps the glass rim of a 512px source, and GOOD is 0.7ms
+// where BEST is 48ms on that same ratio.
+constexpr int kAppIconWork = 256;
+constexpr cairo_filter_t kWorkFilter = CAIRO_FILTER_GOOD;
+
+cairo_surface_t *scaledCopy(cairo_surface_t *src, int px, cairo_filter_t filter) {
   const int w = cairo_image_surface_get_width(src);
   const int h = cairo_image_surface_get_height(src);
-  cairo_surface_t *dst = src;
-  if (std::max(w, h) > px && w > 0 && h > 0) {
-    dst = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, px, px);
-    cairo_t *cr = cairo_create(dst);
-    cairo_scale(cr, static_cast<double>(px) / w, static_cast<double>(px) / h);
-    cairo_set_source_surface(cr, src, 0, 0);
-    cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_BEST);
-    cairo_paint(cr);
-    cairo_destroy(cr);
-  }
-  auto tex = g_pHyprRenderer->createTexture(dst);
-  if (dst != src)
-    cairo_surface_destroy(dst);
-  cairo_surface_destroy(src);
-  return tex;
+  cairo_surface_t *dst = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, px, px);
+  if (w <= 0 || h <= 0)
+    return dst;
+  cairo_t *cr = cairo_create(dst);
+  cairo_scale(cr, static_cast<double>(px) / w, static_cast<double>(px) / h);
+  cairo_set_source_surface(cr, src, 0, 0);
+  cairo_pattern_set_filter(cairo_get_source(cr), filter);
+  cairo_paint(cr);
+  cairo_destroy(cr);
+  return dst;
 }
 
 SP<Render::ITexture> loadSvg(const std::string &path, int side) {
@@ -182,18 +175,50 @@ SP<Render::ITexture> loadSvg(const std::string &path, int side) {
 
 } // namespace
 
+PixelCache::~PixelCache() {
+  for (auto &[cls, surface] : m_appIconSrc)
+    if (surface)
+      cairo_surface_destroy(surface);
+}
+
+_cairo_surface *PixelCache::appSurface(const std::string &windowClass) {
+  const auto hit = m_appIconSrc.find(windowClass);
+  if (hit != m_appIconSrc.end())
+    return hit->second;
+  auto found = m_appIconPath.find(windowClass);
+  if (found == m_appIconPath.end())
+    found = m_appIconPath.emplace(windowClass, app_icon::appIconFile(windowClass)).first;
+  const std::string &path = found->second;
+  cairo_surface_t *surface = nullptr;
+  if (!path.empty() && !path.ends_with(".svg"))
+    if (auto *full = readPngSurface(path)) {
+      surface = scaledCopy(full, kAppIconWork, kWorkFilter);
+      cairo_surface_destroy(full);
+    }
+  m_appIconSrc[windowClass] = surface; // a miss is cached too
+  return surface;
+}
+
 SP<Render::ITexture> PixelCache::appIcon(const std::string &windowClass, int px) {
-  if (windowClass.empty() || px <= 0)
+  if (windowClass.empty() || px <= 0 || !g_pHyprRenderer)
     return nullptr;
   const std::string key = windowClass + "/" + std::to_string(px);
   const auto hit = m_appIcons.find(key);
   if (hit != m_appIcons.end())
     return hit->second;
-  const auto path = app_icon::appIconFile(windowClass);
-  auto tex = path.empty()             ? SP<Render::ITexture>{}
-             : path.ends_with(".svg") ? loadSvg(path, px)
-                                      : loadPngAt(path, px);
-  m_appIcons[key] = tex; // a miss is cached too: one lookup per class and size, not per frame
+  SP<Render::ITexture> tex;
+  if (auto *src = appSurface(windowClass)) {
+    const bool exact = cairo_image_surface_get_width(src) == px;
+    auto *scaled = exact ? cairo_surface_reference(src)
+                         : scaledCopy(src, px, CAIRO_FILTER_GOOD);
+    tex = g_pHyprRenderer->createTexture(scaled);
+    cairo_surface_destroy(scaled);
+  } else {
+    const auto svg = m_appIconPath.find(windowClass);
+    if (svg != m_appIconPath.end() && svg->second.ends_with(".svg"))
+      tex = loadSvg(svg->second, px);
+  }
+  m_appIcons[key] = tex; // a miss is cached too: one texture per class and size
   return tex;
 }
 

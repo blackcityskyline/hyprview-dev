@@ -189,7 +189,9 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   }
   // The card's own icon in the corner the caption does not reach: the browser for a tab, the app for a window.
   const double iconSide = std::clamp(box.h * 0.12825, 25.65, 57.0);
-  const int badgePx = std::max(1, static_cast<int>(std::lround(iconSide * s)));
+  // Steps of eight: the card's box moves every frame of a carousel glide, and an exact size per
+  // frame meant a new decode of the source file per frame.
+  const int badgePx = std::max(16, (static_cast<int>(std::lround(iconSide * s)) + 7) / 8 * 8);
   const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
   // The badge pops out before the card: 75ms of the exit, in whatever progress the exit runs at.
   const double iconFade =
