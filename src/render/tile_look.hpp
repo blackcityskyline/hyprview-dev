@@ -56,4 +56,4 @@ struct TileLook {
   return l;
 }
 
-} // namespace hyprview
+}

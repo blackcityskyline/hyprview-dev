@@ -39,7 +39,7 @@ uint32_t modBitForKeycode(int kc) {
     return 0;
   }
 }
-} // namespace
+}
 
 uint32_t Overview::altTabModBit() const {
   const std::string modName = cfg::keys.alt_tab_modifier.get();
@@ -300,4 +300,4 @@ void Overview::pinRunEdges(const std::vector<char> &wasOnRun) {
 void Overview::activateSelection() { activateTile(m_scene.focused(), Desktop::FOCUS_REASON_KEYBIND); }
 
 
-} // namespace hyprview
+}

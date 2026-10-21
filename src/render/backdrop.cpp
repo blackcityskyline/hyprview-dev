@@ -319,7 +319,7 @@ void Backdrop::render(const BackdropFrame &f) const {
 
 
 }
-} // namespace render
+}
 
 // The owner reads the config here, every frame, and hands the backdrop a plain recipe: nothing below reaches back out for it (AGENTS.md 2.15, 2.16).
 render::BackdropFrame Overview::backdropFrame() const {
@@ -381,4 +381,4 @@ void Overview::primeBackdrop() {
   promote();
   damage();
 }
-} // namespace hyprview
+}

@@ -53,7 +53,7 @@ CHyprColor parseColor(std::string s, const char *fallback) {
 std::unordered_map<const Color *, std::pair<std::string, CHyprColor>>
     g_colorCache;
 
-} // namespace
+}
 
 CHyprColor Color::get(float alphaMul) const {
   // The override is resolved BEFORE the cache lookup: the cache is keyed on the parsed string.
@@ -246,7 +246,7 @@ constexpr ColorSpec kColors[] = {
     {&colors.counter_pill, "plugin:hyprview:counter_pill_color", "0xcc11151c"},
 };
 
-} // namespace
+}
 
 void registerAll(HANDLE handle) {
   // Every handle learns its own key here: the spec tables carry it, the value objects do not.
@@ -282,4 +282,4 @@ void registerAll(HANDLE handle) {
   anim::registerAll(handle);
 }
 
-} // namespace hyprview
+}

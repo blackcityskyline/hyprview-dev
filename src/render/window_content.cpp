@@ -63,7 +63,7 @@ float windowRealAlpha(const PHLWINDOW &w, const PHLMONITOR &mon) {
   return std::clamp(active * fade, 0.0F, 1.0F);
 }
 
-} // namespace
+}
 
 // roundPx is the CONTENT radius in monitor px; destPx must carry the window's own aspect.
 void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
@@ -145,4 +145,4 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
       nullptr);
 }
 
-} // namespace hyprview
+}

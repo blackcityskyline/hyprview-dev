@@ -239,7 +239,7 @@ const auto dblclickWindow = [] {
   return std::chrono::milliseconds(
       std::max(1, cfg::behavior.click_window_ms.get()));
 };
-} // namespace
+}
 
 bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
   if (!active())
@@ -675,4 +675,4 @@ void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
 
 void Overview::cancelPendingClick() { m_click.cancel(); }
 
-} // namespace hyprview
+}

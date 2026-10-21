@@ -16,7 +16,7 @@ std::string classBase(const std::string &cls) {
 }
 
 
-} // namespace
+}
 
 PHLWINDOW WindowsContentSource::windowOf(SubjectRef s) const {
     // Epoch must be 0: a non-zero epoch means the browser issued this id, and treating it as an address would read whatever the number happens to point at.

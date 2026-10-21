@@ -37,7 +37,7 @@ inline std::unordered_map<std::string, char> known;
 inline bool isConfigKey(const char *key) {
   return key && known.find(key) != known.end();
 }
-} // namespace override
+}
 
 class Int {
 public:

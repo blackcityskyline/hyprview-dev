@@ -159,7 +159,7 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
     return out;
 }
 
-} // namespace
+}
 
 std::vector<LRect> computeLayout(const std::vector<LRect>& naturals, const LRect& area, const LayoutCfg& cfg) {
     const LRect a = inset(area, cfg);
@@ -270,4 +270,4 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     return L;
 }
 
-} // namespace hyprview
+}

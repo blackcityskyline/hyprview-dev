@@ -9,7 +9,7 @@ namespace hyprview::render {
 namespace {
 // tick BETWEEN frames, not during a commit
 constexpr auto kPumpInterval = std::chrono::milliseconds(8);
-} // namespace
+}
 
 FramePump::~FramePump() { stop(); }
 

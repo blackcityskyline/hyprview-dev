@@ -25,7 +25,7 @@ double nearTone()   { return cfg::carousel.tone_near; }
 double farTone()    { return cfg::carousel.tone_far; }
 double depthTaper() { return cfg::carousel.depth_taper; }
 
-} // namespace
+}
 
 void Overview::relayoutCarousel() {
   if (!carouselMode() || m_scene.tiles().empty())
@@ -105,4 +105,4 @@ void Overview::renderCarousel() const {
     drawTile(static_cast<size_t>(i), look, /*withCaption=*/false);
 }
 
-} // namespace hyprview
+}

@@ -13,7 +13,7 @@
 namespace Render {
 // Declared here, not borrowed: a header complete by include order alone breaks when it changes.
 class ITexture;
-} // namespace Render
+}
 #include "../layout.hpp"
 #include "drag.hpp"
 #include "lifecycle.hpp"

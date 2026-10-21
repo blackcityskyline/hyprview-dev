@@ -89,7 +89,7 @@ std::string tok(const char *s) {
 
 int g_seq = 0;
 
-} // namespace
+}
 
 bool enabled() { return cfg::debug.logs != 0; }
 
@@ -134,7 +134,7 @@ int famBit(const char *tag) {
   if (std::strcmp(tag, "SWAP") == 0) return fam::kSwap;
   return fam::kAll; // an unrecognised tag is never suppressed: it may be the one worth seeing
 }
-} // namespace
+}
 
 int nextSeq() { return enabled() ? ++g_seq : 0; }
 
@@ -214,6 +214,6 @@ void scroll(const char *event, const std::string &state) {
   record("SCROLL", event, state);
 }
 
-} // namespace trace
+}
 
 } // namespace hyprview::debug

@@ -17,7 +17,7 @@ double staggered(double base, int i, int n) {
                                 anim::param(anim::Param::StaggerPerTile) * n));
 }
 
-} // namespace
+}
 
 anim::Id Placement::entryLeaf(const view::State &view) const {
   if (view.expoFlip() != 0)

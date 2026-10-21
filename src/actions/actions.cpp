@@ -880,4 +880,4 @@ void Overview::closeWorkspaceWindows(const model::StripItem &it) {
   debug::dbg("middle-click workspace: closed " + std::to_string(n) + " window(s)");
 }
 
-} // namespace hyprview
+}

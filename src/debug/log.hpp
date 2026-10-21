@@ -71,6 +71,6 @@ void dragBranch(const char *name, const std::string &extra = {});
 // Per EVENT, not per frame: advance() runs every tick while a glide is in flight.
 void scroll(const char *event, const std::string &state);
 
-} // namespace trace
+}
 
 } // namespace hyprview::debug
