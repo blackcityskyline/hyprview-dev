@@ -23,10 +23,10 @@ class ITexture;
 namespace hyprview::model {
 
 struct Tile {
-  // A subject, not a window handle -- a tab has none. The identity carries no refcount:
-  // resolution goes through the source that owns it, never through a cast.
+  // A subject, not a window handle -- a tab has none. The identity carries no refcount.
   SubjectRef subj;
   LRect natural;
+  LRect home;
   LRect target;
   bool parked = false;
   std::string labelText;

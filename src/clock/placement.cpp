@@ -85,14 +85,15 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   const std::string &curve =
       clocks.tileCurve.empty() ? recipes.glide.curve : clocks.tileCurve;
   const double e = curves::eval(curve, tileProgress(i, f.view, f.opening, f.scene));
-  const auto &a = t.natural;
+  // The closed end of the flight: where the card belongs.
+  const auto &a = f.opening ? t.natural : t.home;
   const auto &b = t.target;
   LRect r{lerp(a.x, b.x, e), lerp(a.y, b.y, e), lerp(a.w, b.w, e),
           lerp(a.h, b.h, e)};
   // A card off the carousel run has a zeroed target: nothing paints it, hold the last box.
   if (f.view.run() && b.w < 1.0 && a.w >= 1.0)
     r = a;
-  // An empty natural (a tab, a slot inside a window) grows out of the corner if interpolated.
+  // An empty natural grows out of the corner if interpolated.
   if (a.w < 1.0 && b.w >= 1.0)
     r = b;
   // The deck's hide motion, in the grid as well as the run: close() pins a card that cannot land.

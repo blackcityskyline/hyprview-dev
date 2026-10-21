@@ -322,6 +322,12 @@ add_test(NAME scan_card_kind
 add_test(NAME mediator
          COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/mediator_check.py)
 
+# A card returns to the place it belongs to: the home the build records, not the slot a step
+# overwrote the natural with.
+add_test(NAME scan_card_home
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/card_home_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/card_home_check && ${CMAKE_CURRENT_BINARY_DIR}/card_home_check ${CMAKE_SOURCE_DIR}")
+
 # The card's hide motion: written once, in the placement. The run used to carry its own copy.
 add_test(NAME scan_hide_motion
          COMMAND ${CMAKE_COMMAND} -E env sh -c

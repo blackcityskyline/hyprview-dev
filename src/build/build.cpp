@@ -124,6 +124,7 @@ void Overview::buildTiles() {
                                                    m_tabs.generation()};
       // A tab's natural is its host's box: the layout needs an aspect, and its preview is of that window.
       t.natural = box;
+      t.home = box;
       if (const auto it = priorTargets.find(t.subj); it != priorTargets.end()) {
         t.target = it->second.first;
         t.parked = true;
