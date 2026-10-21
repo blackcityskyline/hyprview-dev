@@ -7,8 +7,7 @@
 
 namespace hyprview::model {
 
-// Where a card ends up: a picked TAB by its group (its browser window), a picked window by
-// its workspace. A tab's group is never the workspace.
+// Where a card ends up: a picked TAB by its group (its browser window), a window by its workspace.
 [[nodiscard]] inline bool goesHome(GroupRef group, GroupRef landing, GroupRef landingGroup) {
   if (landing == GroupRef{})
     return true;

@@ -154,9 +154,13 @@ inline void dropShadow(const LRect &lb, double s, const CHyprColor &col,
                        float roundPow) {
   if (!drawable(lb, s))
     return;
+  // Hyprland's shadow divides by its own size: a zero range kills the compositor.
+  const int rangePx = static_cast<int>(range * s);
+  if (rangePx <= 0)
+    return;
   Render::GL::g_pHyprOpenGL->renderRoundedShadow(
       pxb(LRect{lb.x, lb.y + dy, lb.w, lb.h}, s), pxr(round, s), roundPow,
-      static_cast<int>(range * s), Config::CGradientValueData(col), alpha);
+      rangePx, Config::CGradientValueData(col), alpha);
 }
 
 }
