@@ -1,9 +1,9 @@
 #pragma once
 
 // Cached pictures of a subject, keyed by SubjectRef{id, epoch}: the epoch is the connection
-// that issued the id, standing in for the owner a window keeps beside its address
-// (AGENTS.md 2.9, 2.22). Templated on the stored type so a check can build it without an
-// hyprland/ include (AGENTS.md 2.8). find() returns a pointer, so "absent" is representable.
+// that issued the id, standing in for the owner a window keeps beside its address (AGENTS.md
+// 2.9, 2.22). Templated on the stored type so a check can build it without a hyprland/
+// include (AGENTS.md 2.8). find() returns a pointer, so "absent" is representable.
 
 #include <cstdint>
 #include <unordered_map>

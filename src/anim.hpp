@@ -11,13 +11,11 @@
 #include "anim_types.hpp"
 
 // THE animation registry. Every animation is declared EXACTLY ONCE, as one row of kRows in
-// anim.cpp carrying its enum id, config keys and defaults, so they cannot drift apart. The
-// previous design kept them in three places and drifted for real: leaf("new_card") named an
-// unregistered animation and silently answered 250ms/easeout.
+// anim.cpp carrying its enum id, config keys and defaults, so they cannot drift apart.
 //
 // Nothing substitutes a default for an animation that is not there: an unknown or unbound id
-// resolves to Cfg{on=false}, so the motion does not happen rather than happening at some
-// duration nobody asked for.
+// resolves to Cfg{on=false}, so the motion does not happen rather than happening at a duration
+// nobody asked for.
 namespace hyprview::anim {
 
 enum class Id : std::uint8_t {

@@ -1,8 +1,7 @@
 #pragma once
 
 // Where a card starts when the layout moves it: a card that WAS somewhere starts there, off
-// the run nothing flies, a revealed card glides in from its own place, a joining card starts
-// at its slot, anything else at its target. Pure arithmetic over boxes, so ctest reaches it.
+// the run nothing flies, a joining card starts at its slot, anything else at its target.
 
 #include "../layout.hpp"
 #include "subject.hpp"

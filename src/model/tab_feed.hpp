@@ -42,8 +42,7 @@ struct TabSnapshot {
 };
 
 // Both parsers refuse rather than guess: no file, an empty file, a bad header and trailing
-// garbage all mean "nothing has been reported", and a half-read snapshot looks like a browser
-// with fewer tabs. One bare non-negative decimal integer at `pos`; anything else is false.
+// garbage all mean "nothing has been reported". One bare non-negative decimal integer at `pos`.
 [[nodiscard]] inline bool number(std::string_view line, std::size_t &pos,
                                  std::uint64_t &out) {
     while (pos < line.size() && line[pos] == ' ')

@@ -2,8 +2,7 @@
 
 // Which Hyprland window is which browser window: the two sides cannot name each other, so the
 // match runs on the OS process a browser window belongs to (TabSnapshot::pids). ONE-TO-ONE --
-// two candidates is not a match but a conflict, and a guess is the one failure a user cannot
-// detect by looking. Unmatched is supported: that window then contributes nothing (AGENTS.md 2.19).
+// two candidates is not a match but a conflict. Unmatched is supported (AGENTS.md 2.19).
 
 #include "tab_feed.hpp"
 

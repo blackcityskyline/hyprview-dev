@@ -1,8 +1,8 @@
 #pragma once
 
 // Invariant: the ENDPOINTS live in [0, max] and setMax() re-clamps all of them. current is NOT
-// clamped during a glide, on purpose: a bezier control point outside eases past 1, and that
-// overshoot is reachable -- clamping it here would remove an effect a config can ask for.
+// clamped during a glide: a bezier control point outside eases past 1, and that overshoot is
+// reachable -- clamping it here would remove an effect a config can ask for.
 
 #include <algorithm>
 #include <string>

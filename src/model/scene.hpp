@@ -9,7 +9,7 @@ namespace hyprview::model {
 
 // The cards in the main area, which one is focused, what the cursor is over. Writes go
 // through named intents plus tileAt(); there is no vector-issuing accessor, because recency
-// ordering once went wrong by sorting this array inside a layout pass.
+// ordering went wrong once by sorting this array inside a layout pass.
 class Scene {
   public:
     [[nodiscard]] const std::vector<Tile> &tiles() const { return m_tiles; }
@@ -37,8 +37,7 @@ class Scene {
       m_tiles[i].parked = true;
     }
     // Hyprland cannot express this swap, and the overlay lays cards out by INDEX: trading the
-    // two TARGETS is what makes the exchange visible -- each window keeps its own natural and
-    // is handed the other's card slot.
+    // two TARGETS makes the exchange visible -- each keeps its natural, takes the other's slot.
 void swapTiles(size_t a, size_t b) {
   if (a >= m_tiles.size() || b >= m_tiles.size() || a == b)
     return;
@@ -86,7 +85,7 @@ void swapTiles(size_t a, size_t b) {
     void select(int i) { m_selected = i; }
 
     // The one answer to "which tile is focused", or null. Not selected(): the deck can hold
-    // tiles while nothing is selected -- then the raw index was -1 and Enter activated nothing.
+    // tiles while nothing is selected -- then the raw index is -1 and Enter activates nothing.
     [[nodiscard]] SubjectRef focusedSubject() const {
       const int f = focused();
       return f >= 0 ? m_tiles[static_cast<std::size_t>(f)].subj : SubjectRef{};

@@ -110,8 +110,8 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   data.rounding       = roundPx;
   data.roundingPower  = roundingPower;
   data.blur           = false;
-  // No pWindow: calculateUVForSurface crops to RATIO = box / reported size (
-  // ElementRenderer.cpp:98) instead of stretching -- the preview became a band.
+  // No pWindow: calculateUVForSurface crops to RATIO = box / reported size
+  // (ElementRenderer.cpp:98) instead of stretching.
   data.pWindow        = nullptr;
   data.clipBox        = clipPx;
   data.squishOversized = true;

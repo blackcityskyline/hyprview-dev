@@ -9,8 +9,7 @@
 namespace hyprview::model {
 
 // The workspace strip: one card per workspace, plus the optional leading "All" card. Rebuilt
-// from scratch by buildStrip() and read as a snapshot by the painters, so construction is not
-// open on purpose -- "append to whatever is there" is never the right move.
+// from scratch by buildStrip() and read as a snapshot, so construction is not open on purpose.
 class Strip {
   public:
     [[nodiscard]] const std::vector<StripItem> &items() const { return m_items; }

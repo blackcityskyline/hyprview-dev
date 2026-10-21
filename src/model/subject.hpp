@@ -7,10 +7,9 @@
 
 namespace hyprview::model {
 
-// An id is only meaningful with the epoch it was issued under: a bare integer is reused (close
-// tab 41 and tab 41 exists again), and a window is identified by its address, never by a raw
-// pointer (AGENTS.md 2.9). A SubjectRef with an older epoch fails equality instead of matching
-// whoever took the number.
+// An id is only meaningful with the epoch it was issued under: a bare integer is reused, and a
+// window is identified by its address, never by a raw pointer (AGENTS.md 2.9). A SubjectRef with
+// an older epoch fails equality instead of matching whoever took the number.
 struct SubjectRef {
     std::uint64_t id     = 0;
     std::uint32_t epoch = 0;
