@@ -234,6 +234,35 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  // (4) A documented key that does not exist. The table above is the list the user reads
+  // to set a key; a row for a key the plugin does not have is a promise the plugin cannot
+  // keep, and `set` on it answers as if it worked.
+  {
+    const auto table = section(readme, "## Config", "###");
+    int gone = 0;
+    std::istringstream rows(table);
+    std::string row;
+    while (std::getline(rows, row)) {
+      if (row.rfind("| `", 0) != 0)
+        continue;
+      const auto open = row.find('`');
+      const auto close = row.find('`', open + 1);
+      if (open == std::string::npos || close == std::string::npos)
+        continue;
+      const auto key = row.substr(open + 1, close - open - 1);
+      if (!isIdent(key))
+        continue;
+      if (!reg.count(key)) {
+        std::printf("GONE: `%s` is documented but no such key is registered\n", key.c_str());
+        ++gone;
+      }
+    }
+    if (gone) {
+      std::puts("FAIL: the README documents keys the plugin does not have");
+      return 1;
+    }
+  }
+
   // --- every value wrapper honours cfg::override ------------------------------------
   // `hyprview.cmd set <key> <value>` reaches cfg::override, and the four Int/Float/Str/
   // Color wrappers are where a key actually gets READ. A wrapper whose get() forgets
