@@ -38,20 +38,28 @@ class Placement {
     struct Frame {
       const view::State &view;
       const model::Scene &scene;
-      // Where the run returns to: that tile flies home, any other fades; asked through the contract.
+      // Where the run returns to: that tile flies home, any other fades.
       const model::IContentSource &src;
-      model::GroupRef landing;
+      const model::IContentSource &tabSrc;
+      model::GroupRef landing;      // the workspace the run returns to
+      model::GroupRef landingGroup; // the group of the card that was picked
       bool opening;
       double monW, monH;
 
       Frame(const view::State &v, const model::Scene &sc,
-            const model::IContentSource &source, model::GroupRef land, bool open,
-            double w, double h)
-          : view(v), scene(sc), src(source), landing(land), opening(open), monW(w),
-            monH(h) {}
+            const model::IContentSource &source, const model::IContentSource &tabs,
+            model::GroupRef land, bool open, double w, double h,
+            model::GroupRef group = model::GroupRef{})
+          : view(v), scene(sc), src(source), tabSrc(tabs), landing(land),
+            landingGroup(group), opening(open), monW(w), monH(h) {}
+
+      // The group a card lives in: a tab in its browser window, a window in its workspace.
+      [[nodiscard]] model::GroupRef groupOf(const model::Tile &t) const {
+        return tabSrc.isTab(t.subj) ? tabSrc.groupOf(t.subj) : src.groupOf(t.subj);
+      }
 
       [[nodiscard]] bool goesHome(const model::Tile &t) const {
-        return landing == model::GroupRef{} || src.groupOf(t.subj) == landing;
+        return model::goesHome(groupOf(t), landing, landingGroup);
       }
     };
 
@@ -69,8 +77,7 @@ class Placement {
 
     void resolve(const view::State &view, bool opening, bool carousel);
 
-  // Public by value: they are the three things a position is made of. A getter would say
-  // "this class has no state" while it plainly does.
+  // Public by value: they are the three things a position is made of.
   double m_eased = 0.0;
   double m_masterMs = 0.0;
   Clocks clocks;

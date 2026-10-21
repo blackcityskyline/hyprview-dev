@@ -19,8 +19,7 @@ class Scene {
     void clear() { m_tiles.clear(); }
     void add(Tile &&t) { m_tiles.push_back(std::move(t)); }
 
-    // landed: 0 arms the scale-in, 1 means already on screen. Both ends are named, so no
-    // caller sets 0.5 by accident.
+    // landed: 0 arms the scale-in, 1 means already on screen.
     void armEntry() {
       for (auto &t : m_tiles)
         t.landed = 0.0;
@@ -36,8 +35,7 @@ class Scene {
       m_tiles[i].natural = at;
       m_tiles[i].parked = true;
     }
-    // Hyprland cannot express this swap, and the overlay lays cards out by INDEX: trading the
-    // two TARGETS makes the exchange visible -- each keeps its natural, takes the other's slot.
+    // Hyprland cannot express this swap; the overlay lays cards out by INDEX.
 void swapTiles(size_t a, size_t b) {
   if (a >= m_tiles.size() || b >= m_tiles.size() || a == b)
     return;

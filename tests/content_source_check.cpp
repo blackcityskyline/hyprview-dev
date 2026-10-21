@@ -180,9 +180,32 @@ void drive(IContentSource &src, std::uint64_t expect_id, bool expect_is_tab) {
     want(src.activate(first), false, "activate on a closed subject reports it did nothing");
 }
 
+// Where a card ends up. A picked TAB lands by its group (its browser window); a picked
+// window lands by its workspace. A tab's group is never the workspace, and asking it as if
+// it were took every tab card of every run away.
+static void theLandingKnowsATabFromAWindow() {
+    const GroupRef ws{1, 0};      // the workspace the run returns to
+    const GroupRef browser{100, 1}; // the browser window a tab lives in
+
+    // Nothing picked: every card stays.
+    want(goesHome(ws, GroupRef{}, GroupRef{}), true, "no landing, no card is taken");
+    want(goesHome(browser, GroupRef{}, GroupRef{}), true, "and a tab is not either");
+
+    // A picked window: its group is the workspace.
+    want(goesHome(ws, ws, GroupRef{}), true, "a window of the landing workspace stays");
+    want(goesHome(GroupRef{2, 0}, ws, GroupRef{}), false, "a window of another workspace goes");
+
+    // A picked tab: its group is the browser window, never the workspace.
+    want(goesHome(browser, ws, browser), true, "the picked tab's card stays");
+    want(goesHome(ws, ws, browser), false, "a window card is not the picked tab");
+    want(goesHome(GroupRef{100, 2}, ws, browser), false, "a tab of another browser goes");
+    std::puts("the landing: a picked tab by its group, a picked window by its workspace");
+}
+
 } // namespace
 
 int main() {
+    theLandingKnowsATabFromAWindow();
     FakeWindows w;
     w.m_order = {SubjectRef{10, 0}, SubjectRef{20, 0}};
     w.m_alive = {10, 20};

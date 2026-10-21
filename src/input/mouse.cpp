@@ -659,12 +659,18 @@ void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
       m_view.setAllOverride( 0);
       m_workspace = ws;
       m_scene.clearHover();
-      m_scene.select(-1);
-      for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-        if (tileWindow(m_scene.tiles()[i]) == w) {
-          m_scene.select(static_cast<int>(i));
-          break;
-        }
+      // The card that OWNS this window keeps the selection: a tab card's window is its browser.
+      const int focused = m_scene.focused();
+      const bool owned = focused >= 0 &&
+                         ownerWindow(m_scene.tiles()[static_cast<std::size_t>(focused)]) == w;
+      if (!owned) {
+        m_scene.select(-1);
+        for (size_t i = 0; i < m_scene.tiles().size(); ++i)
+          if (ownerWindow(m_scene.tiles()[i]) == w) {
+            m_scene.select(static_cast<int>(i));
+            break;
+          }
+      }
     }
   }
   m_pendingFocus = w;

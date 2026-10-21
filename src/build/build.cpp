@@ -684,6 +684,7 @@ void Overview::requestTabShots() {
 
 void Overview::activateTab(model::SubjectRef s, Desktop::eFocusReason reason) {
   const auto group = m_tabs.groupOf(s);
+  m_landingGroup = group;
   const bool sent = group.id != 0 && writeTabRequest(group.id, static_cast<std::int64_t>(s.id));
   const auto hostId = group.id ? m_links.hostOf(group.id) : 0;
   const auto host = hostId ? m_windows.windowOf(model::SubjectRef{hostId, 0}) : PHLWINDOW{};
@@ -708,6 +709,7 @@ void Overview::activateTile(int idx, Desktop::eFocusReason reason) {
     activateTab(t.subj, reason);
     return;
   }
+  m_landingGroup = m_windows.groupOf(t.subj);
   focusAndClose(tileWindow(t), reason);
 }
 

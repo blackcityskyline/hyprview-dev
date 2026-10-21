@@ -73,10 +73,10 @@ double Overview::entryNow(const model::Tile &t, int i) const {
 clock::Placement::Frame Overview::frame() const {
   const auto m = m_monitor.lock();
   const PHLWORKSPACE land = m_workspace.lock();
-  return {m_view, m_scene, m_windows,
+  return {m_view, m_scene, m_windows, m_tabs,
           land ? model::GroupRef{reinterpret_cast<std::uintptr_t>(land.get()), 0}
                : model::GroupRef{},
-          opening(), m ? m->m_size.x : 0.0, m ? m->m_size.y : 0.0};
+          opening(), m ? m->m_size.x : 0.0, m ? m->m_size.y : 0.0, m_landingGroup};
 }
 
 LRect Overview::currentBox(const model::Tile &t, int i) const {
@@ -180,8 +180,7 @@ void Overview::updateAnimation() {
     m_newCardAnim = false;
     m_newCardId = 0;
   }
-    // NEVER zero progress.raw(): a transparent frame before deactivate() flashes. Clamp as soon
-    // as the flight ends, NOT together with the deactivate -- the exit ramp outlives the close.
+    // NEVER zero progress.raw(): a transparent frame before deactivate() flashes.
   if (!opening() && t >= 1.0 && m_place.progress.raw() <= 0.0)
     m_place.progress.firstFrame();
   if (!opening() && t >= 1.0 && m_place.clocks.tiles.done(dur) && backdropSettled()) {
@@ -212,8 +211,7 @@ void Overview::animateStripTo(double from, double to) {
     return;
   }
   debug::trace::scroll("glide", m_scroll.describe());
-    // A glide in flight retargets from where the group actually is: the caller's `from` is
-    // the previous TARGET on the rebuild path and the old position on the wheel path.
+    // A glide in flight retargets from where the group actually is.
   if (!m_place.clocks.strip.done(st.ms))
     m_scroll.beginGlide(m_scroll.current(), m_scroll.target());
   m_place.clocks.strip.begin();

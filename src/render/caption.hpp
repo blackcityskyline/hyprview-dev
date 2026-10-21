@@ -1,7 +1,7 @@
 #pragma once
 
-// THE CAPTION. One module, one rule (AGENTS.md 2.35): a card that has the caption outright
-// takes it away, a card that only grazes it lets it run under, whole.
+// THE CAPTION. One module, one rule (AGENTS.md 2.35): a card that HAS the caption takes it
+// away; a card that grazes it only lets it run under, whole.
 
 #include "../layout.hpp"
 

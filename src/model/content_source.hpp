@@ -7,8 +7,17 @@
 
 namespace hyprview::model {
 
-// Every consumer asks THIS and never reaches for a window handle; the compositor is reached
-// only inside an implementation. No Hyprland and no GL, so ctest can build the seam.
+// Where a card ends up: a picked TAB by its group (its browser window), a picked window by
+// its workspace. A tab's group is never the workspace.
+[[nodiscard]] inline bool goesHome(GroupRef group, GroupRef landing, GroupRef landingGroup) {
+  if (landing == GroupRef{})
+    return true;
+  if (landingGroup != GroupRef{})
+    return group == landingGroup;
+  return group == landing;
+}
+
+// Every consumer asks THIS and never reaches for a window handle. No Hyprland, no GL.
 class IContentSource {
   public:
     virtual ~IContentSource() = default;

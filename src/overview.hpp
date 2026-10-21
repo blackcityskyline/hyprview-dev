@@ -233,6 +233,8 @@ private:
   bool backdropSettled() const;
   // Re-read on every open and close: the landing workspace can change while the overview is up.
   mutable bool m_landingEmpty = true;
+  // The group of the picked card: a tab's group is its browser window.
+  mutable model::GroupRef m_landingGroup;
   double entryProgress(int i) const;
   double entryNow(const model::Tile &t, int i) const;
   anim::Id entryLeaf() const;
@@ -263,6 +265,15 @@ private:
   [[nodiscard]] bool swapfxActive(const PHLWINDOW &w, bool strip) const;
   [[nodiscard]] bool swapfxActiveSubject(model::SubjectRef s, bool strip) const {
     return m_fx.swapActive(s, strip);
+  }
+
+  // The window a card belongs to: the window itself, or the browser window a tab lives in.
+  PHLWINDOW ownerWindow(const model::Tile &t) const {
+    if (const auto w = tileWindow(t))
+      return w;
+    const auto group = m_tabs.groupOf(t.subj);
+    const auto hostId = group.id ? m_links.hostOf(group.id) : 0;
+    return hostId ? m_windows.windowOf(model::SubjectRef{hostId, 0}) : PHLWINDOW{};
   }
 
   // A tab's art is the page as it was last seen, else its icon, else its caption.
