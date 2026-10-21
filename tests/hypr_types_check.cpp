@@ -27,7 +27,9 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <regex>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -56,6 +58,18 @@ std::vector<fs::path> sources(const fs::path &src) {
   return out;
 }
 
+// The first hyprland/ INCLUDE in the text, and only that: a comment that says "no hyprland/
+// include" is not an include.
+std::size_t hyprlandInclude(const std::string &text) {
+  const std::regex inc(R"(#\s*include\s*[\"<]([^\">]+)[\">])");
+  for (auto it = std::sregex_iterator(text.begin(), text.end(), inc);
+       it != std::sregex_iterator(); ++it) {
+    if ((*it)[1].str().find("hyprland/") != std::string::npos)
+      return static_cast<std::size_t>(it->position(1));
+  }
+  return std::string::npos;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -78,17 +92,50 @@ int main(int argc, char **argv) {
       {"model/effects.hpp", "effects"},
   };
 
+  // The closure of the project's own includes: a file is only as pure as what it pulls in.
+  // The old model/effects.hpp included model.hpp, which includes hyprland/ -- and the text
+  // of effects.hpp itself never said the word, so the direct check passed a file that could
+  // not be compiled without a compositor.
+  std::function<void(const fs::path &, std::set<std::string> &)> closure;
+  closure = [&](const fs::path &file, std::set<std::string> &seen) {
+    const auto rel = fs::relative(file, src).string();
+    if (!seen.insert(rel).second)
+      return;
+    const auto text = slurp(file);
+    std::smatch m;
+    const std::regex inc(R"(#\s*include\s*[\"<]([^\">]+)[\">])");
+    for (auto it = std::sregex_iterator(text.begin(), text.end(), inc); it != std::sregex_iterator();
+         ++it) {
+      const auto name = (*it)[1].str();
+      if (name.find("hyprland/") != std::string::npos)
+        continue; // the direct check below reports it
+      for (const auto &base : {file.parent_path(), src}) {
+        for (const auto &ext : {".hpp", ".h", ""}) {
+          const fs::path cand = base / (name + ext);
+          if (fs::exists(cand) && fs::is_regular_file(cand)) {
+            closure(cand, seen);
+            break;
+          }
+        }
+      }
+    }
+  };
+
   for (const auto &[rel, test] : pure) {
     const fs::path p = src / rel;
     assert(fs::exists(p) && (std::string("missing ") + rel).c_str());
-    const auto text = slurp(p);
-    const auto at   = text.find("hyprland/");
-    if (at != std::string::npos) {
-      const auto line = static_cast<size_t>(std::count(text.begin(), text.begin() + at, '\n')) + 1;
-      std::printf("FAIL %s pulls in hyprland/ at line %zu -- ctest '%s' cannot "
-                  "compile it\n",
-                  rel, line, test);
-      return 1;
+    std::set<std::string> seen;
+    closure(p, seen);
+    for (const auto &f : seen) {
+      const auto text = slurp(src / f);
+      const auto at   = hyprlandInclude(text);
+      if (at != std::string::npos) {
+        const auto line = static_cast<size_t>(std::count(text.begin(), text.begin() + at, '\n')) + 1;
+        std::printf("FAIL %s pulls in hyprland/ through %s at line %zu -- ctest '%s' cannot "
+                    "compile it\n",
+                    rel, f.c_str(), line, test);
+        return 1;
+      }
     }
   }
   std::printf("%zu pure source(s) still free of hyprland/\n", pure.size());
