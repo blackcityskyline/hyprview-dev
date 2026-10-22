@@ -770,7 +770,7 @@ void Overview::startFeedPoll() {
 }
 
 void Overview::syncTabs() {
-  if (!feedChanged())
+  if (m_drag.armed() || !feedChanged())
     return;
   std::vector<model::SubjectRef> before;
   for (const auto &t : m_scene.tiles())
@@ -785,6 +785,10 @@ void Overview::syncTabs() {
 
 void Overview::syncTiles() {
   if (!m_life.openingNow() || m_life.deactivating())
+    return;
+  // A held drag owns the scene: the rebuild would move the card under the cursor, and the
+  // drag's index is a position, not a handle. The rebuild waits for the gesture to end.
+  if (m_drag.armed())
     return;
   // A tabs deck is not a window count: comparing them rebuilds and restarts the entry every frame.
   if (m_view.domain() != model::Domain::Windows) {

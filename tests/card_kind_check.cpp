@@ -133,6 +133,8 @@ int main(int argc, char **argv) {
   // A card that leaves must leave the way every other card leaves: the ghost, the fading
   // copy the rebuild leaves behind. A tab has no window to draw, so the ghost must be able
   // to draw the card's picture -- otherwise the card blinks out of the layout.
+  want(buildSrc.find("m_drag.armed()") != std::string::npos,
+       "the scene is rebuilt under a held drag: the drag's index is a position, not a handle");
   want(buildSrc.find("syncTabs()") != std::string::npos &&
            buildSrc.find("m_tabs.snapshot().stamp") != std::string::npos,
        "the tabs deck never reads the feed again: a closed tab's card stays for ever");
