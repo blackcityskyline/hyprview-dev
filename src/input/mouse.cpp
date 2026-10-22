@@ -448,7 +448,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           m_scene.select(std::clamp(m_scene.selected(), 0,
                                    static_cast<int>(m_scene.tiles().size()) - 2));
         }
-        closeTileWindow(press);
+        killTile(press, lx, ly);
         return true;
       }
       // Nearest tile within gap/2, not containment: a natural drop lands in the gap.

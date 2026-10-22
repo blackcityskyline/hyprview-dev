@@ -290,6 +290,24 @@ static void theFlightHasFourKinds() {
     near(f.alpha, 1.0, "a slide does not fade");
   }
 
+  // The closing zone is a POINT: the card is sucked into it, so the box shrinks to nothing
+  // on the way -- a slide to a point is a shrink to a point.
+  {
+    SwapFlightInput in;
+    in.travel = Travel::Slide;
+    in.axis = Axis::Horizontal;
+    in.from = from;
+    in.to = LRect{300.0, 0.0, 0.0, 0.0};
+    in.p = 0.5;
+    const auto f = swapFlight(in);
+    near(f.box.x, 150.0, "halfway to the zone is halfway there");
+    near(f.box.w, 50.0, "the card is half its size on the way");
+    near(f.box.h, 50.0, "and half as tall");
+    in.p = 1.0;
+    const auto end = swapFlight(in);
+    near(end.box.w, 0.0, "at the zone there is nothing left of the card");
+  }
+
   // The vertical swap is an ARC, not a slide on Y: the card leaves upwards by its own
   // height plus the lift, and comes down on the other card.
   {

@@ -133,6 +133,16 @@ int main(int argc, char **argv) {
   // A card that leaves must leave the way every other card leaves: the ghost, the fading
   // copy the rebuild leaves behind. A tab has no window to draw, so the ghost must be able
   // to draw the card's picture -- otherwise the card blinks out of the layout.
+  // The closing zone is a flight, not a fade: the card is sucked into the edge, so the
+  // drop must name a destination and start a flight.
+  want(actions.find("killTile") != std::string::npos &&
+           actions.find("beginTabFX") != std::string::npos,
+       "the closing zone closes a card without a flight: it only fades");
+  want(mouse.find("killTile(") != std::string::npos,
+       "the closing zone does not use the kill: the card returns to its place");
+  const auto fx = codeOnly(slurp(root + "/src/render/fx.cpp"));
+  want(fx.find("fx.to.w") != std::string::npos,
+       "the flight ignores the destination it was given: the card cannot be sucked away");
   want(buildSrc.find("m_drag.armed()") != std::string::npos,
        "the scene is rebuilt under a held drag: the drag's index is a position, not a handle");
   want(buildSrc.find("syncTabs()") != std::string::npos &&

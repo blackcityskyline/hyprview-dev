@@ -2,6 +2,7 @@
 
 #include "model.hpp"
 
+#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -17,6 +18,10 @@ class Scene {
     [[nodiscard]] bool empty() const { return m_tiles.empty(); }
 
     void clear() { m_tiles.clear(); }
+    void remove(std::size_t i) {
+        if (i < m_tiles.size())
+            m_tiles.erase(m_tiles.begin() + static_cast<std::ptrdiff_t>(i));
+    }
     void add(Tile &&t) { m_tiles.push_back(std::move(t)); }
 
     // landed: 0 arms the scale-in, 1 means already on screen.

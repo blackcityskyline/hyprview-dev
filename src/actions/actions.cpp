@@ -534,9 +534,69 @@ void Overview::swapTiles(int a, int b, const LRect &fromA) {
     damage();
 }
 
+void Overview::beginTabFX(const model::SubjectRef &subj, const LRect &from,
+                          const LRect &to, anim::Move style, double ms,
+                          const std::string &curve) {
+  m_fx.dropSwap([&subj](const model::SwapFX &f) {
+    return f.subj == subj && !f.toStrip;
+  });
+  model::SwapFX fx;
+  fx.subj    = subj;
+  fx.from    = from;
+  fx.to      = to;
+  fx.toStrip = false;
+  fx.style   = style;
+  fx.ms      = ms;
+  fx.curve   = curve;
+  fx.clock.begin();
+  fx.traceSeq = debug::trace::nextSeq();
+  fx.traceStart = std::chrono::steady_clock::now();
+  if (fx.traceSeq)
+    debug::trace::animBegin(fx.traceSeq, "tab_swap", "tab", anim::moveName(style).c_str(),
+                            ms, curve.c_str(), "tab", "grid", from, to);
+  m_fx.addSwap(std::move(fx));
+  ensureAnimPump();
+  damage();
+}
+
+void Overview::killTile(int i, double lx, double ly) {
+  if (i < 0 || i >= static_cast<int>(m_scene.tiles().size()))
+    return;
+  const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
+  const LRect from = tileRect(static_cast<std::size_t>(i));
+  const LRect to{lx, ly, 0.0, 0.0};
+  const auto style = anim::Move{anim::Travel::Slide, anim::Axis::Horizontal};
+  const auto ms = anim::cfg(anim::Id::SwapFly).ms;
+  const auto curve = anim::cfg(anim::Id::SwapFly).curve;
+  if (cardOf(t).isTab()) {
+    const auto group = m_tabs.groupOf(t.subj);
+    if (group.id == 0)
+      return;
+    const bool sent = writeTabClose(group.id, static_cast<std::int64_t>(t.subj.id));
+    debug::trace::record("TABS", "close",
+                         "tab=" + std::to_string(t.subj.id) + "|window=" +
+                             std::to_string(group.id) + "|sent=" + std::to_string(sent ? 1 : 0));
+    if (!sent)
+      return;
+    beginTabFX(t.subj, from, to, style, ms, curve);
+    m_scene.remove(static_cast<std::size_t>(i));
+    damage();
+    return;
+  }
+  const auto w = tileWindow(t);
+  if (!w)
+    return;
+  w->sendClose();
+  beginSwapFX(w, from, style, ms, curve, false, to);
+  m_scene.remove(static_cast<std::size_t>(i));
+  ensureAnimPump();
+  damage();
+}
+
 void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
                            anim::Move style, double ms,
-                           const std::string &curve, bool toStrip) {
+                           const std::string &curve, bool toStrip,
+                           const LRect &to) {
   if (!w || !w->m_isMapped || w->isHidden())
     return;
   // Same surface only: in all-workspaces view a window has two live flights; dropping by window alone lets the second cancel the first.
@@ -546,6 +606,7 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
   model::SwapFX fx;
   fx.subj    = subjectOf(w);
   fx.from    = from;
+  fx.to      = to;
   fx.toStrip = toStrip;
   fx.style   = style;
   fx.ms      = ms;
@@ -556,7 +617,7 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
 
   // Here, not in the painter: paint() is const; this resolves the destination the next frame draws.
   if (fx.traceSeq) {
-    const auto dests = swapDests(w, toStrip);
+    const auto dests = to.w > 0.0 ? std::vector<LRect>{to} : swapDests(w, toStrip);
     if (dests.empty())
       debug::trace::animReject("swap", toStrip ? "no-strip-slot" : "no-tile");
     else {

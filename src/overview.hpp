@@ -255,9 +255,12 @@ private:
   void restorePreviewVisibility();
   session::PreviewVisibility m_previewVis;
   void kickPulse(model::SubjectRef s);
+  void beginTabFX(const model::SubjectRef &subj, const LRect &from, const LRect &to,
+                   anim::Move style, double ms, const std::string &curve);
+  void killTile(int i, double lx, double ly);
   void beginSwapFX(const PHLWINDOW &w, const LRect &from,
                    anim::Move style, double ms, const std::string &curve,
-                   bool toStrip = false);
+                   bool toStrip = false, const LRect &to = {});
   void landAfterMove(const PHLWINDOW &w, const LRect &oldBox, double ms,
                      const std::string &curve, bool strip);
   // Both surfaces of a swap: the dragged one from the cursor, the bystander from where it was.
