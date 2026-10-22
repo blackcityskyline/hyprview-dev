@@ -16,6 +16,7 @@ namespace hyprview::clock {
 // Owns the clocks, the run's Progress and the resolved recipes, so two callers cannot disagree.
 class Placement {
   public:
+    double gridOffset = 0.0;
     // The run's overall fade, on the master clock's curve; a config edit applies next frame.
     [[nodiscard]] double eased() const { return m_eased; }
     [[nodiscard]] double masterDuration() const { return m_masterMs; }

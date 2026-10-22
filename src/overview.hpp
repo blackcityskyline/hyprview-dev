@@ -219,6 +219,9 @@ private:
   bool m_newCardAnim = false;
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
+  model::GridScroll m_gridScroll;
+  void animateGridTo(double from, double to);
+  void followGrid(int i);
   bool animBusy() const;
   // Clocks that outlive the master: the pump must name every clock, or the next one added never arms.
   bool secondaryAnimsActive() const {

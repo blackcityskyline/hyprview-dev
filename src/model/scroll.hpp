@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <string>
 
+#include "../layout.hpp"
+
 namespace hyprview::model {
 
 class ScrollState {
@@ -55,6 +57,33 @@ private:
 
   double m_max = 0.0;
   double m_from = 0.0, m_target = 0.0, m_current = 0.0;
+};
+
+class GridScroll {
+public:
+  void setWindow(const LRect &area, double maxOffset) {
+    m_area = area;
+    m_scroll.setMax(maxOffset);
+  }
+
+  void reset() { m_scroll.snap(0.0); }
+  void advance(double eased) { m_scroll.advance(eased); }
+  void snap(double v) { m_scroll.snap(v); }
+  bool beginGlide(double from, double to) { return m_scroll.beginGlide(from, to); }
+
+  [[nodiscard]] double current() const { return m_scroll.current(); }
+  [[nodiscard]] double target() const { return m_scroll.target(); }
+  [[nodiscard]] double max() const { return m_scroll.max(); }
+
+  [[nodiscard]] std::string describe() const { return m_scroll.describe(); }
+
+  [[nodiscard]] double follow(const LRect &tile) const {
+    return followOffset(tile, m_area, m_scroll.target());
+  }
+
+private:
+  ScrollState m_scroll;
+  LRect m_area;
 };
 
 } // namespace hyprview::model

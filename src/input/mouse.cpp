@@ -45,6 +45,22 @@ bool Overview::onMouseAxis(const IPointer::SAxisEvent &e) {
 
   const bool vertical = e.axis == WL_POINTER_AXIS_VERTICAL_SCROLL;
 
+  if (m_view.desktop() && !overStrip) {
+    if (!vertical)
+      return true;
+    const auto hm = m_monitor.lock();
+    const double step = (hm ? hm->m_size.y : 1080.0) * 0.12;
+    m_scrollAccum += notches * step;
+    const double whole = std::trunc(m_scrollAccum);
+    if (whole != 0.0) {
+      m_scrollAccum -= whole;
+      animateGridTo(m_gridScroll.current(),
+                    std::clamp(m_gridScroll.target() + whole, 0.0, m_gridScroll.max()));
+      damage();
+    }
+    return true;
+  }
+
   if (!overStrip && vertical && carouselMode()) {
     const double speed =
         std::clamp(static_cast<double>(cfg::carousel.scroll_speed), 0.05, 20.0);

@@ -499,6 +499,12 @@ void Overview::layoutTiles() {
         continue;
       t.target = boxes[i];
     }
+    double maxBottom = 0.0;
+    for (const auto &b : boxes)
+      maxBottom = std::max(maxBottom, b.y + b.h);
+    const LRect area = inset(LRect{0, 0, m->m_size.x, m->m_size.y}, natCfg);
+    m_gridScroll.setWindow(area, std::max(0.0, maxBottom - (area.y + area.h)));
+    debug::trace::scroll("gsetMax", m_gridScroll.describe());
     return;
   }
   m_view.clearCards();

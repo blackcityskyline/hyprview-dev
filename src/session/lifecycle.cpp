@@ -180,6 +180,7 @@ void Overview::open() {
   const auto openEntryStamp = std::chrono::steady_clock::now();
   if (m_life.openingNow())
     return;
+  m_gridScroll.reset();
   // Before anything else: forcing the compositor to render inactive workspaces crashes it (hyprlandCrashReport389377, 603004).
   forcePreviewVisibility();
 

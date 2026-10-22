@@ -219,8 +219,19 @@ void Overview::moveSelection(int dx, int dy) {
   }
   if (best >= 0) {
     m_scene.select(best);
+    followGrid(best);
     damage();
   }
+}
+
+void Overview::followGrid(int i) {
+  if (!m_view.desktop() || i < 0 ||
+      static_cast<std::size_t>(i) >= m_scene.tiles().size())
+    return;
+  const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
+  if (t.target.w < 1.0)
+    return;
+  animateGridTo(m_gridScroll.current(), m_gridScroll.follow(t.target));
 }
 
 // Steps the order the user SEES: slot order in the run, array order in the grid; the run is MRU-first.

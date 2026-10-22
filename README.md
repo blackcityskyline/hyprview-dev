@@ -224,7 +224,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `border_color` | color/role | `"0x50ffffff"` | `show_border`'s ring color |
 | `border_size` | int (px) | `2` | `show_border`'s ring thickness — `0` disables it |
 | `focus_follows_mouse` | bool (0/1) | `1` | Keyboard selection tracks the hovered preview |
-| `scroll_switches_workspace` | bool (0/1) | `1` | Wheel over the main area steps prev/next workspace. A carousel run pages on its own instead, see `carousel_scroll_speed` |
+| `scroll_switches_workspace` | bool (0/1) | `1` | Wheel over the main area steps prev/next workspace. A carousel run pages on its own instead, see `carousel_scroll_speed`. The desktop view is its own exception: over the grid the wheel scrolls the rows that hang below the screen (the strip still answers only its own hover) |
 | `passthrough_keys` | bool (0/1) | `1` | Let keys the overview doesn't use reach Hyprland (keybinds keep working) |
 | `key_close` | key names | `escape` | Keys that dismiss |
 | `key_next_workspace` | key names | `tab` | Cycle the displayed workspace forward (wraps); `""` to disable. Held modifiers match exactly, so e.g. a `SUPER+Tab` toggle bind still passes through and closes |

@@ -206,6 +206,21 @@ int main() {
     check(right <= mon.w - cfg.padRight + tol, "the wide grid stays inside the monitor");
   }
 
+  // The follow offset walks the wheel and the arrows: a tile below the area pulls the
+  // offset until its bottom edge lands there, one above pushes it back, a tile taller
+  // than the area has lo>hi and pins its top edge instead of clamping both ways.
+  const LRect followArea{0, 0, 1200, 400};
+  check(followOffset(LRect{100, 500, 300, 150}, followArea, 0.0) == 250.0,
+        "a tile below the visible area pulls the offset to its bottom edge");
+  check(followOffset(LRect{100, 500, 300, 150}, followArea, 100.0) == 250.0,
+        "a short offset still lands at the pull");
+  check(followOffset(LRect{100, 100, 300, 150}, followArea, 250.0) == 100.0,
+        "a tile above the area pushes the offset back to its top edge");
+  check(followOffset(LRect{100, 100, 300, 150}, followArea, 0.0) == 0.0,
+        "a visible tile keeps the offset where it is");
+  check(followOffset(LRect{100, 100, 300, 500}, followArea, 250.0) == 100.0,
+        "a tile taller than the area pins its top edge");
+
   // Ordinary: the layout the user actually sees.
   engines("9 equal", naturals({{673, 756}, {673, 756}, {673, 756},
                                {673, 756}, {673, 756}, {673, 756},

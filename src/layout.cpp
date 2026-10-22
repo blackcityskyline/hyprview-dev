@@ -7,11 +7,11 @@
 
 namespace hyprview {
 
-namespace {
-
 LRect inset(const LRect& a, const LayoutCfg& c) {
     return LRect{a.x + c.padLeft, a.y + c.padTop, std::max(1.0, a.w - c.padLeft - c.padRight), std::max(1.0, a.h - c.padTop - c.padBottom)};
 }
+
+namespace {
 
 std::vector<int> rowCounts(int n, int rows) {
     std::vector<int> out(rows, n / rows);

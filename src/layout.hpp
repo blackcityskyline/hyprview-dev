@@ -56,6 +56,14 @@ struct LayoutCfg {
     double maxScale  = 1.0;
 };
 
+LRect inset(const LRect& a, const LayoutCfg& c);
+
+inline double followOffset(const LRect& tile, const LRect& area, double off) {
+    const double hi = tile.y - area.y;
+    const double lo = tile.y + tile.h - (area.y + area.h);
+    return hi < lo ? hi : std::clamp(off, lo, hi);
+}
+
 std::vector<LRect> computeLayout(const std::vector<LRect>& naturals, const LRect& area,
                                  const LayoutCfg& cfg, const std::vector<int> &groups = {});
 

@@ -131,6 +131,11 @@ void Overview::updateAnimation() {
     m_scroll.advance(curves::eval(st.curve, m_place.clocks.strip.raw(st.ms)));
   else
     m_scroll.advance(1.0);
+  if (!m_place.clocks.strip.done(st.ms))
+    m_gridScroll.advance(curves::eval(st.curve, m_place.clocks.strip.raw(st.ms)));
+  else
+    m_gridScroll.advance(1.0);
+  m_place.gridOffset = m_gridScroll.current();
 
   if (!m_fx.ghosts().empty() && m_place.clocks.rebuild.done(m_place.recipes.ghost.ms))
     m_fx.clearGhosts();
@@ -216,6 +221,21 @@ void Overview::animateStripTo(double from, double to) {
     m_scroll.beginGlide(m_scroll.current(), m_scroll.target());
   m_place.clocks.strip.begin();
   debug::trace::animStart("strip_scroll", "strip_step", "", st.ms, st.curve.c_str());
+  ensureAnimPump();
+}
+
+void Overview::animateGridTo(double from, double to) {
+  const auto st = anim::cfg(anim::Id::StripStep);
+  if (!st.on || !m_gridScroll.beginGlide(from, to)) {
+    m_gridScroll.snap(to);
+    debug::trace::scroll("gsnap", m_gridScroll.describe());
+    return;
+  }
+  debug::trace::scroll("gglide", m_gridScroll.describe());
+  if (!m_place.clocks.strip.done(st.ms))
+    m_gridScroll.beginGlide(m_gridScroll.current(), m_gridScroll.target());
+  m_place.clocks.strip.begin();
+  debug::trace::animStart("grid_scroll", "grid_step", "", st.ms, st.curve.c_str());
   ensureAnimPump();
 }
 

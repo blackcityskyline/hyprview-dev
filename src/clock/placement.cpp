@@ -90,6 +90,8 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   const auto &b = t.target;
   LRect r{lerp(a.x, b.x, e), lerp(a.y, b.y, e), lerp(a.w, b.w, e),
           lerp(a.h, b.h, e)};
+  if (f.view.desktop())
+    r.y -= gridOffset;
   // A card off the carousel run has a zeroed target: nothing paints it, hold the last box.
   if (f.view.run() && b.w < 1.0 && a.w >= 1.0)
     r = a;
