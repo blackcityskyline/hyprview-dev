@@ -212,13 +212,7 @@ private:
   mutable pixel::PixelCache m_pixel;
   double m_scrollAccum = 0.0; // sub-card wheel leftover, so slow paging still moves
   session::LayerVisibility m_layers;
-  // ONE pending action: the window, and the tab to switch if it was a tab.
-  struct PendingActivate {
-    PHLWINDOWREF window;
-    model::SubjectRef tab;
-    std::uint64_t tabGroup = 0;
-  };
-  PendingActivate m_pending;
+  PHLWINDOWREF m_pendingWindow;
 
 
   int m_newCardId = 0;
@@ -399,9 +393,7 @@ private:
   void moveSelection(int dx, int dy);
   void activateSelection();
   // A target off the DISPLAYED workspace collapses onto it BEFORE the glide, so it aims at the real final position.
-  void focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason,
-                     model::SubjectRef tab = model::SubjectRef{},
-                     std::uint64_t tabGroup = 0);
+  void focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason);
   // A tab card has no window: the browser is asked for the tab and its host is focused.
   void activateTile(int idx, Desktop::eFocusReason reason);
   [[nodiscard]] bool discardedShown() const;

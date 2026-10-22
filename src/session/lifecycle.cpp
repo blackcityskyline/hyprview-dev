@@ -201,7 +201,7 @@ void Overview::open() {
   m->m_forceFullFrames = 8;
 
   m_drag = {};
-  m_pending = {};
+  m_pendingWindow.reset();
   cancelPendingClick();
   m_altTabbing = false;
   m_view.setDesktop( false);
@@ -497,20 +497,9 @@ void Overview::deactivate() {
     }
   }
 
-  // The tab switches here, with the focus: the overlay is gone and the card has landed.
-  if (m_pending.tabGroup != 0) {
-    const bool sent =
-        writeTabRequest(m_pending.tabGroup, static_cast<std::int64_t>(m_pending.tab.id));
-    debug::trace::record("TABS", "switch",
-                         "tab=" + std::to_string(m_pending.tab.id) + "|window=" +
-                             std::to_string(m_pending.tabGroup) + "|sent=" +
-                             std::to_string(sent ? 1 : 0));
-    m_pending.tab = model::SubjectRef{};
-    m_pending.tabGroup = 0;
-  }
-  if (const auto pw = m_pending.window.lock(); pw && pw->m_isMapped && !pw->isHidden())
+  if (const auto pw = m_pendingWindow.lock(); pw && pw->m_isMapped && !pw->isHidden())
     Desktop::focusState()->fullWindowFocus(pw, Desktop::FOCUS_REASON_KEYBIND);
-  m_pending.window.reset();
+  m_pendingWindow.reset();
 
   debug::dbg("deactivate (natural close end)");
   m_pump.stop();

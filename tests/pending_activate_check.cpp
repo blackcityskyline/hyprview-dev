@@ -1,7 +1,7 @@
-// One action, one moment. Picking a card is the same action for a window and for a tab: the
-// card flies home, the overlay leaves, and the focus lands. The browser only adds WHICH TAB to
-// switch, and that rides along with the focus -- a tab switched earlier changes the page
-// behind the card that is still flying to it.
+// One action for a window and for a tab. The browser only adds WHICH TAB to switch, and the
+// request goes out with the pick: the browser is behind the overlay while the card flies, and
+// the mediator polls for the request -- a request sent at the exit lands after the plugin is
+// already gone, and the browser shows the old tab when it comes forward.
 
 #include <cstdio>
 #include <fstream>
@@ -36,17 +36,19 @@ int main(int argc, char **argv) {
   if (head.empty())
     return fail("src/overview.hpp not found");
 
-  // The pick never talks to the browser: the request goes out with the focus.
+  // The pick sends the request: the browser is behind the overlay while the card flies, and
+  // the mediator polls for it -- a request sent at the exit lands after the plugin is gone.
   const auto pick = build.find("void Overview::activateTile(");
   if (pick == std::string::npos)
     return fail("the pick of a card is gone from build.cpp");
   const auto body = build.substr(pick, build.find("\n}\n", pick) - pick);
-  if (body.find("writeTabRequest(") != std::string::npos)
-    return fail("the pick still sends the tab request itself -- the switch belongs to the "
-                "focus, so it happens when the card has landed");
+  if (body.find("writeTabRequest(") == std::string::npos)
+    return fail("the pick no longer asks the browser to switch the tab -- the request would "
+                "then go out at the exit, after the plugin is gone");
 
-  if (life.find("writeTabRequest(") == std::string::npos)
-    return fail("nothing sends the tab request any more");
+  if (life.find("writeTabRequest(") != std::string::npos)
+    return fail("the exit sends the tab request -- it must go out with the pick, so the switch "
+                "happens while the card is still flying");
 
   // One pending action, not two.
   if (head.find("m_pendingFocus") != std::string::npos)

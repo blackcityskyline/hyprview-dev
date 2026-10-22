@@ -695,10 +695,14 @@ void Overview::activateTile(int idx, Desktop::eFocusReason reason) {
     const auto group = m_tabs.groupOf(t.subj);
     m_landingGroup = group; // the card goes to the browser it lives in
     const auto host = ownerWindow(t);
+    // The switch goes out with the pick: the browser is behind the overlay while the card
+    // flies, and the mediator polls for it, so the switch lands inside the flight.
+    const bool sent = group.id != 0 && writeTabRequest(group.id, static_cast<std::int64_t>(t.subj.id));
     debug::trace::record("TABS", "activate",
                          "tab=" + std::to_string(t.subj.id) + "|window=" +
-                             std::to_string(group.id) + "|host=" + std::to_string(host ? 1 : 0));
-    focusAndClose(host, reason, t.subj, group.id);
+                             std::to_string(group.id) + "|sent=" + std::to_string(sent ? 1 : 0) +
+                             "|host=" + std::to_string(host ? 1 : 0));
+    focusAndClose(host, reason);
     return;
   }
   m_landingGroup = m_windows.groupOf(t.subj);
