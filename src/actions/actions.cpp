@@ -804,7 +804,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     for (size_t i = 0; i < m_scene.size(); ++i) {
       const auto w = tileWindow(m_scene.tiles()[i]);
       if (w && w->m_workspace == ws) {
-        keys.push_back(w.get());
+        keys.push_back(model::Recency::key(m_scene.tiles()[i].subj));
         idx.push_back(static_cast<int>(i));
       }
     }

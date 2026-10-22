@@ -4,6 +4,8 @@
 #include <deque>
 #include <vector>
 
+#include "subject.hpp"
+
 namespace hyprview::model {
 
 // Recency order over windows, most recent first: the run, the strip and alt-tab all want it,
@@ -21,6 +23,10 @@ class Recency {
     void forgetDead(const std::vector<const void *> &live);
 
     [[nodiscard]] std::size_t size() const { return m_front.size(); }
+
+    [[nodiscard]] static const void *key(const SubjectRef &s) {
+        return reinterpret_cast<const void *>(s.id);
+    }
 
   private:
     std::deque<const void *> m_front;

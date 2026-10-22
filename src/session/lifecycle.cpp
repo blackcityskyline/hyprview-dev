@@ -453,7 +453,7 @@ void Overview::syncRecency() {
     return;
   m_lastFocus = now;
   if (now)
-    m_recency.promote(now.get());
+    m_recency.promote(model::Recency::key(subjectOf(now)));
 }
 
 int Overview::tileOf(const PHLWINDOW &w) const {
@@ -468,7 +468,7 @@ void Overview::pruneRecency() {
   std::vector<const void *> live;
   live.reserve(m_scene.size());
   for (const auto &t : m_scene.tiles())
-    live.push_back(tileWindow(t).get());
+    live.push_back(model::Recency::key(t.subj));
   m_recency.forgetDead(live);
 }
 

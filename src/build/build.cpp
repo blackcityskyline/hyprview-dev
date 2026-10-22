@@ -541,7 +541,7 @@ void Overview::layoutTiles() {
       std::vector<const void *> keys;
       keys.reserve(m_scene.size());
       for (const auto &t : m_scene.tiles())
-        keys.push_back(tileWindow(t).get());
+        keys.push_back(model::Recency::key(t.subj));
       m_recency.order(keys, slot);
     }
     auto lead = std::find(slot.begin(), slot.end(), static_cast<std::size_t>(sel));
@@ -777,6 +777,7 @@ void Overview::syncTabs() {
   loadTabs();
   if (model::sameSubjects(before, m_tabs.enumerate()))
     return;
+  pruneRecency();
   auto oldBoxes = captureCurrentBoxes();
   replayReflow(oldBoxes);
 }
