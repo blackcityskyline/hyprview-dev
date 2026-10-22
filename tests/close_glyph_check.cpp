@@ -59,24 +59,27 @@ int main(int argc, char **argv) {
     }
   }
 
-  // The hover-only mode (`close_button_visibility = hover`) hides the ✕ until the tile
-  // or card under the cursor asks for it. The mouse gates the hit with
-  // tileCloseButtons(), which stays true on a non-hovered surface -- so a draw site
-  // that loses its hover check leaves an invisible button accepting clicks.
+  // The knob's rule: tiles, deck cards and the hit-test read closeButtonsEverywhere();
+  // the strip band is exempt -- its cards show the x in every view and their click path
+  // must not consult the knob either, or a drawn button would go deaf in the run view.
   {
     const auto tv = slurp(root + "/src/render/tile_view.cpp");
-    if (tv.find("btnHovered") == std::string::npos ||
-        tv.find("closeOnHover()") == std::string::npos ||
-        tv.find("m_scene.hoveredTile()") == std::string::npos) {
-      std::printf("FAIL: tile_view.cpp lost the close button's hover gate -- an "
-                  "invisible button would keep accepting clicks\n");
+    if (tv.find("closeButtonsEverywhere()") == std::string::npos) {
+      std::printf("FAIL: tile_view.cpp lost the close button's knob read\n");
       ++bad;
     }
     const auto sv = slurp(root + "/src/render/strip_view.cpp");
-    if (sv.find("hoverOnly") == std::string::npos ||
-        sv.find("m_scene.hoveredStrip()") == std::string::npos) {
-      std::printf("FAIL: strip_view.cpp lost the close card's hover gate -- an "
-                  "invisible button would keep accepting clicks\n");
+    if (sv.find("closeButtonRect(card)") == std::string::npos ||
+        sv.find("closeButtonsEverywhere") != std::string::npos ||
+        sv.find("close_button_everywhere") != std::string::npos) {
+      std::printf("FAIL: strip_view.cpp consults the knob -- the band is exempt and "
+                  "must always show the x\n");
+      ++bad;
+    }
+    const auto mv = slurp(root + "/src/input/mouse.cpp");
+    if (mv.find("closeWorkspaceWindows(m_strip[i])") == std::string::npos ||
+        mv.find("close_button_everywhere") != std::string::npos) {
+      std::printf("FAIL: mouse.cpp lost the band's unconditional close click\n");
       ++bad;
     }
   }

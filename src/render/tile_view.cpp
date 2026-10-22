@@ -30,12 +30,8 @@ namespace {
 
 }
 
-bool Overview::closeButtonsAlwaysOn() const {
-  return cfg::look.close_button_visibility.get() == "always";
-}
-
-bool Overview::closeOnHover() const {
-  return cfg::look.close_button_visibility.get() == "hover";
+bool Overview::closeButtonsEverywhere() const {
+  return cfg::look.close_button_everywhere != 0;
 }
 
 bool Overview::closeOnDoubleClick() const {
@@ -44,7 +40,7 @@ bool Overview::closeOnDoubleClick() const {
 
 // One rule for every layout, read by the hit-test too: the ✕ never appears where a click won't close.
 bool Overview::tileCloseButtons() const {
-  return !closeOnDoubleClick() && (m_view.desktop() || closeButtonsAlwaysOn());
+  return !closeOnDoubleClick() && (m_view.desktop() || closeButtonsEverywhere());
 }
 
 LRect Overview::closeButtonRect(const LRect &lb) const {
@@ -238,9 +234,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
     drawTileCaption(i, look);
 
   const auto closeGlyph = m_pixel.closeGlyph();
-    const bool btnHovered =
-        !closeOnHover() || static_cast<int>(i) == m_scene.hoveredTile();
-    if (look.button && !look.lift && btnHovered && closeGlyph && closeGlyph->m_size.x > 0) {
+    if (look.button && !look.lift && closeGlyph && closeGlyph->m_size.x > 0) {
     const LRect br = closeButtonRect(box);
     safeRenderRect("tile", pxb(br, s), cfg::colors.close_button.get(e),
                               {.round = pxr(br.h / 2.0, s)});

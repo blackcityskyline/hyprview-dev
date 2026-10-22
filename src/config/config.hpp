@@ -176,7 +176,7 @@ struct look {
   Float counter_margin;
   Float close_glyph_fill;
   Str close_button_position;
-  Str close_button_visibility;
+  Int close_button_everywhere;
   Str close_trigger;
   Str close_button_icon;
 };
