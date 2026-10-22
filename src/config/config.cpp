@@ -95,6 +95,8 @@ struct ColorSpec {
 };
 
 constexpr IntSpec kInts[] = {
+    {&grid.desktop_grid_cols, "plugin:hyprview:desktop_grid_cols", 3},
+    {&grid.desktop_grid_rows, "plugin:hyprview:desktop_grid_rows", 4},
     {&grid.gap, "plugin:hyprview:gap", 34},
     {&grid.padding, "plugin:hyprview:padding", 80},
     {&grid.padding_top, "plugin:hyprview:padding_top", 40},

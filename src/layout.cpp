@@ -176,11 +176,10 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
         return out;
     }
 
-    const int cols = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(G)))));
-    const int rows = (G + cols - 1) / cols;
+    const int cols = std::max(1, cfg.cellCols);
     const double gap = std::max(0.0, cfg.cellGap);
     const double cw = (area.w - gap * (cols - 1)) / static_cast<double>(cols);
-    const double ch = (area.h - gap * (rows - 1)) / static_cast<double>(rows);
+    const double ch = (area.h - gap * (std::max(1, cfg.cellRows) - 1)) / static_cast<double>(std::max(1, cfg.cellRows));
 
     std::vector<std::vector<int>> members(G);
     for (int i = 0; i < n; ++i) {
@@ -205,16 +204,10 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
                                            ch / std::max(1.0, maxY - minY)}));
     }
 
-    // The cells are packed and centred: a column is as wide as its group, and a third group
-    // re-centres the row instead of pushing the others left.
-    struct Cell {
-        int    g;
-        double w = 0.0, h = 0.0;
-        double minX = 0.0, minY = 0.0;
-    };
-    std::vector<std::vector<Cell>> rowList;
-    std::vector<Cell> row;
-    double rowW = 0.0;
+    // The grid: cols across, rows down. The groups past it hang below the screen.
+    const int rows = std::max(1, cfg.cellRows);
+    const double gridH = ch * rows + gap * (rows - 1);
+    const double top = area.y + (area.h - gridH) / 2.0;
     for (int g = 0; g < G; ++g) {
         if (members[g].empty())
             continue;
@@ -225,48 +218,9 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
             maxX = std::max(maxX, w[i].x + w[i].w);
             maxY = std::max(maxY, w[i].y + w[i].h);
         }
-        Cell c;
-        c.g = g;
-        c.w = (maxX - minX) * scale;
-        c.h = (maxY - minY) * scale;
-        c.minX = minX;
-        c.minY = minY;
-        if (!row.empty() && rowW + gap + c.w > area.w + 0.5) {
-            rowList.push_back(row);
-            row.clear();
-            rowW = 0.0;
-        }
-        rowW += (row.empty() ? 0.0 : gap) + c.w;
-        row.push_back(c);
-    }
-    if (!row.empty())
-        rowList.push_back(row);
-
-    double blockH = 0.0;
-    for (const auto &r : rowList) {
-        double h = 0.0;
-        for (const auto &c : r)
-            h = std::max(h, c.h);
-        blockH += h;
-    }
-    blockH += gap * static_cast<double>(rowList.size() > 0 ? rowList.size() - 1 : 0);
-
-    double y = area.y + (area.h - blockH) / 2.0;
-    for (const auto &r : rowList) {
-        double rowH = 0.0, rowWidth = 0.0;
-        for (const auto &c : r) {
-            rowH = std::max(rowH, c.h);
-            rowWidth += c.w;
-        }
-        rowWidth += gap * static_cast<double>(r.size() > 0 ? r.size() - 1 : 0);
-        double x = area.x + (area.w - rowWidth) / 2.0;
-        for (const auto &c : r) {
-            for (const int i : members[c.g])
-                out[i] = LRect{x + (w[i].x - c.minX) * scale, y + (w[i].y - c.minY) * scale,
-                               w[i].w * scale, w[i].h * scale};
-            x += c.w + gap;
-        }
-        y += rowH + gap;
+        const int cx = g % cols, cy = g / cols;
+        const LRect cell{area.x + cx * (cw + gap), top + cy * (ch + gap), cw, ch};
+        fitGroup(w, members[g], cell, cfg, out);
     }
     return out;
 }

@@ -50,6 +50,8 @@ struct LayoutCfg {
     double padLeft   = 80.0;
     double gap       = 36.0;
     double cellGap   = 0.0;
+    int    cellCols  = 3;   // the desktop view's grid: columns, then rows
+    int    cellRows  = 4;
     double maxScale  = 1.0;
 };
 

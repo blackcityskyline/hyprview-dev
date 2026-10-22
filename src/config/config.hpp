@@ -88,6 +88,8 @@ public:
 };
 
 struct grid {
+  Int desktop_grid_cols;
+  Int desktop_grid_rows;
   Int gap;
   Int padding;
   Int padding_top;

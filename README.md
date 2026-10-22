@@ -284,6 +284,8 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `shadow_radius` | float | `6` | tile shadow blur at rest |
 | `shadow_radius_lift` | float | `14` | tile shadow blur while dragged |
 | `shadow_alpha` | float | `0.18` | tile shadow opacity multiplier |
+| `desktop_grid_cols` | int | `3` | The desktop view's grid: columns of workspaces across |
+| `desktop_grid_rows` | int | `4` | The desktop view's grid: rows down. The groups past the grid hang below the screen |
 | `icon_shadow_offset` | float | `0.045` | card icon shadow drop, as a share of the icon's side (colour is `shadow_color`) |
 | `icon_shadow_blur` | float | `0.1` | card icon shadow falloff, as a share of the icon's side |
 | `icon_shadow_alpha` | float | `0.55` | card icon shadow opacity |

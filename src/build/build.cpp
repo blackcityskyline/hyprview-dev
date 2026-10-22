@@ -488,6 +488,8 @@ void Overview::layoutTiles() {
     LayoutCfg natCfg = cfg;
     natCfg.engine = Engine::Natural;
     natCfg.cellGap = cfg.gap / 4.0;
+    natCfg.cellCols = cfg::grid.desktop_grid_cols.get();
+    natCfg.cellRows = cfg::grid.desktop_grid_rows.get();
     const auto boxes =
         computeLayout(nat, LRect{0, 0, m->m_size.x, m->m_size.y}, natCfg, groups);
     for (size_t i = 0; i < m_scene.size(); ++i) {
