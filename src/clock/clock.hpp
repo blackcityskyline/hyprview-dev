@@ -4,9 +4,8 @@
 
 #include <string>
 
-namespace gloview::clock {
+namespace hyprview::clock {
 
-// One clock: begin, seek, pin, query. The anchor stays inside.
 class Clock {
   public:
     void begin() { m_t.begin(); }
@@ -25,20 +24,18 @@ class Clock {
     anim::Tween m_t;
 };
 
-// The domain of time: every tween lives here and nowhere else, so "is anything
-// still moving" is one question of one object rather than a tally assembled at
-// each call site. Read-only during paint.
+// Every tween lives here: "is anything still moving" is one question of one object.
 class Clocks {
   public:
     Clock master;
     Clock tiles;    // the glide every tile rides; retargeted on any layout change
-    Clock rebuild;  // entries and ghost exits share this one
-    Clock strip;    // animated card-group offset
-    Clock dragLift; // a dragged tile's raise
-    Clock newCard;  // a freshly added workspace card
+    Clock rebuild;
+    Clock strip;
+    Clock dragLift;
+    Clock newCard;
 
-    // The glide's recipe, snapshotted at its start: a config edit mid-flight must
-    // not change the duration of an animation already running.
+    // Snapshotted at the glide's start: a config edit mid-flight must not change a running
+    // animation's duration.
     double tileMs = 0.0;
     std::string tileCurve;
 
@@ -46,4 +43,4 @@ class Clocks {
                                   double stripMs) const;
 };
 
-} // namespace gloview::clock
+} // namespace hyprview::clock

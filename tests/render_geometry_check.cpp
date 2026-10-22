@@ -26,15 +26,28 @@
 
 #include "../src/render/geometry.hpp"
 
-using gloview::LRect;
-using gloview::render::closeButtonRect;
-using gloview::render::Corner;
-using gloview::render::dragVisualBox;
-using gloview::render::insetWithin;
-using gloview::render::killZoneGlow;
-using gloview::render::pillRadius;
-using gloview::render::captionPills;
-using gloview::render::captionPillY;
+using hyprview::LRect;
+using hyprview::render::badgeK;
+using hyprview::render::badgeBox;
+using hyprview::render::badgePx;
+using hyprview::render::badgeSide;
+using hyprview::render::cardContent;
+using hyprview::render::CardContent;
+using hyprview::render::CardKind;
+using hyprview::render::badgePose;
+using hyprview::render::closeButtonRect;
+using hyprview::render::cardScale;
+using hyprview::render::captionRemains;
+using hyprview::render::escapeFrom;
+using hyprview::render::scaledAboutCentre;
+using hyprview::render::pillScale;
+using hyprview::render::Corner;
+using hyprview::render::dragVisualBox;
+using hyprview::render::insetWithin;
+using hyprview::render::killZoneGlow;
+using hyprview::render::pillRadius;
+using hyprview::render::captionPills;
+using hyprview::render::captionPillY;
 
 namespace {
 
@@ -69,7 +82,768 @@ void sameRect(const LRect& got, const LRect& want, const char* what) {
 
 } // namespace
 
+// The caption pill must fit the card it labels. The run's cards shrink in rounding steps with
+// distance and the label is rasterised once at full width, so a pill sized off the texture
+// alone is the same width on every card -- wider than the thing it labels on a shrunken one,
+// which is what a hover over a secondary card showed. Each case below turns red if its half
+// of pillScale() is replaced by a constant.
+// A caption is labelled at its OWN card's size. The run's cards shrink in steps with distance,
+// so a card two or three slots out was carrying the CENTRED card's caption size: the same pill
+// on a card half the width, and worst on the outermost cards of a five-card run.
+static void captionFollowsItsCard() {
+  near(cardScale(692.0, 692.0), 1.0, "the centred card labels at full size");
+  near(cardScale(526.0, 692.0), 526.0 / 692.0, "a neighbour scales with its card");
+  want(cardScale(300.0, 692.0) < cardScale(526.0, 692.0), true,
+       "the outermost ring scales further than the near neighbour");
+  near(cardScale(692.0, 0.0), 1.0, "no reference set means no scaling, not a division by zero");
+  near(cardScale(0.0, 692.0), 1.0, "a zero-width card is not scaled");
+  want(cardScale(40.0, 692.0) >= 0.45, true,
+       "the scale is floored: a caption scaled to nothing is an absent caption");
+  std::puts("cardScale: reference, neighbours, the outermost ring, no reference, and the floor");
+}
+
+// Which way a chrome element gets out from under a card that reached it. This rule went
+// wrong twice in a day and both times it was found by eye: once the caption was lifted
+// further and further above its own card until it reached the strip, and once the fix for
+// that stopped the caption being pushed at all. Both are this one choice of axis, so the
+// choice is the test.
+static void chromeTakesTheAxisThatKeepsItWithItsCard() {
+  const LRect card{400, 300, 300, 200};   // the covering card
+  const LRect capAbove{360, 240, 380, 40}; // a caption above it, wider than the card
+
+  // The regression this exists for: the caption is wholly above the card, the vertical escape
+  // is up, and up is the one direction that takes it away from the card it labels.
+  {
+    // ox > oy on purpose: that is the input that REACHES the vertical branch at all, which is
+    // the branch the caption-above case lives in. With ox < oy the horizontal branch returns
+    // first and this test would pass whatever the vertical branch did -- which is how it
+    // passed with the guard deleted.
+    const auto e = escapeFrom(capAbove, card, 200, 40);
+    want(e.dy == 0.0, true, "a caption above the card is never lifted");
+    want(e.dx != 0.0, true, "it slides sideways instead -- it is still pushed");
+    want(e.depth == 200.0, true, "with the depth of the axis it took");
+  }
+  // A caption BELOW the card: down is beside the card, so the vertical push stands.
+  {
+    const LRect capBelow{360, 520, 380, 40};
+    const auto e = escapeFrom(capBelow, card, 200, 40);
+    want(e.dy > 0.0, true, "a caption below the card is pushed down");
+    want(e.depth == 40.0, true, "by the vertical overlap");
+  }
+  // Room on the horizontal axis alone: that axis was always chosen and must stay.
+  {
+    const LRect wide{380, 280, 340, 240};
+    const auto e = escapeFrom(wide, card, 40, 200);
+    want(e.dx != 0.0 && e.dy == 0.0, true, "the cheaper axis still wins");
+    want(e.depth == 40.0, true, "by the horizontal overlap");
+  }
+  // Direction is away from the covering card on both axes, or the element moves deeper in.
+  {
+    want(escapeFrom(LRect{100, 200, 100, 40}, card, 20, 50).dx < 0.0, true,
+         "left of the card means left");
+    want(escapeFrom(LRect{600, 200, 100, 40}, card, 20, 50).dx > 0.0, true,
+         "right of the card means right");
+  }
+  // A caption that STRADDLES the card's top edge is not wholly above it, so the push is the
+  // ordinary one -- the cover is what it straddles, not a card below it.
+  {
+    const LRect straddle{360, 290, 380, 40};
+    want(escapeFrom(straddle, card, 200, 50).dy != 0.0, true,
+         "a caption overlapping the card's top edge is pushed normally");
+  }
+  std::puts("escapeFrom: a caption above its card slides, one below is pushed down, cheaper axis, direction");
+}
+
+// How much of a caption is left. Two reasons it leaves -- being shoved, and its card leaving
+// -- and every version of this has been inline arithmetic in drawTile, adjusted by eye and by
+// screenshot. It is the one decision in the caption that had no pure form, which is why its
+// rate was the thing I could not measure.
+static void aCaptionIsGoneWhenItsCardIs() {
+  // Nothing wrong with it: it stays whole, whatever the exit fraction says while opening.
+  near(captionRemains(0.0, 300.0, 27.0, 1.0, /*opening=*/true), 1.0,
+       "a caption that nothing covers is whole, even mid-open");
+  // Covered a quarter of its own width: gone. A tenth of it: nearly whole. The rate is the
+  // point -- at its full width it was still shrinking when it arrived at the strip.
+  near(captionRemains(75.0, 300.0, 27.0, 0.0, true), 0.0, "gone over a quarter of its width");
+  want(captionRemains(10.0, 300.0, 27.0, 0.0, true) > 0.8, true,
+       "barely covered leaves it nearly whole");
+  // Its card leaving: it leaves with the card, and never outlives it.
+  near(captionRemains(0.0, 300.0, 27.0, 1.0, false), 0.0, "gone when the card is gone");
+  want(captionRemains(0.0, 300.0, 27.0, 0.5, false) < 0.6, true, "half out with a half-gone card");
+  // Either reason is enough, and together they do not fight: a caption on a card that is
+  // leaving AND being shoved is the smaller of the two, never the larger.
+  want(captionRemains(300.0, 300.0, 27.0, 0.1, false) <=
+       captionRemains(0.0, 300.0, 27.0, 0.1, false), true,
+       "the stronger reason wins, never the weaker");
+  std::puts("captionRemains: whole at rest, gone over a quarter width, gone with its card");
+}
+
+// Both pills, one factor, one rule. The counter was left out once on the grounds that it
+// counts the run rather than labelling a card, and the screen showed two different rules on
+// one caption: the title gone, the number standing under it.
+static void bothPillsShareOneRect() {
+  const LRect r{100.0, 50.0, 300.0, 27.0};
+  const LRect half = scaledAboutCentre(r, 0.5);
+  near(half.w, 150.0, "halved width");
+  near(half.h, 13.5, "halved height");
+  near(half.cx(), r.cx(), "about its own centre in x");
+  near(half.cy(), r.cy(), "about its own centre in y");
+  near(scaledAboutCentre(r, 0.0).w, 0.0, "gone is gone, not negative");
+  near(scaledAboutCentre(r, 1.0).w, r.w, "whole is whole");
+  std::puts("scaledAboutCentre: both axes, about the centre, and the two ends");
+}
+
+static void pillFitsCard() {
+  // A pill that already fits is untouched, or the foreground card's title would shrink for no
+  // reason and every caption would come out smaller than its text needs to be.
+  want(pillScale(692.0, 12.0, 305.0) == 1.0, true, "a pill that already fits is not shrunk");
+  // A step-shrunk card brings its pill down with it, and it ENDS UP fitting -- which is the
+  // point, since 1.0 sails past a card of every size on the run.
+  const double k = pillScale(180.0, 12.0, 305.0);
+  want(k < 1.0, true, "a pill wider than its card is scaled down");
+  want(305.0 * k <= 180.0 - 12.0, true, "the scaled pill fits the card");
+  // A card narrower than the inset still gets a drawable pill rather than a negative size,
+  // which is what an unguarded max() hands to a rect.
+  want(pillScale(4.0, 12.0, 305.0) > 0.0, true, "a card narrower than the inset still scales");
+  // No pill is not a division by zero.
+  want(pillScale(692.0, 12.0, 0.0) == 1.0, true, "no pill is not a division by zero");
+}
+
+// The strip's own decisions: the band's alpha, the label's box, the two glyphs and
+// the wallpaper crop. They were arithmetic at the draw site, where a change of one
+// number moved a shape and nothing said so.
+static void theStripDecidesItsOwnShapes() {
+  using hyprview::render::allGlyph;
+  using hyprview::render::coverFitUV;
+  using hyprview::render::plusGlyph;
+  using hyprview::render::stripBandAlpha;
+  using hyprview::render::stripLabelBox;
+
+  // One source for the band's alpha: the knob, scaled by the band's clock. The
+  // colour string carries no alpha of its own.
+  near(stripBandAlpha(70.0, 1.0), 0.7, "the knob is the band's alpha");
+  near(stripBandAlpha(70.0, 0.5), 0.35, "and the band's clock scales it");
+  near(stripBandAlpha(150.0, 1.0), 1.0, "a knob over 100 is clamped");
+  near(stripBandAlpha(-10.0, 1.0), 0.0, "a negative knob is no alpha");
+
+  // The label lives in the band ABOVE the card, and is shrunk to fit the card
+  // plus the extra the knob allows.
+  const LRect card{100.0, 200.0, 300.0, 100.0};
+  const auto fits = stripLabelBox(card, 200.0, 20.0, 26.0, 24.0);
+  sameRect(fits, LRect{150.0, 177.0, 200.0, 20.0}, "a label that fits keeps its size");
+  const auto wide = stripLabelBox(card, 400.0, 20.0, 26.0, 24.0);
+  near(wide.w, 324.0, "a wide label is shrunk to the card plus the extra");
+  near(wide.h, 20.0 * (324.0 / 400.0), "and it keeps its proportions");
+  want(wide.cx(), card.cx(), "and it stays centred on the card");
+
+  // The "+" is a cross in the middle of the card, and a card too small for it
+  // gets nothing rather than a speck.
+  const auto plus = plusGlyph(card);
+  want(plus.drawable, true, "a card with room gets the cross");
+  near(plus.horizontal.cy(), card.cy(), "the cross is centred");
+  near(plus.vertical.cx(), card.cx(), "the cross is centred");
+  near(plus.horizontal.w, 34.0, "the arm is a third of the short side");
+  want(plusGlyph(LRect{0.0, 0.0, 1.0, 1.0}).drawable, false, "a speck is not a cross");
+
+  // The "All" glyph is a 2x2 grid, symmetric and inside the card.
+  const auto all = allGlyph(card);
+  want(all.cells[0].x != all.cells[1].x, true, "two columns");
+  want(all.cells[0].y != all.cells[2].y, true, "two rows");
+  for (const auto &c : all.cells)
+    want(card.contains(c.cx(), c.cy()), true, "every cell is inside the card");
+
+  // The wallpaper is cover-fit: the crop is on the texture's own axis, and the
+  // other axis is used whole.
+  const auto uv = coverFitUV(300.0, 100.0, 1920.0, 1080.0);
+  near(uv.u0, 0.0, "the wide axis is used whole");
+  near(uv.u1, 1.0, "the wide axis is used whole");
+  want(uv.v0 > 0.0 && uv.v1 < 1.0, true, "the tall axis is cropped");
+  near(uv.v0, 1.0 - uv.v1, "and the crop is centred");
+  const auto tallCard = coverFitUV(100.0, 300.0, 1920.0, 1080.0);
+  near(tallCard.v0, 0.0, "a card taller than the texture uses the tall axis whole");
+  near(tallCard.v1, 1.0, "a card taller than the texture uses the tall axis whole");
+  want(tallCard.u0 > 0.0 && tallCard.u1 < 1.0, true, "and the wide axis is cropped");
+  std::puts("the strip: band alpha, label box, two glyphs, and the wallpaper crop");
+}
+
+// The flight of a swap: four kinds, one answer each. These were branches inside the
+// render loop, where a change of one number moved a card and nothing said so.
+static void theFlightHasFourKinds() {
+  using hyprview::anim::Axis;
+  using hyprview::anim::Travel;
+  using hyprview::render::swapFlight;
+  using hyprview::render::SwapFlightInput;
+
+  const LRect from{0.0, 0.0, 100.0, 100.0};
+  const LRect to{200.0, 0.0, 100.0, 100.0};
+
+  // A plain slide: the card travels from one box to the other.
+  {
+    SwapFlightInput in;
+    in.travel = Travel::Slide;
+    in.axis = Axis::Horizontal;
+    in.from = from;
+    in.to = to;
+    in.p = 0.5;
+    const auto f = swapFlight(in);
+    sameRect(f.box, LRect{100.0, 0.0, 100.0, 100.0}, "halfway is halfway");
+    near(f.alpha, 1.0, "a slide does not fade");
+  }
+
+  // The vertical swap is an ARC, not a slide on Y: the card leaves upwards by its own
+  // height plus the lift, and comes down on the other card.
+  {
+    SwapFlightInput in;
+    in.travel = Travel::Slide;
+    in.axis = Axis::Vertical;
+    in.from = from;
+    in.to = to;
+    in.lift = 12.0;
+    in.t = 0.0;
+    in.q1 = 0.0;
+    const auto start = swapFlight(in);
+    sameRect(start.box, from, "it starts where it was");
+
+    in.t = 0.25;
+    in.q1 = 1.0;
+    const auto up = swapFlight(in);
+    near(up.box.y, -(100.0 + 12.0), "it leaves upwards by its height and the lift");
+
+    in.t = 0.5;
+    in.q2 = 0.0;
+    const auto apex = swapFlight(in);
+    near(apex.box.y, -(100.0 + 12.0), "the apex is over the destination");
+    near(apex.alpha, 0.0, "and the card is gone at the turn");
+
+    in.t = 1.0;
+    in.q2 = 1.0;
+    const auto end = swapFlight(in);
+    sameRect(end.box, to, "it lands on the other card");
+    near(end.alpha, 1.0, "and it is back");
+  }
+
+  // A fade crosses over at the midpoint.
+  {
+    SwapFlightInput in;
+    in.travel = Travel::Fade;
+    in.from = from;
+    in.to = to;
+    in.t = 0.25;
+    const auto first = swapFlight(in);
+    sameRect(first.box, from, "the first half is the old card");
+    near(first.alpha, 0.5, "fading out");
+    in.t = 0.75;
+    const auto second = swapFlight(in);
+    sameRect(second.box, to, "the second half is the new card");
+    near(second.alpha, 0.5, "fading in");
+  }
+
+  // A pop shrinks to 70% and grows back with the card curve.
+  {
+    SwapFlightInput in;
+    in.travel = Travel::Pop;
+    in.from = from;
+    in.to = to;
+    in.t = 0.15;
+    const auto first = swapFlight(in);
+    sameRect(first.box, from, "the first part is the old card");
+    near(first.alpha, 0.5, "fading out");
+    in.t = 0.3;
+    in.popK = 0.7;
+    const auto shrunk = swapFlight(in);
+    near(shrunk.box.w, 70.0, "it shrinks to 70%");
+    near(shrunk.box.cx(), to.cx(), "about its own centre");
+    in.t = 1.0;
+    in.popK = 1.0;
+    const auto grown = swapFlight(in);
+    sameRect(grown.box, to, "and it grows back onto the card");
+    near(grown.alpha, 1.0, "and it is back");
+  }
+  std::puts("the flight: slide, vertical arc, fade, pop");
+}
+
+// The kill zone sits at the screen edge opposite the strip, on every edge: a
+// dragged window never has to cross the strip to reach it.
+static void theKillZoneIsOppositeTheStrip() {
+  using hyprview::render::Anchor;
+  using hyprview::render::killZoneRamp;
+  using hyprview::render::killZoneRect;
+  const auto top = killZoneRect(Anchor::Bottom, 1920.0, 1080.0, 120.0);
+  sameRect(top, LRect{0.0, 0.0, 1920.0, 120.0}, "a bottom strip leaves the zone at the top");
+  const auto bottom = killZoneRect(Anchor::Top, 1920.0, 1080.0, 120.0);
+  sameRect(bottom, LRect{0.0, 960.0, 1920.0, 120.0}, "a top strip leaves the zone at the bottom");
+  const auto right = killZoneRect(Anchor::Left, 1920.0, 1080.0, 120.0);
+  sameRect(right, LRect{1800.0, 0.0, 120.0, 1080.0}, "a left strip leaves the zone at the right");
+  const auto left = killZoneRect(Anchor::Right, 1920.0, 1080.0, 120.0);
+  sameRect(left, LRect{0.0, 0.0, 120.0, 1080.0}, "a right strip leaves the zone at the left");
+
+  // The glow runs inward from the screen edge: rows for a horizontal band,
+  // columns for a vertical one.
+  const auto ramp = killZoneRamp(top, 1920.0, 1080.0, 8);
+  want(ramp.size() == 8u, true, "one line per step");
+  near(ramp.front().line.y, 0.0, "the top band starts at the screen edge");
+  near(ramp.front().line.h, 1.0, "one row at a time");
+  near(ramp.front().line.w, 1920.0, "across the band");
+  near(ramp.back().line.y, 7.0, "and steps inward");
+  want(ramp.front().alpha > ramp.back().alpha, true, "the glow fades inward");
+
+  const auto sideRamp = killZoneRamp(right, 1920.0, 1080.0, 8);
+  near(sideRamp.front().line.x, 1919.0, "the right band starts at the screen edge");
+  near(sideRamp.front().line.w, 1.0, "one column at a time");
+  near(sideRamp.front().line.h, 1080.0, "down the band");
+  near(sideRamp.back().line.x, 1912.0, "and steps inward");
+  std::puts("the kill zone: opposite the strip on every edge, and the glow that follows it");
+}
+
+// How a window's surface maps into its tile: one scale, one translation. It was
+// arithmetic in the leaf, where a wrong scale is a stretched window and nothing
+// says so.
+static void theWindowMapsIntoItsTile() {
+  using hyprview::render::windowFit;
+  using hyprview::render::WindowFitInput;
+
+  // A fullscreen window on the monitor it fills: one to one, no offset.
+  {
+    WindowFitInput in;
+    in.destW = 1920.0;
+    in.destH = 1080.0;
+    in.logicalW = 1920.0;
+    in.logicalH = 1080.0;
+    in.settled = true;
+    const auto fit = windowFit(in);
+    want(fit.valid, true, "a fullscreen window fits");
+    near(fit.scale, 1.0, "at the monitor's own scale");
+    near(fit.translate.x, 0.0, "and it is not moved");
+    near(fit.translate.y, 0.0, "and it is not moved");
+  }
+
+  // The same window on a scaled monitor: the pixels are what matter, not the
+  // logical size.
+  {
+    WindowFitInput in;
+    in.destW = 1920.0;
+    in.destH = 1080.0;
+    in.logicalW = 960.0;
+    in.logicalH = 540.0;
+    in.monScale = 2.0;
+    in.settled = true;
+    const auto fit = windowFit(in);
+    near(fit.scale, 1.0, "a scaled monitor still draws at its own pixels");
+  }
+
+  // A contained window keeps its shape: the smaller of the two ratios wins, and
+  // the content is centred in the tile.
+  {
+    WindowFitInput in;
+    in.destW = 1000.0;
+    in.destH = 100.0;
+    in.logicalW = 500.0;
+    in.logicalH = 500.0;
+    in.contain = true;
+    in.settled = true;
+    const auto fit = windowFit(in);
+    near(fit.scale, 0.2, "contained by the tight side");
+    near(fit.translate.x, 2250.0, "and centred in the tile");
+    near(fit.translate.y, 0.0, "and centred in the tile");
+  }
+
+  // Not settled: the tile is covered a little over, so the backing never shows
+  // as a seam.
+  {
+    WindowFitInput in;
+    in.destW = 1920.0;
+    in.destH = 1080.0;
+    in.logicalW = 1920.0;
+    in.logicalH = 1080.0;
+    in.seamPad = 2.0;
+    const auto fit = windowFit(in);
+    want(fit.scale > 1.0, true, "an unsettled tile is over-covered");
+  }
+
+  // A tile with no area draws nothing.
+  {
+    WindowFitInput in;
+    in.destW = 0.0;
+    in.destH = 0.0;
+    in.settled = true;
+    want(windowFit(in).valid, false, "an empty tile has no fit");
+  }
+  std::puts("the window fit: one to one, contained, over-covered, and nothing at all");
+}
+
+// The run paints far -> near, so the focused card and its ring end up on top, and
+// the cards the run does not show paint behind everything.
+static void theRunPaintsFarBeforeNear() {
+  using hyprview::render::carouselPaintOrder;
+  using hyprview::render::carouselTone;
+  using hyprview::render::CarouselCardRef;
+
+  const std::vector<CarouselCardRef> cards{
+      {0, 0, true},  // the focused card
+      {1, 1, true},  // its neighbour
+      {2, 2, true},  // the far one
+      {3, 3, false}, // not on the run
+  };
+  const auto paint = carouselPaintOrder(cards);
+  want(paint.size(), 4u, "every card is in the order");
+  want(paint.front() == 3, true, "a card the run does not show paints first");
+  want(paint.back() == 0, true, "the focused card paints last");
+  // Far before near among the visible ones.
+  want(paint[1] == 2, true, "the far card paints before the near one");
+  want(paint[2] == 1, true, "the near card paints before the focused one");
+
+  // The dim: clear at the centre, the near tone at one step, the far tone tapered
+  // beyond it.
+  near(carouselTone(0, 0.125, 0.25, 0.8), 0.0, "the focused card is clear");
+  near(carouselTone(1, 0.125, 0.25, 0.8), 0.125, "the neighbour takes the near tone");
+  near(carouselTone(2, 0.125, 0.25, 0.8), 0.25 * 0.8, "the far card takes the far tone");
+  near(carouselTone(3, 0.125, 0.25, 0.8), 0.25 * 0.8 * 0.8, "and every step past it tapers");
+  std::puts("the run: far before near, and the dim that goes with the depth");
+}
+
+// A click on the run lands on the front-most card: the cards overlap, so the first
+// match is the wrong one.
+static void aClickOnTheRunLandsOnTheFront() {
+  using hyprview::render::carouselHit;
+  using hyprview::render::CarouselHitCard;
+
+  // The focused card and its neighbour overlap; the click belongs to the focused one.
+  const std::vector<CarouselHitCard> cards{
+      {0, 0, true, LRect{400.0, 200.0, 300.0, 200.0}},
+      {1, 1, true, LRect{500.0, 200.0, 300.0, 200.0}},
+  };
+  want(carouselHit(cards, 550.0, 300.0) == 0, true, "the front card wins the overlap");
+  want(carouselHit(cards, 750.0, 300.0) == 1, true, "the far card takes what is only its own");
+  want(carouselHit(cards, 100.0, 100.0) == -1, true, "a click on nothing hits nothing");
+
+  // A card the run does not show is not there to be clicked.
+  const std::vector<CarouselHitCard> hidden{
+      {0, 0, false, LRect{400.0, 200.0, 300.0, 200.0}},
+      {1, 1, true, LRect{500.0, 200.0, 300.0, 200.0}},
+  };
+  want(carouselHit(hidden, 450.0, 300.0) == -1, true, "a hidden card is not a target");
+  want(carouselHit(hidden, 550.0, 300.0) == 1, true, "and the shown card still is");
+  std::puts("the click on the run: the front-most card, and only what is shown");
+}
+
+// The wallpaper covers the monitor, and a frame that is black everywhere is not
+// a backdrop.
+static void theWallpaperCoversTheMonitor() {
+  using hyprview::render::coverFit;
+  using hyprview::render::kSourceAnimatedStreak;
+  using hyprview::render::looksBlack;
+
+  // The same shape: it fills, exactly.
+  const auto same = coverFit(1920.0, 1080.0, 1920.0, 1080.0);
+  near(same.scale, 1.0, "no scaling for the same shape");
+  near(same.x, 0.0, "and no offset");
+  near(same.y, 0.0, "and no offset");
+
+  // The monitor is wider than the image: the image is scaled to the width and
+  // centred vertically, the overflow cut off.
+  const auto wide = coverFit(1920.0, 1080.0, 1920.0, 1200.0);
+  near(wide.scale, 1.0, "scaled to the width");
+  near(wide.y, -60.0, "and centred, the overflow cut off");
+
+  // The monitor is taller than the image: the other axis.
+  const auto tall = coverFit(1080.0, 1920.0, 1920.0, 1080.0);
+  near(tall.scale, 1920.0 / 1080.0, "scaled to the height");
+  near(tall.x, (1080.0 - 1920.0 * (1920.0 / 1080.0)) / 2.0, "and centred, the overflow cut off");
+
+  // Black is a frame that is nowhere lit. A dark frame of a video wallpaper is
+  // not black: the threshold is low.
+  want(looksBlack(0, 0, 0), true, "black is black");
+  want(looksBlack(7, 7, 7), true, "almost black is black");
+  want(looksBlack(8, 0, 0), false, "one lit channel is not black");
+  want(looksBlack(200, 200, 200), false, "a lit frame is not black");
+
+  // Animation is several changes in a row: one re-creation of a static wallpaper
+  // is not animation.
+  want(kSourceAnimatedStreak >= 2, true, "one change is not animation");
+  std::puts("the wallpaper: cover-fit, the black check, and what counts as animation");
+}
+
+// What the backdrop puts under the tiles. With the blur on, the sharp source is not
+// an answer: a transparent window shows whatever is behind it, and a sharp copy of
+// the desktop under the tiles is the one-frame flash of the desktop.
+static void theBackdropNeverShowsTheSharpDesktopUnderBlur() {
+  using hyprview::render::backdropBase;
+  using hyprview::render::BackdropBase;
+
+  want(backdropBase(true, true) == BackdropBase::Blur, true, "a usable blur is the base");
+  want(backdropBase(true, false) == BackdropBase::OpaqueDim, true,
+       "and without one the dim covers the screen");
+  want(backdropBase(true, false) != BackdropBase::Source, true,
+       "the sharp source is never the base while the blur is on");
+  // With the blur off the sharp source IS the backdrop: that is what was asked for.
+  want(backdropBase(false, false) == BackdropBase::Source, true,
+       "with the blur off the sharp source is the backdrop");
+  want(backdropBase(false, true) == BackdropBase::Source, true,
+       "and it stays the backdrop even when a blur happens to be around");
+  std::puts("the backdrop base: the blur or the dim, never the sharp source under blur");
+}
+
+// The GL layer's own arithmetic: the radius a ring draws with, the radius the
+// CONTENT carries under it, and the pixel conversion. They were in a GL header,
+// where no test could reach them.
+static void theGlArithmeticIsReachable() {
+  using hyprview::render::clampRound;
+  using hyprview::render::contentRadiusPx;
+  using hyprview::render::outerRoundPx;
+  using hyprview::render::pxr;
+
+  // Truncate, never round: the shader's radius must match it exactly.
+  near(pxr(2.5, 1.0), 2.0, "truncated, not rounded");
+  near(pxr(3.0, 1.5), 4.0, "truncated, not rounded");
+  near(pxr(0.0, 2.0), 0.0, "no radius, no pixels");
+
+  // A radius past half the shorter side does not round at all: it inverts the shape.
+  near(clampRound(40, 100.0, 60.0), 30.0, "clamped at half the short side");
+  near(clampRound(20, 100.0, 60.0), 20.0, "a radius inside it passes through");
+  near(clampRound(10, 100.0, 60.0), 10.0, "in range passes through");
+  near(clampRound(-5, 100.0, 60.0), 0.0, "a negative radius is no radius");
+
+  // The ring's outer edge: the radius plus the border, minus what the border eats
+  // at this rounding power.
+  near(outerRoundPx(10.0, 2.0, 2.0, 1.0), 12.0, "the ring grows by its border");
+  near(outerRoundPx(10.0, 2.0, 2.0, 2.0), 24.0, "and scales with the monitor");
+  want(outerRoundPx(10.0, 2.0, 1.0, 1.0) < 12.0, true,
+       "a squarer curve eats less of the border");
+
+  // The CONTENT's radius: the ring's, plus the border, plus the seam pad, plus the
+  // one Hyprland subtracts.
+  near(contentRadiusPx(10, 2, 1.0), 14.0, "the content tucks under the ring");
+  near(contentRadiusPx(10, 2, 1.0, /*overCovers=*/false), 13.0,
+       "a contained window does not over-cover");
+  near(contentRadiusPx(10, 2, 2.0), 26.0, "and it scales with the monitor");
+  std::puts("the GL arithmetic: the radius, the ring's edge, and the content under it");
+}
+
+// The ring on top of a tile, and the part of the backdrop that shows through the
+// frost. Both were arithmetic at the draw site.
+static void theTileDecidesItsRingAndItsFrost() {
+  using hyprview::render::focusRingWidth;
+  using hyprview::render::frostUV;
+
+  // The hover ring wins over the selection ring, and the base ring shows when
+  // neither does.
+  near(focusRingWidth(true, true, true, 3, 5, 2), 3.0, "the hover ring is on top");
+  near(focusRingWidth(true, false, true, 3, 5, 2), 5.0, "the selection ring under it");
+  near(focusRingWidth(true, false, false, 3, 5, 2), 2.0, "the base ring under that");
+  near(focusRingWidth(false, true, true, 3, 5, 2), 0.0,
+       "with the focus border off there is no focus ring");
+
+  // The frost shows the backdrop under the tile: the tile's own box, normalized.
+  const auto uv = frostUV(100.0, 50.0, 200.0, 100.0, 1000.0, 500.0);
+  near(uv.u0, 0.1, "the left edge");
+  near(uv.v0, 0.1, "the top edge");
+  near(uv.u1, 0.3, "the right edge");
+  near(uv.v1, 0.3, "the bottom edge");
+  const auto full = frostUV(0.0, 0.0, 1000.0, 500.0, 1000.0, 500.0);
+  near(full.u1, 1.0, "the whole monitor");
+  near(full.v1, 1.0, "the whole monitor");
+  std::puts("the tile: the ring on top, and the frost under it");
+}
+
+// The ✕ glyph inside its button. One rule for every surface that draws it: the
+// strip used a hardcoded fraction, so the knob meant nothing there and the glyph
+// did not match its button.
+static void theCloseGlyphFillsItsButton() {
+  using hyprview::render::glyphRect;
+
+  const LRect button{100.0, 100.0, 24.0, 24.0};
+  const auto g = glyphRect(button, 32.0, 32.0, 0.62);
+  near(g.w, 24.0 * 0.62, "the glyph fills the button by the knob");
+  near(g.h, 24.0 * 0.62, "the glyph fills the button by the knob");
+  near(g.cx(), button.cx(), "and it is centred");
+  near(g.cy(), button.cy(), "and it is centred");
+
+  // A wider button: the tighter side decides, so the glyph never overflows.
+  const auto wide = glyphRect(LRect{0.0, 0.0, 40.0, 20.0}, 32.0, 32.0, 0.62);
+  near(wide.h, 20.0 * 0.62, "the tight side decides");
+  want(wide.w <= 40.0, true, "and it stays inside the button");
+
+  // The knob means something: a bigger fill is a bigger glyph.
+  want(glyphRect(button, 32.0, 32.0, 0.9).w > g.w, true, "the knob is the knob");
+  std::puts("the close glyph: one rule, and the knob means something");
+}
+
+// The pulse ring, and the half of a slot the pointer is in.
+static void thePulseAndTheDropHintAreDecisions() {
+  using hyprview::render::dwindleHalf;
+  using hyprview::render::pulseRing;
+  using hyprview::render::pulseRingWidth;
+
+  // The ring is the tile's box, grown.
+  const LRect tile{100.0, 100.0, 200.0, 100.0};
+  const auto still = pulseRing(tile, 0.0);
+  sameRect(still, tile, "with no pulse the ring is the box");
+  const auto grown = pulseRing(tile, 0.5);
+  near(grown.w, 200.0 * 2.0, "the ring grows by the pulse");
+  near(grown.h, 100.0 * 2.0, "the ring grows by the pulse");
+  near(grown.cx(), tile.cx(), "about the same centre");
+
+  // The ring's own thickness grows with it, and never below a hairline.
+  near(pulseRingWidth(4, 0.0), 4.0, "the ring is as thick as the tile's");
+  want(pulseRingWidth(4, 1.0) > 4, true, "and thicker while it grows");
+  want(pulseRingWidth(0, 1.0) >= 2, true, "and never thinner than a hairline");
+
+  // The drop hint shows the half the pointer is in: the half it will fill.
+  const LRect slot{0.0, 0.0, 100.0, 50.0};
+  const auto left = dwindleHalf(slot, 10.0, 25.0);
+  near(left.x, 0.0, "the left half");
+  near(left.w, 50.0, "the left half");
+  const auto right = dwindleHalf(slot, 90.0, 25.0);
+  near(right.x, 50.0, "the right half");
+  near(right.w, 50.0, "the right half");
+  const auto tall = dwindleHalf(LRect{0.0, 0.0, 50.0, 100.0}, 25.0, 90.0);
+  near(tall.y, 50.0, "a tall slot splits the other way");
+  near(tall.h, 50.0, "a tall slot splits the other way");
+  std::puts("the pulse: the ring it grows, and the half the pointer is in");
+}
+
+// The card is the frame and the content is what fits in it. The desktop shell's
+// switcher draws it the same way: a fixed frame, the snapshot contained, the rest
+// of the frame filled.
+static void theContentKeepsItsAspectInsideTheCard() {
+  using hyprview::render::contentInside;
+
+  const LRect card{0.0, 0.0, 800.0, 500.0};
+  // A wide window in a wide card: it fills the width.
+  const auto wide = contentInside(card, 1920.0, 1080.0);
+  near(wide.w, 800.0, "a wide window fills the width");
+  near(wide.h, 450.0, "and its height follows the aspect");
+  near(wide.y, 25.0, "centred in the card");
+
+  // A tall window in a wide card: it fits the height, and the sides are the plate.
+  const auto tall = contentInside(card, 400.0, 900.0);
+  near(tall.h, 500.0, "a tall window fills the height");
+  near(tall.w, 500.0 * 400.0 / 900.0, "and its width follows the aspect");
+  near(tall.x, (800.0 - tall.w) * 0.5, "centred in the card");
+
+  // A window smaller than the card is not blown up past the card.
+  const auto small = contentInside(card, 37.0, 18.0);
+  want(small.w <= card.w && small.h <= card.h, true, "the content never leaves the card");
+
+  // Nothing to fit: the card is the content.
+  sameRect(contentInside(card, 0.0, 0.0), card, "a window with no size fills the card");
+  std::puts("the content: its own aspect inside the card, and the rest is the plate");
+}
+
+// The caption's size and its place do not depend on how long the title is: a long
+// title is a long one, not a small one, and it runs under the cards beside it.
+static void theCaptionDoesNotShrinkWithTheTitle() {
+  using hyprview::render::CaptionSizes;
+  using hyprview::render::CaptionStyle;
+  using hyprview::render::captionLayout;
+
+  const LRect card{100.0, 200.0, 400.0, 300.0};
+  const CaptionStyle style{11.0, 5.0, 11.0, 5.0, 10.0, 8.0, 6.0, 6.0, 400.0, 34.0, true, true};
+  const auto shortTitle = captionLayout(card, LRect{}, 1920.0, 1080.0,
+                                       CaptionSizes{120.0, 24.0, 0.0, 0.0, true, false}, style);
+  const auto longTitle = captionLayout(card, LRect{}, 1920.0, 1080.0,
+                                       CaptionSizes{900.0, 24.0, 0.0, 0.0, true, false}, style);
+
+  near(longTitle.pill.h, shortTitle.pill.h, "the pill is as tall for a long title");
+  near(longTitle.pill.y, shortTitle.pill.y, "and it sits at the same place");
+  want(longTitle.pill.w > shortTitle.pill.w, true, "a long title is a wider pill");
+  near(longTitle.kFit, shortTitle.kFit, "and neither is scaled down to fit");
+  std::puts("the caption: the same size and place, whatever the title's length");
+}
+
+// The badge leaves and arrives on one schedule, so the open is the close played backwards.
+// Constant pop or constant alpha both redden here: the peak is the point, and a badge that is
+// simply there on frame one is what this replaced.
+static void theBadgeIsPlayedInBothDirections() {
+  const auto gone = badgePose(0.0);
+  near(gone.pop, 0.65, "k=0 is small, not zero: the shape stays readable while it goes");
+  near(gone.alpha, 0.0, "and invisible");
+  const auto rest = badgePose(1.0);
+  near(rest.pop, 1.0, "at rest the badge is its own size");
+  near(rest.alpha, 1.0, "and opaque");
+
+  double peak = 0.0;
+  double previousAlpha = 0.0;
+  double previousPop = 0.0;
+  for (int i = 0; i <= 100; ++i) {
+    const auto p = badgePose(i / 100.0);
+    peak = std::max(peak, p.pop);
+    want(p.alpha >= previousAlpha, true, "alpha rises with k");
+    if (i <= 77)
+      want(p.pop >= previousPop, true, "the pop rises up to the peak");
+    previousAlpha = p.alpha;
+    previousPop = p.pop;
+  }
+  near(peak, 1.2, "the overshoot is a fifth");
+  // Past the peak the shape shrinks back: that half is what the close reads.
+  want(badgePose(0.9).pop < badgePose(0.77).pop, true, "the pop settles after the peak");
+}
+
+// The badge's own window of the run: it arrives with the run, not after it, and it leaves
+// inside the last stretch of the close. The span is a number, so the schedule is a number too.
+static void theBadgeHasItsOwnWindow() {
+  constexpr double span = 0.28;
+  near(badgeK(0.0, 0.0, true, span), 0.0, "on the way in the badge starts out gone");
+  near(badgeK(span, 0.0, true, span), 1.0, "and is at rest after its own span");
+  near(badgeK(span * 0.5, 0.0, true, span), 0.5, "half of the span is half of the badge");
+  near(badgeK(0.0, 0.0, false, span), 1.0, "on the way out it starts at rest");
+  near(badgeK(0.0, span, false, span), 0.0, "and is gone after its own span");
+  near(badgeK(0.0, 0.0, true, 0.0), 1.0, "a span of zero leaves the badge alone");
+  want(badgeK(0.0, 0.0, true, span) < badgeK(span, 0.0, true, span), true,
+       "the icon arrives with the run, not at the end of it");
+}
+
+// The badge's texture size: steps of eight. A card that grows during a glide asks for a size
+// every frame, and a size it does not have is a decode of the icon -- a hitch per frame.
+static void theBadgeSizeIsQuantised() {
+  near(badgePx(30.0, 1.0), 32, "30px is drawn at 32");
+  near(badgePx(33.0, 1.0), 40, "33px is drawn at 40");
+  near(badgePx(5.0, 1.0), 16, "a tiny icon is still 16");
+  near(badgePx(30.0, 2.0), 64, "at scale 2 the same icon is 64");
+  for (double side = 1.0; side < 60.0; side += 0.37) {
+    const int px = badgePx(side, 1.0);
+    want(px % 8 == 0, true, "every badge size is a multiple of eight");
+    want(px >= 16, true, "and never smaller than 16");
+  }
+}
+
+// What a card shows in its frame. A tab with no picture shows the plate and the dim title,
+// never the picture of another page and never a bare frost.
+static void theCardSaysWhatItShows() {
+  want(cardContent(CardKind::Window, false) == CardContent::Window, true,
+       "a window card is the window");
+  want(cardContent(CardKind::Window, true) == CardContent::Window, true, "and never a picture");
+  want(cardContent(CardKind::Tab, true) == CardContent::Picture, true,
+       "a tab with a picture shows it");
+  want(cardContent(CardKind::Tab, false) == CardContent::PlateAndTitle, true,
+       "a tab without one shows the plate and the title");
+}
+
+// The badge's square: in the corner of the card that the caption does not reach, and inside
+// the card at any size.
+static void theBadgeSitsInTheCorner() {
+  const LRect card{100.0, 100.0, 400.0, 300.0};
+  const double side = badgeSide(card.h);
+  const auto badge = badgeBox(card, side, 1.0);
+  want(badge.x >= card.x && badge.x + badge.w <= card.x + card.w, true,
+       "the badge is inside the card, horizontally");
+  want(badge.y >= card.y && badge.y + badge.h <= card.y + card.h, true,
+       "and vertically");
+  want(badge.x + badge.w / 2.0 < card.x + card.w / 2.0, true, "the badge is in the left half");
+  want(badge.y + badge.h / 2.0 > card.y + card.h / 2.0, true, "and in the lower half");
+
+  const auto small = badgeBox(card, side, 0.65);
+  want(small.w < badge.w, true, "a badge that shrinks gets smaller");
+  want(small.x + small.w / 2.0 == badge.x + badge.w / 2.0, true, "about its centre");
+}
+
 int main() {
+  theCardSaysWhatItShows();
+  theBadgeSitsInTheCorner();
+  theBadgeIsPlayedInBothDirections();
+  theBadgeHasItsOwnWindow();
+  theBadgeSizeIsQuantised();
+
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
     const LRect zone{0.0, 900.0, 1920.0, 120.0}; // bottom band, as on a 1920x1080 monitor
@@ -263,13 +1037,13 @@ int main() {
   // cfg:: at the point of use; they are here because a band that lands on the wrong edge is
   // a wrong ANSWER, not a wrong drawing.
   {
-    using gloview::render::Anchor;
-    using gloview::render::isHorizontal;
-    using gloview::render::parseAnchor;
-    using gloview::render::stripBand;
-    using gloview::render::stripOffset;
-    using gloview::render::stripSlide;
-    using gloview::render::stripThickness;
+    using hyprview::render::Anchor;
+    using hyprview::render::isHorizontal;
+    using hyprview::render::parseAnchor;
+    using hyprview::render::stripBand;
+    using hyprview::render::stripOffset;
+    using hyprview::render::stripSlide;
+    using hyprview::render::stripThickness;
 
     assert(parseAnchor("bottom", "") == Anchor::Bottom);
     assert(parseAnchor("left", "") == Anchor::Left);
@@ -314,10 +1088,10 @@ int main() {
 
     // The reveal slide: at e == 1 the band is in place, at e == 0 it is off-screen, and
     // the direction is always OFF the anchored edge.
-    for (const auto &[a, want] : {std::pair{Anchor::Top, gloview::LVec2{0.0, -30.0}},
-                                 std::pair{Anchor::Bottom, gloview::LVec2{0.0, 30.0}},
-                                 std::pair{Anchor::Left, gloview::LVec2{-30.0, 0.0}},
-                                 std::pair{Anchor::Right, gloview::LVec2{30.0, 0.0}}}) {
+    for (const auto &[a, want] : {std::pair{Anchor::Top, hyprview::LVec2{0.0, -30.0}},
+                                 std::pair{Anchor::Bottom, hyprview::LVec2{0.0, 30.0}},
+                                 std::pair{Anchor::Left, hyprview::LVec2{-30.0, 0.0}},
+                                 std::pair{Anchor::Right, hyprview::LVec2{30.0, 0.0}}}) {
       const auto half = stripSlide(a, 0.0, 60.0, 0.5);
       near(half.x, want.x, "slide x at e=0");
       near(half.y, want.y, "slide y at e=0");
@@ -335,8 +1109,8 @@ int main() {
   
   // One of the two boxes the strip draws and the hit-test must agree on to the pixel.
   {
-    using gloview::render::fitInside;
-    using gloview::render::winSlotRect;
+    using hyprview::render::fitInside;
+    using hyprview::render::winSlotRect;
     const auto card = LRect{100, 40, 167, 94};
 
 
@@ -356,7 +1130,7 @@ int main() {
 
   // fitInside: the largest box of a given aspect that fits, centred.
   {
-    using gloview::render::fitInside;
+    using hyprview::render::fitInside;
     const auto outer = LRect{0, 0, 200, 100};
     sameRect(fitInside(outer, 2.0), outer, "a matching aspect gets the outer box");
     // Narrower than the outer (2.0): the width is the limit, so it narrows -- pillarboxed
@@ -378,7 +1152,7 @@ int main() {
 
   // firstHit: which of a row of boxes is under the cursor.
   {
-    using gloview::render::firstHit;
+    using hyprview::render::firstHit;
     const LRect row[] = {{0, 0, 100, 100}, {100, 0, 100, 100}, {200, 0, 100, 100}};
 
     want(firstHit(50, 50, row, 3) == 0, true, "a point in the first box");
@@ -405,6 +1179,26 @@ int main() {
     std::puts("firstHit: hits, misses, seams, an empty row, and overlap order");
   }
 
+  chromeTakesTheAxisThatKeepsItWithItsCard();
+  aCaptionIsGoneWhenItsCardIs();
+  bothPillsShareOneRect();
+  pillFitsCard();
+  captionFollowsItsCard();
+  theStripDecidesItsOwnShapes();
+  theFlightHasFourKinds();
+  theKillZoneIsOppositeTheStrip();
+  theWindowMapsIntoItsTile();
+  theRunPaintsFarBeforeNear();
+  aClickOnTheRunLandsOnTheFront();
+  theWallpaperCoversTheMonitor();
+  theBackdropNeverShowsTheSharpDesktopUnderBlur();
+  theGlArithmeticIsReachable();
+  theTileDecidesItsRingAndItsFrost();
+  theCloseGlyphFillsItsButton();
+  thePulseAndTheDropHintAreDecisions();
+  theContentKeepsItsAspectInsideTheCard();
+  theCaptionDoesNotShrinkWithTheTitle();
+  std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;
 }

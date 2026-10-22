@@ -1,3 +1,4 @@
+#include "../render/geometry.hpp"
 #include "../config/config.hpp"
 #include "../debug/log.hpp"
 #include "../overview.hpp"
@@ -30,7 +31,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 Overview::Anchor Overview::stripAnchor() const {
   return render::parseAnchor(cfg::strip.anchor.get(), cfg::strip.bar_position.get());
@@ -78,87 +79,35 @@ Vector2D Overview::stripOffset(double e) const {
 }
 
 Vector2D Overview::stripPush(const LRect &band) const {
-  double deepest = 0.0;
+  std::vector<LRect> covers;
   const auto &tiles = m_scene.tiles();
   for (size_t i = 0; i < tiles.size(); ++i) {
     const LRect b = currentBox(tiles[i], static_cast<int>(i));
     if (b.w < 1.0 || b.h < 1.0)
       continue;
-    double pen = 0.0;
-    switch (stripAnchor()) {
-    case Anchor::Bottom: pen = (b.y + b.h) - band.y; break;
-    case Anchor::Top:    pen = (band.y + band.h) - b.y; break;
-    case Anchor::Left:   pen = (band.x + band.w) - b.x; break;
-    case Anchor::Right:  pen = (b.x + b.w) - band.x; break;
-    }
-    deepest = std::max(deepest, pen);
+    // Shove clear of whatever would COVER it; same rule as pushOut(), answered by cardOf().
+    if (!cardOf(tiles[i]).coversChrome)
+      continue;
+    covers.push_back(b);
   }
-  if (deepest <= 0.0)
-    return {};
-  // Uncapped: the depth is bounded by the tile, and a strip shoved past the screen edge is
-  // exactly "задвигает". The cap this replaces held it to one band thickness, which cleared
-  // the band for a shallow overlap and left the workspace cards — riding the same slide —
-  // painted over the tile edge once the window grew to cover the strip (measured on exit).
-  const double d = deepest;
-  switch (stripAnchor()) {
-  case Anchor::Bottom: return Vector2D{0.0, d};
-  case Anchor::Top:    return Vector2D{0.0, -d};
-  case Anchor::Left:   return Vector2D{-d, 0.0};
-  case Anchor::Right:  return Vector2D{d, 0.0};
-  }
-  return {};
+  const LVec2 v = render::stripPush(band, stripAnchor(), covers);
+  return Vector2D{v.x, v.y};
 }
 
-Vector2D Overview::pushOut(const LRect &r) const {
-  double best = 0.0;
-  Vector2D dir{0.0, 0.0};
+// The cards that can cover chrome: the rule that uses them lives in render::caption.
+std::vector<LRect> Overview::coveringCards() const {
+  std::vector<LRect> covers;
   const auto &tiles = m_scene.tiles();
   for (size_t i = 0; i < tiles.size(); ++i) {
     const LRect b = currentBox(tiles[i], static_cast<int>(i));
     if (b.w < 1.0 || b.h < 1.0)
       continue;
-    const double ox = std::min(b.x + b.w, r.x + r.w) - std::max(b.x, r.x);
-    const double oy = std::min(b.y + b.h, r.y + r.h) - std::max(b.y, r.y);
-    if (ox <= 0.0 || oy <= 0.0)
-      continue; // not touching
-
-    // SWALLOWED: the preview covers the element whole, so there is no cheaper axis to leave
-    // by and both overlaps equal the element's size. Eject toward the nearest edge instead,
-    // otherwise the displacement degenerates to one element-sized step and stops there -- the
-    // measured "nudges once, then stands still while the window draws over it".
-    Vector2D d{0.0, 0.0};
-    double depth = 0.0;
-    if (ox >= r.w && oy >= r.h) {
-      double near = r.x - b.x;
-      d = Vector2D{-1.0, 0.0};
-      if (b.x + b.w - (r.x + r.w) < near) {
-        near = b.x + b.w - (r.x + r.w);
-        d = Vector2D{1.0, 0.0};
-      }
-      if (r.y - b.y < near) {
-        near = r.y - b.y;
-        d = Vector2D{0.0, -1.0};
-      }
-      if (b.y + b.h - (r.y + r.h) < near) {
-        near = b.y + b.h - (r.y + r.h);
-        d = Vector2D{0.0, 1.0};
-      }
-      depth = near;
-    } else if (ox < oy) {
-      depth = ox;
-      d = Vector2D{std::copysign(1.0, r.cx() - b.cx()), 0.0};
-    } else {
-      depth = oy;
-      d = Vector2D{0.0, std::copysign(1.0, r.cy() - b.cy())};
-    }
-    if (depth > best) {
-      best = depth;
-      dir = d;
-    }
+    // Same rule as stripPush(): a tab's card covers nothing and must not displace chrome.
+    if (!cardOf(tiles[i]).coversChrome)
+      continue;
+    covers.push_back(b);
   }
-  if (best <= 0.0)
-    return {};
-  return Vector2D{dir.x * best, dir.y * best};
+  return covers;
 }
 
 bool Overview::blurEnabled() const { return blurStrength() > 0.0F; }
@@ -180,4 +129,4 @@ int Overview::blurResolution() const {
 }
 
 
-} // namespace gloview
+}

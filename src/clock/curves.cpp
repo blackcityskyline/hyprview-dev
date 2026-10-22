@@ -11,7 +11,7 @@ extern "C" {
 #include <lua.h>
 }
 
-namespace gloview::curves {
+namespace hyprview::curves {
 
 namespace {
 
@@ -38,8 +38,8 @@ struct Bezier {
            t * t * t;
   }
   double solve(double x) const {
-    double t = x; // near-diagonal xs: t = x is a good seed
-    for (int i = 0; i < 8; ++i) { // Newton on cx(t) - x
+    double t = x;
+    for (int i = 0; i < 8; ++i) {
       const double u  = 1.0 - t;
       const double cx = 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t - x;
       const double dx = 3 * u * u * x1 + 6 * u * t * (x2 - x1) + 3 * t * t * (1 - x2);
@@ -50,7 +50,6 @@ struct Bezier {
         break;
     }
     t = std::clamp(t, 0.0, 1.0);
-    // bisection: Newton alone can leave [0,1]
     double lo = 0.0, hi = 1.0;
     for (int i = 0; i < 24; ++i) {
       const double u  = 1.0 - t;
@@ -67,15 +66,14 @@ struct Bezier {
 std::unordered_map<std::string, NativeFn> g_native;
 std::unordered_map<std::string, Bezier> g_beziers;
 
-// g_L: the g_lua refs index ITS registry table
 lua_State *g_L = nullptr;
 std::unordered_map<std::string, int> g_lua;
 
-// one log line per name: a broken curve is evaluated every frame
+// One log line per name: a broken curve is evaluated every frame.
 std::unordered_set<std::string> g_warned;
 void warnOnce(const std::string &id, const std::string &what) {
   if (g_warned.insert(id).second)
-    Log::logger->log(Log::WARN, "[gloview] curve '{}' {}: falling back to easeout",
+    Log::logger->log(Log::WARN, "[hyprview] curve '{}' {}: falling back to easeout",
                      id, what);
 }
 
@@ -125,7 +123,7 @@ int luaRegister(lua_State *L) {
     }
     lua_pop(L, 1);
     g_beziers.insert_or_assign(name, b);
-    g_lua.erase(name); // redefining as bezier drops the lua ref
+    g_lua.erase(name);
     return 0;
   }
   luaL_checktype(L, 2, LUA_TFUNCTION);

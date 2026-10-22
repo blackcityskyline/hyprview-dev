@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
   // Names the type as `namespace::Type`; the header is matched by its own name only.
   const std::vector<Subsystem> subs{
       {"Backdrop", "render/backdrop.hpp",
-       {"m_blur", "m_srcFB", "m_scratchFB", "m_probeFB", "m_drawn", "m_srcTex",
+       {"m_blur", "m_srcFB", "m_scratchFB", "m_drawn", "m_blurDrawn", "m_srcTex",
         "m_lastObservedTex", "m_srcAnimStreak", "m_srcAnimated", "m_blurFilter"}},
       // The three pieces of compositor state a cross-workspace preview has to be shown
       // against, saved as a set and put back as a set.
@@ -222,6 +222,19 @@ int main(int argc, char **argv) {
       "m_lastAnimTick",
       // one value each, owned by the coordinator because nothing else does the owning
       "m_scrollAccum", "m_killGlow", "m_lastDragBox", "m_lastFocus", "m_handle",
+      // A value type held by the coordinator, written through member calls the scan sees as
+      // one writer: buildTiles() is where a placement is made.
+      "m_place",
+      // Runtime override of show_discarded_tabs: one value, and the coordinator owns it.
+      "m_showDiscarded",
+      // The browser side: what the extension wrote, and which window carries whose tabs.
+      // Written by one file because loadTabs() is the only thing that may -- it reads a file
+      // and re-derives the matching, and both must happen at the same moment or the two halves
+      // disagree about which window shows what. That pairing is the reason to keep one writer,
+      // and it is also why this is an entry with a reason rather than an extraction already
+      // done: the pair wants to be one type with a private load(), and until it is one, saying
+      // so here is the honest state. Not a silent pass.
+      "m_tabs", "m_links",
   };
 
   std::vector<Single>                          single;

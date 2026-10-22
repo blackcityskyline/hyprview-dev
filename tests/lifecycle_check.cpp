@@ -22,8 +22,8 @@
 
 #include "../src/model/lifecycle.hpp"
 
-using gloview::model::Lifecycle;
-using Own = gloview::model::Lifecycle::Own;
+using hyprview::model::Lifecycle;
+using Own = hyprview::model::Lifecycle::Own;
 
 int main() {
   // --- a fresh lifecycle owns nothing ------------------------------------------------

@@ -18,7 +18,7 @@
 
 #include "../src/anim_types.hpp"
 
-using namespace gloview::anim;
+using namespace hyprview::anim;
 
 namespace {
 

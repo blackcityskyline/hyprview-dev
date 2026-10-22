@@ -1,10 +1,16 @@
 #include "../config/config.hpp"
 #include "../debug/log.hpp"
 #include "../overview.hpp"
+#include "../model/entries.hpp"
+#include "../model/origin.hpp"
+#include "../model/title_text.hpp"
 #include "../render/gl_util.hpp"
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <cmath>
 #include <numeric>
 #include <set>
@@ -23,61 +29,136 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
+
+static std::string browserSideDir() {
+    const char *rt = std::getenv("XDG_RUNTIME_DIR");
+    return (rt && *rt ? std::string(rt) : std::string("/tmp")) + "/hyprview";
+}
+
+static std::string tabFeedPath() { return browserSideDir() + "/tabs"; }
+
+void Overview::loadTabs() {
+    std::ifstream in(tabFeedPath(), std::ios::binary);
+    std::string text;
+    if (in)
+        text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+
+    const auto parsed = model::parseTabs(text);
+    if (!parsed || !m_tabs.adopt(*parsed)) {
+        debug::trace::record("TABS", "load",
+                             std::string("mode=") + model::domainName(m_view.domain()) +
+                                 "|parsed=" + std::to_string(parsed.has_value() ? 1 : 0) +
+                                 "|bytes=" + std::to_string(text.size()));
+        m_tabs.clear();
+        m_links.clear();
+        return;
+    }
+
+  // Matching is NOT built here: buildTiles() derives it from the same enumeration as the tiles.
+}
 
 void Overview::buildTiles() {
   // parked boxes survive the rebuild
-  std::unordered_map<PHLWINDOWREF, std::pair<LRect, bool>> priorTargets;
+  std::unordered_map<model::SubjectRef, std::pair<LRect, bool>> priorTargets;
   for (const auto &t : m_scene.tiles())
     if (t.parked)
-      if (const auto w = t.win.lock())
-        priorTargets.emplace(w, std::pair{t.target, true});
+      priorTargets.emplace(t.subj, std::pair{t.target, true});
   m_scene.clear();
   const auto m = m_monitor.lock();
   const auto ws = m_workspace.lock();
   if (!m || !ws)
     return;
 
-  for (const auto &w : Desktop::windowState()->windows()) {
-    if (!tileBelongs(w, m, ws))
+  // enumerate() puts windows on the source's alive list; an identity minted outside resolves to nobody.
+  const auto mode = m_view.domain();
+  const bool showDiscarded = discardedShown();
+  const auto subjects = m_windows.enumerate();
+
+  // From THIS enumeration: the tile a tab is built for and the window it matches cannot differ.
+  std::vector<model::HostWindow> hosts;
+  std::string hostTitles;
+  for (const auto subj : subjects) {
+    const auto w = m_windows.windowOf(subj);
+    if (w) {
+  // PID, not title: a browser appends its own name to the window title (AGENTS.md 2.26).
+      hosts.push_back(model::HostWindow{reinterpret_cast<std::uintptr_t>(w.get()),
+                                        static_cast<std::uint64_t>(w->getPID())});
+      hostTitles += "[" + w->m_title + "] ";
+      for (auto &c : hostTitles)
+        if (c == '|' || c == '\n' || c == '\r')
+          c = '_';
+    }
+  }
+  const auto &pids = m_tabs.snapshot().pids;
+  m_links.rebuild(hosts, pids);
+  debug::trace::record("TABS", "match",
+                       std::string("mode=") + model::domainName(m_view.domain()) + "|gen=" +
+                           std::to_string(m_tabs.generation()) + "|hosts=" +
+                           std::to_string(hosts.size()) + "|titles=" +
+                           std::to_string(pids.size()) + "|links=" +
+                           std::to_string(m_links.empty() ? 0 : 1) + "|cfg=" +
+                           cfg::behavior.tile_mode.get() + "|hostLens=" + hostTitles);
+  for (const auto subj : subjects) {
+    const auto w = m_windows.windowOf(subj);
+    if (!w)
       continue;
 
-    model::Tile t;
-    t.win = w;
-    if (const auto it = priorTargets.find(w); it != priorTargets.end()) {
-      t.target = it->second.first;
-      t.parked = true;
-    }
-    // goal(), not value(): value() carries the slide offset
+    // goal(), not value(): value() carries the slide offset.
     const auto p = w->positionAnimation()->goal();
     const auto s = w->sizeAnimation()->goal();
-    t.natural = LRect{p.x - m->m_position.x, p.y - m->m_position.y,
-                      std::max(1.0, s.x), std::max(1.0, s.y)};
-    m_scene.add(std::move(t));
+    const LRect box{p.x - m->m_position.x, p.y - m->m_position.y,
+                    std::max(1.0, s.x), std::max(1.0, s.y)};
+
+    // browserOf() == 0 is not a browser window; unmatched shows as a window.
+    const auto bw = m_links.browserOf(reinterpret_cast<std::uintptr_t>(w.get()));
+    const auto ids = m_tabs.tabIdsFor(bw, showDiscarded);
+    // A browser whose every tab is filtered out must still be a window, not nothing.
+    const bool tabsShown = m_tabs.knownFor(bw) && !ids.empty();
+
+    for (const auto &entry : model::entriesFor(w.get(), mode, tabsShown, ids, bw != 0)) {
+      model::Tile t;
+      // tabId < 0 is the window itself; a tab id is scoped to the connection that issued it.
+      t.subj = entry.tabId < 0 ? subj
+                               : model::SubjectRef{static_cast<std::uint64_t>(entry.tabId),
+                                                   m_tabs.generation()};
+      // A tab's natural is its host's box: the layout needs an aspect, and its preview is of that window.
+      t.natural = box;
+      t.home = box;
+      t.workspace = w->m_workspace ? w->m_workspace->m_id : 0;  // the desktop view groups by it
+      if (const auto it = priorTargets.find(t.subj); it != priorTargets.end()) {
+        t.target = it->second.first;
+        t.parked = true;
+      }
+      m_scene.add(std::move(t));
+    }
   }
 
-  // NO makeEGLCurrent() here. buildTiles()/buildStrip() are reached from key handlers and
-  // dispatch (open(), the actions), where the current EGL context belongs to the compositor,
-  // not to us: making ours current there raised a foreign context over it and the NEXT GL
-  // call in renderBackdrop() threw bad_variant_access, killing the compositor (crash report
-  // hyprlandCrashReport41645: eglCreateContext EGL_BAD_MATCH -> renderBackdrop -> paint).
-  // The compositor makes our context current for every pass it drives, so the label
-  // pre-render is safe from renderStage and needs no context juggling here.
+  // no makeEGLCurrent() here: it raised a foreign EGL context and killed the compositor.
   if (g_pHyprOpenGL && g_pHyprRenderer) {
-    // A tile's title, in either layout -- the strip's own labels keep label_color.
     const auto lblCol = cfg::colors.title_label.get();
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
-      const auto w = t.win.lock();
-      if (!w)
-        continue;
-      std::string text = w->m_title;
-      if (text.empty())
-        text = w->m_class;
-      if (text.size() > 80)
-        text = text.substr(0, 79) + "…";
+      std::string text;
+      SP<Render::ITexture> tex;
+      if (cardOf(t).isTab()) {
+        text = model::truncateTitle(m_tabs.label(t.subj));
+        tex  = m_pixel.subjectLabel(t.subj, text, lblCol, cfg::look.title_font_size.get());
+      } else {
+        const auto w = tileWindow(t);
+        if (!w)
+          continue;
+        // Cold decode here costs the open a few ms; in paint it costs the entry a few dropped frames.
+        if (cfg::look.show_window_icons != 0)
+          m_pixel.warmAppIcon(w->m_class);
+        text = w->m_title;
+        if (text.empty())
+          text = w->m_class;
+        text = model::truncateTitle(text);
+        tex = m_pixel.windowLabel(w, text, lblCol, cfg::look.title_font_size.get());
+      }
       t.labelText = text;
-      t.label = m_pixel.windowLabel(w, text, lblCol, cfg::look.title_font_size.get());
+      t.label     = tex;
     }
     // glyph pre-rendered: text rendering mid-pass is unsafe
     const std::string closeIcon =
@@ -96,8 +177,6 @@ void Overview::buildStrip() {
   const std::string emptyMode =
       cfg::strip.empty_mode.get();
   const bool showSpecial = cfg::behavior.show_special != 0;
-  // How many windows the predicate below accepts on this workspace. Split out because
-  // the debug line needs it and duplicating the predicate in a log is how they drift.
   const auto countMappedOn = [](const PHLWORKSPACE &w) {
     int n = 0;
     for (const auto &win : Desktop::windowState()->windows())
@@ -126,28 +205,19 @@ void Overview::buildStrip() {
         it.ws = ws;
         it.id = ws->m_id;
         it.active = (ws == cur);
-        // Windows too. This card used to be added and skipped, so wins stayed empty
-        // and an empty card draws the wallpaper -- the special workspace showed a
-        // backdrop and no window, which is what it looked like for every user of it.
-        // rel comes from the window's on-screen position, which a stashed window keeps
-        // from when the special workspace was last shown: that is the only geometry
-        // there is for a workspace nobody is looking at.
+        // rel: on-screen position a stashed window keeps from the last time it was shown.
         for (const auto &w : Desktop::windowState()->windows()) {
           if (!w || !w->m_isMapped || w->isHidden() || w->m_workspace != ws)
             continue;
           const auto p = w->positionAnimation()->goal();
           const auto sz = w->sizeAnimation()->goal();
           model::StripWin sw;
-          sw.win = w;
+          sw.subj = subjectOf(w);
           sw.rel = LRect{(p.x - m->m_position.x) / m->m_size.x,
                          (p.y - m->m_position.y) / m->m_size.y,
                          sz.x / m->m_size.x, sz.y / m->m_size.y};
           it.wins.push_back(sw);
         }
-        // Every special card, every rebuild: a special workspace that shows a backdrop
-        // and no window is the failure this whole branch was added for, and the only
-        // way to tell "no window was collected" from "the slot was clipped away" later
-        // is to have written down what was collected here.
         debug::dbg("strip special: ws=" + std::to_string(it.id) + " name=" + ws->m_name +
                    " wins=" + std::to_string(it.wins.size()) +
                    " mapped=" + std::to_string(countMappedOn(ws)));
@@ -215,7 +285,7 @@ void Overview::buildStrip() {
       const auto p = w->positionAnimation()->goal();
       const auto s = w->sizeAnimation()->goal();
       model::StripWin sw;
-      sw.win = w;
+      sw.subj = subjectOf(w);
       sw.rel = LRect{(p.x - m->m_position.x) / m->m_size.x,
                      (p.y - m->m_position.y) / m->m_size.y, s.x / m->m_size.x,
                      s.y / m->m_size.y};
@@ -231,13 +301,6 @@ void Overview::buildStrip() {
   plus.id = 0;
   m_strip.add(std::move(plus));
 
-  // NO makeEGLCurrent() here. buildTiles()/buildStrip() are reached from key handlers and
-  // dispatch (open(), the actions), where the current EGL context belongs to the compositor,
-  // not to us: making ours current there raised a foreign context over it and the NEXT GL
-  // call in renderBackdrop() threw bad_variant_access, killing the compositor (crash report
-  // hyprlandCrashReport41645: eglCreateContext EGL_BAD_MATCH -> renderBackdrop -> paint).
-  // The compositor makes our context current for every pass it drives, so the label
-  // pre-render is safe from renderStage and needs no context juggling here.
   if (g_pHyprOpenGL && g_pHyprRenderer) {
     const auto lblCol = cfg::colors.label.get();
     for (auto &it : m_strip) {
@@ -282,9 +345,6 @@ void Overview::buildStrip() {
   const double groupMain = n * cellMain + std::max(0, n - 1) * gap;
   const double mainOrigin = (horiz ? band.x : band.y) + margin;
 
-  // Re-clamps the endpoints and the current position into the new range, which the four
-  // free doubles had no way to do: a strip that just lost a card left the group scrolled
-  // past where it could still go.
   m_scroll.setMax(groupMain - availMain);
   debug::trace::scroll("setMax", m_scroll.describe());
   const double start = (!m_scroll.scrollable())
@@ -345,12 +405,9 @@ void Overview::layoutTiles() {
   if (!m || m_scene.empty())
     return;
 
-  // The renderer asks m_view.engine() / m_view.run(), never the config: free-arrange, the all/one
-  // flip and the carousel switch each override what `layout` says.
+  // The renderer asks m_view.engine() / run(), never the config: each mode overrides what `layout` says.
   m_view.setEngine(m_view.desktop() ? Engine::Natural
                                     : parseEngine(cfg::grid.layout.get().c_str()));
-  // A separate mechanism over any layout, only in the all-workspaces view: a
-  // single workspace's handful of tiles has nothing to arrange against.
   m_view.setRun( m_view.carouselOn() && cfg::carousel.enabled != 0 && !m_view.desktop() &&
          showAllWorkspaces());
 
@@ -364,7 +421,6 @@ void Overview::layoutTiles() {
   cfg.padRight = padX;
   cfg.padTop = padT;
   cfg.padBottom = padB;
-  // reserve the band footprint on its anchored edge
   const double bandSpan = stripThickness() + stripOffset();
   switch (stripAnchor()) {
   case Anchor::Bottom:
@@ -383,20 +439,7 @@ void Overview::layoutTiles() {
   }
   cfg.maxScale = cfg::grid.max_scale;
 
-  // Room for the caption, per pill, on the edge that pill is configured for.
-  //
-  // A caption that does not fit is not clamped away: it is drawn over whatever is there,
-  // and on the band's edge that is the strip band, which paints AFTER the tiles and so
-  // covers them. The two edges are not symmetric either -- the band's side reserves
-  // padding plus the whole band, the other side only padding -- so the reservation has to
-  // go where the pill actually hangs, and a caption split across both edges takes room on
-  // both.
-  //
-  // Measured off real labels, not estimated. The title comes from the pass that already
-  // rasterises every tile uncut, and the height is a font-size function: the carousel's
-  // later truncation only narrows the line. The counter's own texture is built here for the
-  // same reason -- its height has to be known before the layout that reserves it -- and it
-  // is the very texture the card loop hands out below, so one rasterisation, not two.
+  // Caption room per pill: it is not clamped and would draw over the band, which paints AFTER the tiles.
   double titleCapH = 0.0;
   for (const auto &t : m_scene.tiles()) {
     if (t.label && t.label->m_size.y > 0) {
@@ -408,7 +451,7 @@ void Overview::layoutTiles() {
   if (m_view.run() && m_scene.size() > 1) {
     const auto tex = m_pixel.fixedLabel(
         pixel::Slot::CarouselCount,
-        std::to_string(m_scene.focused() + 1) + " / " + std::to_string(m_scene.size()),
+        std::to_string(runPosition() + 1) + " / " + std::to_string(m_scene.size()),
         cfg::colors.counter_label.get(1.0), cfg::look.counter_font_size.get());
     if (tex && tex->m_size.y > 0)
       countCapH = tex->m_size.y + 2 * cfg::look.counter_pad_y;
@@ -424,42 +467,48 @@ void Overview::layoutTiles() {
       else cfg.padTop += gap + titleCapH;
     }
     if (countCapH > 0.0) {
-      // On the title's edge the counter stacks behind it, so it adds its own gap on top of
-      // the card gap; on the far edge it hangs off the card alone.
+      // On the title's edge the counter stacks behind it, so it adds its own gap on top of the card gap.
       const double room = gap + countCapH + (sameEdge ? cfg::look.counter_gap : 0.0);
       if (counterBelow) cfg.padBottom += room;
       else cfg.padTop += room;
     }
   }
 
-  // whole monitor scaled into the usable box
   if (m_view.desktop()) {
-    const double usableX = cfg.padLeft;
-    const double usableY = cfg.padTop;
-    const double usableW =
-        std::max(1.0, m->m_size.x - cfg.padLeft - cfg.padRight);
-    const double usableH =
-        std::max(1.0, m->m_size.y - cfg.padTop - cfg.padBottom);
-    const double s = std::min({usableW / m->m_size.x, usableH / m->m_size.y,
-                               static_cast<double>(cfg.maxScale)});
-    m_view.setTransform(s, usableX + (usableW - m->m_size.x * s) / 2.0,
-                        usableY + (usableH - m->m_size.y * s) / 2.0);
+    // The desktop view: every workspace gets a cell of the screen, and the windows of a
+    // workspace keep their own places inside their cell.
+    std::vector<LRect> nat;
+    std::vector<int> groups;
+    nat.reserve(m_scene.size());
+    groups.reserve(m_scene.size());
+    for (const auto &t : m_scene.tiles()) {
+      nat.push_back(t.natural);
+      groups.push_back(t.workspace);
+    }
+    LayoutCfg natCfg = cfg;
+    natCfg.engine = Engine::Natural;
+    natCfg.cellGap = cfg.gap / 4.0;
+    natCfg.cellCols = cfg::grid.desktop_grid_cols.get();
+    natCfg.cellRows = cfg::grid.desktop_grid_rows.get();
+    natCfg.cellScale = cfg::grid.desktop_tile_scale.get();
+    const auto boxes =
+        computeLayout(nat, LRect{0, 0, m->m_size.x, m->m_size.y}, natCfg, groups);
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
       if (t.parked)
         continue;
-      t.target = LRect{m_view.ox() + t.natural.x * s,
-                       m_view.oy() + t.natural.y * s,
-                       std::max(1.0, t.natural.w * s),
-                       std::max(1.0, t.natural.h * s)};
+      t.target = boxes[i];
     }
+    double maxBottom = 0.0;
+    for (const auto &b : boxes)
+      maxBottom = std::max(maxBottom, b.y + b.h);
+    const LRect area = inset(LRect{0, 0, m->m_size.x, m->m_size.y}, natCfg);
+    m_gridScroll.setWindow(area, std::max(0.0, maxBottom - (area.y + area.h)));
+    debug::trace::scroll("gsetMax", m_gridScroll.describe());
     return;
   }
   m_view.clearCards();
 
-  // The run replaces the main area wholesale: it lays one window against its
-  // neighbours, which a grid of boxes cannot express. Slots are built AROUND
-  // selection = relayout, not repaint.
   if (m_view.run()) {
     const int sel = m_scene.focused();
     const LRect usable{cfg.padLeft, cfg.padTop,
@@ -467,10 +516,8 @@ void Overview::layoutTiles() {
                        std::max(1.0, m->m_size.y - cfg.padTop - cfg.padBottom)};
     CarouselMetrics mt;
     mt.visibleCards = std::max(1, static_cast<int>(cfg::carousel.cards.get()));
-    // The user's zoom on the run, on top of whatever the fit allows.
     mt.scale = std::max(0.1, static_cast<double>(cfg::carousel.scale.get()));
-    // The standard card is a FULLSCREEN window's box — the whole monitor, not the
-    // padded usable rect, so containment is honest.
+    // A FULLSCREEN window's box: the whole monitor, so containment is honest.
     mt.boxW = m->m_size.x;
     mt.boxH = m->m_size.y;
     if (const int w = static_cast<int>(cfg::carousel.card_width.get()); w > 0) {
@@ -484,7 +531,7 @@ void Overview::layoutTiles() {
       std::vector<const void *> keys;
       keys.reserve(m_scene.size());
       for (const auto &t : m_scene.tiles())
-        keys.push_back(t.win.lock().get());
+        keys.push_back(tileWindow(t).get());
       m_recency.order(keys, slot);
     }
     auto lead = std::find(slot.begin(), slot.end(), static_cast<std::size_t>(sel));
@@ -498,39 +545,40 @@ void Overview::layoutTiles() {
       selSlot = nxt;
     }
 
-    // Card k is slot k, so the centred card is the one at the selection's own
-    // position in the sequence.
+    // Card k is slot k, so the centred card is at the selection's own position in the sequence.
     m_view.resolve(m_view.engine(), computeCarousel(n, selSlot, usable, mt),
                    sel, slot);
+    // Every caption measures itself against the centred card; written where the boxes exist, read at paint.
+    m_view.setCardRefW(
+        selSlot >= 0 && selSlot < n
+            ? m_view.carousel().cards[static_cast<std::size_t>(selSlot)].w
+            : 0.0);
     for (int k = 0; k < n; ++k) {
       const auto i = slot[static_cast<std::size_t>(k)];
+      // cards[] is indexed by STRIP POSITION, which is what computeCarousel() writes, not by tile.
       const auto &c = m_view.carousel().cards[static_cast<std::size_t>(k)];
       auto &t = m_scene.tileAt(static_cast<size_t>(i));
-      // Zero target = off-run: nothing paints it, and a zeroed box keeps the glide
-      // from resizing the card on its way out.
-      t.target = c.visible ? LRect{usable.x + m_view.carousel().originX + c.x,
-                                  usable.y + m_view.carousel().originY +
-                                      m_view.carousel().stripY + c.y,
-                                  c.w, c.h}
-                           : LRect{};
-      // Capture the caption HERE, where the card width is known, cut to it. Paint
-      // only reads: mid-pass text rendering is unsafe, and asking at paint time
-      // measured the pill off the uncut entry.
-      if (c.visible && t.win.lock())
-        // The fitted box, not the card: a portrait window is drawn narrower than
-        // the standard card, and the pill is sized off what it actually covers.
-        t.label = m_pixel.windowLabel(t.win.lock(), t.labelText,
-                                      cfg::colors.title_label.get(1.0),
-                                      cfg::look.title_font_size.get(),
-                                      static_cast<int>(std::max(
-                                          1.0, tileBox(i, t.target).w - 28.0)));
-      // The counter is its own pill under the caption. Same reason, same place: it is
-      // text, and text has to be rasterised before the pass, not inside it. Its own
-      // font size, so the two labels can be set apart.
+      // Zero target = off-run: nothing paints it, and a zeroed box keeps the glide from resizing the card.
+      const double ox = usable.x + m_view.carousel().originX;
+      const double oy = usable.y + m_view.carousel().originY + m_view.carousel().stripY;
+      t.target = c.visible ? LRect{ox + c.x, oy + c.y, c.w, c.h} : LRect{};
+      // Caption cut to the card width HERE, where it is known; paint only reads.
+      if (c.visible && !t.labelText.empty()) {
+        // Not cut: a long title runs under the cards beside it, and they cover it.
+        const auto maxW = 0;
+        if (const auto w = tileWindow(t))
+          t.label = m_pixel.windowLabel(w, t.labelText,
+                                        cfg::colors.title_label.get(1.0),
+                                        cfg::look.title_font_size.get(), maxW);
+        else
+          t.label = m_pixel.subjectLabel(t.subj, t.labelText,
+                                         cfg::colors.title_label.get(1.0),
+                                         cfg::look.title_font_size.get(), maxW);
+      }
       if (c.visible && c.depth == 0 && m_scene.size() > 1)
         t.countLabel = m_pixel.fixedLabel(
             pixel::Slot::CarouselCount,
-            std::to_string(m_scene.focused() + 1) + " / " +
+            std::to_string(runPosition() + 1) + " / " +
                 std::to_string(m_scene.size()),
             cfg::colors.counter_label.get(1.0),
             cfg::look.counter_font_size.get());
@@ -542,64 +590,63 @@ void Overview::layoutTiles() {
   m_view.clearCards();
 
   std::vector<LRect> nat;
+  std::vector<int> groups;
   nat.reserve(m_scene.size());
-  for (const auto &t : m_scene.tiles())
+  groups.reserve(m_scene.size());
+  for (const auto &t : m_scene.tiles()) {
     nat.push_back(t.natural);
+    groups.push_back(t.workspace);
+  }
 
   const auto out =
-      computeLayout(nat, LRect{0, 0, m->m_size.x, m->m_size.y}, cfg);
+      computeLayout(nat, LRect{0, 0, m->m_size.x, m->m_size.y}, cfg, groups);
   m_scene.setTargets(out);
 }
 
-// Survivors glide from their captured boxes; no chrome re-reveal.
-std::vector<std::pair<PHLWINDOW, LRect>>
+std::vector<std::pair<model::SubjectRef, LRect>>
 Overview::captureCurrentBoxes(PHLWINDOW exclude) const {
-  return m_place.capture(frame(), exclude);
+  // Placement already filters by SUBJECT; resolving back to windows here would drop every tab.
+  const auto keep = m_place.capture(
+      frame(), exclude ? model::SubjectRef{reinterpret_cast<std::uintptr_t>(exclude.get()), 0}
+                       : model::SubjectRef{});
+  return keep;
 }
 
-// Freeze tiles at their shown boxes (`oldBoxes`, pre-rebuild); empty = keep
-    // the fresh naturals, so a plain open starts from the real boxes.
+// oldBoxes = the shown boxes (pre-rebuild); empty = fresh naturals, so a plain open starts from the real boxes.
 void Overview::startTileGlide(
-    const std::vector<std::pair<PHLWINDOW, LRect>> &oldBoxes) {
+    const std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes,
+    double seamRunW) {
+  // The start boxes come from ONE pure function, asked for EVERY tile (AGENTS.md 2.29).
+  std::vector<model::TileStart> tiles;
+  tiles.reserve(m_scene.size());
+  for (size_t i = 0; i < m_scene.size(); ++i) {
+    const auto &t = m_scene.tiles()[i];
+    tiles.push_back(model::TileStart{t.subj, t.natural, t.target, cardOf(t).hasWindow()});
+  }
+  const auto starts = model::startBoxes(oldBoxes, tiles, m_view.run(), seamRunW);
   bool newcomers = false;
+  for (size_t i = 0; i < m_scene.size(); ++i) {
+    auto &t = m_scene.tileAt(i);
+    t.natural = starts[i].natural;
+    t.landed = starts[i].landed;
+    newcomers |= starts[i].landed < 1.0;
+  }
   if (!oldBoxes.empty()) {
-    for (size_t i = 0; i < m_scene.size(); ++i) {
-      auto &t = m_scene.tileAt(i);
-      t.natural = t.target;
-      bool matched = false;
-      for (const auto &[oldWin, oldBox] : oldBoxes)
-        if (oldWin == t.win.lock()) {
-          t.natural = oldBox;
-          matched = true;
-          break;
-        }
-      t.landed = matched ? 1.0 : 0.0;
-      newcomers |= !matched;
-    }
-    // Every removed tile fades out where it was — never vanishes one frame.
+    // every removed tile fades out where it was, never vanishes one frame
     m_fx.clearGhosts();
-    for (const auto &[oldWin, oldBox] : oldBoxes) {
+    for (const auto &[oldSubj, oldBox] : oldBoxes) {
       bool kept = false;
       for (const auto &t : m_scene.tiles())
-        if (t.win.lock() == oldWin) { kept = true; break; }
+        if (t.subj == oldSubj) { kept = true; break; }
       if (!kept)
-        m_fx.addGhost(model::Ghost{oldWin, oldBox});
+        m_fx.addGhost(model::Ghost{oldSubj, oldBox});
     }
-  } else
-    m_scene.settleEntry();
+  }
   m_place.clocks.tiles.begin();
   debug::trace::animStart("glide", "glide", "", m_place.recipes.glide.ms, m_place.recipes.glide.curve.c_str());
   m_place.clocks.tileMs    = m_place.recipes.glide.ms;
   m_place.clocks.tileCurve = m_place.recipes.glide.curve; // snapshot: currentBox() must use THIS curve
-  // EVERY card is about to move: natural was just rewritten to the box each one occupied,
-  // and the glide clock starts at 0. Not one of them is where it is about to be drawn, so
-  // the old pixels are garbage and the whole monitor has to be repainted. Without this
-  // the only damage in the frame was whatever the pointer left behind, and the cards
-  // that moved drew over stale ones -- the flicker on every relayout.
-  //
-  // It has to be here rather than at the call sites: this is the one function that starts
-  // a glide, and the callers disagree about it. replayReflow() damaged, relayoutCarousel()
-  // did not -- which is why hovering the run flickered and switching workspaces did not.
+  // every card moves, so the whole monitor must be repainted; damage() lives here, not at the call sites.
   damage();
   if (newcomers || !m_fx.ghosts().empty()) {
     m_place.clocks.rebuild.begin();
@@ -608,15 +655,84 @@ void Overview::startTileGlide(
   }
 }
 
+bool Overview::discardedShown() const {
+  return m_showDiscarded >= 0 ? m_showDiscarded != 0 : cfg::behavior.show_discarded_tabs != 0;
+}
+
+void Overview::setDiscardedShown(bool on) {
+  m_showDiscarded = on ? 1 : 0;
+  if (openedOrParked()) {
+    auto oldBoxes = captureCurrentBoxes();
+    replayReflow(oldBoxes);
+  }
+}
+
+// Whole, then renamed: the mediator polls this file while the plugin may be writing it.
+bool Overview::writeTabRequest(std::uint64_t browserWindow, std::int64_t tab) {
+  const auto &pids = m_tabs.snapshot().pids;
+  const auto it = pids.find(browserWindow);
+  if (it == pids.end())
+    return false;
+  const std::string line = model::activateCommand(it->second, browserWindow, tab);
+  const std::string path = browserSideDir() + "/activate";
+  const std::string part = path + ".part";
+  {
+    std::ofstream out(part, std::ios::binary | std::ios::trunc);
+    if (!out)
+      return false;
+    out.write(line.data(), static_cast<std::streamsize>(line.size()));
+  }
+  return std::rename(part.c_str(), path.c_str()) == 0;
+}
+
+// The picture on disk is from when the tab was last active; a page restyled since keeps that look.
+void Overview::requestTabShots() {
+  for (const auto &entry : m_tabs.snapshot().pids) {
+    const std::string path = browserSideDir() + "/shot." + std::to_string(entry.second);
+    const std::string part = path + ".part";
+    {
+      std::ofstream out(part, std::ios::binary | std::ios::trunc);
+      if (!out)
+        continue;
+    }
+    std::rename(part.c_str(), path.c_str());
+  }
+}
+
+
+void Overview::activateTile(int idx, Desktop::eFocusReason reason) {
+  if (idx < 0 || idx >= static_cast<int>(m_scene.size())) {
+    focusAndClose({}, reason);
+    return;
+  }
+  const auto &t = m_scene.tiles()[static_cast<std::size_t>(idx)];
+  // The card belongs to a window: its own, or the browser a tab lives in. One action for both.
+  if (cardOf(t).isTab()) {
+    const auto group = m_tabs.groupOf(t.subj);
+    m_landingGroup = group; // the card goes to the browser it lives in
+    const auto host = ownerWindow(t);
+    // The switch goes out with the pick: the browser is behind the overlay while the card
+    // flies, and the mediator polls for it, so the switch lands inside the flight.
+    const bool sent = group.id != 0 && writeTabRequest(group.id, static_cast<std::int64_t>(t.subj.id));
+    debug::trace::record("TABS", "activate",
+                         "tab=" + std::to_string(t.subj.id) + "|window=" +
+                             std::to_string(group.id) + "|sent=" + std::to_string(sent ? 1 : 0) +
+                             "|host=" + std::to_string(host ? 1 : 0));
+    focusAndClose(host, reason);
+    return;
+  }
+  m_landingGroup = m_windows.groupOf(t.subj);
+  focusAndClose(ownerWindow(t), reason);
+}
+
 void Overview::replayReflow(
-    std::vector<std::pair<PHLWINDOW, LRect>> &oldBoxes) {
+    std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes) {
   m_scene.clearHover();
   buildTiles();
   buildStrip();
   layoutTiles();
   startTileGlide(oldBoxes);
-  // Clamped, never past the end: an index that ran off the cards indexed dead
-  // memory on the next read.
+  // never past the end: an index off the cards indexed dead memory
   if (m_scene.selected() >= static_cast<int>(m_scene.size()))
     m_scene.select(m_scene.empty() ? -1 : static_cast<int>(m_scene.size()) - 1);
   m_place.progress.settled();
@@ -627,6 +743,9 @@ void Overview::replayReflow(
 
 void Overview::syncTiles() {
   if (!m_life.openingNow() || m_life.deactivating())
+    return;
+  // A tabs deck is not a window count: comparing them rebuilds and restarts the entry every frame.
+  if (m_view.domain() != model::Domain::Windows)
     return;
   const auto ws = m_workspace.lock();
   if (!ws)
@@ -645,7 +764,7 @@ void Overview::syncTiles() {
   bool diff = expected != m_scene.size();
   if (!diff)
     for (const auto &t : m_scene.tiles()) {
-      const auto w = t.win.lock();
+      const auto w = tileWindow(t);
       if (!belongs(w)) {
         diff = true;
         break;
@@ -654,15 +773,12 @@ void Overview::syncTiles() {
   if (!diff)
     return;
 
-  // The recency service caches the live set, so it is pruned against the set the
-  // tiles were just measured against. A dead window's entry would otherwise hold a
-  // slot that Hyprland's next window at the same address inherits.
+  // Recency caches the live set; a dead window's slot would pass to the next window at the same address.
   pruneRecency();
 
   auto oldBoxes = captureCurrentBoxes();
 
-  // NOT parking here: `parked` means "the user dropped this window here", and only
-  // the drop path may set it. Parking every survivor froze free-arrange.
+  // no parking here: only the drop path sets `parked`; parking every survivor froze free-arrange.
   replayReflow(oldBoxes);
 }
 
@@ -684,4 +800,4 @@ void Overview::hideLayers() {
 
 void Overview::restoreLayers() { m_layers.restore(); }
 
-} // namespace gloview
+}

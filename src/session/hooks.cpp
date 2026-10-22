@@ -7,52 +7,34 @@
 #include "../debug/log.hpp"
 #include "../overview.hpp"
 
-namespace gloview::session {
+namespace hyprview::session {
 
 namespace {
 
-// The installed hooks. One pointer rather than four raw originals: every hook body needs
-// the function it replaces, and the type that owns them is the type that should answer.
+// One pointer, not four raw originals: every hook body needs the function it replaces.
 Hooks *g_hooks = nullptr;
 
 using PSHOULDRENDER = bool (*)(void *, PHLWINDOW, PHLMONITOR);
 
-// --- input routing ---------------------------------------------------------
-//
-// shouldRenderWindow hides the real windows, but it hides them from the RENDERER
-// only. CSeatManager still hands them pointer and keyboard focus, so a window under
-// the cursor receives enter and motion while the overview is on screen, and a keypress
-// lands in whatever Hyprland happened to have focused. Both are invisible to
-// shouldRenderWindow and neither is reachable through Event::bus(): focus is not an
-// event the bus carries.
-//
-// These are the two functions where input BECOMES addressed, which is why they are
-// hooked rather than the send* calls: blocking a send leaves the seat believing the
-// window still has focus, and the compositor keeps routing to it.
+
+// shouldRenderWindow hides windows from the RENDERER only: CSeatManager still hands them focus.
+
+// Hooked where input BECOMES addressed, not at the send* calls: blocking a send leaves the seat believing the window still has focus.
 using PSETKEYFOCUS = void (*)(void *, SP<CWLSurfaceResource>);
 using PSETPTRFOCUS = void (*)(void *, SP<CWLSurfaceResource>, const Vector2D &);
 
-// True while the overview owns the screen. m_pendingDeactivate is deliberately NOT
-// included: the final frame still draws the overlay, and by then the desktop is
-// expected to be interactive again. openedOrParked() rather than active(), because the
-// parked frames are already the overview's -- the overlay is merely not drawn yet, and
-// input must not reach the windows it is covering.
+// openedOrParked() rather than active(): input must not reach windows the parked frames still cover.
 bool inputRoutedAway() {
   return g_overview && g_overview->openedOrParked();
 }
 
-// The hooks refuse to move focus to a window, but they do not drop focus from the one
-// that already had it. Without this the window under the cursor keeps receiving motion
-// for the whole session. refocus() re-runs Hyprland's own resolution, which now lands
-// on nullptr because the hooks are in the way -- and lands on the real window again once
-// the overview is gone, so no separate restore path is needed.
+// The hooks refuse to move focus but do not drop the one already held; refocus() re-runs Hyprland's resolution.
 void hkSetKeyboardFocus(void *thisptr, SP<CWLSurfaceResource> surf) {
   const auto orig = reinterpret_cast<PSETKEYFOCUS>(
       g_hooks ? g_hooks->setKeyboardFocusOrig() : nullptr);
   if (!orig)
     return;
-  // nullptr is Hyprland's own "no window has focus" value, so the seat ends up in the
-  // state it would be in with nothing to focus, rather than keeping a stale one.
+  // nullptr is Hyprland's own "no window has focus" value.
   orig(thisptr, inputRoutedAway() ? nullptr : surf);
 }
 
@@ -82,8 +64,7 @@ bool hkShouldRenderWindow(void *thisptr, PHLWINDOW window, PHLMONITOR monitor) {
   return orig ? orig(thisptr, window, monitor) : true;
 }
 
-// commitWindow's "visible" is !isHidden, NOT shouldRenderWindow: a hidden
-// window would still pin the compositor
+// commitWindow's "visible" is !isHidden, NOT shouldRenderWindow: a hidden window would still pin the compositor
 using PDAMAGESURFACE =
     void (*)(void *, SP<CWLSurfaceResource>, double, double, double);
 
@@ -98,9 +79,10 @@ void hkDamageSurface(void *thisptr, SP<CWLSurfaceResource> pSurface, double x,
         if (w) {
           const auto mon = g_overview->monitor();
           if (g_overview->shouldHideWindow(w, mon)) {
-            // live tile previews MUST keep damage (video)
-            if (g_overview->snapshotMode() || !g_overview->isTileWindow(w))
-              return;
+            // The union of hidden windows IS the output: damage the previews, not the windows.
+            if (!g_overview->snapshotMode())
+              g_overview->damageWindowPreview(w);
+            return;
           }
         }
       }
@@ -112,7 +94,7 @@ void hkDamageSurface(void *thisptr, SP<CWLSurfaceResource> pSurface, double x,
     orig(thisptr, pSurface, x, y, scale);
 }
 
-} // namespace
+}
 
 Hooks::~Hooks() {
   const auto drop = [this](CFunctionHook *&slot) {
@@ -162,7 +144,6 @@ bool Hooks::install(HANDLE handle, void *self) {
           info.cancelled = true;
       });
 
-  // The demangled match names the REAL type, not PHLMONITOR.
   const auto findBySignature = [&](const char *name, const std::string &sig) {
     for (const auto &mt : HyprlandAPI::findFunctionsByName(m_handle, name))
       if (mt.demangled.find(sig) != std::string::npos)
@@ -176,7 +157,7 @@ bool Hooks::install(HANDLE handle, void *self) {
       "CWindow>, Hyprutils::Memory::CSharedPointer<Monitor::CMonitor>)");
   if (!addr) {
     HyprlandAPI::addNotification(
-        m_handle, "[gloview] could not find shouldRenderWindow to hook",
+        m_handle, "[hyprview] could not find shouldRenderWindow to hook",
         CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
     return false;
   }
@@ -185,7 +166,7 @@ bool Hooks::install(HANDLE handle, void *self) {
   if (!m_shouldRenderHook || !m_shouldRenderHook->hook()) {
     HyprlandAPI::addNotification(
         m_handle,
-        "[gloview] failed to hook shouldRenderWindow — is another gloview "
+        "[hyprview] failed to hook shouldRenderWindow — is another hyprview "
         "instance loaded (hyprpm)?",
         CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
     return false;
@@ -203,18 +184,17 @@ bool Hooks::install(HANDLE handle, void *self) {
       m_damageSurfaceOrig = m_damageSurfaceHook->m_original;
     else {
       HyprlandAPI::addNotification(
-          m_handle, "[gloview] failed to hook damageSurface",
+          m_handle, "[hyprview] failed to hook damageSurface",
           CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
       m_damageSurfaceHook = nullptr;
     }
   } else {
     HyprlandAPI::addNotification(
-        m_handle, "[gloview] could not find damageSurface to hook",
+        m_handle, "[hyprview] could not find damageSurface to hook",
         CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
   }
 
-  // Input routing. Both are required: half of this is worse than none, because the
-  // overview would look modal for the keyboard and not for the mouse.
+  // Both input hooks are required: half of this is worse than none -- modal for the keyboard and not for the mouse.
   struct FocusHook {
     const char *name;
     const char *sig;
@@ -238,7 +218,7 @@ bool Hooks::install(HANDLE handle, void *self) {
     if (!addrFocus) {
       HyprlandAPI::addNotification(
           m_handle,
-          std::string("[gloview] could not find ") + fh.name +
+          std::string("[hyprview] could not find ") + fh.name +
               " to hook — input will reach the windows under the overview",
           CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
       return false;
@@ -247,7 +227,7 @@ bool Hooks::install(HANDLE handle, void *self) {
     if (!*fh.slot || !(*fh.slot)->hook()) {
       *fh.slot = nullptr;
       HyprlandAPI::addNotification(
-          m_handle, std::string("[gloview] failed to hook ") + fh.name,
+          m_handle, std::string("[hyprview] failed to hook ") + fh.name,
           CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
       return false;
     }
@@ -256,4 +236,4 @@ bool Hooks::install(HANDLE handle, void *self) {
   return true;
 }
 
-} // namespace gloview::session
+}

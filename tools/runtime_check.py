@@ -9,6 +9,7 @@ can confirm, because the change was in the paint path and the input path:
   - a strip that loses a card mid-scroll pulls its offset back (scroll: setMax re-clamps)
   - a drag release produces exactly one DRAG| branch record, and the group of records
     matches what the mouse did
+  - browser view forces all-workspaces and restores the mode it found on the way out
   - DRAG| and LIFE| lines parse with the same grammar as ANIM|
 
 Each check states what it expects and what it would mean if the expectation failed, so a
@@ -21,7 +22,7 @@ Usage:
     python3 tools/runtime_check.py --setup    # build a scene first (needs M.terminal)
 
 Requires a live Hyprland with the plugin loaded and debug_trace on:
-    hl.config({plugin={gloview={debug_trace=1}}})
+    hl.config({plugin={hyprview={debug_trace=1}}})
 Without the trace the DRAG|/LIFE| groups report SKIP rather than a false pass -- the log
 being empty is not evidence that nothing happened.
 """
@@ -34,7 +35,7 @@ import subprocess
 import sys
 import time
 
-LOG = "/tmp/gloview.log"
+LOG = "/tmp/hyprview.log"
 
 # The same grammar the emitters were documented with: pipe-separated key=value, no spaces in
 # a value. Parsed here rather than grepped so a prose record fails instead of passing.
@@ -76,11 +77,11 @@ def tail_from(offset):
 
 
 def cmd(args, settle=0.30):
-    """One gloview.cmd. hyprctl exits 0 whatever happened, so the log is the only channel."""
+    """One hyprview.cmd. hyprctl exits 0 whatever happened, so the log is the only channel."""
     before = log_size()
     subprocess.run(
         ["hyprctl", "eval",
-         f'gloview.cmd("{args}")'.replace("gloview.", "hl.plugin.gloview.")],
+         f'hyprview.cmd("{args}")'.replace("hyprview.", "hl.plugin.hyprview.")],
         env=ENV, capture_output=True, check=False)
     time.sleep(settle)
     return tail_from(before)
@@ -111,6 +112,39 @@ def grammar_ok(segments):
     bad = [s for s in segments[2:] if "=" in s and not KV.match(s)]
     # Segments with no '=' at all are legitimate: the verb (park, promote, release).
     return not bad, bad
+
+
+
+def tile_boxes(text):
+    """The TILEBOX records of a stretch of log: tile index -> (natural, target).
+
+    The natural is where the card is now, the target is where it is going. The
+    distance between them is the step's motion, which is what the carousel checks
+    read: a step that moves nothing is a teleport, and a step that moves more than
+    a card's width is the ring breaking.
+    """
+    out = {}
+    for segs in records(text, "TILEBOX"):
+        f = fields(segs, 1)
+        if "a" not in f or "b" not in f:
+            continue
+        try:
+            a = tuple(float(v) for v in f["a"].split(","))
+            b = tuple(float(v) for v in f["b"].split(","))
+        except ValueError:
+            continue
+        out[f.get("i", "?")] = (a, b)
+    return out
+
+
+
+def state():
+    """The plugin's own state record, as a dict."""
+    out = cmd("state", settle=0.3)
+    recs = records(out, "STATE")
+    if not recs:
+        return {}
+    return fields(recs[-1], 1)
 
 
 class Check:
@@ -221,6 +255,35 @@ def close_is_quiet(c):
     return c.ok("after close: open=0 pending=0")
 
 
+# --- browser ------------------------------------------------------------------------
+
+@check("browser")
+def tabs_force_all_workspaces(c):
+    """Browser view is about every browser, not the desktop the overview opened on:
+    entering it turns all-workspaces on, and leaving it restores the mode it found. A
+    check that only read the tabs would pass with the mode left on, and the next open
+    would be an expo nobody asked for."""
+    cmd("open", settle=0.6)
+    cmd("allws 0", settle=0.4)
+    cmd("domain tabs", settle=0.8)
+    after_tabs = records(cmd("state", settle=0.3), "STATE")
+    cmd("domain windows", settle=0.8)
+    after_windows = records(cmd("state", settle=0.3), "STATE")
+    cmd("close", settle=0.6)
+    c.saw(len(after_tabs) + len(after_windows))
+    if not after_tabs or not after_windows:
+        return c.skip("no STATE| record -- enable debug_trace, or the plugin is not loaded")
+    on = fields(after_tabs[-1], 1)
+    off = fields(after_windows[-1], 1)
+    if on.get("allws") != "1":
+        return c.fail("browser view left all-workspaces off: allws=%s -- tabs of browsers "
+                      "on other desktops stay unreachable" % on.get("allws"))
+    if off.get("allws") != "0":
+        return c.fail("leaving browser view did not restore allws=0: got allws=%s -- a "
+                      "toggle out of 1-ws no longer returns to 1-ws" % off.get("allws"))
+    return c.ok("browser view: allws=1 on entry, back to 0 on exit")
+
+
 # --- scroll -------------------------------------------------------------------------
 
 def allws_restore():
@@ -291,7 +354,7 @@ def strip_scroll_clamps(c):
 def watch(seconds, prompt):
     """Arm the log, tell the human what to do, and read what came out.
 
-    A drag cannot be produced through the seam: `gloview.cmd` sets state, it does not move
+    A drag cannot be produced through the seam: `hyprview.cmd` sets state, it does not move
     the pointer, and the FSM under test is driven by real button events. So this group is
     the one place where the harness asks instead of acts, and SKIPs rather than passes when
     the human does nothing -- silence is not evidence that the path worked.
@@ -350,6 +413,75 @@ def drag_branch_is_a_decision(c):
         if not f.get("name"):
             return c.fail("a branch record with no name=: %s" % "|".join(segs))
     return c.ok("%d branch record(s), every one names its path" % len(recs))
+
+
+@check("carousel")
+def the_run_step_glides(c):
+    """A step along the run must MOVE the cards.
+
+    The arrow keys and the alt-tab ask for the same thing -- the next card on the run
+    -- and they used to get two different answers: the arrows glided, the alt-tab
+    rewrote the targets and left the glide clock where it was, so the cards teleported
+    to their new places. The step is the same gesture either way, so the motion is the
+    same motion.
+    """
+    cmd("close", settle=0.5)
+    cmd("open", settle=0.9)
+    cmd("allws 1", settle=0.9)
+    st = state()
+    if int(st.get("tiles", 0)) < 2:
+        c.saw(0)
+        return c.skip("%s tile(s): nothing to step to" % st.get("tiles"))
+    before = log_size()
+    cmd("altstep 1", settle=0.5)
+    text = tail_from(before)
+    # The glide starts: the clock is begun, and the trace says so.
+    glides = [r for r in records(text, "ANIM")
+              if len(r) > 2 and r[1] == "begin" and fields(r, 2).get("op") == "glide"]
+    boxes = tile_boxes(text)
+    c.saw(len(boxes))
+    if not boxes:
+        return c.skip("no TILEBOX records -- enable debug_trace")
+    if not glides:
+        return c.fail("the alt-tab step started no glide: the targets were rewritten and "
+                      "the cards teleported instead of moving")
+    return c.ok("the alt-tab step started a glide")
+
+
+@check("carousel")
+def the_run_step_does_not_cross_the_run(c):
+    """No card may cross the run in one step.
+
+    The run is a ring: the last card and the first are neighbours. Stepping onto the
+    first from the last used to throw the card that was at the far left across the
+    whole run -- it was the same card as the one that came in on the right, and the
+    layout had only one box for it. A step is one slot: a card that crosses more than
+    its own width in one step is the ring breaking, not the run moving.
+    """
+    cmd("close", settle=0.5)
+    cmd("open", settle=0.9)
+    cmd("allws 1", settle=0.9)
+    st = state()
+    if int(st.get("tiles", 0)) < 2:
+        c.saw(0)
+        return c.skip("%s tile(s): nothing to step to" % st.get("tiles"))
+    before = log_size()
+    cmd("altstep 1", settle=0.5)
+    text = tail_from(before)
+    boxes = tile_boxes(text)
+    c.saw(len(boxes))
+    if not boxes:
+        return c.skip("no TILEBOX records -- enable debug_trace")
+    crossed = []
+    for i, (a, b) in boxes.items():
+        if b[2] < 1:
+            continue  # the card left the run: it has no target to cross to
+        moved = abs(a[0] - b[0])
+        if moved > a[2] * 1.2:
+            crossed.append("tile %s moved %.0fpx across a %.0fpx card" % (i, moved, a[2]))
+    if crossed:
+        return c.fail("; ".join(crossed))
+    return c.ok("every card moved at most one slot")
 
 
 @check("gl")

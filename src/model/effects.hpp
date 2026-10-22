@@ -1,17 +1,43 @@
 #pragma once
 
-#include "model.hpp"
+#include "subject.hpp"
 
+#include "../anim_types.hpp"
+#include "../clock/clocks.hpp"
+#include "../layout.hpp"
+
+#include <chrono>
+#include <string>
 #include <utility>
 #include <vector>
 
-namespace gloview::model {
+namespace hyprview::model {
 
-// Transient visuals with the opposite lifetime to the scene: ghosts of windows
-// that just left, the pulse a window kicked off, the flight of a strip thumbnail
-// to its new card, and workspaces created this session that must not be reaped
-// before close. The scene is REBUILT; these are appended to and pruned.
-//
+struct Ghost {
+  SubjectRef subj;
+  LRect box;
+};
+
+// `p` accrues per FRAME, not wall-clock
+struct WinPulse {
+  SubjectRef subj;
+  double p = 0.0;
+  std::chrono::steady_clock::time_point last;
+};
+
+struct SwapFX {
+  SubjectRef subj;
+  LRect from;
+  // One live flight per surface: a window in the all-workspaces view is drawn twice at once.
+  bool        toStrip = false;
+  anim::Move  style{};
+  double ms = 320;
+  std::string curve = "easeinout";
+  anim::Tween clock;
+  // Pairs ANIM|begin with ANIM|end; 0 = tracing off, or the flight had nowhere to land.
+  int         traceSeq = 0;
+  std::chrono::steady_clock::time_point traceStart{};
+};
 
 class Effects {
   public:
@@ -21,40 +47,27 @@ class Effects {
     }
     [[nodiscard]] const std::vector<SwapFX> &swapfx() const { return m_swapfx; }
 
-    // Is this window flying on THIS surface? The grid asks false, the strip true, and each
-    // one only stands down for its own flight -- a shared predicate made the strip's
-    // thumbnail disappear while the card flew.
-    [[nodiscard]] bool swapActive(const PHLWINDOW &w, bool strip) const {
+    // Each surface stands down only for its own flight.
+    [[nodiscard]] bool swapActive(SubjectRef s, bool strip) const {
       for (const auto &l : m_swapfx)
-        if (l.win.lock() == w && l.toStrip == strip)
+        if (l.subj == s && l.toStrip == strip)
           return true;
       return false;
     }
 
-    // A pulse for this window, replacing any it already has. Pulses accrue per FRAME, so
-    // re-kicking one in flight restarts it rather than stacking a second ring on top.
-    void kickPulse(const PHLWINDOW &w) {
-      dropPulse([&w](const WinPulse &p) { return p.w.lock() == w; });
-      addPulse(model::WinPulse{w, 0.0, std::chrono::steady_clock::now()});
+    // Replaces any pulse it already has: pulses accrue per FRAME, so re-kicking one in flight
+    // restarts it rather than stacking a second ring.
+    void kickPulse(SubjectRef s) {
+      dropPulse([s](const WinPulse &p) { return p.subj == s; });
+      addPulse(model::WinPulse{s, 0.0, std::chrono::steady_clock::now()});
     }
-    [[nodiscard]] const std::vector<PHLWORKSPACEREF> &newWorkspaces() const {
-      return m_newWorkspaces;
-    }
-
     void addGhost(const Ghost &g) { m_ghosts.push_back(g); }
     void addPulse(const WinPulse &p) { m_pulses.push_back(p); }
     void addSwap(SwapFX &&fx) { m_swapfx.push_back(std::move(fx)); }
-    void addNewWorkspace(const PHLWORKSPACEREF &ws) {
-      m_newWorkspaces.push_back(ws);
-    }
-
     void clearGhosts() { m_ghosts.clear(); }
-    void clearNewWorkspaces() { m_newWorkspaces.clear(); }
 
-    // beginSwapFX() may reuse a slot rather than append, so the caller that knows the
-    // real origin has to pin it afterwards. Returning bool instead of a pointer: the
-    // only way to spell "no last swap" was to pair this with an emptiness check on the
-    // vector, which is the same question asked twice.
+    // beginSwapFX() may reuse a slot rather than append, so the caller that knows the real
+    // origin pins it afterwards.
     bool retargetLastSwap(const LRect &from) {
       if (m_swapfx.empty())
         return false;
@@ -81,7 +94,6 @@ class Effects {
     std::vector<Ghost> m_ghosts;
     std::vector<WinPulse> m_pulses;
     std::vector<SwapFX> m_swapfx;
-    std::vector<PHLWORKSPACEREF> m_newWorkspaces;
 };
 
-} // namespace gloview::model
+} // namespace hyprview::model

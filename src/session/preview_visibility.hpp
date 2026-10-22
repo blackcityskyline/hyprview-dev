@@ -9,27 +9,16 @@
 
 #include "../model/strip.hpp"
 
-namespace gloview::session {
+namespace hyprview::session {
 
-// Makes windows on other workspaces drawable into a preview, and puts every touched
-// value back.
-//
-// The compositor decides what to draw from three pieces of state, and for a window that is
-// not on the ACTIVE workspace all three say "no": the workspace is faded out, the window's
-// fullscreen alpha is 0, and the window's surfaces carry a visibleRegion left over from
-// whenever they were last on screen. The live preview then reads a resource with no
-// committed buffer and a geometry that was never given the layout.
-//
-// ScrollOverview clears all three before drawing a preview and puts them back afterwards.
-// Same three, same calls -- forceWorkspaceAlphaVisible / forceWindowVisible /
-// forceWindowSurfaceVisibility.
-//
-// The saved values are what make force/restore a PAIR: calling either alone leaves the
-// desktop wrong for the rest of the session, and nothing else in the plugin notices.
+// Makes windows on other workspaces drawable into a preview: the compositor reads three things
+// (ws alpha, fullscreen alpha, surface visibleRegion), and all three say "no" off the active ws.
 class PreviewVisibility {
   public:
-    void force(const std::vector<model::Tile>  &tiles,
-               const std::vector<model::StripItem> &strip);
+    // `winFor` resolves a tile to its window; null (a tab) is the RIGHT answer -- nothing in Hyprland to hide behind.
+    template <class WinFor>
+    void force(const std::vector<model::Tile> &tiles,
+               const std::vector<model::StripItem> &strip, WinFor &&winFor);
     void restore();
 
     [[nodiscard]] bool active() const {
@@ -55,4 +44,4 @@ class PreviewVisibility {
     std::vector<ForcedRegion>  m_regions;
 };
 
-} // namespace gloview::session
+}

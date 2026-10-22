@@ -24,7 +24,7 @@
 
 #include "../src/anim_types.hpp"
 
-using namespace gloview::anim;
+using namespace hyprview::anim;
 
 namespace {
 
@@ -76,7 +76,8 @@ int main(int argc, char **argv) {
   // green because clocks.cpp still mentioned Fade. Deleting a branch is exactly the bug.
   //
   // The rule is per file, and it is not uniform because the dispatchers are not uniform:
-  // fx.cpp renders all three travels, while the entry and the exit distinguish slide from
+  // the swap flight renders all three travels -- the branches moved into the geometry header
+  // with the rest of the flight -- while the entry and the exit distinguish slide from
   // fade and let pop BE the fall-through. A member the user can name, that the file which
   // dispatches on it never tests, is a dead key with an enum member instead of a string.
   struct Dispatcher {
@@ -85,7 +86,7 @@ int main(int argc, char **argv) {
   };
   const Dispatcher kDispatchers[] = {
       // all three: a flight is drawn, not just positioned
-      {"src/render/fx.cpp", {"Slide", "Pop", "Fade"}},
+      {"src/render/geometry.hpp", {"Slide", "Pop", "Fade"}},
       // the entry and the exit separate slide from fade; pop is the scale-in below
       // placement.cpp, not clocks.cpp: the entry's three branches moved there with box()
       // when Placement took the tile's position.
@@ -242,7 +243,7 @@ int main(int argc, char **argv) {
   const auto styleCallers = {&clocks, &actions, &overview, &recipes};
   int styleCalls = 0;
   // Both spellings: "anim::style(" outside the namespace and a bare "style(" inside it.
-  // anim_recipes.hpp lives in gloview::anim, where the qualified form would not compile.
+  // anim_recipes.hpp lives in hyprview::anim, where the qualified form would not compile.
   const std::string kQual{"anim::style(\""}, kBare{"style(\""};
   for (const auto *src : styleCallers) {
     for (const auto *needle : {&kQual, &kBare}) {

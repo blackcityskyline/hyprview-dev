@@ -1,9 +1,9 @@
-pkgbase = gloview-git
+pkgbase = hyprview-git
 	pkgdesc = macOS Mission Control-style overview plugin for Hyprland
 	pkgver = 0.3.0.r3.8f83476
 	pkgrel = 1
-	url = https://github.com/fedsfarm/gloview
-	install = gloview.install
+	url = https://github.com/blackcityskyline/hyprview
+	install = hyprview.install
 	arch = x86_64
 	arch = aarch64
 	groups = hyprland-plugins
@@ -13,9 +13,9 @@ pkgbase = gloview-git
 	makedepends = pkgconf
 	makedepends = lua
 	depends = hyprland
-	provides = gloview
-	conflicts = gloview
-	source = gloview-git::git+https://github.com/fedsfarm/gloview.git
+	provides = hyprview
+	conflicts = hyprview
+	source = hyprview-git::git+https://github.com/blackcityskyline/hyprview.git
 	sha256sums = SKIP
 
-pkgname = gloview-git
+pkgname = hyprview-git

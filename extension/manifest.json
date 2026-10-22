@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "hyprview@localhost",
+      "strict_min_version": "121.0"
+    }
+  },
+  "name": "HyprView tabs",
+  "version": "1.4.2",
+  "description": "Reports open tabs to the HyprView compositor plugin.",
+  "permissions": [
+    "tabs",
+    "nativeMessaging",
+    "activeTab",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": true
+  }
+}

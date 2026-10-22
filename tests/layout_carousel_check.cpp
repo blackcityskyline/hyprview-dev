@@ -29,7 +29,7 @@
 #include <cstdio>
 #include <vector>
 
-using namespace gloview;
+using namespace hyprview;
 
 namespace {
 
@@ -245,6 +245,7 @@ void sectionE_wrappingAndEdges() {
     if (!c.visible)
       near(c.w, 0.0, "off-run card has no width");
 }
+
 
 // One card, zoom 2: no ladder, so the fit barely shrinks and the zoom is unopposed —
 // the card came out at ~2592px on a 1366px screen.

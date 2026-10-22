@@ -29,14 +29,15 @@
 #include <hyprland/src/render/pass/TexPassElement.hpp>
 #include <hyprland/src/state/MonitorState.hpp>
 
-namespace gloview {
+namespace hyprview {
 
 namespace session {
 
-// The saved values are what make force/restore a PAIR: calling either alone leaves the
-// desktop wrong for the rest of the session, and nothing else in the plugin notices.
+// force/restore are a PAIR: either alone leaves the desktop wrong for the rest of the session.
+template <class WinFor>
 void PreviewVisibility::force(const std::vector<model::Tile> &tiles,
-                              const std::vector<model::StripItem> &strip) {
+                              const std::vector<model::StripItem> &strip,
+                              WinFor &&winFor) {
   for (const auto &wsref : State::workspaceState()->workspaces()) {
     const auto ws = wsref.lock();
     if (!ws || !ws->m_alpha)
@@ -93,10 +94,10 @@ void PreviewVisibility::force(const std::vector<model::Tile> &tiles,
   };
 
   for (const auto &t : tiles)
-    forceWindow(t.win.lock());
+    forceWindow(winFor(t.subj));
   for (const auto &it : strip)
     for (const auto &sw : it.wins)
-      forceWindow(sw.win.lock());
+      forceWindow(winFor(sw.subj));
 }
 
 void PreviewVisibility::restore() {
@@ -120,12 +121,13 @@ void PreviewVisibility::restore() {
   m_regions.clear();
 }
 
-} // namespace session
+}
 
 void Overview::forcePreviewVisibility() {
-  m_previewVis.force(m_scene.tiles(), m_strip.items());
+  m_previewVis.force(m_scene.tiles(), m_strip.items(),
+                   [this](model::SubjectRef s) { return m_windows.windowOf(s); });
 }
 
 void Overview::restorePreviewVisibility() { m_previewVis.restore(); }
 
-} // namespace gloview
+}

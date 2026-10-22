@@ -18,7 +18,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 
@@ -33,11 +33,7 @@ void Overview::renderStrip() const {
   if (!m || m_strip.empty())
     return;
   const double e = eased();
-  // A windowed exit holds the overlay PAST the animation, waiting for Hyprland to rebuild
-  // its blur, and m_place.progress.raw() is already 1e-6 by then. Gating on e alone stopped drawing
-  // the whole strip while the overlay was still up: measured e=0.000 with active=1, so
-  // the band vanished in one frame. While the overlay is still holding, the strip keeps
-  // being drawn at full strength -- it is still on screen.
+  // Windowed exit holds the overlay PAST the animation, so gate on blurAlpha(), not e.
   const double stripE = blurAlpha();
   if (stripE <= 0.01)
     return;
@@ -46,34 +42,16 @@ void Overview::renderStrip() const {
   const float roundPow     = cfg::look.preview_round_power;
 
 
-  // Never blur-sample currentFB here: a solitary fullscreen window bypasses
-  // shouldRenderWindow and would leak into the band.
-  // smoothstep, not e: e is the raw easeout, which is front-loaded enough that it went
-  // 0.03 -> 0.33 between two frames, and a band at 0.141 alpha therefore covered its whole
-  // range in four -- one frame, perceptually, while everything it sits behind arrived on
-  // its own slower curves. Same duration, softer attack: the band no longer outruns its
-  // contents, and it is still one gesture with them rather than a second one.
-  // Written out rather than curves::eval("easeinout", ...): that call returns garbage on
-  // its FIRST invocation (measured bandE=6.727 for e=0.025, where the curve is 6.25e-5).
-  // m_place.progress.raw(), NOT e: a shaped curve is directional. Front loaded on the way in (the
-  // numbers above), and slow-then-collapsing on the way out, where the alpha fell
-  // 0.96 -> 0.20 in a couple of frames and the paint read as switched off. m_place.progress.raw() is
-  // elapsed/duration by construction -- linear in time, symmetric both ways -- so the band
-  // fades evenly in and evenly out, which is what "the paint vanishes in one frame" is not.
-  // eased(), NOT blurAlpha(): blurAlpha() branches on m_landingEmpty and pins itself to
-  // 1.0 while a windowed exit is held, then snaps to eased() the moment the hold ends --
-  // the band's opacity changed in one frame, to exactly the empty-workspace value. The
-  // band is chrome, not backdrop: it follows the animation and knows nothing about
-  // windows, so its opacity is the same number on every workspace in every state.
-  const double bandE = stripE;
-  auto bandCol       = cfg::colors.strip_band.get(bandE);
-  // strip_band_opacity is the single source of the band's alpha; the colour string's own
-  // alpha is ignored. Below ~60% the band reads at two different densities on the same
-  // screen depending on whether a blurred or a sharp backdrop is behind it, which is the
-  // instability this removes.
-  bandCol.a = std::clamp(cfg::strip.band_opacity.get() / 100.0, 0.0, 1.0) * bandE;
+  // Chrome, not backdrop: blurAlpha() is pinned to 1.0 on a close, so the band leaves on the cards' own e.
+  const double bandE = opening() ? stripE : e;
+  auto bandCol = cfg::colors.strip_band.get(bandE);
+  bandCol.a = render::stripBandAlpha(cfg::strip.band_opacity.get(), bandE);
+
   const LRect bandR  = stripBand();
   const Vector2D slide = stripOffset(e);
+  // STRIPBAND: offset, alpha and the rect they came from -- two causes of a blink look alike.
+  debug::trace::ring("strip_band", LRect{slide.x, slide.y, bandCol.a, bandE}, 0, bandE);
+  debug::trace::ring("strip_band_rect", stripBand(), 0, bandE);
   safeRenderRect("band", pxb(CBox(bandR.x + slide.x, bandR.y + slide.y, bandR.w, bandR.h), s),
                  bandCol, {});
 
@@ -97,12 +75,8 @@ void Overview::renderStrip() const {
     const bool hover = static_cast<int>(i) == m_scene.hoveredStrip();
     LRect card = stripCardAt(i);
     if (m_newCardAnim && it.id == m_newCardId &&
-        it.kind != model::StripItem::Kind::Plus && it.kind != model::StripItem::Kind::All) {
-      const double f = newCardScale();
-      const double cx = card.cx(), cy = card.cy();
-      card = LRect{cx - card.w * f / 2.0, cy - card.h * f / 2.0, card.w * f,
-                   card.h * f};
-    }
+        it.kind != model::StripItem::Kind::Plus && it.kind != model::StripItem::Kind::All)
+      card = render::scaledAboutCentre(card, newCardScale());
     const CBox c = box(card);
 
     const bool actLike =
@@ -122,52 +96,27 @@ void Overview::renderStrip() const {
              {.round = pxr(cardRound, s), .roundingPower = roundPow});
 
     if (it.kind == model::StripItem::Kind::Plus) {
-      const double t = std::max(2.0, card.h * 0.04);
-      const double L = std::min(card.w, card.h) * 0.34;
-      const double cx = card.cx(), cy = card.cy();
-      if (L > 0.5) {
-        safeRenderRect("plusH", pxb(CBox(cx - L / 2, cy - t / 2, L, t), s), plusCol,
-                 {.round = pxr(t / 2, s)});
-        safeRenderRect("plusV", pxb(CBox(cx - t / 2, cy - L / 2, t, L), s), plusCol,
-                 {.round = pxr(t / 2, s)});
+      const auto glyph = render::plusGlyph(card);
+      if (glyph.drawable) {
+        safeRenderRect("plusH", pxb(box(glyph.horizontal), s), plusCol,
+                 {.round = pxr(glyph.horizontal.h / 2, s)});
+        safeRenderRect("plusV", pxb(box(glyph.vertical), s), plusCol,
+                 {.round = pxr(glyph.vertical.w / 2, s)});
       } else
         debug::dbg("plus glyph skipped: card " + std::to_string(card.w) + "x" +
                    std::to_string(card.h) + " at " + std::to_string(card.x) +
                    "," + std::to_string(card.y));
     } else if (it.kind == model::StripItem::Kind::All) {
-      const double pad = std::min(card.w, card.h) * 0.26;
-      const double gw = card.w - 2 * pad, gh = card.h - 2 * pad;
-      const double cg = std::max(2.0, std::min(card.w, card.h) * 0.07);
-      const double cw = std::max(2.0, (gw - cg) / 2.0),
-                   ch = std::max(2.0, (gh - cg) / 2.0);
-      const double gx = card.x + pad, gy = card.y + pad;
-      for (int r = 0; r < 2; ++r)
-        for (int col = 0; col < 2; ++col)
-          safeRenderRect("all", pxb(CBox(gx + col * (cw + cg), gy + r * (ch + cg), cw, ch), s),
-                   allCol, {.round = pxr(2, s)});
+      const auto glyph = render::allGlyph(card);
+      for (const auto &cell : glyph.cells)
+        safeRenderRect("all", pxb(box(cell), s), allCol, {.round = pxr(2, s)});
     } else {
-      // Wallpaper under the windows too, not just on empty cards. The condition used
-      // to be it.wins.empty(), so a card with a floating window showed flat card colour
-      // everywhere the window did not cover -- and a 300x300 window on a 1366x768 screen
-      // covers about 2% of the card, which read as "no wallpaper at all". The window
-      // paints over it, so this only fills what the windows leave bare.
       if (cfg::strip.wallpaper != 0) {
         SP<Render::ITexture> tex = backdropSourceTexture();
         if (tex && tex->ok()) {
           const double texW = std::max(1.0, static_cast<double>(tex->m_size.x));
           const double texH = std::max(1.0, static_cast<double>(tex->m_size.y));
-          const double cardRatio = card.w / std::max(1.0, card.h);
-          const double texRatio  = texW / texH;
-          double u0 = 0.0, v0 = 0.0, u1 = 1.0, v1 = 1.0;
-          if (cardRatio > texRatio) {
-            const double f = texRatio / cardRatio;
-            v0 = (1.0 - f) / 2.0;
-            v1 = (1.0 + f) / 2.0;
-          } else {
-            const double f = cardRatio / texRatio;
-            u0 = (1.0 - f) / 2.0;
-            u1 = (1.0 + f) / 2.0;
-          }
+          const auto uv = render::coverFitUV(card.w, card.h, texW, texH);
           CTexPassElement::SRenderData td{};
           td.tex           = tex;
           td.box           = pxb(c, s);
@@ -177,18 +126,17 @@ void Overview::renderStrip() const {
           td.allowCustomUV = true;
           auto &uvTL = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
           auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
-          uvTL = Vector2D{u0, v0};
-          uvBR = Vector2D{u1, v1};
+          uvTL = Vector2D{uv.u0, uv.v0};
+          uvBR = Vector2D{uv.u1, uv.v1};
           g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
           uvTL = Vector2D{-1.0, -1.0};
           uvBR = Vector2D{-1.0, -1.0};
         }
       }
-      // Per-slot backing: a transparent thumbnail would bleed the band through.
       if (!suppressContent) {
         for (size_t j = 0; j < it.wins.size(); ++j) {
           const auto &sw = it.wins[j];
-          const auto w = sw.win.lock();
+          const auto w = m_windows.windowOf(sw.subj);
           if (!w || !w->m_isMapped || w->isHidden())
             continue;
           const LRect wbL = stripWinSlotRect(it, card, j);
@@ -213,22 +161,11 @@ void Overview::renderStrip() const {
     }
 
     if (it.label && it.label->m_size.x > 0) {
-      double lw = it.label->m_size.x;
-      double lh = it.label->m_size.y;
-      const double maxLw = card.w + cfg::strip.label_extra;
-      if (lw > maxLw) {
-        const double k = maxLw / lw;
-        lw *= k;
-        lh *= k;
-      }
-      // 26 is reserved above every card by buildStrip in both layouts.
-      const double labelBand = cfg::strip.label_band;
-      const double lx = card.cx() - lw / 2.0;
-      const double ly = card.y - labelBand + (labelBand - lh) / 2.0;
+      const LRect lb = render::stripLabelBox(card, it.label->m_size.x, it.label->m_size.y,
+                                              cfg::strip.label_band, cfg::strip.label_extra);
       const float la =
           it.active ? static_cast<float>(e) : static_cast<float>(e) * 0.75F;
-      g_pHyprOpenGL->renderTexture(it.label, pxb(CBox(lx, ly, lw, lh), s),
-                                   {.a = la});
+      g_pHyprOpenGL->renderTexture(it.label, pxb(box(lb), s), {.a = la});
     }
   }
 }
@@ -261,39 +198,29 @@ void Overview::renderStripWindows() const {
           static_cast<int>(i) == m_drag.idx() &&
           static_cast<int>(j) == m_drag.winIdx())
         continue;
-      const auto w = it.wins[j].win.lock();
+      const auto w = m_windows.windowOf(it.wins[j].subj);
       if (!w || !w->m_isMapped || w->isHidden())
         continue;
       if (swapfxActive(w, true))
         continue;
       const LRect slot = stripWinSlotRect(it, card, j);
-      // A slot smaller than a pixel cannot carry content, and renderWindowLive drops
-      // it on exactly that check -- so a stashed or floating window would leave no
-      // trace at all. Written per slot: the answer to "why is there no window here" is
-      // this number, and without it the question is unanswerable after the fact.
       if (slot.w < 1.0 || slot.h < 1.0)
         debug::dbg("strip slot dropped: card " + std::to_string(i) + " slot " +
                    std::to_string(j) + " rel=" + std::to_string(it.wins[j].rel.w) +
                    "x" + std::to_string(it.wins[j].rel.h) + " -> " +
                    std::to_string(slot.w) + "x" + std::to_string(slot.h));
       const int round = clampRound(previewRound, slot.w, slot.h);
-      // renderWindowLive takes monitor PIXEL coords; pxb()'s .round() snap keeps
-      // content off the chrome by a sub-pixel (hairline gap at the corner).
       const CBox slotPx = pxb(slot, scale);
       const CBox cardPx = pxb(card, scale);
       if (slot.w >= 1.0 && slot.h >= 1.0 && it.ws && it.ws->m_isSpecialWorkspace)
-        // Collected, sized, and about to be handed to renderWindowLive -- which drops it
-        // again on destPx.w/h if the pixel box rounds to nothing. Only special cards:
-        // this prints once per card per frame and would bury everything else.
         debug::dbg("strip special slot: " + std::to_string(slotPx.w) + "x" +
                    std::to_string(slotPx.h) + "px of " + std::to_string(slot.w) + "x" +
                    std::to_string(slot.h) + " card=" + std::to_string(card.w) + "x" +
                    std::to_string(card.h));
-      // The slot's own ring is a hover/select ring when grabbed; otherwise the
-      // plain border. Whichever it is, the content radius has to follow it.
+      // Grab ring or plain border: whichever is on top, the content radius follows it.
       const int ringW = stripSlotGrabbed(i, j) ? 2 : cfg::look.border_size;
       renderWindowLive(w, m, slotPx, cardPx, static_cast<float>(e), when,
-                       contentRadiusPx(round, ringW, roundPow, scale),
+                       contentRadiusPx(round, ringW, scale),
                        roundPow, true);
     }
   }
@@ -309,7 +236,6 @@ void Overview::renderStripButtons() const {
   const double s = m->m_scale;
   const int cardRound = cfg::strip.card_round;
   const float roundPow = cfg::look.preview_round_power;
-  const bool showClose = m_view.desktop() || closeButtonsAlwaysOn();
   const bool travelling = m_drag.travelSq() > 64.0;
   const bool dropping = m_drag.armed() && m_drag.lifted() && travelling;
   const bool isRmb = dropping && m_drag.button() == BTN_RIGHT;
@@ -329,7 +255,7 @@ void Overview::renderStripButtons() const {
                  roundPow);
   }
 
-  const auto dragW = m_drag.win().lock();
+  const auto dragW = m_windows.windowOf(m_drag.win());
 
   for (size_t i = 0; i < m_strip.size(); ++i) {
     const auto &it = m_strip[i];
@@ -337,14 +263,13 @@ void Overview::renderStripButtons() const {
       continue;
     const LRect card = stripCardAt(i);
 
-    // RMB: slot under the cursor on EVERY card — a partner, not a destination.
     if (dropping) {
       const auto hoverCol = argb(cfg::colors.hover_border.get(e));
       const auto hintCol  = argb(cfg::colors.drop_hint.get(e));
 
       if (isRmb) {
         for (size_t j = 0; j < it.wins.size(); ++j) {
-          const auto v = it.wins[j].win.lock();
+          const auto v = m_windows.windowOf(it.wins[j].subj);
           if (!v || v == dragW || !v->m_isMapped || v->isHidden())
             continue;
           const LRect sl = stripWinSlotRect(it, card, j);
@@ -363,7 +288,7 @@ void Overview::renderStripButtons() const {
         const bool dwindle = cfg::behavior.tile_layout.get() == "dwindle";
         bool slotFound = false;
         for (size_t j = 0; j < it.wins.size(); ++j) {
-          const auto v = it.wins[j].win.lock();
+          const auto v = m_windows.windowOf(it.wins[j].subj);
           if (!v || v == dragW)
             continue;
           const LRect sl = stripWinSlotRect(it, card, j);
@@ -372,16 +297,7 @@ void Overview::renderStripButtons() const {
           slotFound = true;
           const int sr = clampRound(cfg::look.preview_round, sl.w, sl.h);
           if (dwindle) {
-            LRect half = sl;
-            if (sl.w >= sl.h) {
-              half.w = sl.w / 2.0;
-              if (m_drag.x() >= sl.cx())
-                half.x = sl.cx();
-            } else {
-              half.h = sl.h / 2.0;
-              if (m_drag.y() >= sl.cy())
-                half.y = sl.cy();
-            }
+            const LRect half = render::dwindleHalf(sl, m_drag.x(), m_drag.y());
             const int hr = clampRound(cfg::look.preview_round, half.w, half.h);
             safeRenderRect("dwindlehalf",
                            pxb(CBox{half.x, half.y, half.w, half.h}, s),
@@ -402,8 +318,8 @@ void Overview::renderStripButtons() const {
       }
     }
 
-    // Plain circle on purpose: a squircle looks broken at a custom roundingPower.
-    if (showClose) {
+    if (closeButtonsOn() && (m_view.desktop() || closeButtonsEverywhere()) &&
+        (!closeButtonsHoverOnly() || static_cast<int>(i) == m_scene.hoveredStrip())) {
       const LRect br = closeButtonRect(card);
       const double rad = br.w / 2.0;
       safeRenderRect("closebtn", 
@@ -412,12 +328,9 @@ void Overview::renderStripButtons() const {
           {.round = pxr(rad, s)});
       const auto closeGlyph = m_pixel.closeGlyph();
       if (closeGlyph && closeGlyph->m_size.x > 0) {
-        const double gw = closeGlyph->m_size.x * 0.62,
-                     gh = closeGlyph->m_size.y * 0.62;
-        g_pHyprOpenGL->renderTexture(
-            closeGlyph,
-            pxb(CBox(br.cx() - gw / 2.0, br.cy() - gh / 2.0, gw, gh), s),
-            {.a = static_cast<float>(e)});
+        const auto glyph = render::glyphRect(br, closeGlyph->m_size.x, closeGlyph->m_size.y,
+                                             cfg::look.close_glyph_fill);
+        g_pHyprOpenGL->renderTexture(closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});
       }
     }
   }

@@ -1,5 +1,5 @@
-[gloview]
+[hyprview]
 description = "Minimal macOS-style window overview"
 authors = ["Vergil"]
-output = "build/gloview.so"
+output = "build/hyprview.so"
 build = ["cmake -S . -B build -DCMAKE_BUILD_TYPE=Release", "cmake --build build -j"]

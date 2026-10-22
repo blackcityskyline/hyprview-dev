@@ -1,19 +1,19 @@
 #include "window_content.hpp"
 
 #include <algorithm>
-#include <any>
 #include <chrono>
 #include <cmath>
 
+#include <hyprland/src/config/ConfigValue.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/WLSurface.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/helpers/time/Time.hpp>
+#include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/render/pass/SurfacePassElement.hpp>
-#include <hyprutils/utils/ScopeGuard.hpp>
 
 #include "../overview.hpp"
 #include "../config/config.hpp"
@@ -22,10 +22,50 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
-// roundPx is the corner radius the CONTENT carries, in monitor px; matching it to
-// the ring is the caller's job. destPx must carry the window's own aspect.
+namespace {
+
+// Real opacity: active/inactive rule x FULLSCREEN/LAYOUT fade; the ws-switch and FADE alphas
+// are excluded because they compound with the caller's fade.
+float windowRealAlpha(const PHLWINDOW &w, const PHLMONITOR &mon) {
+  if (!w)
+    return 1.0F;
+  float active = 1.0F;
+  if (w->m_ruleApplicator) {
+    static auto PACTIVEALPHA =
+        CConfigValue<Config::FLOAT>("decoration:active_opacity");
+    static auto PINACTIVEALPHA =
+        CConfigValue<Config::FLOAT>("decoration:inactive_opacity");
+    static auto PFULLSCREENALPHA =
+        CConfigValue<Config::FLOAT>("decoration:fullscreen_opacity");
+    if (Fullscreen::controller()->isFullscreen(w,
+                                               Fullscreen::FSMODE_FULLSCREEN)) {
+      active =
+          w->m_ruleApplicator->alphaFullscreen().valueOrDefault().applyAlpha(
+              *PFULLSCREENALPHA);
+    } else {
+      const bool reallyFocused = mon &&
+                                 w->m_workspace == mon->m_activeWorkspace &&
+                                 w == Desktop::focusState()->window();
+      active = reallyFocused
+                   ? w->m_ruleApplicator->alpha().valueOrDefault().applyAlpha(
+                         *PACTIVEALPHA)
+                   : w->m_ruleApplicator->alphaInactive()
+                         .valueOrDefault()
+                         .applyAlpha(*PINACTIVEALPHA);
+    }
+    if (w->m_ruleApplicator->opaque().valueOrDefault())
+      active = 1.0F;
+  }
+  const float fade = w->alphaValue(Desktop::View::WINDOW_ALPHA_FULLSCREEN) *
+                     w->alphaValue(Desktop::View::WINDOW_ALPHA_LAYOUT);
+  return std::clamp(active * fade, 0.0F, 1.0F);
+}
+
+}
+
+// roundPx is the CONTENT radius in monitor px; destPx must carry the window's own aspect.
 void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
                       const CBox &destPx, const CBox &clipPx, float alpha,
                       const Time::steady_tp &when, int roundPx,
@@ -41,68 +81,43 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   // goal(), not value(): value() mid-resize scales only part of destPx.
   const auto pos  = w->positionAnimation()->goal();
   const auto size = w->sizeAnimation()->goal();
-  const float logicalW = std::max((float)size.x, 5.F);
-  const float logicalH = std::max((float)size.y, 5.F);
-  // Over-cover from the CENTER: fit-exact lets the backing show as seams. A
-  // contained window sits inside the box, so the pad would only shrink it.
-  const float pad = (settled || contain) ? 0.0F : kSeamPadPx;
-  const float sW  = (static_cast<float>(destPx.w) + pad) /
-                   std::max(logicalW * mon->m_scale, 5.F);
-  const float sH  = (static_cast<float>(destPx.h) + pad) /
-                   std::max(logicalH * mon->m_scale, 5.F);
-  const float scaleMod = contain ? std::min(sW, sH) : std::max(sW, sH);
-  if (!(scaleMod > 0.F))
-    return;
-
   const Vector2D logicalTL = pos + w->m_floatingOffset;
-  const Vector2D scaledTL  = (logicalTL - mon->m_position) * mon->m_scale;
-  const Vector2D scaledSize   = Vector2D(logicalW, logicalH) * mon->m_scale;
-  const Vector2D winCenter    = scaledTL + scaledSize / 2.0;
-  const Vector2D destCenterPx = destPx.pos() + destPx.size() / 2.0;
-  const Vector2D translate    = destCenterPx / scaleMod - winCenter;
 
-  Render::SRenderModifData modif;
-  modif.modifs.push_back(
-      {Render::SRenderModifData::eRenderModifType::RMOD_TYPE_TRANSLATE,
-       std::any(translate)});
-  modif.modifs.push_back(
-      {Render::SRenderModifData::eRenderModifType::RMOD_TYPE_SCALE,
-       std::any(scaleMod)});
-  modif.enabled = true;
-
-  // Never m_renderPass.add(): the painter iterates that vector right now.
-  Render::SRenderModifData savedModif =
-      g_pHyprRenderer->m_renderData.renderModif;
-  g_pHyprRenderer->m_renderData.renderModif = modif;
-  Hyprutils::Utils::CScopeGuard reset([&] {
-    g_pHyprRenderer->m_renderData.renderModif = savedModif;
-  });
+  const render::WindowFitInput fitIn{
+      destPx.x, destPx.y, destPx.w, destPx.h,
+      logicalTL.x, logicalTL.y, size.x, size.y,
+      mon->m_position.x, mon->m_position.y, mon->m_scale,
+      settled, contain, kSeamPadPx};
+  const auto fit = render::windowFit(fitIn);
+  if (!fit.valid)
+    return;
+  const auto box = render::previewBox(fitIn, fit);
+  if (!(box.w > 0 && box.h > 0))
+    return;
 
   CSurfacePassElement::SRenderData data{};
   data.pMonitor = mon;
   data.when     = when;
-  data.pos      = logicalTL;
-  data.w        = std::max(size.x, 5.0);
-  data.h        = std::max(size.y, 5.0);
+  data.pos      = Vector2D{box.x, box.y};
+  data.w        = box.w;
+  data.h        = box.h;
   data.surface  = w->wlSurface()->resource();
   data.dontRound      = false;
-  // Opaque: a preview shows the window, not the desktop's own opacity rules.
-  // Every preview goes through here, so one assignment covers them all.
-  data.fadeAlpha = 1.F;
+  // The window's own rule opacity; the surface's alphaModifier and overallOpacity still apply on top.
+  data.fadeAlpha = windowRealAlpha(w, mon);
   data.alpha          = std::clamp(alpha, 0.F, 1.F);
   data.decorate       = false;
   data.rounding       = roundPx;
   data.roundingPower  = roundingPower;
   data.blur           = false;
-  data.pWindow        = w;
+  // No pWindow: calculateUVForSurface crops to RATIO = box / reported size
+  // (ElementRenderer.cpp:98) instead of stretching.
+  data.pWindow        = nullptr;
   data.clipBox        = clipPx;
   data.squishOversized = true;
   data.surfaceCounter = 0;
 
   if (g_overview && g_overview->snapshotMode()) {
-    // A miss here means either "not captured yet" or "the window that owned that
-    // texture is gone and its address has a new tenant" -- the cache owns its entries
-    // and expires them, so there is no sweep to have forgotten to run.
     if (const auto snap = g_overview->snapshot(w); snap && snap->ok()) {
       auto sdata      = data;
       sdata.texture   = snap;
@@ -114,12 +129,13 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   }
 
   w->wlSurface()->resource()->breadthfirst(
-      [&data, &w, &destPx](SP<CWLSurfaceResource> s, const Vector2D &offset,
-                           void *) {
+      [&data, &w, &fit](SP<CWLSurfaceResource> s, const Vector2D &offset,
+                                 void *) {
         if (!s || !s->m_current.texture || s->m_current.size.x < 1 ||
             s->m_current.size.y < 1)
           return;
-        data.localPos    = offset;
+        // ponytail: the offset is fitted, the box Hyprland derives for a subsurface from its resource size is not -- a popup previews at real size.
+        data.localPos    = offset * fit.scale;
         data.texture     = s->m_current.texture;
         data.surface     = s;
         data.mainSurface = s == w->wlSurface()->resource();
@@ -129,4 +145,4 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
       nullptr);
 }
 
-} // namespace gloview
+}

@@ -1,7 +1,7 @@
 #pragma once
 
-// Live handles resolved through the V2 config system; adding one = a handle
-// in its domain + a schema row in config.cpp + a README row.
+// Live handles resolved through the V2 config system; adding a key = a handle in its domain +
+// a schema row in config.cpp + a README row (checked by scan_config_keys).
 
 #include <optional>
 #include <cstdlib>
@@ -17,16 +17,10 @@
 #include "../layout.hpp"
 
 
-namespace gloview::cfg {
+namespace hyprview::cfg {
 
-// Runtime overrides, keyed by the registered config key ("plugin:gloview:layout").
-//
-// There is no other way in: hl.config only accepts the nested form and a
-// CConfigValue exposes no setter a plugin can reach -- the write path belongs to
-// ConfigManager. Every getter consults this first, so a key set here is what the
-// running frame reads, while a key NOT set still reads live config as before.
-//
-// Empty map = no behaviour change. Clear with an empty value.
+// Runtime overrides, keyed by the registered config key: hl.config accepts only the nested
+// form and CConfigValue has no setter, so every getter consults this first. Empty clears.
 namespace override {
 inline std::unordered_map<std::string, std::string> values;
 
@@ -39,17 +33,11 @@ inline const std::string *find(const char *key) {
 inline void set(const char *key, const std::string &v) { values[key] = v; }
 inline bool clear(const char *key) { return values.erase(key) > 0; }
 
-// Every registered key, filled during registerAll. The override map cannot answer
-// "is this a config key?" -- it is the thing being written to, so on the first set it
-// is empty and every key looks unknown.
 inline std::unordered_map<std::string, char> known;
 inline bool isConfigKey(const char *key) {
   return key && known.find(key) != known.end();
 }
-} // namespace override
-
-// Set at registration from the spec table, which is the only place the key exists.
-// A null key means "never registered", and then get() is a plain read.
+}
 
 class Int {
 public:
@@ -90,7 +78,7 @@ public:
   operator std::string() const { return get(); }
 };
 
-// Parsed once, re-parsed only when the configured string changes; get(a) multiplies its alpha.
+// Parsed once, re-parsed when the string changes; get() multiplies its alpha.
 class Color {
 public:
   SP<Config::Values::CStringValue> v;
@@ -100,6 +88,9 @@ public:
 };
 
 struct grid {
+  Int   desktop_grid_cols;
+  Int   desktop_grid_rows;
+  Float desktop_tile_scale;
   Int gap;
   Int padding;
   Int padding_top;
@@ -110,21 +101,14 @@ struct grid {
 
 inline grid grid;
 
-// The run is a separate mechanism laid over whatever `layout` says, not a
-// layout of its own — see Overview::layoutTiles for where it takes over.
+// A separate mechanism laid over whatever `layout` says, not a layout of its own.
 struct carousel {
   Int enabled;
   Int cards;
   Int card_width;
   Float scale;
-  // Wheel paging: notches * speed = cards moved. 1 = one card per notch,
-  // 0.5 = one card every two notches, 3 = three per notch.
-  Float scroll_speed;
-  // Carousel state when the all-workspaces view opens. The key binding is always
-  // a toggle; this only decides where it starts.
-  Int on_open;
-  // Depth shading of the run: the nearest unfocused card's tone, the far one, and how
-  // fast each step deeper multiplies down.
+  Float scroll_speed; // notches * speed = cards moved
+  Int on_open;        // where the run starts; the key binding is always a toggle
   Float tone_near;
   Float tone_far;
   Float depth_taper;
@@ -138,9 +122,6 @@ struct strip {
   Int margin;
   Int gap;
   Int card_round;
-  // Geometry that was literal in the strip code: the label strip under a card, how far a
-  // card widens to fit its label, how much of the strip's thickness the slide-out covers,
-  // and the hard ceiling on offset as a fraction of the cross axis.
   Float label_band;
   Float label_extra;
   Float slide_frac;
@@ -150,9 +131,7 @@ struct strip {
   Str empty_mode;
   Int all_card;
   Int wallpaper;
-  // Percent. The band's OWN alpha comes from here and nowhere else -- strip_band_color
-  // supplies RGB only. Two sources of alpha made its density depend on which string was
-  // configured, and how it read depended on what was behind it.
+  // Percent. RGB comes from strip_band_color; the alpha from here only.
   Int band_opacity;
 };
 
@@ -163,50 +142,42 @@ struct look {
   Float preview_round_power;
   Int show_border;
   Int show_focus_border;
+  Int show_tab_icons;
+  Int show_window_icons;
   Int border_size;
   Int hover_border_size;
   Int select_border_size;
   Float close_button_size;
   Float drag_size;
-  // Drag preview offset from the pointer, so the drop zones stay visible under it, and
-  // the vertical lift of a SlideVert swap.
   Float drag_offset_x;
   Float drag_offset_y;
   Float swap_lift;
-  // Tile chrome geometry that was literal in tile_view.cpp: shadow blur at rest and lifted,
-  // shadow alpha multiplier, title-pill padding and the gaps around it, and how much of the
-  // close button the glyph fills.
   Float shadow_radius;
   Float shadow_radius_lift;
   Float shadow_alpha;
+  // Shares of the badge's side, not px: the badge itself is 26..57px depending on the card.
+  Float icon_shadow_offset;
+  Float icon_shadow_blur;
+  Float icon_shadow_alpha;
   Float title_pad_x;
   Float title_pad_y;
   Int title_font_size;
-  // "bottom" hangs the whole caption off the card's lower edge, "top" off its upper one.
   Str title_position;
-  // Corner radius in px. Negative = a capsule (half the height), which is what the caption
-  // has always been; 0 = square; anything between rounds that far. Capped at half the
-  // shorter side, past which the shape turns inside out.
+  // Corner radius in px. Negative = a capsule, 0 = square; capped at half the shorter side.
   Float title_round;
   Float title_gap;
   Float title_margin;
-  // The carousel's "n / total" is its own pill under the caption, not a stem on it: two
-  // translucent shapes cannot share a silhouette without either a gap or a density step
-  // along the join, and neither reads as one piece. Separate knobs, so it can be sized,
-  // spaced and coloured on its own terms.
   Float counter_pad_x;
   Float counter_pad_y;
   Int counter_font_size;
-  Float counter_round; // negative = capsule, as the caption's
-  // "bottom" puts the counter under the title pill, "top" over it. Empty = follow
-  // title_position, so a caption above the card also puts the counter above the title. Only
-  // the order inside the caption; where the caption hangs off the card is title_position's
-  // business.
+  Float counter_round;
   Str counter_position;
   Float counter_gap;
   Float counter_margin;
   Float close_glyph_fill;
   Str close_button_position;
+  Int close_button;
+  Int close_button_hover_only;
   Str close_button_visibility;
   Str close_trigger;
   Str close_button_icon;
@@ -215,14 +186,15 @@ struct look {
 inline look look;
 
 struct colors {
+  Color surface;
   Color border;
   Color hover_border;
   Color select_border;
   Color shadow;
   Color label;
   Color title_pill;
-  Color title_label;    // the text inside it
-  Color counter_pill;    // the n / total pill: separate, so it can differ on purpose
+  Color title_label;
+  Color counter_pill;
   Color counter_label;
   Color drop_hint;
   Color close_button;
@@ -248,9 +220,6 @@ struct blur {
 
 inline blur blur;
 
-// One LEAF per animated behavior: <leaf>_enabled, <leaf>_speed (multiplier over
-// the base, >= 16ms), <leaf>_curve, plus <leaf>_style where types are selectable.
-
 
 struct keys {
   Str close;
@@ -263,6 +232,8 @@ struct keys {
   Str all_workspaces;
   Str workspace;
   Str carousel;
+  Str browser;
+  Str discarded;
   Str alt_tab_modifier;
   Int alt_tab_commit_on_release;
 };
@@ -278,12 +249,9 @@ struct behavior {
   Int scroll_switches_workspace;
   Int passthrough_keys;
   Int exit_on_click;
-  // Closing a window by dragging it to the screen edge. The zone is the strip opposite the
-  // strip band; disabling it leaves the edge a no-op instead of a trap.
   Int kill_zone;
   Float kill_zone_size;
   Float kill_zone_falloff;
-  // How far from the screen edge the drop target reaches, in px.
   Int kill_zone_reach;
   Int click_window_ms;
   Int exit_on_switch;
@@ -292,12 +260,9 @@ struct behavior {
   Int switch_on_new_workspace;
   Int show_all_workspaces;
   Int show_special;
-  // Which things the main area shows: one card per window, one per browser tab, or the
-  // window plus its tabs. A tab is only known once the browser extension has reported it;
-  // until then every window falls back to being shown as a window, so the overview never
-  // loses one. See model/entries.hpp -- that fallback is a rule, and it is checked.
   Str tile_mode;
-  Int alttab_advances; // the entry is aimed at the next window
+  Int show_discarded_tabs;
+  Int alttab_advances;
   Int hold_lift_ms;
   Str tile_layout;
 };
@@ -313,8 +278,8 @@ struct layer {
 inline layer layer;
 
 struct debug {
-  Int logs;   // per-frame developer log
-  Int trace;  // machine-readable ANIM| records only; see debug/trace.cpp
+  Int logs;
+  Int trace; // machine-readable ANIM| records only; see debug/log.hpp
 };
 
 inline debug debug;

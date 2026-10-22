@@ -8,34 +8,28 @@
 
 #include "../config/config.hpp"
 
-namespace gloview::debug {
+namespace hyprview::debug {
 
 namespace {
 
-// Rotated on SIZE, not at session start. Truncating when the plugin loads throws away
-// exactly the log you want when something went wrong: the thing that failed is the
-// session you were reading. So the live file is trimmed only once it is too big, and the
-// previous generations are kept -- `gloview.log.1` is the session before the current one,
-// as long as the current one has not itself exceeded the cap.
+// Rotated on SIZE, not at session start: truncating at load throws away the failed session's log.
 constexpr long kMaxBytes = 8L * 1024 * 1024;
-constexpr int  kKeep     = 3; // .1 .2 .3
+constexpr int  kKeep     = 3;
 
-// Size is checked on a counter, not per line: ftell is a syscall and the frame log writes
-// one line per frame.
+// Size is checked on a counter, not per line: ftell is a syscall and the frame log is per-frame.
 constexpr int kCheckEvery = 2048;
 
 FILE *openRotated() {
-  // Shift the generations up, dropping the oldest.
   for (int i = kKeep; i >= 1; --i) {
-    const std::string from = i == 1 ? "/tmp/gloview.log" : "/tmp/gloview.log." + std::to_string(i - 1);
-    if (::rename(from.c_str(), ("/tmp/gloview.log." + std::to_string(i)).c_str()) != 0 && i == 1)
-      return nullptr; // nothing to rotate yet
+    const std::string from = i == 1 ? "/tmp/hyprview.log" : "/tmp/hyprview.log." + std::to_string(i - 1);
+    if (::rename(from.c_str(), ("/tmp/hyprview.log." + std::to_string(i)).c_str()) != 0 && i == 1)
+      return nullptr;
   }
-  return fopen("/tmp/gloview.log", "w");
+  return fopen("/tmp/hyprview.log", "w");
 }
 
 FILE *openSink() {
-  FILE *f = fopen("/tmp/gloview.log", "a");
+  FILE *f = fopen("/tmp/hyprview.log", "a");
   if (!f)
     return nullptr;
   if (fseek(f, 0, SEEK_END) == 0 && ftell(f) > kMaxBytes) {
@@ -45,8 +39,7 @@ FILE *openSink() {
   return f;
 }
 
-// The trace and the frame log share the file handle: one place to tail, one
-// place to look after a crash. A trace run therefore needs no second path.
+// The trace and the frame log share this handle: one place to tail after a crash.
 FILE *sink() {
   static FILE *f = nullptr;
   static int since = 0;
@@ -83,9 +76,8 @@ std::string box(const LRect &r) {
          std::to_string(static_cast<int>(r.h));
 }
 
-// Fields are values, not sentences: no spaces, no '|'. A class name or curve
-// name violating that would silently shift every later field, so they are
-// sanitised here rather than trusted at the call site.
+// Fields are values, not sentences: no spaces, no '|' -- a class or curve name violating that
+// would silently shift every later field.
 std::string tok(const char *s) {
   std::string out;
   if (!s)
@@ -97,12 +89,11 @@ std::string tok(const char *s) {
 
 int g_seq = 0;
 
-} // namespace
+}
 
 bool enabled() { return cfg::debug.logs != 0; }
 
 void dbg(const std::string &msg) {
-  // free lines: a dead config path logs nothing
   static int bootstrap = 200000;
   const int gate = cfg::debug.logs;
   if (gate != 0)
@@ -110,9 +101,8 @@ void dbg(const std::string &msg) {
   else if (bootstrap <= 0 || --bootstrap < 0)
     return;
   if (Log::logger)
-    Log::logger->log(Log::INFO, "[gloview] {}", msg);
-  // The same handle emit() uses: two append handles on one path interleave, and rotation
-  // through one of them would leave the other writing into a file nobody is reading.
+    Log::logger->log(Log::INFO, "[hyprview] {}", msg);
+  // The same handle emit() uses: two append handles on one path would interleave.
   static bool banner = false;
   FILE *f = sink();
   if (f) {
@@ -136,17 +126,15 @@ bool enabled() { return cfg::debug.trace != 0; }
 bool on(int bit) { return selects(cfg::debug.trace, bit); }
 
 namespace {
-// The record family IS the tag: record("DRAG", ...) and record("LIFE", ...) carry the
-// same string that selects the family, so the mapping is a lookup, not a second name.
+// The record family IS the tag: the same string selects the family and labels the record.
 int famBit(const char *tag) {
   if (std::strcmp(tag, "DRAG") == 0) return fam::kDrag;
   if (std::strcmp(tag, "LIFE") == 0) return fam::kLife;
   if (std::strcmp(tag, "SCROLL") == 0) return fam::kScroll;
   if (std::strcmp(tag, "SWAP") == 0) return fam::kSwap;
-  return fam::kAll; // an unrecognised tag is never suppressed: a record nobody reads is
-                    // exactly the one worth seeing
+  return fam::kAll; // an unrecognised tag is never suppressed: it may be the one worth seeing
 }
-} // namespace
+}
 
 int nextSeq() { return enabled() ? ++g_seq : 0; }
 
@@ -226,6 +214,6 @@ void scroll(const char *event, const std::string &state) {
   record("SCROLL", event, state);
 }
 
-} // namespace trace
+}
 
-} // namespace gloview::debug
+} // namespace hyprview::debug

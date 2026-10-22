@@ -13,10 +13,10 @@
 
 #include "../src/model/strip.hpp"
 
-using gloview::LRect;
-using gloview::LVec2;
-using gloview::model::Strip;
-using gloview::model::StripItem;
+using hyprview::LRect;
+using hyprview::LVec2;
+using hyprview::model::Strip;
+using hyprview::model::StripItem;
 
 namespace {
 

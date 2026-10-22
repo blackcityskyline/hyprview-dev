@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "HyprView tabs",
+  "version": "1.4.1",
+  "description": "Reports open tabs to the HyprView compositor plugin.",
+  "permissions": [
+    "tabs",
+    "nativeMessaging",
+    "activeTab",
+    "scripting",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

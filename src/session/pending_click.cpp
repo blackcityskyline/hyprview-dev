@@ -2,7 +2,7 @@
 
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 
-namespace gloview::session {
+namespace hyprview::session {
 
 bool PendingClick::arm(std::chrono::milliseconds ms, const PHLWINDOW &w,
                        const std::function<void(PHLWINDOW)> &onFire) {
@@ -14,9 +14,7 @@ bool PendingClick::arm(std::chrono::milliseconds ms, const PHLWINDOW &w,
       ms,
       [this, onFire](SP<CEventLoopTimer>, void *) {
         const auto pw = m_win.lock();
-        // Disarm BEFORE the callback. The callback can close a window, which can tear the
-        // owner down, which destroys this -- so nothing here may touch a member after
-        // onFire returns, and nothing may leave the timer armed across it.
+        // Disarm BEFORE the callback: onFire can tear the owner down and destroy this.
         cancel();
         if (pw)
           onFire(pw);
@@ -36,4 +34,4 @@ void PendingClick::cancel() {
   m_timer.reset();
 }
 
-} // namespace gloview::session
+}

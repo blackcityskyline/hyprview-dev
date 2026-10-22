@@ -12,13 +12,13 @@
 
 #include "../src/debug/log.hpp"
 
-using gloview::debug::trace::fam::kAll;
-using gloview::debug::trace::fam::kAnim;
-using gloview::debug::trace::fam::kDrag;
-using gloview::debug::trace::fam::kLife;
-using gloview::debug::trace::fam::kScroll;
-using gloview::debug::trace::fam::kSwap;
-using gloview::debug::trace::selects;
+using hyprview::debug::trace::fam::kAll;
+using hyprview::debug::trace::fam::kAnim;
+using hyprview::debug::trace::fam::kDrag;
+using hyprview::debug::trace::fam::kLife;
+using hyprview::debug::trace::fam::kScroll;
+using hyprview::debug::trace::fam::kSwap;
+using hyprview::debug::trace::selects;
 
 namespace {
 constexpr int kBits[] = {kAnim, kDrag, kLife, kScroll, kSwap};

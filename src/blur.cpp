@@ -13,7 +13,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 
@@ -34,8 +34,8 @@ const char* const FRAG_SRC = R"#(
 #version 300 es
 precision highp float;
 uniform sampler2D uTex;
-uniform vec2      uTexSize; // source texture size in pixels
-uniform vec2      uDir;     // (1,0) horizontal or (0,1) vertical
+uniform vec2      uTexSize;
+uniform vec2      uDir;
 uniform float     uRadius;  // blur radius in source texels
 in vec2 vUv;
 out vec4 fragColor;
@@ -44,16 +44,14 @@ void main() {
     vec2  stepPx  = uDir / uTexSize;
     float r       = max(uRadius, 0.5);
     float spacing = r / 4.0;
-    // exp(-i^2 / 18) for i in -4..4, normalized (sum = 6.52868)
-    const float invSum = 1.0 / 6.52868;
+    const float invSum = 1.0 / 6.52868; // normalized sum of exp(-i^2/18), i in -4..4
     vec4  sum = vec4(0.0);
     for (int i = -4; i <= 4; ++i) {
         float w  = exp(-float(i * i) / 18.0) * invSum;
         vec2  off = stepPx * spacing * float(i);
         sum += texture(uTex, vUv + off) * w;
     }
-    // Force opaque: a semi-transparent blur layer would let the sharp desktop
-    // show through on the final screen blit (double-image on transparent bars).
+    // Force opaque: a semi-transparent layer would show the sharp desktop through (double image).
     fragColor = vec4(sum.rgb, 1.0);
 }
 )#";
@@ -117,7 +115,7 @@ GLuint compileShader(GLenum type, const char* src) {
     if (!ok) {
         char log[1024] = {0};
         glGetShaderInfoLog(sh, sizeof(log) - 1, nullptr, log);
-        Log::logger->log(Log::ERR, "gloview blur: shader compile failed: {}", log);
+        Log::logger->log(Log::ERR, "hyprview blur: shader compile failed: {}", log);
         glDeleteShader(sh);
         return 0;
     }
@@ -143,7 +141,7 @@ GLuint linkProgram(const char* vsSrc, const char* fsSrc) {
     if (!ok) {
         char log[1024] = {0};
         glGetProgramInfoLog(prog, sizeof(log) - 1, nullptr, log);
-        Log::logger->log(Log::ERR, "gloview blur: program link failed: {}", log);
+        Log::logger->log(Log::ERR, "hyprview blur: program link failed: {}", log);
         glDeleteProgram(prog);
         return 0;
     }
@@ -245,8 +243,7 @@ void CBlurFilter::destroyProgram() {
 }
 
 void CBlurFilter::ensureScratch(int w, int h) {
-    // Dyadic halvings down to ~resolution as a power of two: every step must be
-    // a clean 2x. Clamped to kMaxLevels for the fixed-size FB array.
+    // Dyadic halvings to ~resolution as a power of two: every step a clean 2x (kMaxLevels cap).
     const int levels = std::clamp(static_cast<int>(std::lround(std::log2(static_cast<double>(std::max(1, m_resolution))))), 0, kMaxLevels);
 
     // Same halving walk as the allocation: a plain W/resolution divide disagrees.
@@ -266,9 +263,9 @@ void CBlurFilter::ensureScratch(int w, int h) {
     m_blurH  = bh;
 
     if (!m_fbA)
-        m_fbA = g_pHyprRenderer->createFB("gloview blur A");
+        m_fbA = g_pHyprRenderer->createFB("hyprview blur A");
     if (!m_fbB)
-        m_fbB = g_pHyprRenderer->createFB("gloview blur B");
+        m_fbB = g_pHyprRenderer->createFB("hyprview blur B");
     if (!m_fbA->isAllocated() || m_fbA->m_size != Vector2D(bw, bh))
         m_fbA->alloc(bw, bh);
     if (!m_fbB->isAllocated() || m_fbB->m_size != Vector2D(bw, bh))
@@ -280,16 +277,14 @@ void CBlurFilter::ensureScratch(int w, int h) {
         lw = std::max(1, (lw + 1) / 2);
         lh = std::max(1, (lh + 1) / 2);
         if (!m_downFBs[i])
-            m_downFBs[i] = g_pHyprRenderer->createFB("gloview blur pyramid");
+            m_downFBs[i] = g_pHyprRenderer->createFB("hyprview blur pyramid");
         if (!m_downFBs[i]->isAllocated() || m_downFBs[i]->m_size != Vector2D(lw, lh))
             m_downFBs[i]->alloc(lw, lh);
     }
 }
 
 void CBlurFilter::blitTex(const SP<Render::ITexture>& srcTex, GLuint prog, int locTex) {
-    // g_pHyprOpenGL->blend, not glDisable: the raw call moves GL without touching
-    // m_capStatus, and the next blend(true) then early-returns on a stale cache
-    // (OpenGL.cpp:2620) and skips the glEnable, drawing unblended.
+    // g_pHyprOpenGL->blend, not glDisable: a raw call leaves m_capStatus stale (OpenGL.cpp:2620).
     g_pHyprOpenGL->blend(false);
     glUseProgram(prog);
     glActiveTexture(GL_TEXTURE0);
@@ -367,10 +362,7 @@ bool CBlurFilter::render(const SP<Render::ITexture>& src, const SP<Render::IFram
     glGetIntegerv(GL_BLEND_DST_RGB, &blendDstRGB);
     glGetIntegerv(GL_BLEND_SRC_ALPHA, &blendSrcAlpha);
     glGetIntegerv(GL_BLEND_DST_ALPHA, &blendDstAlpha);
-    // Scissor and caller FBO/viewport too: a stray scissor clips the quads.
-    // The damage box, not just the enable bit: the raw glDisable moved GL without touching
-    // m_capStatus, and the next scissor(nullptr) then early-returned on a stale cache
-    // (OpenGL.cpp:2620) without disabling. Restoring through the API keeps the box too.
+        // Scissor and caller FBO/viewport too; restore through the API, never raw GL (OpenGL.cpp:2620).
     const bool scissorBefore = glIsEnabled(GL_SCISSOR_TEST) == GL_TRUE;
     const CBox  dmgExtents   = g_pHyprRenderer->m_renderData.damage.getExtents();
     g_pHyprOpenGL->scissor(nullptr);
@@ -382,7 +374,6 @@ bool CBlurFilter::render(const SP<Render::ITexture>& src, const SP<Render::IFram
     const float    strengthRadius = std::max(0.5F, (m_sizePx * m_strength) / static_cast<float>(1 << m_levels));
     const Vector2D blurSize{static_cast<float>(m_blurW), static_cast<float>(m_blurH)};
 
-    // Down-chain: each step is a real 2x filter, never one aliasing jump.
     if (m_levels == 0) {
         m_fbA->bind();
         g_pHyprOpenGL->setViewport(0, 0, m_blurW, m_blurH);
@@ -423,18 +414,8 @@ bool CBlurFilter::render(const SP<Render::ITexture>& src, const SP<Render::IFram
         }
     }
 
-    // No dim here: the cache stays free of backdrop_color and fade; renderBackdrop() draws it.
-    //
-    // The enable bit first, then the FUNC: blend(true) issues glBlendFunc(GL_ONE,
-    // GL_ONE_MINUS_SRC_ALPHA) (OpenGL.cpp:984, everything premultiplied), so restoring the
-    // factors before the bit would have the bit's own call overwrite them.
-    //
-    // This read `if (!blendBefore) blend(false)`, which restores the OFF case and leaves the
-    // ON case broken: the passes above disable blending, and with blending on at entry
-    // nothing turned it back on. Every frame through blur with blending enabled came out of
-    // it disabled, and the damage landed on the compositor's own draw afterwards. The fence
-    // found it -- GL|leak|what=blend|blend=1->0 -- and only on the FIRST painted frame,
-    // because the next one enters with blending already off and looks self-consistent.
+        // No dim here: the cache stays free of backdrop_color and fade; renderBackdrop() draws it.
+        // Enable bit first, then the FUNC: blend(true) overwrites the factors itself (OpenGL.cpp:984).
     if (blendBefore)
       g_pHyprOpenGL->blend(true);  // through the API: see blitTex
     glBlendFuncSeparate(blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha);

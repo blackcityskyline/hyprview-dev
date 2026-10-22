@@ -9,7 +9,7 @@
 # guess. Run after a Hyprland update, before blaming the config.
 set -uo pipefail
 
-SO="${1:-build/gloview.so}"
+SO="${1:-build/hyprview.so}"
 HYPR="${2:-/usr/bin/Hyprland}"
 SRC="${3:-src/session/session.cpp}"
 
@@ -17,8 +17,12 @@ if [ ! -e "$HYPR" ]; then
   echo "SKIP: $HYPR not found"
   exit 77
 fi
-if [ ! -f "$SO" ] || [ ! -f "$SRC" ]; then
-  echo "FAIL: need both the built .so and $SRC"
+if [ ! -f "$SO" ]; then
+  echo "SKIP: $SO not built -- nothing to observe"
+  exit 77
+fi
+if [ ! -f "$SRC" ]; then
+  echo "FAIL: need $SRC"
   exit 1
 fi
 

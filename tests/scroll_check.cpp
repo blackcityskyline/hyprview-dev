@@ -16,7 +16,7 @@
 
 #include "../src/model/scroll.hpp"
 
-using gloview::model::ScrollState;
+using hyprview::model::ScrollState;
 
 int main() {
   // --- a fresh strip cannot scroll ---------------------------------------------------
@@ -159,6 +159,32 @@ int main() {
     }
     std::printf("describe: %s\n", line.c_str());
     std::puts("describe is one pipe-separated key=value line");
+  }
+
+  // --- GridScroll: the window and the range settle together, and follow reads the area --
+  // The desktop grid's wheel and arrows read follow() through ONE field, so a rebuild that
+  // sets the rows' range without the area (or the reverse) cannot happen: setWindow takes
+  // both. follow() returns the area-based want; the RANGE clamp belongs to the glide
+  // (beginGlide), so the arrows adjust from where the grid already means to be.
+  {
+    using hyprview::model::GridScroll;
+    using hyprview::LRect;
+    GridScroll g;
+    g.setWindow(LRect{0.0, 0.0, 100.0, 100.0}, 50.0);
+    assert(g.max() == 50.0);
+    // A tile below the window pulls the offset to its bottom edge (170-100): follow does
+    // NOT clamp by the range itself.
+    g.snap(0.0);
+    assert(g.follow(LRect{0.0, 150.0, 10.0, 20.0}) == 70.0);
+    // ...and the glide takes it the rest of the way inside the range.
+    assert(g.beginGlide(10.0, g.follow(LRect{0.0, 150.0, 10.0, 20.0})));
+    assert(g.target() == 50.0);
+    // A tile pushed above the window top comes back to the top edge.
+    g.snap(50.0);
+    assert(g.follow(LRect{0.0, 30.0, 10.0, 20.0}) == 30.0);
+    // A visible tile leaves the target where it is.
+    assert(g.follow(LRect{0.0, 60.0, 10.0, 20.0}) == 50.0);
+    std::puts("GridScroll settles window+range together; follow reads the window");
   }
 
   std::puts("OK");

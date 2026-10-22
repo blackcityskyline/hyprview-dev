@@ -10,18 +10,13 @@
 #include "config/config.hpp"
 #include "anim_types.hpp"
 
-// THE animation registry.
+// THE animation registry. Every animation is declared EXACTLY ONCE, as one row of kRows in
+// anim.cpp carrying its enum id, config keys and defaults, so they cannot drift apart.
 //
-// Every animation the plugin has is declared EXACTLY ONCE, in the kRows table in anim.cpp.
-// The enum id, the config keys and the defaults are all one row, so they cannot drift apart.
-// The previous design had them in three places (a struct in config.hpp, a table row in
-// config.cpp, a string literal at each call site) and drifted for real: leaf("new_card")
-// named an animation that was never registered and silently answered 250ms/easeout.
-//
-// Nothing here substitutes a default for an animation that is not there. An unknown or
-// unbound id resolves to Cfg{on=false}: the motion does not happen, instead of happening at
-// some arbitrary duration nobody asked for.
-namespace gloview::anim {
+// Nothing substitutes a default for an animation that is not there: an unknown or unbound id
+// resolves to Cfg{on=false}, so the motion does not happen rather than happening at a duration
+// nobody asked for.
+namespace hyprview::anim {
 
 enum class Id : std::uint8_t {
   Open, Close, Glide, Appear, Card, Pulse, StripStep,
@@ -30,38 +25,35 @@ enum class Id : std::uint8_t {
   Count
 };
 
-// Cfg, Rule, Inputs and resolve() live in anim_types.hpp: they are plain values, and
-// keeping them free of hyprland/ includes is what lets a test reach the resolver.
+// Cfg, Rule, Inputs and resolve() live in anim_types.hpp, free of hyprland/ includes so a
+// test can reach the resolver.
 [[nodiscard]] Cfg cfg(Id id);
 
-// Name-keyed, for the Lua layer and for config-driven lookups only. An unknown name is
-// simply not an animation: Cfg{on=false}, never a default.
+// Name-keyed, for the Lua layer and config lookups. An unknown name is not an animation.
 [[nodiscard]] Cfg cfg(const char *name);
 [[nodiscard]] std::string style(const char *name);
 
 [[nodiscard]] double param(Param p);
 
-// Not animation styles: behaviour selectors that happen to live in the same config section.
+// Not animation styles: behaviour selectors sharing the config section.
 [[nodiscard]] std::string jumpStyle();
-// grid_swap_style / strip_swap_style are NOT kRows entries, so style() cannot reach
-// them: style() resolves a name against the animation table, and neither name is in
-// it -- asking for one returned {} silently, and {} parses to Horizontal, so the
-// documented key did nothing. These read the registered handles directly instead.
+// grid_swap_style / strip_swap_style are NOT kRows entries, so style() cannot reach them:
+// asking returned {} silently, and {} parses to Horizontal, so the documented key did
+// nothing. These read the registered handles directly.
 [[nodiscard]] std::string gridSwapStyle();
 [[nodiscard]] std::string stripSwapStyle();
 
 void setRule(const char *name, const Rule &r);
 
-// Runtime tuning by key name: "<leaf>_ms" / "_speed" / "_curve" / "_enabled",
-// plus "grid_swap_style" / "strip_swap_style" / "jump_style". An empty value clears
-// one. Everything the plugin reads is still read from config every frame; only a key
-// set here is diverted. See the override map in anim.cpp for why it exists.
+// Runtime tuning by key name: "<leaf>_ms" / "_speed" / "_curve" / "_enabled", plus the three
+// styles. An empty value clears one. Everything is still read from config every frame; only a
+// key set here is diverted.
 bool setTuning(const std::string &key, const std::string &value);
 
-// Currently-active overrides, "key=value" -- so a harness can confirm what it set.
+// Currently-active overrides, "key=value", so a harness can confirm what it set.
 [[nodiscard]] std::vector<std::string> tuningKeys();
 
 int  luaSetRule(lua_State *L);
 void registerAll(HANDLE handle);
 
-} // namespace gloview::anim
+} // namespace hyprview::anim

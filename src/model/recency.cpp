@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace gloview::model {
+namespace hyprview::model {
 
 void Recency::promote(const void *window) {
   if (!window)
@@ -29,8 +29,6 @@ void Recency::order(const std::vector<const void *> &keys,
   out.resize(keys.size());
   for (std::size_t i = 0; i < keys.size(); ++i)
     out[i] = i;
-  // Rank ascending; stable, so keys with the same rank (all the unranked ones)
-  // stay in the order the caller gave.
   std::stable_sort(out.begin(), out.end(),
                    [&](const std::size_t a, const std::size_t b) {
                      return rank(keys[a]) < rank(keys[b]);
@@ -43,4 +41,4 @@ void Recency::forgetDead(const std::vector<const void *> &live) {
   });
 }
 
-} // namespace gloview::model
+} // namespace hyprview::model

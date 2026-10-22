@@ -30,22 +30,19 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 void dropFocusFromWindows() {
   if (g_pInputManager)
     g_pInputManager->refocus(std::nullopt);
-}} // namespace
+}}
 
 void Overview::toggle() {
   debug::dbg("TOGGLE tick=" + std::to_string(m_pump.tick()) +
              " active=" + std::to_string(active()) +
              " opening=" + std::to_string(opening()));
-  // While the overview is up the toggle means "go to what I am looking at", the same thing
-  // Enter means. It used to close unconditionally, so the one bind the user reaches for
-  // first either dropped them on the workspace they started from or -- once the deck held
-  // windows from elsewhere -- animated a focus it then cancelled.
+  // While the overview is up the toggle means "go to what I am looking at", the same thing Enter means.
   switch (anim::toggleIntent(m_life.openingNow(), m_scene.focused() >= 0)) {
     case anim::DismissIntent::Open:
       open();
@@ -59,8 +56,7 @@ void Overview::toggle() {
   }
 }
 
-// Asymmetric on purpose, NOT a copy of the "a" binding: one -> all with the run
-// on; all -> all, run only flips. No path back — that is "a"'s job.
+// Asymmetric on purpose, NOT a copy of the "a" binding: no path back -- that is "a"'s job.
 void Overview::toggleCarousel() {
   if (!m_life.openingNow()) {
     m_view.setCarouselOn( true); // BEFORE open(): buildTiles reads it
@@ -76,13 +72,46 @@ void Overview::toggleCarousel() {
     return;
   }
   m_view.setCarouselOn( !m_view.carouselOn());
-  // The SAME rebuild the 'a' binding does: a bare layoutTiles() only rewrites
-  // targets, so the carousel era's boxes survive and the grid is scattered.
-  m_view.setWsSlideDir( 0); // the view is not changing, so no slide
+  // The SAME rebuild the 'a' binding does: a bare layoutTiles() leaves the carousel era's boxes scattered.
+  m_view.setWsSlideDir( 0);
   m_view.setExpoFlip( 0);
   auto oldBoxes = captureCurrentBoxes();
   replayReflow(oldBoxes);
   debug::dbg("TOGGLE-CAROUSEL on=" + std::to_string(m_view.carouselOn()));
+}
+
+void Overview::switchDomain(model::Domain d) {
+  if (d == m_view.domain())
+    return;
+  const bool wasTabs = model::showsTabs(m_view.domain());
+  const bool nowTabs = model::showsTabs(d);
+  m_view.setDomain(d);
+  if (!openedOrParked())
+    return;
+  // Browser view covers every desktop: force all-workspaces, and put it back on the way out.
+  if (nowTabs && !wasTabs && !showAllWorkspaces()) {
+    m_allForced = 0;
+    m_view.setAllOverride(1);
+  } else if (wasTabs && !nowTabs && m_allForced >= 0) {
+    m_view.setAllOverride(m_allForced);
+    m_allForced = -1;
+  }
+  // A rebuild, not a relayout: the cards are DIFFERENT SUBJECTS now (lifecycle.cpp:218 re-reads tile_mode).
+  loadTabs();
+  if (nowTabs)
+    requestTabShots();
+  m_view.setWsSlideDir( 0);
+  m_view.setExpoFlip( 0);
+  auto oldBoxes = captureCurrentBoxes();
+  replayReflow(oldBoxes);
+  debug::trace::emitState(std::string("DOMAIN|to=") + model::domainName(m_view.domain()) +
+                          "|tiles=" + std::to_string(m_scene.size()));
+  debug::dbg("DOMAIN-SWITCH to=" + std::string(model::domainName(m_view.domain())));
+}
+
+void Overview::toggleBrowserView() {
+  switchDomain(m_view.domain() == model::Domain::Tabs ? model::Domain::Windows
+                                                      : model::Domain::Tabs);
 }
 
 void Overview::toggleAllWorkspaces() {
@@ -96,64 +125,26 @@ void Overview::toggleAllWorkspaces() {
   }
   const bool wasAll = showAllWorkspaces();
   m_view.setAllOverride( wasAll ? 0 : 1);
-  // expoFlip stays BEFORE the rebuild: glideLeaf()/entryLeaf()/ghostLeaf() read it to pick
-  // the animation (clocks.cpp:24-38), so arming it afterwards would lay out against the
-  // previous direction.
+  // BEFORE the rebuild: glideLeaf()/entryLeaf()/ghostLeaf() read it (clocks.cpp:24-38).
   m_view.setExpoFlip( wasAll ? -1 : 1);
   auto oldBoxes = captureCurrentBoxes();
   replayReflow(oldBoxes);
-  // An empty workspace means no tile has ever been on screen, so captureCurrentBoxes()
-  // returns empty and startTileGlide takes its `else` branch: settleEntry(), landed=1.
-  // entryNow() then answers 1.0 for every card, and the gate at clocks.cpp:145
-  // (`if (ap >= 1.0) return r`) returns BEFORE the slide branch. Armed in this order the
-  // fix is a no-op -- replayReflow writes landed=1 straight back over it -- so it has to
-  // land AFTER the rebuild, like the direction below.
-  //
-  // What is on screen otherwise is just the natural->target glide, which is why it reads
-  // as a fullscreen window shrinking into its slot rather than as an entry. The flip's
-  // content is new either way; see the same argument in painter.cpp.
+  // AFTER the rebuild: captureCurrentBoxes() is empty on an empty workspace, so arming entry before it is a no-op.
   if (oldBoxes.empty()) {
     m_scene.armEntry();
-    // And the clock, which is the half that was missing. replayReflow() begins only the
-    // tile glide (m_place.clocks.tiles) -- nothing begins the rebuild clock, so it reads done,
-    // m_place.clocks.rebuild.raw() answers 1.0, entryNow() answers 1.0 for every card and
-    // the gate at clocks.cpp:145 returns before the slide branch. What was on screen was
-    // just the natural->target glide, which for a maximized window reads as a fullscreen
-    // card shrinking into its slot.
-    //
-    // painter.cpp arms the same pair on the workspace-follow path; this flip was doing
-    // neither. Order matters: the clock starts BEFORE the direction, or updateAnimation
-    // clears it in the same tick.
+    // rebuild must start BEFORE the direction, or updateAnimation clears it in the same tick (clocks.cpp:145).
     m_place.clocks.rebuild.begin();
     debug::trace::animStart("entry", "entry", "slide", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
-    // A slide is an ENTRY, not a relocation: the card is already the right shape and
-    // arrives from the edge. Left at natural, every card starts at the window's REAL
-    // geometry and shrinks into its slot -- 1354x756 down to 909x508, measured -- and that
-    // shrink is the handoff an OPEN wants, where the preview takes over from a window
-    // that was on screen. This flip has no such window: the overlay was already up
-    // showing an empty workspace, so there is nothing to hand off from and the motion is
-    // pure leftover. With natural == target the glide has zero distance and the entry
-    // offset is the only thing moving.
     for (std::size_t i = 0; i < m_scene.tiles().size(); ++i)
       m_scene.setNatural(i, m_scene.tiles()[i].target);
   }
-  // Direction is armed AFTER the rebuild clock starts, for the reason painter.cpp arms it
-  // after its own: updateAnimation clears it the moment the rebuild and entry clocks read
-  // done, and a flip made from an EMPTY workspace has nothing to animate -- capture
-  // CurrentBoxes() comes back empty, no clock runs, and the wipe lands in the very frame
-  // the direction was set. The tiles then fell through the gate in clocks.cpp into the
-  // scale-in, which reads as arriving from the centre instead of from the edge.
-  //
-  // painter.cpp carries a comment claiming "same slide, same style key, whichever bind
-  // got here". That held for the slide and not for the order: this is the bind that still
-  // had it backwards.
-  m_view.setWsSlideDir( 1); // all<->one slides horizontally (no ws order)
+  // AFTER the rebuild clock starts (painter.cpp arms its own after); an empty workspace has no clock to delay it.
+  m_view.setWsSlideDir( 1);
 }
 
 void Overview::altTabInvoke(bool reverse) {
   if (!m_life.openingNow()) {
-    // Armed BEFORE open() and consumed by the layout it triggers, so the entry is
-    // aimed from its first frame: ONE motion of ONE duration.
+    // Armed BEFORE open(), consumed by the layout it triggers: ONE motion of ONE duration.
     m_pendingStep = cfg::behavior.alttab_advances != 0 ? (reverse ? -1 : 1) : 0;
     m_view.setAllOverride( 1);
     open();
@@ -163,10 +154,7 @@ void Overview::altTabInvoke(bool reverse) {
       return;
     }
     m_altTabbing = true; // armed AFTER open(): a plain open resets it
-    // open() already seeded the selection to the window that had the compositor
-    // focus. Selecting index 0 here threw that away and landed on whatever window
-    // happened to be first in the scene, which is why the same window came up on
-    // every invocation.
+    // open() already seeded the selection from the compositor's focus; index 0 would discard it.
     if (carouselMode() && !m_scene.empty())
       layoutTiles();
     damage();
@@ -180,13 +168,11 @@ void Overview::toggleDesktop() {
     setDesktopMode(!m_view.desktop());
 }
 
-// canvas never moves or resizes a real window
 void Overview::setDesktopMode(bool on) {
   m_view.setDesktop( on);
 
   auto oldBoxes = captureCurrentBoxes();
   m_scene.clearHover();
-  // Selection survives: dropping it stopped the carousel relayout coming back.
   replayReflow(oldBoxes);
 }
 
@@ -194,21 +180,8 @@ void Overview::open() {
   const auto openEntryStamp = std::chrono::steady_clock::now();
   if (m_life.openingNow())
     return;
-  // Before anything else: make every workspace, and every window we may draw, eligible to
-  // be rendered. Taken from ScrollOverview (yayuuu/hyprland-scroll-overview), which solves
-  // exactly this and does it here:
-  //
-  //   * an inactive workspace's windows carry no committed buffer and a default
-  //     geometry (measured: three windows of one scrolling workspace all reporting
-  //     pos=6,6 size=1354, buf=0), so the live preview reads a texture that is not theirs
-  //     -- a blank card, a flicker on every border crossing, a neighbour's pixels on the
-  //     hovered one;
-  //   * a window's HLSurface keeps a visibleRegion computed for the workspace it was last
-  //     drawn on, and the surface pass clips against it, so a card draws nothing.
-  //
-  // The alternative was asking the compositor to render inactive workspaces: that crashes
-  // it inside endRender -> useFP16 -> println (hyprlandCrashReport389377 and 603004). This
-  // touches no compositor hook and moves no focus.
+  m_gridScroll.reset();
+  // Before anything else: forcing the compositor to render inactive workspaces crashes it (hyprlandCrashReport389377, 603004).
   forcePreviewVisibility();
 
   const auto m = State::monitorState()
@@ -226,11 +199,10 @@ void Overview::open() {
 
   m->m_blurFBDirty = true;
 
-  // force several full-damage frames: one damage() = one image
   m->m_forceFullFrames = 8;
 
   m_drag = {};
-  m_pendingFocus.reset();
+  m_pendingWindow.reset();
   cancelPendingClick();
   m_altTabbing = false;
   m_view.setDesktop( false);
@@ -238,6 +210,14 @@ void Overview::open() {
   m_newCardId = 0;
   releaseNewWorkspaces();
 
+  m_view.setDomain(model::parseDomain(cfg::behavior.tile_mode.get()));
+  if (model::showsTabs(m_view.domain()) && !showAllWorkspaces()) {
+    m_allForced = 0;
+    m_view.setAllOverride(1);
+  }
+  loadTabs();
+  if (model::showsTabs(m_view.domain()))
+    requestTabShots();
   buildTiles();
   buildStrip();
   if (m_scene.tiles().empty() && m_strip.size() <= 1)
@@ -247,7 +227,7 @@ void Overview::open() {
   m_scene.select(m_scene.tiles().empty() ? -1 : 0);
   if (const auto fw = Desktop::focusState()->window()) {
     for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-      if (m_scene.tiles()[i].win.lock() == fw) {
+      if (tileWindow(m_scene.tiles()[i]) == fw) {
         m_scene.select(static_cast<int>(i));
         break;
       }
@@ -256,9 +236,6 @@ void Overview::open() {
   layoutTiles();
 
   m_view.setCarouselOn( cfg::carousel.on_open != 0);
-  // Parked, NOT active: the pass computes the backdrop privately (primeBackdrop) and flips
-  // m_active the moment a non-black composite exists. Going visible now is what put a
-  // backdrop-less frame on screen.
   m_life.requestOpen();
   debug::trace::life("park", m_life.describe());
   m_view.setJumpMode( false);
@@ -269,11 +246,9 @@ void Overview::open() {
                                  m_openStamp - openEntryStamp)
                                  .count()));
   m_place.progress.closed();
-  // Parked already counts as owned (see inputRoutedAway), so the real windows lose
-  // focus on the first parked frame, not when the overlay actually appears.
+  // Parked already counts as owned (see inputRoutedAway): the real windows lose focus on the first parked frame.
   dropFocusFromWindows();
-  // Immersive fade only when the desktop underneath has no windows: with windows, their
-  // Hyprland blur is what covers the gap the ramp would open.
+  // Immersive fade only without windows: their Hyprland blur is what covers the gap the ramp would open.
   m_landingEmpty = !workspaceHasWindows(m_liveWsAtOpen.lock());
   debug::dbg("open: ws=" + std::to_string(m_liveWsAtOpen.lock() ? m_liveWsAtOpen.lock()->m_id : -1) + " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
   m_place.clocks.master.begin();
@@ -281,30 +256,22 @@ void Overview::open() {
   m_place.clocks.tiles.begin();
   debug::trace::animStart("open", "glide", m_place.recipes.enterStyle.travel == anim::Travel::Pop ? "pop" : "slide", m_place.recipes.glide.ms, m_place.recipes.glide.curve.c_str());
   m_lastAnimTick = {};
-  // hideLayers() is deliberately NOT called here: it runs at promotion instead. Fading the
-  // layers now would leave the desktop bare on frames where the overview draws nothing.
+  // hideLayers() is NOT called here: it runs at promotion, else the desktop is bare on frames where the overview draws nothing.
   m_cursor.onOpen(m);
-  // The backdrop composite is kept and never expires here. renderBackdropSource compares the
-  // source texture against the one the composite was made from and redraws when it really
-  // changed; it must not be reset by a timer, because right after an idle the wallpaper
-  // texture is mid-recreation and any from-scratch composite of it is black.
   debug::dbg("=== OPEN ===");
   damage();
 }
 
 void Overview::close() {
-  if (m_life.abortPark()) { // never became visible, so there is nothing to animate away
+  if (m_life.abortPark()) {
     debug::trace::life("abort", m_life.describe());
     return;
   }
   if (!active())
     return;
-  // The landing workspace can have changed while the overview was up (all-workspaces,
-  // digit jump), and it is THIS one we land back on — re-read it, do not reuse open()'s.
+  // Re-read: the landing workspace can change while the overview was up (all-workspaces, digit jump).
   m_landingEmpty = !workspaceHasWindows(m_workspace.lock());
-  // Ask Hyprland for the frames in which it rebuilds its own blur, and keep the overlay
-  // up until they are spent: blur under a still-moving window is not rendered yet, so
-  // releasing earlier just uncovers a sharp desktop.
+  // Keep the overlay up until Hyprland's own blur rebuilds, or releasing early uncovers a sharp desktop.
   if (const auto m = m_monitor.lock())
     m->m_forceFullFrames = std::max(m->m_forceFullFrames, 8);
   debug::dbg("close: ws=" + std::to_string(m_workspace.lock() ? m_workspace.lock()->m_id : -1) + " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
@@ -315,11 +282,10 @@ void Overview::close() {
 
   // close: target = shown, natural = real geometry
   if (const auto m = m_monitor.lock()) {
-    // Two passes on purpose: the pin test needs the focused tile's natural, which
-    // the loop rewrites as it goes — testing inside it reads the pre-close value.
+    // Two passes on purpose: the pin test needs the focused tile's natural, which the loop rewrites as it goes.
     LRect selNat{};
     if (m_scene.focused() >= 0) {
-      if (const auto w = m_scene.tiles()[static_cast<size_t>(m_scene.focused())].win.lock()) {
+      if (const auto w = tileWindow(m_scene.tiles()[static_cast<size_t>(m_scene.focused())])) {
         const auto p = w->positionAnimation()->goal();
         const auto s = w->sizeAnimation()->goal();
         selNat = LRect{p.x - m->m_position.x, p.y - m->m_position.y,
@@ -329,13 +295,8 @@ void Overview::close() {
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
       t.target = currentBox(t, static_cast<int>(i));
-      // The natural box is where the tile RETURNS TO -- so it is only a destination when
-      // the window will really be there. Opening on an empty workspace, switching to all
-      // and pressing Escape leaves nothing on the landing workspace: every card's natural
-      // box then belonged to a workspace that is not coming, and the exit spent itself
-      // flying each one toward a tile it could never occupy before dropping it in a
-      // single frame. Those cards leave standing and dissolve instead (entryFade).
-      if (const auto w = t.win.lock()) {
+      // The natural box is where the tile RETURNS TO; otherwise the card dissolves instead (entryFade).
+      if (const auto w = tileWindow(t)) {
         if (anim::tileExit(frame().goesHome(t)) == anim::TileExit::InPlace) {
           t.natural = t.target;
           continue;
@@ -344,16 +305,13 @@ void Overview::close() {
         const auto s = w->sizeAnimation()->goal();
         t.natural = LRect{p.x - m->m_position.x, p.y - m->m_position.y,
                           std::max(1.0, s.x), std::max(1.0, s.y)};
-        // When several windows share one geometry — maximized windows, off-screen
-        // workspaces — the unfocused cards land under the focused one (drawn last), so
-        // their exit is invisible whatever it animates to. Each gets its own exit.
         if (carouselMode() && static_cast<int>(i) != m_scene.focused() &&
             selNat.w >= 1.0 &&
             std::abs(t.natural.x - selNat.x) < 1.0 &&
             std::abs(t.natural.y - selNat.y) < 1.0 &&
             std::abs(t.natural.w - selNat.w) < 1.0 &&
             std::abs(t.natural.h - selNat.h) < 1.0)
-          t.natural = t.target; // leaves by shrinking in place, not by vanishing
+          t.natural = t.target;
       }
     }
   }
@@ -387,6 +345,7 @@ void Overview::hardClose() {
   m_scene.clear();
   m_strip.clear();
   m_pixel.clearSnapshots();
+  m_pixel.clearArt();
   m_scene.clearHover();
   m_scene.select(-1);
   m_focusOutside.reset();
@@ -397,6 +356,10 @@ void Overview::hardClose() {
 bool Overview::showAllWorkspaces() const {
   // The precedence rule lives in view::State; only the config read is this side of it.
   return m_view.allWorkspaces(cfg::behavior.show_all_workspaces != 0);
+}
+
+bool Overview::belongs(const PHLWINDOW &w) const {
+  return tileBelongs(w, m_monitor.lock(), m_workspace.lock());
 }
 
 // buildTiles() and syncTiles() MUST share this
@@ -434,7 +397,7 @@ bool Overview::shouldHideWindow(const PHLWINDOW &w,
   if (Fullscreen::controller()->isFullscreen(w))
     return true;
   for (const auto &t : m_scene.tiles())
-    if (t.win.lock() == w)
+    if (tileWindow(t) == w)
       return true;
   if (const auto aw = m->m_activeWorkspace; aw && w->m_workspace == aw)
     return true;
@@ -445,16 +408,43 @@ bool Overview::isTileWindow(const PHLWINDOW &w) const {
     if (!w)
         return false;
     for (const auto &t : m_scene.tiles())
-        if (t.win.lock() == w)
+        if (tileWindow(t) == w)
             return true;
     return false;
 }
 
-// Feeds the recency service from the COMPOSITOR's focus, and only while the
-// overview is closed. Inside, the run's selection is internal, so nothing here may
-// read it: promoting on an internal hover would make the order depend on where the
-// pointer happened to be. Called every frame and deliberately cheap — one pointer
-// compare.
+// A hidden window is drawn at its preview's box, not at its own place.
+void Overview::damageWindowPreview(const PHLWINDOW &w) const {
+  const auto m = m_monitor.lock();
+  if (!m || !g_pHyprRenderer || !w)
+    return;
+  auto hit = [m](LRect b) {
+    b.grow(48.0);
+    g_pHyprRenderer->damageBox(CBox{b.x + m->m_position.x, b.y + m->m_position.y, b.w, b.h});
+  };
+  int boxes = 0;
+  for (std::size_t i = 0; i < m_scene.tiles().size(); ++i) {
+    if (tileWindow(m_scene.tiles()[i]) != w)
+      continue;
+    hit(currentBox(m_scene.tiles()[i], static_cast<int>(i)));
+    ++boxes;
+  }
+  for (std::size_t i = 0; i < m_strip.size(); ++i) {
+    bool shows = false;
+    for (const auto &sw : m_strip[i].wins)
+      if (m_windows.windowOf(sw.subj) == w) {
+        shows = true;
+        break;
+      }
+    if (!shows)
+      continue;
+    hit(stripCardAt(i));
+    ++boxes;
+  }
+  debug::trace::emitState("DMGPREV|win=" + std::to_string(reinterpret_cast<std::uintptr_t>(w.get())) +
+                          "|boxes=" + std::to_string(boxes));
+}
+
 void Overview::syncRecency() {
   if (active())
     return;
@@ -468,30 +458,27 @@ void Overview::syncRecency() {
 
 int Overview::tileOf(const PHLWINDOW &w) const {
   for (size_t i = 0; i < m_scene.size(); ++i)
-    if (m_scene.tiles()[i].win.lock() == w)
+    if (tileWindow(m_scene.tiles()[i]) == w)
       return static_cast<int>(i);
   return -1;
 }
 
-// The recency service is a cache of the live window set and must never outlive it.
-// Hyprland reuses window addresses, so an entry for a closed window would hand its
-// rank to an unrelated window that lands on the same address.
+// Recency is a cache of the live window set and must never outlive it: Hyprland reuses window addresses.
 void Overview::pruneRecency() {
   std::vector<const void *> live;
   live.reserve(m_scene.size());
   for (const auto &t : m_scene.tiles())
-    live.push_back(t.win.lock().get());
+    live.push_back(tileWindow(t).get());
   m_recency.forgetDead(live);
 }
 
 void Overview::deactivate() {
   restorePreviewVisibility();
+  // Let go of the windows: holding one alive past its own run keeps it out of the compositor's teardown.
+  m_windows.release();
   if (const auto mm = m_monitor.lock()) {
     mm->m_blurFBDirty = true;
-    // The window is still flying into its tile here, so Hyprland's own blur is not
-    // rendering yet: for the first frames after the overlay goes the desktop shows
-    // through unblurred. Force the full-damage frames open() asks for, or the blur FB
-    // is not rebuilt in time and the exit pops.
+    // The window is still flying into its tile, so Hyprland's blur is not rendering yet; without it the FB pops.
     mm->m_forceFullFrames = 8;
   }
   restoreLayers();
@@ -511,22 +498,20 @@ void Overview::deactivate() {
     }
   }
 
-  // re-assert committed focus LAST (stale auto-focus)
-  if (const auto pw = m_pendingFocus.lock(); pw && pw->m_isMapped && !pw->isHidden())
+  if (const auto pw = m_pendingWindow.lock(); pw && pw->m_isMapped && !pw->isHidden())
     Desktop::focusState()->fullWindowFocus(pw, Desktop::FOCUS_REASON_KEYBIND);
-  m_pendingFocus.reset();
+  m_pendingWindow.reset();
 
-  // release EVERY created workspace
   debug::dbg("deactivate (natural close end)");
   m_pump.stop();
   releaseNewWorkspaces();
 
   m_life.hardClose();
-  // The screen is released, so the hooks pass focus through again; this is what actually
-  // gives the desktop its focus back rather than waiting for the next mouse move.
+  // The screen is released, so the hooks pass focus through again; this is what gives the desktop its focus back.
   dropFocusFromWindows();
   m_view.setDesktop( false);
   m_view.setAllOverride( -1);
+  m_allForced = -1;
   m_altTabbing = false;
   m_newCardAnim = false;
   m_newCardId = 0;
@@ -534,16 +519,17 @@ void Overview::deactivate() {
   m_scene.clear();
   m_strip.clear();
   m_pixel.clearSnapshots();
+  m_pixel.clearArt();
   m_scene.clearHover();
   m_scene.select(-1);
   damage();
 }
 
 void Overview::releaseNewWorkspaces() {
-  for (const auto &wref : m_fx.newWorkspaces())
+  for (const auto &wref : m_newWs)
     if (const auto ws = wref.lock())
       ws->setPersistent(false);
-  m_fx.clearNewWorkspaces();
+  m_newWs.clear();
 }
 
 
@@ -579,7 +565,7 @@ void Overview::updateSnapshots() {
     if (W <= 0 || H <= 0)
       return;
 
-    auto fb = g_pHyprRenderer->createFB("gloview snapshot");
+    auto fb = g_pHyprRenderer->createFB("hyprview snapshot");
     if (!fb)
       return;
     fb->alloc(W, H);
@@ -612,12 +598,12 @@ void Overview::updateSnapshots() {
     m_pixel.putSnapshot(w, fb->getTexture());
   };
   for (const auto &t : m_scene.tiles())
-    if (const auto w = t.win.lock())
+    if (const auto w = tileWindow(t))
       grab(w);
   for (const auto &it : m_strip)
     for (const auto &sw : it.wins)
-      if (const auto w = sw.win.lock())
+      if (const auto w = m_windows.windowOf(sw.subj))
         grab(w);
 }
 
-} // namespace gloview
+}

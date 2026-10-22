@@ -1,20 +1,13 @@
 #pragma once
 
-// A layer namespace that must stay fully visible while the overlay is up: the configured
-// list, comma-separated with an optional `*` suffix for a prefix match, plus the implicit
-// aboveoverview entry every install carries.
-//
-// No Hyprland and no config reads, both on purpose. Taking the list as an argument is what
-// lets this be compiled by ctest on its own (AGENTS.md 2.15, and hypr_types_check's rule
-// that a header a test compiles must stay compilable), and the parse is the whole of the
-// rule: a list written "bar, foo " has to yield the same two entries as "bar,foo", because a
-// trailing space left on an entry is an entry that matches nothing.
+// No Hyprland and no config reads: the list comes in as an argument, so ctest compiles this
+// alone (AGENTS.md 2.15). A trailing space is an entry that matches nothing.
 
 #include <cctype>
 #include <string>
 #include <vector>
 
-namespace gloview::session {
+namespace hyprview::session {
 
 [[nodiscard]] inline bool isSpace(char c) {
     return std::isspace(static_cast<unsigned char>(c)) != 0;
@@ -22,7 +15,6 @@ namespace gloview::session {
 
 namespace detail {
 
-// The comma-separated split, skipping runs of separators and surrounding whitespace.
 [[nodiscard]] inline std::vector<std::string>
 splitNamespaces(const std::string &list) {
     std::vector<std::string> out;
@@ -39,7 +31,7 @@ splitNamespaces(const std::string &list) {
     return out;
 }
 
-} // namespace detail
+}
 
 [[nodiscard]] inline bool
 isAboveLayer(const std::string &ns, const std::string &aboveNamespaces) {
@@ -57,4 +49,4 @@ isAboveLayer(const std::string &ns, const std::string &aboveNamespaces) {
     return false;
 }
 
-} // namespace gloview::session
+}

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(gloview VERSION "0.3.0" LANGUAGES CXX)
+project(hyprview VERSION "0.3.0" LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,13 +15,20 @@ include(GNUInstallDirs)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(HYPR_DEPS REQUIRED hyprland)
+# cairo reads the PNGs and is already inside this process via Hyprland; the check needs its
+# flags directly because it deliberately does not compile against hyprland/ (AGENTS.md 2.8).
+pkg_check_modules(CAIRO REQUIRED cairo)
+string(REPLACE ";" " " CAIRO_FLAGS "${CAIRO_CFLAGS};${CAIRO_LDFLAGS}")
 # Raw GL (glCreateShader/glDrawArrays…) for the plugin's own blur shader.
 pkg_check_modules(GLES REQUIRED glesv2)
+# Optional: an icon shipped only as SVG has no PNG to load. Without librsvg that app keeps no
+# corner icon; nothing else changes.
+pkg_check_modules(RSVG IMPORTED_TARGET librsvg-2.0)
 # Lua's pkg-config module name varies by distro: `lua` (Arch), `lua5.4`/`lua-5.4`
 # (Debian/Nix), or `luajit` (what Hyprland itself links). Take the first that exists.
 pkg_search_module(LUA REQUIRED lua lua5.4 lua-5.4 lua54 luajit)
 
-add_library(gloview SHARED
+add_library(hyprview SHARED
   src/main.cpp
   src/session/hooks.cpp
   src/session/geometry.cpp
@@ -36,9 +43,12 @@ add_library(gloview SHARED
   src/actions/actions.cpp
   src/layout.cpp
   src/model/recency.cpp
+  src/model/window_source.cpp
   src/cursor.cpp
   src/blur.cpp
   src/pixel/cache.cpp
+  src/pixel/png.cpp
+  src/pixel/png_read.cpp
   src/clock/clock.cpp
   src/clock/clocks.cpp
   src/clock/placement.cpp
@@ -55,20 +65,25 @@ add_library(gloview SHARED
   src/render/carousel_view.cpp
   src/render/strip_view.cpp
   src/render/fx.cpp
+  src/render/shadow.cpp
 )
-set_target_properties(gloview PROPERTIES PREFIX "")  # produce gloview.so, not libgloview.so
+set_target_properties(hyprview PROPERTIES PREFIX "")  # produce hyprview.so, not libhyprview.so
 
-target_include_directories(gloview PRIVATE ${HYPR_DEPS_INCLUDE_DIRS} ${LUA_INCLUDE_DIRS} ${GLES_INCLUDE_DIRS})
+target_include_directories(hyprview PRIVATE ${HYPR_DEPS_INCLUDE_DIRS} ${LUA_INCLUDE_DIRS} ${GLES_INCLUDE_DIRS})
 foreach(inc ${HYPR_DEPS_INCLUDE_DIRS})
   if(EXISTS "${inc}/hyprland/src")
-    target_include_directories(gloview PRIVATE "${inc}/hyprland/src")
+    target_include_directories(hyprview PRIVATE "${inc}/hyprland/src")
   endif()
 endforeach()
 
-target_link_directories(gloview PRIVATE ${HYPR_DEPS_LIBRARY_DIRS} ${LUA_LIBRARY_DIRS} ${GLES_LIBRARY_DIRS})
-target_link_libraries(gloview PRIVATE ${HYPR_DEPS_LIBRARIES} ${LUA_LIBRARIES} ${GLES_LIBRARIES})
+target_link_directories(hyprview PRIVATE ${HYPR_DEPS_LIBRARY_DIRS} ${LUA_LIBRARY_DIRS} ${GLES_LIBRARY_DIRS})
+target_link_libraries(hyprview PRIVATE ${HYPR_DEPS_LIBRARIES} ${LUA_LIBRARIES} ${GLES_LIBRARIES})
+if(RSVG_FOUND)
+  target_link_libraries(hyprview PRIVATE PkgConfig::RSVG)
+  target_compile_definitions(hyprview PRIVATE HYPRVIEW_HAVE_RSVG)
+endif()
 
-install(TARGETS gloview LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS hyprview LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 # Dev hot-reload (official same-path unload;load):  cmake --build build --target reload
 # This is the upstream-documented dev reload (Hyprland wiki, Plugins/Development):
@@ -79,7 +94,7 @@ install(TARGETS gloview LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 # handle) -> a silent stale reload. With the flag, dlclose truly unmaps and the same path
 # re-mmaps the fresh build. (If you ever load a pre-flag binary, that image sticks NODELETE
 # for the life of the Hyprland process and poisons its path until you restart Hyprland once.)
-# `hyprctl gloviewunload` (Overview::hardClose) first does a synchronous, animation-free
+# `hyprctl hyprviewunload` (Overview::hardClose) first does a synchronous, animation-free
 # teardown + cancels the recapture timer so the unload can't free plugin-owned render/timer
 # state while Hyprland still references it (-> SEGV / 150% IPC-dead spin); the 0.15s settle
 # lets one plugin-free frame flush the render pass. A plugin crash kills the whole session —
@@ -99,6 +114,12 @@ add_test(NAME carousel_layout
 add_test(NAME carousel_exit
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/carousel_exit_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/exit_check && ${CMAKE_CURRENT_BINARY_DIR}/exit_check")
+
+# The caption limit counts characters, not bytes, and the dots are inside it: both were
+# the way to get a 50-character caption that renders as half a broken letter.
+add_test(NAME title_text
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/title_text_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/title_text_check && ${CMAKE_CURRENT_BINARY_DIR}/title_text_check")
 
 # Naming: `scan_*` targets read this repository's own source text and match it against a
 # rule. They are static analysis, and they were named like tests -- so a ctest run read as
@@ -168,6 +189,31 @@ add_test(NAME layout
 add_test(NAME scan_hypr_types
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/hypr_types_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check && ${CMAKE_CURRENT_BINARY_DIR}/hypr_types_check ${CMAKE_SOURCE_DIR}/src")
 
+# Where a card starts. Header-only and pure, so the decision that produced every visual
+# bug of the tab work -- five sites, five rules, one hidden boolean each -- is checkable
+# without a compositor.
+# The ratchet on AGENTS.md 2.15. A knob read inside paint lands on the tiles painted before
+# it and not the ones after -- which is why a caption ends up right on one card and wrong on
+# the next. The rule is broken in 111 places today, so the check is a baseline that may only go
+# AGENTS.md 2.15, at its actual scope: the geometry layer takes its settings as arguments and
+# reads no config. Scoped to the PURE headers, because that is the boundary the rule names --
+# the Overview:: wrapper gathers the inputs and render::geometry does the arithmetic. A read
+# there takes the header out of reach of every header-only test, which is the only reason any
+# of it can be tested without a compositor.
+add_test(NAME scan_render_config
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/render_config_ratchet_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/render_config_ratchet_check && ${CMAKE_CURRENT_BINARY_DIR}/render_config_ratchet_check ${CMAKE_SOURCE_DIR}/src")
+
+# Comment weight. Five successive comment blocks inside drawTile described five successive
+# versions of one rule, each written to answer the bug visible that day and each cancelling the
+# one above it. A comment that is not the current answer is worse than none: it reads as the
+# answer. 20.7% today, 10% is the target, and going over the baseline is red.
+add_test(NAME scan_comment_weight
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/comment_weight_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/comment_weight_check && ${CMAKE_CURRENT_BINARY_DIR}/comment_weight_check ${CMAKE_SOURCE_DIR}/src")
+
+add_test(NAME origin
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/origin_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/origin_check && ${CMAKE_CURRENT_BINARY_DIR}/origin_check")
+
 # Overview must not hold state that has exactly one writer. The god object accumulated one
 # correct-looking field per commit; the property that separates them from the genuinely shared
 # state is which file writes them, and that is greppable. Registry half guards the extractions
@@ -198,6 +244,121 @@ find_program(HYPRLAND_BIN Hyprland)
 add_test(NAME scan_anim_coverage
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/anim_coverage_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/anim_cov_check && ${CMAKE_CURRENT_BINARY_DIR}/anim_cov_check ${CMAKE_SOURCE_DIR}")
 
+# A SubjectRef is a number, and somebody has to hold the window it stands for. This pins who:
+# the source, via the alive list it refreshes on enumerate. The crashing revision built a
+# shared pointer straight from the id and took the compositor down with it, and neither file
+# can be compiled without Hyprland, so a grep is the only place the rule can live.
+add_test(NAME scan_subject_ownership
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/subject_ownership_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/subject_own_check && ${CMAKE_CURRENT_BINARY_DIR}/subject_own_check ${CMAKE_SOURCE_DIR}")
+
+# src/model/ may not name a window. A tab has none, so a window-typed field is a field that
+# is null in the other domain and every reader then skips or crashes with nothing written
+# down. The two adapter files are exempt by name; workspaces are not covered, because they
+# have no tab equivalent and are workspace-shaped by nature.
+add_test(NAME scan_model_window_types
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/model_window_types_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/model_win_check && ${CMAKE_CURRENT_BINARY_DIR}/model_win_check ${CMAKE_SOURCE_DIR}")
+
+# What the browser side said, and what the plugin may conclude from it. The rules are all
+# refusals: a parse that guesses reads as a browser with fewer tabs, and nothing would say so.
+# Pure C++ -- no compositor, no socket, no extension -- which is the point of parsing here and
+# nowhere else.
+add_test(NAME tab_feed
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_feed_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_feed_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_feed_check")
+
+# Which Hyprland window is which browser window. The two sides share one fact -- a browser
+# window's title is its active tab's title -- so the match is by title, and every rule here
+# is about refusing to guess. A wrong match files one browser's tabs under another's window
+# and nothing about the result looks wrong on screen.
+add_test(NAME tab_match
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_match_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_match_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_match_check")
+
+# The second IContentSource implementation, built only out of the interface: no Hyprland type,
+# no window, no workspace. That is what makes `virtual` on the interface mean something, and it
+# is why this compiles under ctest without a compositor.
+add_test(NAME tab_source
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_source_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_source_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_source_check")
+
+# A PNG on disk, decoded. No compositor, no GPU: this is the half that can be checked, and
+# the failures it has to survive -- missing, truncated, not a PNG at all -- are the ones the
+# extension's half-written directory produces routinely.
+add_test(NAME png_read
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/png_read_check.cpp ${CMAKE_SOURCE_DIR}/src/pixel/png_read.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/png_read_check ${CAIRO_FLAGS} && ${CMAKE_CURRENT_BINARY_DIR}/png_read_check")
+
+# The staleness rule of the subject cache. A tab id belongs to the connection that issued it,
+# so a picture made under an old connection must not answer under a new one -- the browser
+# is reusing those ids right now. Templated on the stored type so it can be checked without a
+# GPU or an ITexture (AGENTS.md 2.8).
+add_test(NAME subject_cache
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/subject_cache_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/subject_cache_check && ${CMAKE_CURRENT_BINARY_DIR}/subject_cache_check")
+
+# scan_config_keys proves every key is REGISTERED, which is the easy half: adding the line is
+# all it takes to pass. This proves every key is READ. tile_mode sat registered and unread for
+# the whole of the tab work, its default happened to match the behaviour, and a user setting
+# tile_mode = "tabs" was ignored with no trace of any kind.
+add_test(NAME scan_config_keys_read
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/config_keys_read_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/config_keys_read_check && ${CMAKE_CURRENT_BINARY_DIR}/config_keys_read_check ${CMAKE_SOURCE_DIR}")
+
+# Two regressions that both looked like "the preview is missing": the source held only the
+# windows that got a tile, so every strip card but the current workspace had nothing to resolve;
+# and the window opacity was pinned to 1. Both are a line that was deleted and has to stay put.
+add_test(NAME scan_preview_regressions
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/preview_regressions_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/preview_regressions_check && ${CMAKE_CURRENT_BINARY_DIR}/preview_regressions_check ${CMAKE_SOURCE_DIR}")
+
+# key_browser's view switch. The two views hold different subjects, so it is a rebuild and not
+# a relayout; and Both stays out of the toggle cycle, which is a product decision with nothing
+# left to enforce it once someone tidies the enum into a three-way rotation.
+add_test(NAME scan_domain_view
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/domain_view_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/domain_view_check && ${CMAKE_CURRENT_BINARY_DIR}/domain_view_check ${CMAKE_SOURCE_DIR}")
+
+# A card's kind is decided in ONE function and the sites read named answers. It was 33 call
+# sites each asking tileWindow() for itself and they disagreed, and every one of the
+# disagreements was found by a user report rather than by a test. Adding a kind without a
+# window cost three days for that reason alone.
+add_test(NAME scan_card_kind
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/card_kind_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/card_kind_check && ${CMAKE_CURRENT_BINARY_DIR}/card_kind_check ${CMAKE_SOURCE_DIR}")
+
+# The brotab adapter, against a fake mediator speaking its real endpoints on a real port# inside its real range. The pid -> ppid hop is what the whole feature rests on and it is
+# only checkable against a live process.
+add_test(NAME mediator
+         COMMAND python3 ${CMAKE_SOURCE_DIR}/bridge/mediator_check.py)
+
+# One action for a window and for a tab: the tab switches with the focus, not before it.
+add_test(NAME scan_pending_activate
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/pending_activate_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/pending_activate_check && ${CMAKE_CURRENT_BINARY_DIR}/pending_activate_check ${CMAKE_SOURCE_DIR}")
+
+# The caption's icon shadow is the plugin's own: Hyprland's shader divides by the shape.
+add_test(NAME scan_caption_shadow
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/caption_shadow_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/caption_shadow_check && ${CMAKE_CURRENT_BINARY_DIR}/caption_shadow_check ${CMAKE_SOURCE_DIR}")
+
+# A card returns to the place it belongs to: the home the build records, not the slot a step
+# overwrote the natural with.
+add_test(NAME scan_card_home
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/card_home_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/card_home_check && ${CMAKE_CURRENT_BINARY_DIR}/card_home_check ${CMAKE_SOURCE_DIR}")
+
+# The card's hide motion: written once, in the placement. The run used to carry its own copy.
+add_test(NAME scan_hide_motion
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/hide_motion_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/hide_motion_check && ${CMAKE_CURRENT_BINARY_DIR}/hide_motion_check ${CMAKE_SOURCE_DIR}")
+
+# The extension: it asks for every page, and it paints the canvas around the shot.
+add_test(NAME extension
+         COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/extension_check.py)
+
+# The pump disarms its timer, never resets it: a reset drops the last shared pointer inside
+# the callback that owns it.
+add_test(NAME scan_frame_pump
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/frame_pump_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/frame_pump_check && ${CMAKE_CURRENT_BINARY_DIR}/frame_pump_check ${CMAKE_SOURCE_DIR}")
+
+# The effects: a pulse is replaced, a flight stands down one surface. The file is a header
+# without a compositor, which it only became when the workspace list left it.
+add_test(NAME effects
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/effects_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/effects_check && ${CMAKE_CURRENT_BINARY_DIR}/effects_check")
+
 # The strip scroll positions. model/scroll.hpp owns the [0, max] invariant that four free
 # doubles did not hold -- the current position had no guard at all when the strip shrank.
 add_test(NAME scroll
@@ -213,6 +374,14 @@ add_test(NAME lifecycle
 add_test(NAME trace_mask
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/trace_mask_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check && ${CMAKE_CURRENT_BINARY_DIR}/trace_mask_check")
+
+# The content-source contract, implemented twice. The point is that two unrelated
+# implementations can be written against it without either one's types leaking into the
+# other, and that the caller written once against the contract runs against both.
+
+add_test(NAME content_source
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/content_source_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/content_source_check && ${CMAKE_CURRENT_BINARY_DIR}/content_source_check")
 
 # Subject identity and the epoch rule. model/subject.hpp has no compositor in it.
 
@@ -274,6 +443,78 @@ add_test(NAME render_geometry
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/render_geometry_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/render_geometry_check && ${CMAKE_CURRENT_BINARY_DIR}/render_geometry_check")
 
+# Which desktop entry and which icon file a window class resolves to. Pure filesystem, so the
+# test points HOME and XDG at a tree of its own.
+add_test(NAME app_icon
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/app_icon_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/app_icon_check && ${CMAKE_CURRENT_BINARY_DIR}/app_icon_check")
+
+# A shadow is a blurred silhouette: the check reads the mask itself, so a blur that was skipped
+# (a hard ring) and a colour in the wrong channel both redden here.
+add_test(NAME shadow_mask
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/shadow_check.cpp ${CMAKE_SOURCE_DIR}/src/render/shadow.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/shadow_check $(pkg-config --cflags --libs cairo) && ${CMAKE_CURRENT_BINARY_DIR}/shadow_check")
+
+# The caption's own decision: where the pills land, which edge the band thickens,
+# how far the caption leaves a card that reached it. Six fixes landed inline in
+# drawTile, where the only observer was the screen; here the same header decides
+# it, with no GL and no Hyprland.
+add_test(NAME caption_geometry
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/caption_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/caption_check && ${CMAKE_CURRENT_BINARY_DIR}/caption_check")
+
+# The order of the passes in paint(), against the order AGENTS.md 3.4 documents.
+# The z-order is the rule, and it is written down in two places; this says they are
+# the same order.
+add_test(NAME scan_paint_order
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/paint_order_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/paint_order_check && ${CMAKE_CURRENT_BINARY_DIR}/paint_order_check ${CMAKE_SOURCE_DIR}")
+
+# The start boxes of a rebuilt deck: one pure function, asked for every tile. The rule
+# was in the model while the caller skipped it on an empty capture.
+add_test(NAME scan_start_boxes
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/start_boxes_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/start_boxes_check && ${CMAKE_CURRENT_BINARY_DIR}/start_boxes_check ${CMAKE_SOURCE_DIR}")
+
+# The badge's schedule and the icon's shadow: one rule each, and the call site must use it.
+add_test(NAME scan_badge_icon
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/badge_icon_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/badge_icon_check && ${CMAKE_CURRENT_BINARY_DIR}/badge_icon_check ${CMAKE_SOURCE_DIR}")
+
+# The strip band fades on the cards' own number, never on the exit progress.
+add_test(NAME scan_strip_band
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/strip_band_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/strip_band_check && ${CMAKE_CURRENT_BINARY_DIR}/strip_band_check ${CMAKE_SOURCE_DIR}")
+
+# A cold class icon: resolved while the scene is built, never inside paint.
+add_test(NAME scan_icon_warm
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/icon_warm_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/icon_warm_check && ${CMAKE_CURRENT_BINARY_DIR}/icon_warm_check ${CMAKE_SOURCE_DIR}")
+
+# The backdrop's base: the blur, the dim, or the sharp source only with the blur off.
+# A sharp frame under a transparent window was the one-frame flash of the desktop.
+add_test(NAME scan_backdrop_base
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/backdrop_base_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/backdrop_base_check && ${CMAKE_CURRENT_BINARY_DIR}/backdrop_base_check ${CMAKE_SOURCE_DIR}")
+
+# The box a preview's surface element reports: the drawn box. Hyprland clips damage to
+# the element's own box, which ignores a render modif, so the preview kept only the part
+# lying over the window's real spot.
+add_test(NAME scan_preview_box
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/preview_box_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/preview_box_check && ${CMAKE_CURRENT_BINARY_DIR}/preview_box_check ${CMAKE_SOURCE_DIR}")
+
+# How a tile is drawn: the grid, the run, the dragged card. Three builders, so a
+# field set in one path and forgotten in another is impossible.
+add_test(NAME tile_look
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/tile_look_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tile_look_check && ${CMAKE_CURRENT_BINARY_DIR}/tile_look_check")
+
+# The close glyph is drawn by one rule, on every surface that draws it.
+add_test(NAME scan_close_glyph
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/close_glyph_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/close_glyph_check && ${CMAKE_CURRENT_BINARY_DIR}/close_glyph_check ${CMAKE_SOURCE_DIR}")
+
 # The GL state fence's comparison. Reading live GL needs a context, so that half lives in
 # gl_util.hpp and runs inside the pass; the comparison is POD arithmetic, split into
 # state_fence.hpp precisely so it compiles here with no GL header at all.
@@ -287,7 +528,7 @@ add_test(NAME gl_state
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/gl_state_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/gl_state_check && ${CMAKE_CURRENT_BINARY_DIR}/gl_state_check")
          add_test(NAME load_seam
          COMMAND bash ${CMAKE_SOURCE_DIR}/tests/load_seam_check.sh
-                 $<TARGET_FILE:gloview> ${HYPRLAND_BIN}
+                 $<TARGET_FILE:hyprview> ${HYPRLAND_BIN}
          SKIP_RETURN_CODE 77)
 
 # Hook signatures against the running compositor's exports. A mismatch makes
@@ -295,21 +536,21 @@ add_test(NAME gl_state
 # swallows that, so the symptom reads as "my config did not take".
 add_test(NAME hook_signatures
          COMMAND bash ${CMAKE_SOURCE_DIR}/tests/hook_signature_check.sh
-                 $<TARGET_FILE:gloview> ${HYPRLAND_BIN}
+                 $<TARGET_FILE:hyprview> ${HYPRLAND_BIN}
                  ${CMAKE_SOURCE_DIR}/src/session/hooks.cpp
          SKIP_RETURN_CODE 77)
 
 add_custom_target(reload
-  COMMAND bash -c "hyprctl gloviewunload || true"
+  COMMAND bash -c "hyprctl hyprviewunload || true"
   COMMAND ${CMAKE_COMMAND} -E sleep 0.15
-  COMMAND bash -c "hyprctl plugin unload $<TARGET_FILE:gloview> || true"
+  COMMAND bash -c "hyprctl plugin unload $<TARGET_FILE:hyprview> || true"
   # Also drop a hyprpm-installed copy: it autoloads at session start and already holds the
   # shouldRenderWindow hooks, so loading the build path next to it fails to hook (two
   # instances can't trampoline the same prologue). No-op when not installed/loaded.
   # ($ENV{USER} resolves at configure time — a literal $USER gets mangled by the Makefile.)
-  COMMAND bash -c "hyprctl plugin unload /var/cache/hyprpm/$ENV{USER}/gloview/gloview.so || true"
-  COMMAND hyprctl plugin load $<TARGET_FILE:gloview>
-  DEPENDS gloview
+  COMMAND bash -c "hyprctl plugin unload /var/cache/hyprpm/$ENV{USER}/hyprview/hyprview.so || true"
+  COMMAND hyprctl plugin load $<TARGET_FILE:hyprview>
+  DEPENDS hyprview
   USES_TERMINAL
-  COMMENT "Hot-reloading gloview into the running Hyprland"
+  COMMENT "Hot-reloading hyprview into the running Hyprland"
 )

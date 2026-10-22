@@ -15,12 +15,12 @@
 
 #include "../src/input/key_combo.hpp"
 
-using gloview::input::keyIndex;
-using gloview::input::keyMatches;
-using gloview::input::kModAlt;
-using gloview::input::kModCtrl;
-using gloview::input::kModMeta;
-using gloview::input::kModShift;
+using hyprview::input::keyIndex;
+using hyprview::input::keyMatches;
+using hyprview::input::kModAlt;
+using hyprview::input::kModCtrl;
+using hyprview::input::kModMeta;
+using hyprview::input::kModShift;
 
 namespace {
 

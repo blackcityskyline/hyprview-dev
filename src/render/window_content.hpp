@@ -5,7 +5,7 @@
 #include <hyprland/src/render/Texture.hpp>
 #include <hyprutils/math/Box.hpp>
 
-namespace gloview {
+namespace hyprview {
 
 void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
                       const CBox &destPx, const CBox &clipPx, float alpha,

@@ -7,9 +7,9 @@
 
 What it drives
 --------------
-`gloview.cmd` (src/actions/actions.cpp) over Lua, because under a Lua config
+`hyprview.cmd` (src/actions/actions.cpp) over Lua, because under a Lua config
 `hyprctl dispatch` does not reach plugin dispatchers. Each command acknowledges
-itself in /tmp/gloview.log as CMD|ok / CMD|err -- `hyprctl eval` swallows Lua
+itself in /tmp/hyprview.log as CMD|ok / CMD|err -- `hyprctl eval` swallows Lua
 return values, so the log is the only channel that reports success.
 
 What it compares
@@ -41,7 +41,7 @@ import subprocess
 import sys
 import time
 
-LOG = "/tmp/gloview.log"
+LOG = "/tmp/hyprview.log"
 
 # Durations in ms. Deliberately spread: a swap that only looks right at 320ms is
 # wrong at 120, and the cheap one is where a curve bug hides.
@@ -79,9 +79,9 @@ if _sig := sig():
 
 
 def cmd(args, settle=0.30):
-    """One gloview.cmd. hyprctl always exits 0, so success is read from the log."""
+    """One hyprview.cmd. hyprctl always exits 0, so success is read from the log."""
     before = log_size()
-    subprocess.run(["hyprctl", "eval", f'gloview.cmd("{args}")'.replace('gloview.', 'hl.plugin.gloview.')],
+    subprocess.run(["hyprctl", "eval", f'hyprview.cmd("{args}")'.replace('hyprview.', 'hl.plugin.hyprview.')],
                    env=ENV, capture_output=True, check=False)
     time.sleep(settle)
     return tail_from(before)
@@ -213,11 +213,11 @@ def count_windows():
 
 def setup():
     subprocess.run(["hyprctl", "eval",
-                    'hl.config({plugin = {gloview = {debug_trace = 1}}})'],
+                    'hl.config({plugin = {hyprview = {debug_trace = 1}}})'],
                    env=ENV, capture_output=True, check=False)
     out = cmd("state")
     if "CMD|err" in out:
-        print("gloview is not answering commands:", out.strip().splitlines()[-1])
+        print("hyprview is not answering commands:", out.strip().splitlines()[-1])
         return False
     cmd("open", settle=1.0)
     # all-workspaces, because a single workspace usually holds one window and the

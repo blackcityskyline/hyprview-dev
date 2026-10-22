@@ -24,7 +24,7 @@
 
 #include "layout.hpp"
 
-using namespace gloview;
+using namespace hyprview;
 
 namespace {
 
@@ -112,6 +112,114 @@ void engines(const std::string &what, const std::vector<LRect> &ns,
 
 int main() {
   const LRect screen{0, 0, 1920, 1080};
+
+  // The desktop view: the windows of two workspaces sit at the SAME place, so without a cell
+  // per workspace the cards land on top of each other.
+  {
+    LayoutCfg cfg;
+    cfg.engine = Engine::Natural;
+    const std::vector<LRect> nat{{0, 0, 960, 1080}, {0, 0, 960, 1080}};
+    const auto out = computeLayout(nat, screen, cfg, {1, 2});
+    const bool apart = out.size() == 2 && (out[0].x != out[1].x || out[0].y != out[1].y);
+    printf("two workspaces, one place: %s\n", apart ? "apart" : "ON TOP OF EACH OTHER");
+    check(apart, "the cards of two workspaces must not share a box");
+    // One group: the windows keep their own places, as before.
+    const auto one = computeLayout(nat, screen, cfg, {1, 1});
+    check(one.size() == 2 && one[0].x == one[1].x, "one workspace keeps the windows together");
+  }
+
+  // The desktop view's grid: the groups make a square, the ceiling caps it, and the rows
+  // past the ceiling hang below the screen for the scrolling to walk.
+  {
+    LayoutCfg cfg;
+    cfg.engine = Engine::Natural;
+    cfg.cellGap = 8.0;
+    std::vector<LRect> nat;
+    std::vector<int> groups;
+    for (int g = 0; g < 4; ++g) {
+      nat.push_back(LRect{0, 0, 1354, 756});
+      groups.push_back(g);
+    }
+    const auto out = computeLayout(nat, screen, cfg, groups);
+    int cols = 0, rows = 0;
+    for (size_t i = 0; i < out.size(); ++i) {
+      bool newCol = true, newRow = true;
+      for (size_t j = 0; j < i; ++j) {
+        if (std::abs(out[j].x - out[i].x) < 1.0)
+          newCol = false;
+        if (std::abs(out[j].y - out[i].y) < 1.0)
+          newRow = false;
+      }
+      cols += newCol ? 1 : 0;
+      rows += newRow ? 1 : 0;
+    }
+    printf("four workspaces: %d columns, %d rows\n", cols, rows);
+    check(cols == 2 && rows == 2, "four workspaces make two columns and two rows");
+
+    cfg.cellCols = 2;
+    cfg.cellRows = 1;
+    const auto capped = computeLayout(nat, screen, cfg, groups);
+    int below = 0;
+    for (const auto &r : capped)
+      if (r.y >= screen.h - 1.0)
+        ++below;
+    check(below == 2, "the row past the ceiling hangs below the screen");
+
+  }
+
+  // The knob lifts the height fit only and the width fit always binds, so more columns
+  // make smaller tiles and the grid stays on the screen. The monitor and the pads mirror
+  // the live desktop view: 1366x768 with the band and the caption room off the area.
+  {
+    LayoutCfg cfg;
+    cfg.engine    = Engine::Natural;
+    cfg.cellGap   = 8.0;
+    cfg.padTop    = 190;
+    cfg.padBottom = 112;
+    const LRect mon{0, 0, 1366, 768};
+
+    std::vector<LRect> four, five;
+    std::vector<int>   ig, jg;
+    for (int g = 0; g < 4; ++g) { four.push_back(LRect{0, 0, 1354, 756}); ig.push_back(g); }
+    for (int g = 0; g < 5; ++g) { five.push_back(LRect{0, 0, 1354, 756}); jg.push_back(g); }
+
+    cfg.cellScale = 1.0;
+    const auto plain   = computeLayout(four, mon, cfg, ig);
+    cfg.cellScale      = 1.125;
+    const auto boosted = computeLayout(four, mon, cfg, ig);
+    check(boosted[0].w > plain[0].w * 1.1, "the knob lifts the height-limited tiles");
+
+    // The fit weighs the cell gap scaled, the walk draws it raw: the overshoot per row is
+    // (cols-1)*gap*(1-scale), tolerable at these sizes and approved in the live look.
+    double right = 0.0;
+    for (const auto &r : boosted)
+      right = std::max(right, r.x + r.w);
+    double tol = 1.0 * 8.0 * (1.0 - boosted[0].w / 1354.0) + 0.5;
+    check(right <= mon.w - cfg.padRight + tol, "the boosted grid stays inside the monitor");
+
+    const auto fiveOut = computeLayout(five, mon, cfg, jg);
+    check(fiveOut[0].w < boosted[0].w, "more columns make smaller tiles");
+    right = 0.0;
+    for (const auto &r : fiveOut)
+      right = std::max(right, r.x + r.w);
+    tol = 2.0 * 8.0 * (1.0 - fiveOut[0].w / 1354.0) + 0.5;
+    check(right <= mon.w - cfg.padRight + tol, "the wide grid stays inside the monitor");
+  }
+
+  // The follow offset walks the wheel and the arrows: a tile below the area pulls the
+  // offset until its bottom edge lands there, one above pushes it back, a tile taller
+  // than the area has lo>hi and pins its top edge instead of clamping both ways.
+  const LRect followArea{0, 0, 1200, 400};
+  check(followOffset(LRect{100, 500, 300, 150}, followArea, 0.0) == 250.0,
+        "a tile below the visible area pulls the offset to its bottom edge");
+  check(followOffset(LRect{100, 500, 300, 150}, followArea, 100.0) == 250.0,
+        "a short offset still lands at the pull");
+  check(followOffset(LRect{100, 100, 300, 150}, followArea, 250.0) == 100.0,
+        "a tile above the area pushes the offset back to its top edge");
+  check(followOffset(LRect{100, 100, 300, 150}, followArea, 0.0) == 0.0,
+        "a visible tile keeps the offset where it is");
+  check(followOffset(LRect{100, 100, 300, 500}, followArea, 250.0) == 100.0,
+        "a tile taller than the area pins its top edge");
 
   // Ordinary: the layout the user actually sees.
   engines("9 equal", naturals({{673, 756}, {673, 756}, {673, 756},

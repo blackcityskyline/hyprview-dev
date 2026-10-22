@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Comment audit for the gloview sources.
+"""Comment audit for the hyprview sources.
 
 Budget: comment LINES must stay under 8% of all LINES in src/. Line count, not
 bytes — a two-line invariant and a twenty-line essay cost the same budget, which

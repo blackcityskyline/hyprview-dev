@@ -22,16 +22,16 @@
 
 #include "../src/anim_types.hpp"
 
-using gloview::anim::Cfg;
-using gloview::anim::Inputs;
-using gloview::anim::Rule;
+using hyprview::anim::Cfg;
+using hyprview::anim::Inputs;
+using hyprview::anim::Rule;
 
 namespace {
 
 constexpr double kEps = 1e-9;
 constexpr int kBaseMs = 300;
 
-Cfg r(const Inputs &in) { return gloview::anim::resolve(in, kBaseMs, "easeout"); }
+Cfg r(const Inputs &in) { return hyprview::anim::resolve(in, kBaseMs, "easeout"); }
 
 } // namespace
 
@@ -127,7 +127,7 @@ int main() {
     Inputs in;
     assert(r(in).curve == "easeout");
 
-    Cfg none = gloview::anim::resolve(in, 100, nullptr);
+    Cfg none = hyprview::anim::resolve(in, 100, nullptr);
     assert(none.curve.empty());
   }
   std::puts("curve falls back to the table default, empty only when there is none");
@@ -139,7 +139,7 @@ int main() {
   // 0ms floors to a single frame -- the overview opened instantly and the override map
   // still listed the key. Verified against the running plugin: TUNING|n=1|open_ms="".
   {
-    using gloview::anim::stripQuotes;
+    using hyprview::anim::stripQuotes;
     // Both spellings of an intended empty, and a lone quote is not an empty.
     assert(stripQuotes("\"\"").empty());
     assert(stripQuotes("''").empty());
@@ -163,7 +163,7 @@ int main() {
   // on. resolve() cannot see either -- it takes an already-resolved bool -- which is
   // why the regression lived here and not below.
   {
-    using gloview::anim::switchOn;
+    using hyprview::anim::switchOn;
     assert(switchOn(true, 0) == false);   // registered and explicitly off
     assert(switchOn(true, 1) == true);
     assert(switchOn(true, 2) == true);

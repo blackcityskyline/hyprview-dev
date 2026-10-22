@@ -1,0 +1,342 @@
+#!/usr/bin/env python3
+"""The mediator, driven the way the extension drives it.
+
+Not a smoke test. Everything worth checking here is invisible from the inside: the framing is a
+byte count and the mediator has to survive being fed one; the pid is read out of /proc and only
+exists because the mediator was started BY something, so the child process in this test is not
+a stand-in for it, it IS the mechanism; and the merge has to leave a document a parser can read
+when a second browser arrives and there is already one on disk.
+
+The extension is driven over the same stdio a browser would use, in the same framing, so what is
+checked is the wire and not a function called directly.
+"""
+
+import json
+import os
+import select
+import struct
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+MEDIATOR = os.path.join(HERE, "mediator.py")
+
+failures = 0
+
+
+def want(ok, what):
+    global failures
+    if not ok:
+        failures += 1
+        print("FAIL: %s" % what)
+
+
+def send(proc, message):
+    """A frame in native messaging's framing: native-endian length, then JSON."""
+    body = json.dumps(message).encode("utf-8")
+    proc.stdin.write(struct.pack("@I", len(body)))
+    proc.stdin.write(body)
+    proc.stdin.flush()
+
+
+def recv(proc, timeout=10):
+    head = proc.stdout.read(4)
+    if head is None or len(head) < 4:
+        return None
+    (length,) = struct.unpack("@I", head)
+    return json.loads(proc.stdout.read(length).decode("utf-8"))
+
+
+def recv_ready(proc, timeout):
+    """A frame the mediator PUSHED, or None. An unpublished frame must not hang the test."""
+    ready, _, _ = select.select([proc.stdout], [], [], timeout)
+    return recv(proc) if ready else None
+
+
+def start(root):
+    # A real child process, so /proc/<pid>/stat has this test as the parent. That is the whole
+    # mechanism: the browser starts the mediator, the mediator's parent is the browser.
+    return subprocess.Popen(
+        [sys.executable, MEDIATOR, "--dir", root],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+TABS = [
+    {"id": 41, "windowId": 12, "title": "GitHub"},
+    {"id": 42, "windowId": 12, "title": "read | the docs"},
+    {"id": 7, "windowId": 13, "title": ""},
+]
+
+
+def mediator_module():
+    """The mediator as a module, for the rules that are older-than-something and not timing."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("hyprview_mediator", MEDIATOR)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def main():
+    root = tempfile.mkdtemp(prefix="hyprview_mediator_")
+    proc = start(root)
+    try:
+        # --- a report -----------------------------------------------------------------------
+        send(proc, {"name": "report", "tabs": TABS, "active": [41]})
+        reply = recv(proc)
+        want(reply is not None and reply.get("ok") is True, "a report is accepted: %r" % reply)
+
+        feed_path = os.path.join(root, "tabs")
+        want(os.path.exists(feed_path), "a feed was written")
+        feed = open(feed_path, "rb").read().decode()
+        lines = feed.strip().split("\n")
+        want(lines[0] == "g 1", "the generation leads: %r" % lines[0])
+        want(
+            any(l == "p %d 12" % os.getpid() for l in lines),
+            "the browser is named as this process's PARENT: %r" % lines,
+        )
+        want(any(l == "t 12 41 1 GitHub" for l in lines), "the active tab is marked active")
+        want(any(l == "t 12 42 0 read | the docs" for l in lines) is False,
+             "a raw pipe would survive into the feed")
+        want(any(l == "t 12 42 0 read   the docs" for l in lines),
+             "and is folded out of the grammar instead")
+        want(any(l == "t 13 7 0" for l in lines), "a window with no active tab is still listed")
+        # One 'p' per window, not per tab: two tabs of window 12, one of 13.
+        want(len([l for l in lines if l.startswith("p ")]) == 2,
+             "each window is named once: %r" % [l for l in lines if l.startswith("p ")])
+
+        # --- the same report again ------------------------------------------------------------
+        send(proc, {"name": "report", "tabs": TABS, "active": [41]})
+        want(recv(proc).get("ok") is True, "a repeated report is accepted")
+        lines = open(feed_path, "rb").read().decode().strip().split("\n")
+        ps = [l for l in lines if l.startswith("p ")]
+        want(len(ps) == 2, "re-reporting does not append a 'p' per window: %r" % ps)
+        want(len([l for l in lines if l.startswith("t ")]) == 3,
+             "and does not duplicate the tabs: %r" % lines)
+
+        # --- a screenshot --------------------------------------------------------------------
+        png = "data:image/png;base64," + __import__("base64").b64encode(
+            b"\x89PNG\r\n\x1a\npayload"
+        ).decode()
+        send(proc, {"name": "report", "tabs": TABS, "active": [41], "screenshot": png})
+        want(recv(proc).get("ok") is True, "a report with a screenshot is accepted")
+        shot = os.path.join(root, "previews", "41.png")
+        want(os.path.exists(shot), "the screenshot lands under the active tab id")
+        if os.path.exists(shot):
+            want(open(shot, "rb").read().startswith(b"\x89PNG"), "and it is the PNG")
+
+        # An event report carries no picture and no drop list: the extension only shoots when
+        # the compositor asks, so the picture already on disk is still the best one it has.
+        send(proc, {"name": "report", "tabs": TABS, "active": [41]})
+        want(recv(proc).get("ok") is True, "a report without a screenshot is accepted")
+        want(os.path.exists(shot), "and leaves the picture it already has alone")
+
+        # A page that navigated puts another page under the same id. The extension names it.
+        send(proc, {"name": "report", "tabs": TABS, "active": [41], "drop": [41]})
+        want(recv(proc).get("ok") is True, "a report naming a stale picture is accepted")
+        want(not os.path.exists(shot), "and the named picture is dropped")
+
+        # --- a favicon, keyed by the same tab id ----------------------------------------------
+        icon = "data:image/png;base64," + __import__("base64").b64encode(
+            b"\x89PNG\r\n\x1a\nicon").decode()
+        send(proc, {"name": "report", "tabs": TABS, "active": [41], "icons": {"41": icon}})
+        want(recv(proc).get("ok") is True, "a report with a favicon is accepted")
+        icon_path = os.path.join(root, "icons", "41.png")
+        want(os.path.exists(icon_path), "the favicon lands under its tab id")
+
+        # --- unloaded tabs: one flag number, bit 1 -------------------------------------------
+        send(proc, {"name": "report",
+                    "tabs": [{"id": 51, "windowId": 20, "title": "loaded"},
+                             {"id": 52, "windowId": 20, "title": "unloaded",
+                              "discarded": True}],
+                    "active": [51]})
+        want(recv(proc).get("ok") is True, "a report with an unloaded tab is accepted")
+        rows = open(feed_path, "rb").read().decode().split("\n")
+        want("t 20 51 1 loaded" in rows, "an active loaded tab is flag 1")
+        want("t 20 52 2 unloaded" in rows, "an unloaded one is flag 2")
+
+        # --- an activation the compositor asked for, pushed without being asked ---------------
+        # The plugin writes the file; only the mediator whose browser it names may consume it,
+        # because a tab id means nothing in another browser.
+        request = os.path.join(root, "activate")
+        open(request, "w").write("a %d 12 42\n" % os.getpid())
+        pushed = recv_ready(proc, 3)
+        want(pushed == {"name": "activate", "window": 12, "tab": 42},
+             "a request for this browser reaches the extension: %r" % pushed)
+        want(not os.path.exists(request), "and the request is consumed")
+
+        open(request, "w").write("a %d 12 42\n" % (os.getpid() + 1))
+        want(recv_ready(proc, 0.6) is None, "another browser's request is not answered here")
+        want(os.path.exists(request), "and is left on disk for its own mediator")
+        os.unlink(request)
+
+
+        # A request nobody is in any more is dropped rather than fired on a later start.
+        stale = mediator_module()
+        stale_request = os.path.join(root, "activate")
+        open(stale_request, "w").write("a %d 12 42\n" % os.getpid())
+        os.utime(stale_request, (0, 0))
+        want(stale.pop_activation(root, os.getpid()) is None, "a stale request is not forwarded")
+        want(not os.path.exists(stale_request), "and it is dropped")
+
+        # --- a fresh picture asked for when the overview opens ---------------------------------
+        shot = os.path.join(root, "shot.%d" % os.getpid())
+        open(shot, "w").close()
+        pushed = recv_ready(proc, 3)
+        want(pushed == {"name": "shot"},
+             "a request for a fresh picture reaches the extension: %r" % pushed)
+        want(not os.path.exists(shot), "and the picture request is consumed")
+
+        stale_shot = os.path.join(root, "shot.%d" % os.getpid())
+        open(stale_shot, "w").close()
+        os.utime(stale_shot, (0, 0))
+        want(mediator_module().pop_shot(root, os.getpid()) is None,
+             "a stale picture request is not forwarded")
+        want(not os.path.exists(stale_shot), "and it is dropped")
+
+        # --- a second browser into the same document ---------------------------------------------
+        send(proc, {"name": "report", "tabs": [{"id": 1, "windowId": 9, "title": "b"}],
+                    "active": []})
+        want(recv(proc).get("ok") is True, "a second report is accepted")
+        merged = open(feed_path, "rb").read().decode().strip().split("\n")
+        want(merged.count("g 1") == 1, "one generation for the whole feed")
+        want(any(l == "t 9 1 0 b" for l in merged), "the second browser's tab is there")
+        want(any(l.startswith("t 12 41") for l in merged), "and the first one's survived")
+
+        # --- nonsense must not cost the connection ------------------------------------------------
+        for junk in [{"name": "nonsense"}, {"name": "report", "tabs": "not a list"},
+                     {"name": "report", "tabs": [{"id": "x", "windowId": 1}]}]:
+            send(proc, junk)
+            reply = recv(proc)
+            want(reply is not None, "a malformed report still gets a reply: %r" % junk)
+
+        # The connection is the whole product. A mediator that died on the third report would
+        # leave the plugin showing windows forever with nothing said about why.
+        send(proc, {"name": "report", "tabs": TABS, "active": [42]})
+        want(recv(proc) is not None, "and the connection is still usable afterwards")
+
+        # --- a truncated frame ends it, cleanly ---------------------------------------------------
+        # Asserting that no .part file survives proves NOTHING: a non-atomic write never creates
+        # one, and that version passed this line unchanged. Caught here for the third time --
+        # the same gap in the deleted WebSocket bridge and in the brotab adapter. So it is
+        # asserted by intercepting the rename, which is the only way to tell the two apart.
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("med", MEDIATOR)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        renamed = []
+        real_replace = mod.os.replace
+        mod.os.replace = lambda a, b: (renamed.append((a, b)), real_replace(a, b))[1]
+        try:
+            mod.atomic_write(os.path.join(root, "atomic.bin"), b"payload")
+        finally:
+            mod.os.replace = real_replace
+        want(
+            renamed == [(os.path.join(root, "atomic.bin") + ".part",
+                         os.path.join(root, "atomic.bin"))],
+            "a write goes to a .part beside the target and is renamed over it",
+        )
+        want(not os.path.exists(os.path.join(root, "atomic.bin") + ".part"),
+             "and the .part is gone once it is done")
+
+        # A report REPLACES the window's tabs. Appending instead grew the feed without bound --
+        # 387 lines for 17 real tabs, one id repeated 32 times, and the plugin laid out 379
+        # cards from a browser with seventeen. Checked by reporting the same window twice with
+        # fewer tabs the second time, which is exactly what closing a tab looks like.
+        for n in (3, 3):
+            send(proc, {"name": "report",
+                        "tabs": [{"id": i, "windowId": 1, "title": "t%d" % i}
+                                 for i in range(100, 100 + n)], "active": []})
+            recv(proc)
+        def tab_lines(window=None):
+            rows = [l for l in open(os.path.join(root, "tabs")).read().strip().split("\n")
+                    if l.startswith("t ")]
+            if window is None:
+                return rows
+            return [l for l in rows if l.split(" ")[1] == str(window)]
+
+        for n in (3, 3):
+            send(proc, {"name": "report",
+                        "tabs": [{"id": i, "windowId": 77, "title": "t%d" % i}
+                                 for i in range(100, 100 + n)], "active": []})
+            recv(proc)
+        mine = tab_lines(77)
+        want(len(mine) == 3,
+             "a repeat report replaces rather than accumulates: %d lines" % len(mine))
+        before = len(tab_lines())
+        send(proc, {"name": "report",
+                    "tabs": [{"id": 200, "windowId": 78, "title": "other"}], "active": []})
+        recv(proc)
+        want(len(tab_lines()) == before + 1,
+             "and another window is left alone: %d -> %d"
+             % (before, len(tab_lines())))
+
+
+        # Both spellings of --dir. Only the spaced form was checked, and dropping the other
+        # passed the whole suite -- the same shape as the atomicity gap, twice in one file.
+        for args, label in ((["--dir=" + root + "/eq"], "--dir=PATH"),
+                            (["--dir", root + "/sp"], "--dir PATH")):
+            out = root + ("/eq" if "=" in args[0] else "/sp")
+            os.makedirs(out, exist_ok=True)
+            proc2 = subprocess.Popen([sys.executable, MEDIATOR] + args,
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                     stderr=subprocess.DEVNULL)
+            try:
+                body = json.dumps({"name": "report",
+                                   "tabs": [{"id": 1, "windowId": 1, "title": "x"}],
+                                   "active": []}).encode("utf-8")
+                proc2.stdin.write(struct.pack("@I", len(body)))
+                proc2.stdin.write(body)
+                proc2.stdin.flush()
+                reply2 = recv(proc2)
+                want(reply2 is not None and reply2.get("ok") is True,
+                     "%s is honoured: %r" % (label, reply2))
+                want(os.path.exists(os.path.join(out, "tabs")),
+                     "%s actually wrote where it was told: %r" % (label, out))
+            finally:
+                proc2.kill()
+
+        # The exact argv a browser passes. This is the one that killed the host: native
+        # messaging runs it as <manifest.json> <extension-id>, argparse rejected both, exited 2,
+        # and the extension saw a port that opened and dropped every five seconds. Nothing
+        # else in this file would have caught it, because everything else runs with a clean argv.
+        out = root + "/browser"
+        os.makedirs(out, exist_ok=True)
+        proc3 = subprocess.Popen(
+            [sys.executable, MEDIATOR,
+             os.path.expanduser("~/.mozilla/native-messaging-hosts/hyprview_mediator.json"),
+             "hyprview@localhost", "--dir", out],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        try:
+            body = json.dumps({"name": "report",
+                               "tabs": [{"id": 1, "windowId": 1, "title": "x"}],
+                               "active": []}).encode("utf-8")
+            proc3.stdin.write(struct.pack("@I", len(body)))
+            proc3.stdin.write(body)
+            proc3.stdin.flush()
+            reply3 = recv(proc3)
+            want(reply3 is not None and reply3.get("ok") is True,
+                 "a browser's own two arguments do not kill the host: %r" % reply3)
+            want(os.path.exists(os.path.join(out, "tabs")),
+                 "and --dir still wins over them")
+        finally:
+            proc3.kill()
+
+        proc.stdin.close()
+        want(proc.wait(timeout=10) == 0, "closing stdin ends the mediator cleanly")
+
+        print("mediator: framing, pid->ppid, feed grammar, merge, survives nonsense")
+        return 1 if failures else 0
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

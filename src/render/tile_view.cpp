@@ -23,25 +23,33 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 
 
-} // namespace
+}
 
-bool Overview::closeButtonsAlwaysOn() const {
-  return cfg::look.close_button_visibility.get() == "always";
+bool Overview::closeButtonsOn() const {
+  return cfg::look.close_button != 0;
+}
+
+bool Overview::closeButtonsHoverOnly() const {
+  return cfg::look.close_button_hover_only != 0;
+}
+
+bool Overview::closeButtonsEverywhere() const {
+  return cfg::look.close_button_visibility.get() == "everywhere";
 }
 
 bool Overview::closeOnDoubleClick() const {
   return cfg::look.close_trigger.get() == "doubleclick";
 }
 
-// One rule for every layout, read by the hit-test too, so the ✕ can never appear
-// where a click will not close.
+// One rule for every layout, read by the hit-test too: the ✕ never appears where a click won't close.
 bool Overview::tileCloseButtons() const {
-  return !closeOnDoubleClick() && (m_view.desktop() || closeButtonsAlwaysOn());
+  return closeButtonsOn() && !closeOnDoubleClick() &&
+         (m_view.desktop() || closeButtonsEverywhere());
 }
 
 LRect Overview::closeButtonRect(const LRect &lb) const {
@@ -61,14 +69,13 @@ double Overview::entryFade(size_t i) const {
   return m_place.entryFade(t, i, frame());
 }
 
-// A preview always wears the window's own aspect, so the content's arcs meet the
-// ring's. A second way to compute a tile box is a second way to be wrong.
+// A preview always wears the window's own aspect, so the content's arcs meet the ring's.
 LRect Overview::tileBox(size_t i, const LRect &slot) const {
   if (m_view.desktop())
     return slot;
   double aspect = slot.w / std::max(1.0, slot.h);
   if (i < m_scene.tiles().size()) {
-    if (const auto w = m_scene.tiles()[i].win.lock()) {
+    if (const auto w = tileWindow(m_scene.tiles()[i])) {
       const auto s = w->sizeAnimation()->goal();
       if (s.x > 0 && s.y > 0)
         aspect = s.x / s.y;
@@ -83,15 +90,17 @@ LRect Overview::tileRect(size_t i) const {
   return tileBox(i, currentBox(m_scene.tiles()[i], static_cast<int>(i)));
 }
 
-// THE tile: shadow, ring, focus ring, frost, content, pill, ✕ — each under the
-// next. A layout contributes a box and flags only.
-void Overview::drawTile(size_t i, const TileLook &look) const {
+// THE tile: shadow, ring, focus ring, frost, content, pill, ✕ — each under the next.
+void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const {
   const auto m = m_monitor.lock();
   if (!m || i >= m_scene.tiles().size())
     return;
   const auto &t = m_scene.tiles()[i];
-  const auto w  = t.win.lock();
-  if (!w || !w->m_isMapped || w->isHidden())
+  // Chrome -- frost, ring, shadow, pill -- is geometry-only and applies to a tab too; only CONTENT needs a window.
+  const auto w = tileWindow(t);
+  const auto card = cardOf(t);
+  const bool tab = card.isTab();
+  if (!tab && (!w || !w->m_isMapped || w->isHidden()))
     return;
 
   const LRect box = look.box;
@@ -111,9 +120,10 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
   const bool selected = static_cast<int>(i) == m_scene.focused() && !look.lift;
   const bool focused  = cfg::look.show_focus_border != 0 && (framed || selected);
   // Whichever ring ends up on top is the one the content has to tuck under.
-  const int ringW = focused ? (framed ? cfg::look.hover_border_size
-                                      : cfg::look.select_border_size)
-                            : cfg::look.border_size;
+  const int ringW = render::focusRingWidth(cfg::look.show_focus_border != 0, framed,
+                                           selected, cfg::look.hover_border_size,
+                                           cfg::look.select_border_size,
+                                           cfg::look.border_size);
 
   dropShadow(box, s, shadowCol,
              look.lift ? cfg::look.shadow_radius_lift : cfg::look.shadow_radius,
@@ -122,7 +132,8 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
              static_cast<float>(e * cfg::look.shadow_alpha * f), round, roundPow);
 
   if (look.frame) {
-    if (cfg::look.show_border != 0) {
+    // show_border holds for windows; a tab's card is the frosted desktop and needs its outline.
+    if (cfg::look.show_border != 0 || tab) {
       strokeRing(box, s, cfg::colors.border.get(e * f), cfg::look.border_size,
                  round, roundPow);
       debug::trace::ring("tile_border", box, round, static_cast<double>(e * f));
@@ -134,14 +145,14 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
                  ringW, round, roundPow);
   }
 
-  // Transition frost: the cached blur at CONSTANT alpha (fading it leaks
-  // C*e*(1-e) of the sharp desktop) plus the dim rect at the GLOBAL alpha e.
+  // Frost: the cached blur at CONSTANT alpha, plus the dim at the global e. A tab ALWAYS needs it.
   const double apNow = entryNow(t, static_cast<int>(i));
-  if (opening() && (e < 0.999 || apNow < 0.999)) {
+  if (tab || (opening() && (e < 0.999 || apNow < 0.999))) {
     if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
       const double pxW = static_cast<double>(m->m_pixelSize.x);
       const double pxH = static_cast<double>(m->m_pixelSize.y);
       const CBox  boxPx = pxb(box, s);
+      const auto  uv = render::frostUV(boxPx.x, boxPx.y, boxPx.width, boxPx.height, pxW, pxH);
       CTexPassElement::SRenderData td{};
       td.tex           = btex;
       td.box           = boxPx;
@@ -151,158 +162,219 @@ void Overview::drawTile(size_t i, const TileLook &look) const {
       td.allowCustomUV = true;
       auto &uvTL = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
       auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
-      uvTL = Vector2D{boxPx.x / pxW, boxPx.y / pxH};
-      uvBR = Vector2D{(boxPx.x + boxPx.width) / pxW,
-                      (boxPx.y + boxPx.height) / pxH};
+      uvTL = Vector2D{uv.u0, uv.v0};
+      uvBR = Vector2D{uv.u1, uv.v1};
       g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
       uvTL = Vector2D{-1.0, -1.0};
       uvBR = Vector2D{-1.0, -1.0};
-      // The frost covers the global dim: re-apply it at the global alpha.
       safeRenderRect("tile", boxPx, cfg::blur.backdrop.get(static_cast<float>(e)),
                                 {.round = pxr(round, s), .roundingPower = roundPow});
     }
   }
-  renderWindowLive(w, m, pxb(box, s), pxb(box, s), f, Time::steadyNow(),
-                   contentRadiusPx(round, ringW, roundPow, s, !look.contain),
-                   roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
+  // The card is the frame; the content fits in it and the rest is the plate under it.
+  const LRect content = w ? render::contentInside(box, w->sizeAnimation()->goal().x,
+                                                   w->sizeAnimation()->goal().y)
+                           : box;
+  const auto tabTex = tab ? tabArt(t) : SP<Render::ITexture>{};
+  const auto what = render::cardContent(tab ? render::CardKind::Tab : render::CardKind::Window,
+                                         tabTex != nullptr);
+  if (look.surface && !tab)
+    safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
+                              {.round = pxr(round, s), .roundingPower = roundPow});
+  switch (what) {
+    case render::CardContent::Picture: {
+      // The picture keeps its aspect: the card is a frame, the picture sits inside it.
+      const LRect pic = render::contentInside(box, tabTex->m_size.x, tabTex->m_size.y);
+      g_pHyprOpenGL->renderTexture(tabTex, pxb(pic, s),
+                                   {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
+      break;
+    }
+    case render::CardContent::PlateAndTitle: {
+      safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
+                              {.round = pxr(round, s), .roundingPower = roundPow});
+      if (t.label && t.label->m_size.x > 0) {
+        // No picture: the title, centred and dim, is all the card can say about the page.
+        const LRect room{box.x + box.w * 0.1, box.y + box.h * 0.35, box.w * 0.8, box.h * 0.3};
+        g_pHyprOpenGL->renderTexture(
+            t.label, pxb(render::contentInside(room, t.label->m_size.x, t.label->m_size.y), s),
+            {.a = 0.45F * f});
+      }
+      break;
+    }
+    case render::CardContent::Window:
+      renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
+                       render::contentRadiusFor(round, content, ringW, s, !look.contain),
+                       roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
+      break;
+  }
+  // The card's own icon in the corner the caption does not reach: the browser for a tab, the app for a window.
+  const double iconSide = render::badgeSide(box.h);
+  const int badgePx = render::badgePx(iconSide, s);
+  const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
+  // The badge pops a fifth and shrinks away; the open plays the same schedule backwards.
+  constexpr double kBadgeSpan = 0.28;
+  const double badgeK = render::badgeK(openT(), exitT(), opening(), kBadgeSpan);
+  const auto pose = render::badgePose(badgeK);
+  const double iconPop = pose.pop;
+  const double iconFade = pose.alpha;
+  const float badgeA = static_cast<float>(f * iconFade);
+  const double badgeSide = badgePx / s; // the icon's own quantum, so the shadow caches with it
+  if (badgeIcon && badgeA > 0.0F &&
+      (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0) {
+    const LRect badge = render::badgeBox(box, iconSide, iconPop);
+    auto spec = render::iconShadowSpec(badgeSide, cfg::look.icon_shadow_offset,
+                                        cfg::look.icon_shadow_blur);
+    spec.r = shadowCol.r;
+    spec.g = shadowCol.g;
+    spec.b = shadowCol.b;
+    if (const auto sh = m_pixel.shadow(spec, badgeSide, badgeSide, badgeSide * 0.24, s); sh.tex)
+      g_pHyprOpenGL->renderTexture(
+          sh.tex, pxb(LRect{badge.x - sh.pad, badge.y - sh.pad, badge.w + 2 * sh.pad,
+                            badge.h + 2 * sh.pad}, s),
+          {.a = static_cast<float>(cfg::look.icon_shadow_alpha * badgeA)});
+    g_pHyprOpenGL->renderTexture(badgeIcon, pxb(badge, s), {.a = badgeA});
+  }
 
   if (look.tone > 0.0)
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
                               {.round = pxr(round, s), .roundingPower = roundPow});
 
-  if ((framed || selected) && !look.lift) {
-    // The caption was captured to the card's own width, so the pill measures the
-    // texture it draws — not the uncut entry it used to.
-    //
-    // The pill shows WHATEVER there is: the title, or the carousel's n / total, or both.
-    // Gating it on a title used to hide the counter outright on a window with no caption,
-    // which is the one card where the position is least obvious and most wanted.
-    const bool hasLabel = t.label && t.label->m_size.x > 0;
-    // The counter is its own pill UNDER the caption, not a stem on it. The stem shape was
-    // tried and abandoned: two translucent shapes cannot share a silhouette without either a
-    // gap at the join (Hyprland rounds all four corners with one radius) or a density step
-    // where they overlap -- an opaque shoulder under the pill measured 0.086 brighter over
-    // the stem than beside it, and any two @0.8 layers are 0.069 apart. Neither reads as one
-    // piece, so it is two pills with their own knobs instead.
-    const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
-    // Built in the scene pass, not here: paint only reads, and the first frame for a new
-    // string used to allocate a texture mid-pass. The constant colour is not optional --
-    // PixelCache keys on (text, maxW) and bakes the FIRST frame's colour, so a fading one
-    // here would bake the counter dim and leave it dim. The fade rides the draw alpha.
-    auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
-    const bool hasCounter = countTex && countTex->m_size.x > 0;
-    if (hasLabel || hasCounter) {
-    // Each pill is sized off the texture it draws plus ITS OWN padding, so the two can be
-    // set independently; the counter's size comes from the run it counts, not from the title.
-    const double lw   = hasLabel ? t.label->m_size.x : 0.0;
-    const double lh   = hasLabel ? t.label->m_size.y : 0.0;
-    const double countW = hasCounter ? countTex->m_size.x : 0.0;
-    const double countH = hasCounter ? countTex->m_size.y : 0.0;
-    const double padX = cfg::look.title_pad_x, padY = cfg::look.title_pad_y;
-    const double cPadX = cfg::look.counter_pad_x, cPadY = cfg::look.counter_pad_y;
-    // With no title there is no pill to hang anything off, so the counter stands alone --
-    // and stands alone it sizes itself, not to a width it has no reason to match.
-    const double textW = hasLabel ? lw : countW;
-    const double textH = hasLabel ? lh : countH;
-    const double pw   = textW + 2 * (hasLabel ? padX : cPadX);
-    const double ph   = textH + 2 * (hasLabel ? padY : cPadY);
-    const double cGap = hasLabel ? cfg::look.counter_gap : 0.0;
-    // The counter rides with the caption, so the clamp that keeps the pair on screen has to
-    // reserve its height too -- otherwise a card near the bottom shoves the number off the
-    // panel. Solved from sizes, which do not depend on where the block lands.
-    const double counterH = hasLabel && hasCounter ? countH + 2 * cPadY : 0.0;
-    const double stackGap = counterH > 0.0 ? cGap : 0.0;
-    const double margin = hasLabel ? cfg::look.title_margin : cfg::look.counter_margin;
-    const double px = render::insetWithin(box.cx() - pw / 2.0, pw, m->m_size.x, 6.0);
-    // Each knob names a card EDGE, nothing else. On one edge the counter is always the outer
-    // pill -- above the card it leads, below the card it trails -- so the pair reads the same
-    // way whichever way round the card is; split across two edges there is no order to speak
-    // of, and each pill simply hangs off its own.
-    const bool titleBelow = cfg::look.title_position.get() != "top";
-    const std::string cpos = cfg::look.counter_position.get();
-    const bool counterBelow = cpos.empty() ? titleBelow : cpos != "top";
-    const bool sameEdge = counterH <= 0.0 || counterBelow == titleBelow;
-    const render::CaptionPills pos =
-        render::captionPills(box.y, box.h, ph, counterH, cfg::look.title_gap, stackGap,
-                             titleBelow, m->m_size.y, margin);
-    const double counterY =
-        sameEdge ? pos.counterY
-                 : render::captionPillY(box.y, box.h, counterH, cfg::look.title_gap,
-                                        counterBelow, m->m_size.y, cfg::look.counter_margin);
-    // Yields like every other chrome element when a preview reaches it -- but AFTER the
-    // clamp above, and deliberately unclamped itself: the clamp exists to keep the caption on
-    // screen while the card is laid out, while the push is what shoves the pill clear. With
-    // the clamp applied last the pill travelled to the screen edge, stopped there and just
-    // faded (measured on exit).
-    //
-    // EACH pill pushes on its OWN box. The union was measured displacing the pair by 60px
-    // sideways with no preview over either of them: on opposite edges the union spans the
-    // whole card column, so every preview on the card touched it and a centred counter sat
-    // visibly off centre for as long as the cursor was anywhere near.
-    const LRect pill{px, pos.titleY, pw, ph};
-    // Centred on the MONITOR, not on the pill. It counts the whole run, and the run's centre
-    // is the only centre it has; riding the pill's left edge instead meant a long title
-    // clamped at the screen edge dragged the number off with it. Clamped the same way, so a
-    // wide counter on a narrow monitor still lands inside.
-    const double cW = countW + 2 * cPadX;
-    const LRect counter{render::insetWithin(m->m_size.x / 2.0 - cW / 2.0, cW, m->m_size.x, 6.0),
-                        counterY, cW, counterH};
-    const Vector2D push = pushOut(pill);
-    const Vector2D cPush = pushOut(counter);
-    // Traced before the push AND after it: the two differ, and reading only the drawn box
-    // cannot tell a misplacement apart from a preview shoving a correctly placed pill off
-    // the screen -- which is the whole difference between the two bugs this found.
-    debug::trace::ring("title_pill", pill,
-                       pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), e * f);
-    debug::trace::ring("counter_pill", counter, 0, e * f);
-    debug::trace::ring("title_card", box, pxr(round, s), e * f);
-    debug::trace::ring("caption_push", LRect{push.x, push.y, cPush.x, cPush.y}, 0, e * f);
-    const double ux = pill.x + push.x;
-    const double uy = pill.y + push.y;
-    if (counterH > 0.0) {
-      const LRect cAt{counter.x + cPush.x, counter.y + cPush.y, counter.w, counter.h};
-      // The configured radius at the run's own roundingPower. NOT 1.0: the cut is
-      // distanceWithRounding (src/render/shaders/glsl/rounding.glsl:7), a p-norm of the offset
-      // from the corner centre, and p = 1 is the manhattan metric -- a diamond, not an arc.
-      safeRenderRect("tile", pxb(CBox(cAt.x, cAt.y, cAt.w, cAt.h), s),
-                              cfg::colors.counter_pill.get(e * f),
-                              {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
-                               .roundingPower = roundPow});
-      g_pHyprOpenGL->renderTexture(
-          countTex,
-          pxb(LRect{cAt.x + (cAt.w - countW) / 2.0, cAt.y + cPadY, countW, countH}, s),
-          {.a = static_cast<float>(e * f)});
-    }
-    debug::trace::ring("title_pill_drawn", LRect{ux, uy, pw, ph},
-                       pxr(render::pillRadius(cfg::look.title_round, pw, ph), s), e * f);
-    safeRenderRect("tile", pxb(CBox(ux, uy, pw, ph), s),
-                              cfg::colors.title_pill.get(e * f),
-                              {.round = pxr(render::pillRadius(cfg::look.title_round, pw, ph), s),
-                               .roundingPower = roundPow});
-    if (hasLabel)
-      g_pHyprOpenGL->renderTexture(t.label, pxb(CBox(ux + padX, uy + padY, lw, lh), s),
-                                 {.a = static_cast<float>(e * f)});
-    else
-      g_pHyprOpenGL->renderTexture(
-          countTex,
-          pxb(LRect{ux + (pw - countW) / 2.0, uy + cPadY, countW, countH}, s),
-          {.a = static_cast<float>(e * f)});
-    }
-  }
+  if (withCaption)
+    drawTileCaption(i, look);
 
   const auto closeGlyph = m_pixel.closeGlyph();
-    if (look.button && !look.lift && closeGlyph && closeGlyph->m_size.x > 0) {
+    const bool btnHovered = !closeButtonsHoverOnly() ||
+                            static_cast<int>(i) == m_scene.hoveredTile();
+    if (look.button && !look.lift && btnHovered && closeGlyph && closeGlyph->m_size.x > 0) {
     const LRect br = closeButtonRect(box);
     safeRenderRect("tile", pxb(br, s), cfg::colors.close_button.get(e),
                               {.round = pxr(br.h / 2.0, s)});
-    const double gw = closeGlyph->m_size.x, gh = closeGlyph->m_size.y;
-    const double gs = std::min((br.w * cfg::look.close_glyph_fill) / std::max(1.0, gw),
-                               (br.h * cfg::look.close_glyph_fill) / std::max(1.0, gh));
-    g_pHyprOpenGL->renderTexture(
-        closeGlyph,
-        pxb(LRect{br.x + (br.w - gw * gs) / 2.0, br.y + (br.h - gh * gs) / 2.0,
-                  gw * gs, gh * gs}, s),
-        {.a = static_cast<float>(e)});
+    const auto glyph = render::glyphRect(br, closeGlyph->m_size.x, closeGlyph->m_size.y,
+                                         cfg::look.close_glyph_fill);
+    g_pHyprOpenGL->renderTexture(closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});
+  }
+}
+
+// The caption: the title pill and the counter, in a pass of its own.
+void Overview::drawTileCaption(int i, const TileLook &look) const {
+  const auto m = m_monitor.lock();
+  if (!m)
+    return;
+  const auto &t = m_scene.tiles()[i];
+  const bool tab = cardOf(t).isTab();
+  const bool framed = static_cast<int>(i) == m_scene.hoveredTile() || look.lift;
+  const bool selected = static_cast<int>(i) == m_scene.focused() && !look.lift;
+  const double s = m->m_scale;
+  const double e = eased();
+  const float f = static_cast<float>(entryFade(i));
+  const float roundPow = cfg::look.preview_round_power;
+  const LRect box = look.box;
+  // A tab's title IS the card: an uncaptioned tab card is invisible.
+  if ((framed || selected || tab) && !look.lift) {
+    const bool hasLabel = t.label && t.label->m_size.x > 0;
+    const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
+    auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
+    const bool hasCounter = countTex && countTex->m_size.x > 0;
+    // The site's icon belongs beside the title; a tab with no title has nothing to sit next to.
+    const auto favicon = tab && cfg::look.show_tab_icons != 0 ? tabIcon(t)
+                                                              : SP<Render::ITexture>{};
+    const bool hasIcon = hasLabel && favicon && favicon->m_size.x > 0;
+    const double iconSide = hasIcon ? t.label->m_size.y * 1.5 : 0.0;
+    const render::CaptionSizes sizes{
+        hasLabel ? t.label->m_size.x : 0.0, hasLabel ? t.label->m_size.y : 0.0,
+        hasCounter ? countTex->m_size.x : 0.0, hasCounter ? countTex->m_size.y : 0.0,
+        hasLabel, hasCounter, iconSide, hasIcon};
+    const bool titleBelow = cfg::look.title_position.get() != "top";
+    const std::string cpos = cfg::look.counter_position.get();
+    const render::CaptionStyle style{
+        cfg::look.title_pad_x, cfg::look.title_pad_y,
+        cfg::look.counter_pad_x, cfg::look.counter_pad_y,
+        cfg::look.title_gap, cfg::look.counter_gap,
+        cfg::look.title_margin, cfg::look.counter_margin,
+        m_view.cardRefW(), std::max<double>(cfg::grid.gap, 1.0),
+        titleBelow, cpos.empty() ? titleBelow : cpos != "top"};
+    const auto lay = render::captionLayout(box, stripBand(), m->m_size.x, m->m_size.y, sizes,
+                                           style);
+    if (lay.pill.w > 0.0) {
+      const LRect pill = lay.pill;
+      // One owner for the caption; the view only says whether it may slide aside.
+      const auto covers = coveringCards();
+      const auto title = render::placeCaption(
+          {pill, covers, look.push, exitT(), opening()});
+      const auto count = lay.counter.h > 0.0
+                             ? render::placeCaption({lay.counter, covers, look.push, exitT(),
+                                                     opening()})
+                             : render::Caption{};
+      const double pop = title.scale;
+      const double cf = e * f;
+      LRect drawn = render::scaledAboutCentre(title.box, pop);
+      Vector2D cPush{};
+      LRect cAt{};
+      if (lay.counter.h > 0.0) {
+        cPush = Vector2D{count.shove.x, count.shove.y};
+        cAt = render::scaledAboutCentre(count.box, count.scale);
+      }
+      debug::trace::ring("title_pill", pill,
+                         pxr(render::pillRadius(cfg::look.title_round, pill.w, pill.h), s), cf);
+      debug::trace::ring("counter_pill", lay.counter, 0, cf);
+      debug::trace::ring("caption_push", LRect{title.shove.x, title.shove.y, cPush.x, cPush.y},
+                         0, cf);
+      debug::trace::ring("title_pill_drawn", drawn,
+                         pxr(render::pillRadius(cfg::look.title_round, drawn.w, drawn.h), s), cf);
+      if (cAt.h > 0.0) {
+        safeRenderRect("tile", pxb(CBox(cAt.x, cAt.y, cAt.w, cAt.h), s),
+                               cfg::colors.counter_pill.get(cf),
+                               {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
+                                .roundingPower = roundPow});
+        const double cPop = count.scale;
+        g_pHyprOpenGL->renderTexture(
+            countTex,
+            pxb(LRect{cAt.x + (cAt.w - sizes.countW * cPop) / 2.0,
+                      cAt.y + (cAt.h - sizes.countH * cPop) / 2.0,
+                      sizes.countW * cPop, sizes.countH * cPop}, s),
+            {.a = static_cast<float>(cf)});
+      }
+      safeRenderRect("tile", pxb(CBox(drawn.x, drawn.y, drawn.w, drawn.h), s),
+                               cfg::colors.title_pill.get(cf),
+                               {.round = pxr(render::pillRadius(cfg::look.title_round, drawn.w,
+                                                                 drawn.h), s),
+                                .roundingPower = roundPow});
+      if (hasIcon) {
+        const LRect at{drawn.x + style.padX * lay.kFit * pop,
+                       drawn.y + (drawn.h - iconSide * lay.kFit * pop) / 2.0,
+                       iconSide * lay.kFit * pop, iconSide * lay.kFit * pop};
+        // The icon's shadow is the plugin's own: Hyprland's shader divides by the shape.
+        auto spec = render::iconShadowSpec(iconSide, cfg::look.icon_shadow_offset,
+                                            cfg::look.icon_shadow_blur);
+        const auto shadowCol = cfg::colors.shadow.get(1.0);
+        spec.r = shadowCol.r;
+        spec.g = shadowCol.g;
+        spec.b = shadowCol.b;
+        if (const auto sh = m_pixel.shadow(spec, at.w, at.h, at.w * 0.2, s); sh.tex)
+          g_pHyprOpenGL->renderTexture(
+              sh.tex,
+              pxb(LRect{at.x - sh.pad, at.y - sh.pad, at.w + 2 * sh.pad, at.h + 2 * sh.pad}, s),
+              {.a = static_cast<float>(cfg::look.icon_shadow_alpha * cf)});
+        g_pHyprOpenGL->renderTexture(favicon, pxb(at, s),
+                                     {.a = static_cast<float>(cf)});
+      }
+      if (hasLabel)
+        g_pHyprOpenGL->renderTexture(
+            t.label,
+            pxb(CBox(drawn.x + (style.padX + (hasIcon ? iconSide + style.iconGap : 0.0)) *
+                                    lay.kFit * pop,
+                     drawn.y + (drawn.h - sizes.textH * lay.kFit * pop) / 2.0,
+                     sizes.textW * lay.kFit * pop, sizes.textH * lay.kFit * pop), s),
+            {.a = static_cast<float>(cf)});
+      else
+        // The counter rides INSIDE the pill, so it pops with it.
+        g_pHyprOpenGL->renderTexture(
+            countTex,
+            pxb(LRect{drawn.x + style.cPadX * lay.kFit * pop,
+                      drawn.y + (drawn.h - sizes.countH * lay.kFit * pop) / 2.0,
+                      sizes.countW * lay.kFit * pop, sizes.countH * lay.kFit * pop}, s),
+            {.a = static_cast<float>(cf)});
+    }
   }
 }
 
@@ -310,8 +382,7 @@ void Overview::renderTiles() const {
   const auto m = m_monitor.lock();
   if (!m)
     return;
-  // GL_BLEND left off by a previous pass writes the ✕ glyph's transparent padding
-  // through as opaque black; restore the exact func.
+  // GL_BLEND left off by a previous pass writes the ✕ glyph's padding through as opaque black.
   const bool wantButtons = tileCloseButtons();
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -328,13 +399,17 @@ void Overview::renderTiles() const {
   for (size_t i = 0; i < m_scene.tiles().size(); ++i) {
     if (static_cast<int>(i) == dragIdx)
       continue; // the dragged tile floats over the strip; drawn later
-    const auto w = m_scene.tiles()[i].win.lock();
-    if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w, false))
-      continue; // flying via a landing: its slot is painted by renderSwapFX
-    TileLook look;
-    look.box = tileRect(i);
-    look.button = wantButtons;
-    drawTile(i, look);
+    const auto &t = m_scene.tiles()[i];
+    // A tab has no window: `!w` must not skip it, or a tabs run draws nothing.
+    if (cardOf(t).isTab()) {
+      if (swapfxActiveSubject(t.subj, false))
+        continue;
+    } else {
+      const auto w = tileWindow(t);
+      if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w, false))
+        continue; // flying via a landing: its slot is painted by renderSwapFX
+    }
+    drawTile(i, gridLook(tileRect(i), cfg::look.preview_round, wantButtons));
   }
 
   glBlendFuncSeparate(srcRGB, dstRGB, srcA, dstA);
@@ -352,21 +427,17 @@ void Overview::renderGhosts() const {
   const auto when    = Time::steadyNow();
   const float roundPow = cfg::look.preview_round_power;
   const double p    = std::min(1.0, m_place.clocks.rebuild.raw(m_place.recipes.ghost.ms));
-  const double eOut = curves::eval(m_place.recipes.ghost.curve, p); // 0..1 gone
+  const double eOut = curves::eval(m_place.recipes.ghost.curve, p);
 
   for (const auto &g : m_fx.ghosts()) {
-    const auto w = g.win.lock();
+    const auto w = m_windows.windowOf(g.subj);
     if (!w || !w->m_isMapped || w->isHidden())
       continue;
-    const double k  = 1.0 - 0.3 * eOut; // shrink toward its own center
-    const double cx = g.box.x + g.box.w / 2.0, cy = g.box.y + g.box.h / 2.0;
-    const LRect box{cx - g.box.w * k / 2.0, cy - g.box.h * k / 2.0,
-                    g.box.w * k, g.box.h * k};
+    const double k  = 1.0 - 0.3 * eOut;
+    const LRect box = render::scaledAboutCentre(g.box, k);
     LRect slidBox = box;
     float gAlpha = static_cast<float>((1.0 - eOut) * 0.85);
-    // Same three branches as the entry, and the same order: a slide moves the box, a fade
-  // leaves it alone and lets gAlpha below do the work, and a pop scales it. Checking a
-  // style by equality against each member is what let `fade` reach none of them.
+    // Same three branches as the entry: branch on style fields, never by equality.
   if (m_place.recipes.exitStyle.travel == anim::Travel::Slide && m_view.wsSlideDir() != 0) {
     if (m_place.recipes.exitStyle.axis == anim::Axis::Horizontal)
       slidBox.x -= static_cast<double>(m_view.wsSlideDir()) * m->m_size.x * eOut;
@@ -376,9 +447,9 @@ void Overview::renderGhosts() const {
     const CBox px = pxb(slidBox, scale);
     renderWindowLive(w, m, px, px, gAlpha, when,
                      contentRadiusPx(cfg::look.preview_round,
-                                     cfg::look.border_size, roundPow, scale),
+                                     cfg::look.border_size, scale),
                      roundPow, true);
   }
 }
 
-} // namespace gloview
+}

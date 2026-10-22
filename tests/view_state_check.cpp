@@ -10,7 +10,7 @@
 
 #include "../src/view/state.hpp"
 
-using gloview::view::State;
+using hyprview::view::State;
 
 namespace {
 

@@ -11,7 +11,7 @@ class IFramebuffer;
 class ITexture;
 }
 
-namespace gloview {
+namespace hyprview {
 
 // needs a live monitor render at RPT_EXPORT
 class CBlurFilter {

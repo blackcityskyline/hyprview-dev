@@ -1,5 +1,6 @@
 #include "../config/config.hpp"
 #include "../overview.hpp"
+#include "../model/origin.hpp"
 #include "key_combo.hpp"
 #include "../debug/log.hpp"
 
@@ -17,7 +18,7 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
 namespace {
 uint32_t modBitForKeycode(int kc) {
@@ -38,7 +39,7 @@ uint32_t modBitForKeycode(int kc) {
     return 0;
   }
 }
-} // namespace
+}
 
 uint32_t Overview::altTabModBit() const {
   const std::string modName = cfg::keys.alt_tab_modifier.get();
@@ -57,11 +58,9 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   const bool passthrough = cfg::behavior.passthrough_keys != 0;
 
   if (e.state != WL_KEYBOARD_KEY_STATE_PRESSED) {
-    // The modifier coming up is swallowed either way — letting it through fires the
-    // user's own SUPER binding and tears the state down before the run settles.
+    // Swallowed either way: letting it through fires the user's own SUPER binding and tears the state down.
     if (m_altTabbing && modBitForKeycode(e.keycode) == altTabModBit()) {
       m_altTabbing = false;
-      // A hold commits here; too early to apply means arming it, as a tap does.
       if (cfg::keys.alt_tab_commit_on_release != 0 && !m_commitPending) {
         if (entrySettled())
           activateSelection();
@@ -105,6 +104,11 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
     toggleAllWorkspaces();
   else if (keyMatches(k, mods, cfg::keys.carousel.get()))
     toggleCarousel();
+  else if (keyMatches(k, mods, cfg::keys.browser.get()))
+    toggleBrowserView();
+  else if (keyMatches(k, mods, cfg::keys.discarded.get()) &&
+           model::showsTabs(m_view.domain()))
+    setDiscardedShown(!discardedShown());
   // Ctrl masked out: bare digit and Ctrl+digit both land here.
   else if (const int idx =
                keyIndex(k, mods & ~HL_MODIFIER_CTRL, cfg::keys.workspace.get());
@@ -119,7 +123,7 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
       if (justCreated) {
         // Persistent, or a new empty workspace is reaped within a frame.
         ws->setPersistent(true);
-        m_fx.addNewWorkspace(ws);
+        m_newWs.push_back(ws);
         m_newCardId =
             id;
         m_place.clocks.newCard.begin();
@@ -136,9 +140,8 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
       if (m) {
         if (const auto target = m_workspace.lock();
             target && target != m->m_activeWorkspace) {
-          // internal=true is not the lever (it stopped a fullscreen window on
-          // the target from rendering); keep it false and warp the slide away below.
-          const auto oldWs = m->m_activeWorkspace; // capture BEFORE the switch
+          // internal=false: warp the slide away; capture oldWs BEFORE the switch.
+          const auto oldWs = m->m_activeWorkspace;
           m->changeWorkspace(target, false, true, false);
           if (oldWs && oldWs != target) {
             oldWs->m_alpha->setValueAndWarp(oldWs->m_alpha->goal());
@@ -149,7 +152,6 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
           m_liveWsAtOpen = m->m_activeWorkspace;
         }
       }
-      // "switch" stays open; "jump" closes now, or when the ws-slide settles.
       if (doJump) {
         if (instant)
           close();
@@ -162,13 +164,10 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   cancel = handled || !passthrough;
 }
 
-// The bits key_combo.hpp declares for itself must be the bits Hyprland puts in the event.
-// A move here would make every combo using that modifier stop matching, and it would look
-// like a config error.
-static_assert(gloview::input::kModShift == HL_MODIFIER_SHIFT);
-static_assert(gloview::input::kModCtrl == HL_MODIFIER_CTRL);
-static_assert(gloview::input::kModAlt == HL_MODIFIER_ALT);
-static_assert(gloview::input::kModMeta == HL_MODIFIER_META);
+static_assert(hyprview::input::kModShift == HL_MODIFIER_SHIFT);
+static_assert(hyprview::input::kModCtrl == HL_MODIFIER_CTRL);
+static_assert(hyprview::input::kModAlt == HL_MODIFIER_ALT);
+static_assert(hyprview::input::kModMeta == HL_MODIFIER_META);
 
 
 bool Overview::keyMatches(int keycode, uint32_t mods,
@@ -189,11 +188,9 @@ void Overview::moveSelection(int dx, int dy) {
     damage();
     return;
   }
-  // Carousel: dx is a circular index step, dy is unused; relayoutCarousel()
-  // reacts to m_scene.selected().
   if (carouselMode()) {
-    if (dx != 0) {
-      m_scene.stepSelection(dx);
+    if (dx != 0 && stepRun(dx)) {
+      relayoutCarousel();
       damage();
     }
     return;
@@ -222,36 +219,96 @@ void Overview::moveSelection(int dx, int dy) {
   }
   if (best >= 0) {
     m_scene.select(best);
+    followGrid(best);
     damage();
   }
 }
 
-// Steps through the order the user SEES. In the run that is the slot order, not the
-// scene's array order: the cards are laid out most-recently-used first, so stepping
-// the array index would move the selection to a window that is not the next card on
-// screen. A grid has no slot order and keeps the array order it is drawn in.
+void Overview::followGrid(int i) {
+  if (!m_view.desktop() || i < 0 ||
+      static_cast<std::size_t>(i) >= m_scene.tiles().size())
+    return;
+  const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
+  if (t.target.w < 1.0)
+    return;
+  animateGridTo(m_gridScroll.current(), m_gridScroll.follow(t.target));
+}
+
+// Steps the order the user SEES: slot order in the run, array order in the grid; the run is MRU-first.
+// One step along the run, in the order the cards STAND in. The arrows, the wheel
+// and the alt-tab all step this way, so the counter, the motion and the picture cannot disagree about which card is next.
+bool Overview::stepRun(int dir) {
+  const auto &slot = m_view.slot();
+  if (!m_scene.hasSelection() || slot.size() != m_scene.size())
+    return false;
+  const int cur = m_view.slotOf(static_cast<std::size_t>(m_scene.selected()));
+  if (cur < 0)
+    return false;
+  const int count = static_cast<int>(m_scene.size());
+  const int nxt = ((cur + dir) % count + count) % count;
+  m_scene.select(m_view.tileInSlot(static_cast<std::size_t>(nxt)));
+  return true;
+}
+
+int Overview::runPosition() const {
+  const int slot = m_view.slotOf(static_cast<std::size_t>(m_scene.focused()));
+  return slot >= 0 ? slot : m_scene.focused();
+}
+
 void Overview::stepAltTab(int dir) {
-  const int n = static_cast<int>(m_scene.size());
+  const std::size_t n = m_scene.size();
   if (n == 0)
     return;
-  const auto &slot = m_view.slot();
-  if (carouselMode() && m_scene.hasSelection() &&
-      slot.size() == static_cast<std::size_t>(n)) {
-    const int cur = m_view.slotOf(static_cast<std::size_t>(m_scene.selected()));
-    if (cur >= 0) {
-      const int nxt = ((cur + dir) % n + n) % n;
-      m_scene.select(m_view.tileInSlot(static_cast<std::size_t>(nxt)));
-      damage();
-      return;
+
+    // Which cards are on the run now, taken before anything below: a card that joins or leaves has no slot to glide to.
+  std::vector<char> wasOnRun(n, 0);
+  for (std::size_t i = 0; i < n; ++i)
+    wasOnRun[i] = m_scene.tiles()[i].target.w >= 1.0 ? 1 : 0;
+
+    // Freeze each card at its current slot BEFORE any target below is rewritten: priorSlot() reads natural and target.
+  if (m_view.run())
+    for (std::size_t i = 0; i < n; ++i) {
+      const auto &t = m_scene.tiles()[i];
+      m_scene.setNatural(i,
+                         model::outgoingBox(cardOf(t).hasWindow(),
+                                            /*onRun=*/true,
+                                            /*revealed=*/false,
+                                            model::priorSlot(cardOf(t).hasWindow(),
+                                                             wasOnRun[i] != 0, t.natural,
+                                                             t.target),
+                                            t.natural, t.target));
     }
+
+  if (carouselMode() && stepRun(dir)) {
+    // The step has to GLIDE: the arrow path glides, this one did not.
+    relayoutCarousel();
+    pinRunEdges(wasOnRun);
+    damage();
+    return;
   }
   m_scene.stepSelection(dir);
+  if (carouselMode()) {
+    layoutTiles();
+    pinRunEdges(wasOnRun);
+  }
   damage();
 }
 
-void Overview::activateSelection() {
-  focusAndClose(m_scene.focusedWindow(), Desktop::FOCUS_REASON_KEYBIND);
+void Overview::pinRunEdges(const std::vector<char> &wasOnRun) {
+  for (std::size_t i = 0; i < m_scene.size(); ++i) {
+    const auto &t = m_scene.tiles()[i];
+    if (model::isPlaced(t.target) == (wasOnRun[i] != 0))
+      continue;
+    m_scene.setNatural(i, model::outgoingBox(
+                               cardOf(t).hasWindow(), /*onRun=*/true,
+                               /*revealed=*/false,
+                               model::priorSlot(cardOf(t).hasWindow(),
+                                                wasOnRun[i] != 0, t.natural, t.target),
+                               t.natural, t.target));
+  }
 }
 
+void Overview::activateSelection() { activateTile(m_scene.focused(), Desktop::FOCUS_REASON_KEYBIND); }
 
-} // namespace gloview
+
+}

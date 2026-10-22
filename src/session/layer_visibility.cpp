@@ -2,9 +2,9 @@
 
 #include <hyprland/src/desktop/view/LayerSurface.hpp>
 #include <hyprland/src/desktop/view/WLSurface.hpp>
-#include <hyprland/src/render/Renderer.hpp> // CWLSurfaceResource, for m_current
+#include <hyprland/src/render/Renderer.hpp>
 
-namespace gloview::session {
+namespace hyprview::session {
 
 LayerVisibility::~LayerVisibility() { restore(); }
 
@@ -18,7 +18,6 @@ void LayerVisibility::hide(const PHLMONITOR &m, bool hideTop, bool hideOverlay,
       const auto ls = ref.lock();
       if (!ls)
         continue;
-      // The wallpaper is NOT chrome. See the header.
       if (ls->wlSurface() && ls->wlSurface()->resource() &&
           ls->wlSurface()->resource()->m_current.texture.get() ==
               m->m_background.get())
@@ -27,7 +26,7 @@ void LayerVisibility::hide(const PHLMONITOR &m, bool hideTop, bool hideOverlay,
       if (!a)
         continue;
       if (isAboveLayer(ls->m_namespace, aboveNamespaces))
-        continue; // keep above-overview surfaces fully visible
+        continue;
       m_hidden.emplace_back(ref, a->goal());
       *a = 0.F;
     }
@@ -48,4 +47,4 @@ void LayerVisibility::restore() {
   m_hidden.clear();
 }
 
-} // namespace gloview::session
+}

@@ -4,7 +4,7 @@
 #include <vector>
 
 // pure geometry, monitor-local LOGICAL px, no Hyprland and no GL
-namespace gloview {
+namespace hyprview {
 
 // Hyprland's Vector2D is not reachable from here: ctest compiles layout.hpp and
 // render/geometry.hpp on their own, with no hyprutils on the include path, and a header
@@ -49,11 +49,23 @@ struct LayoutCfg {
     double padBottom = 70.0;
     double padLeft   = 80.0;
     double gap       = 36.0;
+    double cellGap   = 0.0;
+    int    cellCols  = 4;
+    int    cellRows  = 3;
+    double cellScale = 1.0;
     double maxScale  = 1.0;
 };
 
-// parallel to `naturals`, inside `area`
-std::vector<LRect> computeLayout(const std::vector<LRect>& naturals, const LRect& area, const LayoutCfg& cfg);
+LRect inset(const LRect& a, const LayoutCfg& c);
+
+inline double followOffset(const LRect& tile, const LRect& area, double off) {
+    const double hi = tile.y - area.y;
+    const double lo = tile.y + tile.h - (area.y + area.h);
+    return hi < lo ? hi : std::clamp(off, lo, hi);
+}
+
+std::vector<LRect> computeLayout(const std::vector<LRect>& naturals, const LRect& area,
+                                 const LayoutCfg& cfg, const std::vector<int> &groups = {});
 
 Engine parseEngine(const char* s);
 

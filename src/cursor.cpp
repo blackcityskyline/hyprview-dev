@@ -7,10 +7,8 @@
 
 using Render::GL::g_pHyprOpenGL;
 
-namespace gloview {
+namespace hyprview {
 
-// `mode` is gone, and so is m_softwareOnly: the config is read where it is used. Keeping the
-// parameter would have kept the stale copy alive one call away from being used again.
 void CCursorModule::onOpen(PHLMONITOR monitor) {
     resetCursorBox();
     (void)monitor;
@@ -23,11 +21,7 @@ void CCursorModule::onClose() {
 bool CCursorModule::hasHardwareCursor(PHLMONITOR monitor) const {
     if (!monitor || !Pointer::mgr())
         return false;
-    // Read the config where it is used, every time. It was cached into m_softwareOnly by
-    // onOpen, so `set cursor_mode software` did nothing until the overview was reopened --
-    // the one setting in the plugin that needed a restart, in a project where every other
-    // one answers live (the tween durations set the precedent: config is read on the spot
-    // so changing it mid-session takes effect on the next frame).
+    // Read the config where it is used, every time (AGENTS.md 2.16): caching it made this the one setting that needed the overview reopened.
     if (cfg::behavior.cursor_mode.get() == "software")
         return false;
     return Pointer::mgr()->hasVisibleHWCursor(monitor);
@@ -55,16 +49,8 @@ CBox CCursorModule::moveDamage(PHLMONITOR monitor) const {
 }
 
 void CCursorModule::renderOnTop(PHLMONITOR monitor, const CHyprColor& backdropColor) const {
-    // Every exit below NAMED, per frame. "The cursor is not visible in the overview but it
-    // still moves focus" is five different early returns with the same symptom, and until
-    // this existed the module wrote nothing at all -- so the only way to answer was to read
-    // the source and pick one, which is how the wrong one gets fixed twice.
-    //
-    //   CURSOR|mode=hw|no_monitor|no_tex|empty_box|draw|x=..,y=..,w=..,h=..|erase=<0|1>
-    //
-    // `mode=hw` is the one worth reading twice: it means we deliberately drew nothing
-    // because the compositor claims a hardware cursor sits above us, and that claim is
-    // exactly what an invisible-but-working cursor disputes.
+    // Every exit below NAMED, per frame: CURSOR|mode=hw|no_monitor|no_tex|empty_box|draw|... .
+    // mode=hw means we drew nothing on the compositor's claim of a hardware cursor above us.
     const auto bail = [&](const char* why) {
         debug::trace::emitState(std::string("CURSOR|mode=") + why);
     };
@@ -73,11 +59,7 @@ void CCursorModule::renderOnTop(PHLMONITOR monitor, const CHyprColor& backdropCo
 
     // HW cursor is composited above us: a software copy would trail
     if (hasHardwareCursor(monitor)) {
-        // But "we draw nothing" is not "the cursor is handled". The plane has to be
-        // repositioned for this frame, and the only caller that does it for us was the mouse
-        // path, which returned early on this same branch -- so on frames where the overview
-        // did the damage instead of the pointer, nothing moved the plane. Issuing it here
-        // too is the redundancy that makes the two paths independent.
+        // The plane must be repositioned even when we draw nothing: the mouse path bailed here.
         if (Pointer::mgr())
             Pointer::mgr()->damageCursor(monitor);
         return bail("hw");
@@ -120,10 +102,6 @@ void CCursorModule::renderOnTop(PHLMONITOR monitor, const CHyprColor& backdropCo
 
     g_pHyprOpenGL->renderTexture(tex, curPx, {.a = 1.0F});
 
-    // The box is logged as DRAWN, in the same pixels the texture went to. A record that
-    // only said "draw" would be true on a frame where the draw was clipped away by the
-    // damage -- which is the other candidate for an invisible cursor, and the one a viewer
-    // cannot rule out by eye.
     debug::trace::emitState("CURSOR|mode=draw|x=" + std::to_string(curPx.x) +
                             ",y=" + std::to_string(curPx.y) +
                             ",w=" + std::to_string(curPx.w) +

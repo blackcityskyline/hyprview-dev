@@ -1,17 +1,26 @@
 #include "cache.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdio>
+
+#include "app_icon.hpp"
+#include "png.hpp"
 
 #include <hyprland/src/render/Renderer.hpp>
 
-namespace gloview::pixel {
+#ifdef HYPRVIEW_HAVE_RSVG
+#include <librsvg/rsvg.h>
+#endif
+
+namespace hyprview::pixel {
 
 namespace {
 
 // U+2026, added by hand because renderText clips instead of ellipsizing.
 constexpr char kEllipsis[] = "\xE2\x80\xA6";
 
-} // namespace
+}
 
 SP<Render::ITexture> PixelCache::render(const std::string &s,
                                         const CHyprColor &col, int size) {
@@ -28,8 +37,7 @@ std::string PixelCache::truncate(const std::string &text,
   const auto probe = render(text, col, size);
   if (!probe || probe->m_size.x <= maxW)
     return text;
-  // Binary search on the character count, not the width: rendering a candidate
-  // costs far more than the comparison.
+  // Binary search on the character count, not the width: a candidate costs a render.
   int lo = 1, hi = static_cast<int>(text.size()) - 1, best = 0;
   while (lo <= hi) {
     const int mid = (lo + hi) / 2;
@@ -54,6 +62,209 @@ SP<Render::ITexture> PixelCache::windowLabel(const PHLWINDOW &win,
   return labelIn(m_winLabels, PHLWINDOWREF{win}, text, col, size, maxW);
 }
 
+namespace {
+std::int64_t fileStamp(const std::string &path) {
+  std::error_code ec;
+  const auto t = std::filesystem::last_write_time(path, ec);
+  return ec ? 0 : static_cast<std::int64_t>(t.time_since_epoch().count());
+}
+}
+
+SP<Render::ITexture> PixelCache::putPicture(const model::SubjectRef &s,
+                                           const std::string &screenshotPath,
+                                           const std::string &iconPath) {
+  const auto stamp = fileStamp(screenshotPath);
+  if (const auto *hit = m_subjectArt.find(s)) {
+    const auto it = m_artStamp.find(s);
+    if (it != m_artStamp.end() && it->second == stamp)
+      return *hit;
+  }
+  auto tex = loadPng(screenshotPath);
+  if (!tex && !iconPath.empty())
+    tex = loadPng(iconPath);
+  if (tex) {
+    m_subjectArt.put(s, tex);
+    m_artStamp[s] = stamp;
+  }
+  return tex;
+}
+
+SP<Render::ITexture> PixelCache::putIcon(const model::SubjectRef &s, const std::string &path) {
+  const auto stamp = fileStamp(path);
+  if (stamp == 0) {
+    m_iconStamp[s] = 0;
+    m_subjectIcon.erase(s);
+    return nullptr;
+  }
+  const auto it = m_iconStamp.find(s);
+  if (it != m_iconStamp.end() && it->second == stamp) {
+    const auto hit = m_subjectIcon.find(s);
+    if (hit != m_subjectIcon.end())
+      return hit->second;
+  }
+  auto tex = loadPng(path);
+  m_iconStamp[s] = stamp;
+  if (tex)
+    m_subjectIcon[s] = tex;
+  else
+    m_subjectIcon.erase(s);
+  return tex;
+}
+
+namespace {
+
+// One working surface per icon: 256 keeps the glass rim of a 512px source, and GOOD is 0.7ms
+// where BEST is 48ms on that same ratio.
+constexpr int kAppIconWork = 256;
+constexpr cairo_filter_t kWorkFilter = CAIRO_FILTER_GOOD;
+
+cairo_surface_t *scaledCopy(cairo_surface_t *src, int px, cairo_filter_t filter) {
+  const int w = cairo_image_surface_get_width(src);
+  const int h = cairo_image_surface_get_height(src);
+  cairo_surface_t *dst = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, px, px);
+  if (w <= 0 || h <= 0)
+    return dst;
+  cairo_t *cr = cairo_create(dst);
+  cairo_scale(cr, static_cast<double>(px) / w, static_cast<double>(px) / h);
+  cairo_set_source_surface(cr, src, 0, 0);
+  cairo_pattern_set_filter(cairo_get_source(cr), filter);
+  cairo_paint(cr);
+  cairo_destroy(cr);
+  return dst;
+}
+
+SP<Render::ITexture> loadSvg(const std::string &path, int side) {
+#ifdef HYPRVIEW_HAVE_RSVG
+  if (!g_pHyprRenderer)
+    return nullptr;
+  GError *err = nullptr;
+  RsvgHandle *handle = rsvg_handle_new_from_file(path.c_str(), &err);
+  if (!handle) {
+    if (err)
+      g_error_free(err);
+    return nullptr;
+  }
+  double w = side;
+  double h = side;
+  if (!rsvg_handle_get_intrinsic_size_in_pixels(handle, &w, &h) || w <= 0.0 || h <= 0.0) {
+    w = side;
+    h = side;
+  }
+  const double k = side / std::max(w, h);
+  const int tw = std::max(1, static_cast<int>(std::ceil(w * k)));
+  const int th = std::max(1, static_cast<int>(std::ceil(h * k)));
+  cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, tw, th);
+  cairo_t *cr = cairo_create(surface);
+  const RsvgRectangle viewport{0.0, 0.0, static_cast<double>(tw), static_cast<double>(th)};
+  const bool drawn = rsvg_handle_render_document(handle, cr, &viewport, &err);
+  cairo_destroy(cr);
+  g_object_unref(handle);
+  SP<Render::ITexture> tex;
+  if (drawn) {
+    cairo_surface_flush(surface);
+    tex = g_pHyprRenderer->createTexture(surface);
+  } else if (err)
+    g_error_free(err);
+  cairo_surface_destroy(surface);
+  return tex;
+#else
+  (void)path;
+  (void)side;
+  return nullptr; // no rasteriser: an SVG-only app keeps no corner icon
+#endif
+}
+
+}
+
+PixelCache::~PixelCache() {
+  for (auto &[cls, surface] : m_appIconSrc)
+    if (surface)
+      cairo_surface_destroy(surface);
+}
+
+PixelCache::ShadowTex PixelCache::shadow(const render::ShadowSpec &spec, double w, double h,
+                                         double round, double scale) {
+  if (w <= 0.0 || h <= 0.0 || scale <= 0.0 || !g_pHyprRenderer)
+    return {};
+  const int wDev = std::max(1, static_cast<int>(std::lround(w * scale)));
+  const int hDev = std::max(1, static_cast<int>(std::lround(h * scale)));
+  const int roundDev = std::max(0, static_cast<int>(std::lround(round * scale)));
+  char key[192];
+  std::snprintf(key, sizeof key, "%.3f|%.3f|%.3f|%.3f|%.3f|%.3f|%d|%d|%d|%.3f", spec.dy, spec.blur,
+                spec.spread, spec.r, spec.g, spec.b, wDev, hDev, roundDev, scale);
+  const double pad = render::shadowPad(spec, scale) / scale;
+  if (const auto hit = m_shadows.find(key); hit != m_shadows.end())
+    return {hit->second, pad};
+  auto *surface = render::shadowMask(spec, wDev, hDev, roundDev, scale);
+  SP<Render::ITexture> tex;
+  if (surface) {
+    tex = g_pHyprRenderer->createTexture(surface);
+    cairo_surface_destroy(surface);
+  }
+  m_shadows[key] = tex; // a miss is cached too
+  return {tex, pad};
+}
+
+_cairo_surface *PixelCache::appSurface(const std::string &windowClass) {
+  const auto hit = m_appIconSrc.find(windowClass);
+  if (hit != m_appIconSrc.end())
+    return hit->second;
+  auto found = m_appIconPath.find(windowClass);
+  if (found == m_appIconPath.end())
+    found = m_appIconPath.emplace(windowClass, app_icon::appIconFile(windowClass)).first;
+  const std::string &path = found->second;
+  cairo_surface_t *surface = nullptr;
+  if (!path.empty() && !path.ends_with(".svg"))
+    if (auto *full = readPngSurface(path)) {
+      surface = scaledCopy(full, kAppIconWork, kWorkFilter);
+      cairo_surface_destroy(full);
+    }
+  m_appIconSrc[windowClass] = surface; // a miss is cached too
+  return surface;
+}
+
+void PixelCache::warmAppIcon(const std::string &windowClass) { (void)appSurface(windowClass); }
+
+SP<Render::ITexture> PixelCache::appIcon(const std::string &windowClass, int px) {
+  if (windowClass.empty() || px <= 0 || !g_pHyprRenderer)
+    return nullptr;
+  const std::string key = windowClass + "/" + std::to_string(px);
+  const auto hit = m_appIcons.find(key);
+  if (hit != m_appIcons.end())
+    return hit->second;
+  SP<Render::ITexture> tex;
+  if (auto *src = appSurface(windowClass)) {
+    const bool exact = cairo_image_surface_get_width(src) == px;
+    auto *scaled = exact ? cairo_surface_reference(src)
+                         : scaledCopy(src, px, CAIRO_FILTER_GOOD);
+    tex = g_pHyprRenderer->createTexture(scaled);
+    cairo_surface_destroy(scaled);
+  } else {
+    const auto svg = m_appIconPath.find(windowClass);
+    if (svg != m_appIconPath.end() && svg->second.ends_with(".svg"))
+      tex = loadSvg(svg->second, px);
+  }
+  m_appIcons[key] = tex; // a miss is cached too: one texture per class and size
+  return tex;
+}
+
+SP<Render::ITexture> PixelCache::picture(const model::SubjectRef &s) const {
+  const auto *hit = m_subjectArt.find(s);
+  return hit ? *hit : nullptr;
+}
+
+SP<Render::ITexture> PixelCache::subjectLabel(const model::SubjectRef &s,
+                                             const std::string &text,
+                                             const CHyprColor &col, int size,
+                                             int maxW) {
+  auto &e = *m_subjectLabels.slot(s);
+  if (e.matches(text, maxW, size, col))
+    return e.tex;
+  e = LabelEntry{truncate(text, col, size, maxW), maxW, size, col, nullptr};
+  e.tex = render(e.text, col, size);
+  return e.tex;
+}
+
 SP<Render::ITexture> PixelCache::workspaceLabel(const PHLWORKSPACE &ws,
                                                  const std::string &text,
                                                  const CHyprColor &col, int size,
@@ -66,8 +277,7 @@ SP<Render::ITexture> PixelCache::virtualLabel(WORKSPACEID id,
                                                const CHyprColor &col, int size,
                                                int maxW) {
   auto &e = m_virtualLabels[id];
-  // Hit first: nothing to measure. Probing before the lookup rendered the full
-  // string every frame to discover that nothing had changed.
+  // Hit first: nothing to measure before the lookup.
   if (e.matches(text, maxW, size, col))
     return e.tex;
   e = LabelEntry{truncate(text, col, size, maxW), maxW, size, col, nullptr};
@@ -79,8 +289,6 @@ SP<Render::ITexture> PixelCache::fixedLabel(Slot slot, const std::string &text,
                                              const CHyprColor &col, int size,
                                              int maxW) {
   auto &e = m_slotLabels[slot];
-  // Hit first: nothing to measure. Probing before the lookup rendered the full
-  // string every frame to discover that nothing had changed.
   if (e.matches(text, maxW, size, col))
     return e.tex;
   e = LabelEntry{truncate(text, col, size, maxW), maxW, size, col, nullptr};
@@ -119,11 +327,9 @@ SP<Render::ITexture> PixelCache::snapshot(const PHLWINDOW &win) const {
   if (!key)
     return nullptr;
   const auto it = m_snapshots.find(key);
-  // An expired owner means the window that put this texture here is gone; whatever
-  // now lives at this address has nothing to do with it.
   if (it == m_snapshots.end() || it->second.owner.expired())
     return nullptr;
   return it->second.tex;
 }
 
-} // namespace gloview
+}

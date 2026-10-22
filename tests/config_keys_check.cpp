@@ -64,13 +64,13 @@ std::vector<std::string> split(const std::string &s, char sep) {
 // Every key name registered by the plugin, from both registration tables.
 std::set<std::string> registeredKeys(const std::string &src) {
   std::set<std::string> out;
-  const std::string needle = "\"plugin:gloview:";
+  const std::string needle = "\"plugin:hyprview:";
   for (size_t p = src.find(needle); p != std::string::npos; p = src.find(needle, p + 1)) {
     const auto end = src.find('"', p + needle.size());
     if (end == std::string::npos)
       break;
     const auto key = src.substr(p + needle.size(), end - p - needle.size());
-    // anim.cpp builds its keys by concatenation -- "plugin:gloview:" + stem + suffix --
+    // anim.cpp builds its keys by concatenation -- "plugin:hyprview:" + stem + suffix --
     // so the literal alone names no option.
     if (isIdent(key))
       out.insert(key);
@@ -79,7 +79,7 @@ std::set<std::string> registeredKeys(const std::string &src) {
 }
 
 // `key = value` assignments in a config block. Only the flat ini form: the Lua
-// example nests tables, so its `plugin = {` / `gloview = {` are structure, not keys.
+// example nests tables, so its `plugin = {` / `hyprview = {` are structure, not keys.
 std::set<std::string> assignedKeys(const std::string &block) {
   std::set<std::string> out;
   std::istringstream in(block);
@@ -108,7 +108,7 @@ std::set<std::string> assignedKeys(const std::string &block) {
 }
 
 // Identifiers README presents as config keys: the `backticked` ones in the tables
-// plus the `plugin:gloview:` spellings, which is how the tables are indexed.
+// plus the `plugin:hyprview:` spellings, which is how the tables are indexed.
 std::set<std::string> documentedKeys(const std::string &readme) {
   std::set<std::string> out;
   for (size_t p = readme.find('`'); p != std::string::npos; p = readme.find('`', p + 1)) {
@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
   for (const auto &blk : {"### hyprland.conf", "### Lua"}) {
     const auto body = section(readme, blk, "###");
     for (const auto &k : assignedKeys(body)) {
-      if (k == "plugin" || k == "gloview" || k == "require" || k == "pcall")
+      if (k == "plugin" || k == "hyprview" || k == "require" || k == "pcall")
         continue;
       if (!reg.count(k)) {
         std::printf("UNKNOWN KEY: `%s` in the %s example is not registered "
@@ -234,8 +234,37 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  // (4) A documented key that does not exist. The table above is the list the user reads
+  // to set a key; a row for a key the plugin does not have is a promise the plugin cannot
+  // keep, and `set` on it answers as if it worked.
+  {
+    const auto table = section(readme, "## Config", "###");
+    int gone = 0;
+    std::istringstream rows(table);
+    std::string row;
+    while (std::getline(rows, row)) {
+      if (row.rfind("| `", 0) != 0)
+        continue;
+      const auto open = row.find('`');
+      const auto close = row.find('`', open + 1);
+      if (open == std::string::npos || close == std::string::npos)
+        continue;
+      const auto key = row.substr(open + 1, close - open - 1);
+      if (!isIdent(key))
+        continue;
+      if (!reg.count(key)) {
+        std::printf("GONE: `%s` is documented but no such key is registered\n", key.c_str());
+        ++gone;
+      }
+    }
+    if (gone) {
+      std::puts("FAIL: the README documents keys the plugin does not have");
+      return 1;
+    }
+  }
+
   // --- every value wrapper honours cfg::override ------------------------------------
-  // `gloview.cmd set <key> <value>` reaches cfg::override, and the four Int/Float/Str/
+  // `hyprview.cmd set <key> <value>` reaches cfg::override, and the four Int/Float/Str/
   // Color wrappers are where a key actually gets READ. A wrapper whose get() forgets
   // override::find accepts the set, reports success -- setTuning writes it and
   // isConfigKey() is true for every registered key, colour keys included -- and then

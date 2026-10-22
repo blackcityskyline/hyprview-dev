@@ -7,19 +7,14 @@
 #include "../debug/log.hpp"
 #include "../overview.hpp"
 
-namespace gloview {
+namespace hyprview {
 
-// Every clock here is pure linear progress; shaping lives in curves.cpp and
-// durations are re-read from config on every call.
-// The ladder spread is the user's, capped at 1: Stagger is the ceiling,
-// StaggerPerTile grows it with the tile count and must not push past it.
 double staggered(double base, int i, int n) {
   return anim::stagger(base, i, n,
                        std::min(anim::param(anim::Param::Stagger),
                                 anim::param(anim::Param::StaggerPerTile) * n));
 }
 
-// imperative rule > schema key > default; off -> 1ms, speed divides base
 anim::Id Overview::entryLeaf() const {
   if (m_view.expoFlip() != 0)
     return m_view.expoFlip() > 0 ? anim::Id::ExpoIn : anim::Id::ExpoOut;
@@ -39,30 +34,19 @@ anim::Id Overview::glideLeaf() const {
   return carouselMode() ? anim::Id::CarouselStep : anim::Id::Glide;
 }
 
-// How far the close has run, 0 -> 1. m_place.progress.raw() runs DOWN on a close (1 open -> 0 closed);
-// read forwards it looks exactly like no animation. Every exit fraction reads it here so
-// the shrink, the fade and the clock cannot disagree about where the close is.
+// progress.raw() runs DOWN on a close, so every exit fraction reads it here, not on its own.
 double Overview::exitT() const { return m_place.progress.exit(opening()); }
 
-// WINDOWED exit: hold the backdrop until our own tiles are done AND Hyprland has spent the
-// forced full frames close() asked for -- those are the frames it rebuilds its blur in.
-// Asking when the windows reached their goal geometry does NOT work: in the plain
-// open/close the real windows never move (the plugin draws previews and hides them), so
-// that test is true on frame 0 and holds nothing.
+// The same number on the way in, so one schedule can be played in both directions.
+double Overview::openT() const { return opening() ? m_place.progress.raw() : 1.0; }
+
+// Hold the backdrop until our tiles are done AND Hyprland has spent its forced full frames.
 bool Overview::backdropSettled() const {
   const auto m = m_monitor.lock();
   return m_place.clocks.tiles.done(animDuration()) && (!m || m->m_forceFullFrames <= 0);
 }
 
-// The backdrop is part of the SAME gesture as the tiles, the strip and the chrome: it
-// rides the open/close animation itself. That is the whole fix for the queued feel --
-// separate clocks made the strip arrive first and then the backdrop set about arriving,
-// with nothing joining them up. The gap a private clock was introduced for is handled by
-// the BASE, not by a timeline: with windows present the base is the blurred cache, so the
-// screen is blurred on frame 0 and the ramp has nothing to reveal anyway.
-//
-// WINDOWED exit is the one exception: the backdrop must stay until Hyprland has rebuilt
-// its blur. Fading out before that is what exposed a sharp desktop mid-flight.
+// The backdrop rides the open/close animation; WINDOWED exit is the one exception.
 double Overview::blurAlpha() const {
   if (!anim::backdropFades(opening(), m_landingEmpty))
     return 1.0;
@@ -73,8 +57,6 @@ double Overview::eased() const { return m_place.eased(); }
 
 double Overview::animDuration() const { return m_place.masterDuration(); }
 
-// CLOSE rides m_place.progress.raw() DOWN: tiles then match the collapsing chrome.
-// Read m_place.clocks.tileMs, not m_place.recipes.glide.ms: a glideLeaf() flip jumps progress.
 double Overview::tileProgress(int i) const {
   return m_place.tileProgress(i, m_view, opening(), m_scene);
 }
@@ -87,13 +69,14 @@ double Overview::entryNow(const model::Tile &t, int i) const {
   return m_place.entryNow(t, i, m_scene);
 }
 
-// The one call into Placement for "where is tile i". Everything Placement needs that it
-// cannot know -- the monitor it is laid out in, and whether this tile has somewhere to
-// land -- arrives in the frame, because a clock cannot answer either on its own.
+// What Placement cannot know -- the monitor, the landing -- arrives in the frame.
 clock::Placement::Frame Overview::frame() const {
   const auto m = m_monitor.lock();
-  return {m_view, m_scene, m_workspace.lock(), opening(), m ? m->m_size.x : 0.0,
-          m ? m->m_size.y : 0.0};
+  const PHLWORKSPACE land = m_workspace.lock();
+  return {m_view, m_scene, m_windows, m_tabs,
+          land ? model::GroupRef{reinterpret_cast<std::uintptr_t>(land.get()), 0}
+               : model::GroupRef{},
+          opening(), m ? m->m_size.x : 0.0, m ? m->m_size.y : 0.0, m_landingGroup};
 }
 
 LRect Overview::currentBox(const model::Tile &t, int i) const {
@@ -101,13 +84,10 @@ LRect Overview::currentBox(const model::Tile &t, int i) const {
 }
 
 void Overview::updateAnimation() {
-  // Placement::resolve, NOT recipes.resolve: this is also where the frame's eased()
-  // and master duration are computed. Calling the recipe resolver here leaves them
-  // at zero for the whole frame -- an overlay that draws everything at alpha 0.
+    // Placement::resolve, NOT recipes.resolve: it also computes eased() and master duration.
   m_place.resolve(m_view, opening(), carouselMode());
 
   const double dur = animDuration();
-  // stall guard: rewind every clock past a render hole
   const auto now = std::chrono::steady_clock::now();
   if (m_lastAnimTick.time_since_epoch().count() != 0) {
     const double gapMs =
@@ -151,10 +131,15 @@ void Overview::updateAnimation() {
     m_scroll.advance(curves::eval(st.curve, m_place.clocks.strip.raw(st.ms)));
   else
     m_scroll.advance(1.0);
+  if (!m_place.clocks.strip.done(st.ms))
+    m_gridScroll.advance(curves::eval(st.curve, m_place.clocks.strip.raw(st.ms)));
+  else
+    m_gridScroll.advance(1.0);
+  m_place.gridOffset = m_gridScroll.current();
 
   if (!m_fx.ghosts().empty() && m_place.clocks.rebuild.done(m_place.recipes.ghost.ms))
     m_fx.clearGhosts();
-  // entries must settle explicitly or they keep evaluating curves forever
+  // Entries must settle explicitly or they keep evaluating curves forever.
   if (m_place.clocks.rebuild.done(m_place.recipes.entry.ms) &&
       std::any_of(m_scene.tiles().begin(), m_scene.tiles().end(),
                   [](const model::Tile &t) { return t.landed < 1.0; }))
@@ -162,17 +147,17 @@ void Overview::updateAnimation() {
 
   const auto pulse = anim::cfg(anim::Id::Pulse);
   m_fx.eachPulse([&](auto &p) {
-    if (p.w.expired())
+    if (!m_windows.windowOf(p.subj))
       return;
     p.p += std::min(34.0, std::chrono::duration<double, std::milli>(now - p.last)
                               .count()) /
            pulse.ms;
     p.last = now;
   });
-  // Pruned on each pulse's own accumulated fraction: a live config change must not
-  // shorten a ring that is already running.
-  m_fx.dropPulse(
-      [](const model::WinPulse &p) { return p.w.expired() || p.p >= 1.0; });
+  // Pruned on each pulse's own fraction: a live config change must not shorten a running ring.
+  m_fx.dropPulse([&](const model::WinPulse &p) {
+    return !m_windows.windowOf(p.subj) || p.p >= 1.0;
+  });
 
   if (m_place.clocks.rebuild.done(m_place.recipes.ghost.ms) && m_place.clocks.rebuild.done(m_place.recipes.entry.ms)) {
     m_view.setWsSlideDir( 0);
@@ -182,12 +167,11 @@ void Overview::updateAnimation() {
     }
   }
 
-  // prune on each flight's own clock; live config would cut landings short
+  // Pruned on each flight's own clock: a live config would cut landings short.
   const auto flightEnd = std::chrono::steady_clock::now();
   m_fx.dropSwap([&](const model::SwapFX &fx) {
-    const bool done = fx.win.expired() || fx.clock.raw(fx.ms) >= 1.0;
-    // Measured, not configured: the harness compares the two, and a flight that ran
-    // long or short is exactly what it is looking for.
+    const bool done = m_windows.windowOf(fx.subj) == nullptr || fx.clock.raw(fx.ms) >= 1.0;
+    // Measured, not configured: the harness compares the two.
     if (done && fx.traceSeq)
       debug::trace::animEnd(fx.traceSeq, std::chrono::duration<double, std::milli>(
                                           flightEnd - fx.traceStart)
@@ -201,17 +185,9 @@ void Overview::updateAnimation() {
     m_newCardAnim = false;
     m_newCardId = 0;
   }
-  // NEVER zero m_place.progress.raw(): a transparent frame before deactivate() flashes.
-  // Clamp as soon as the flight ends, NOT together with the deactivate: the exit ramp
-  // outlives the close animation, and at exactly 0 the overlay paints nothing, Hyprland
-  // has no damage to serve, and the ramp runs on with no frames to show it (measured:
-  // 769ms of ticks with no render).
+    // NEVER zero progress.raw(): a transparent frame before deactivate() flashes.
   if (!opening() && t >= 1.0 && m_place.progress.raw() <= 0.0)
     m_place.progress.firstFrame();
-  // The overlay outlives the close animation by exactly the windowed-exit hold: that is
-  // what keeps the backdrop covering the screen until Hyprland's own blur has taken over
-  // on the windows that have just landed. Lingering past that would leave a transparent
-  // overlay over a sharp desktop, which is the gap all over again.
   if (!opening() && t >= 1.0 && m_place.clocks.tiles.done(dur) && backdropSettled()) {
     m_life.requestDeactivate();
     debug::trace::life("requestDeactivate", m_life.describe());
@@ -233,8 +209,6 @@ double Overview::newCardScale() const {
 }
 
 void Overview::animateStripTo(double from, double to) {
-  // The range clamp and the sub-pixel threshold live in the type now, so a third caller
-  // cannot arrive here with an endpoint outside [0, max], or with a 0.3px move to animate.
   const auto st = anim::cfg(anim::Id::StripStep);
   if (!st.on || !m_scroll.beginGlide(from, to)) {
     m_scroll.snap(to);
@@ -242,13 +216,26 @@ void Overview::animateStripTo(double from, double to) {
     return;
   }
   debug::trace::scroll("glide", m_scroll.describe());
-  // A glide already in flight retargets from where the group actually is, not from the
-  // caller's `from`: that value is the previous TARGET on the rebuild path and the current
-  // position on the wheel path, and neither is what should be left behind.
+    // A glide in flight retargets from where the group actually is.
   if (!m_place.clocks.strip.done(st.ms))
     m_scroll.beginGlide(m_scroll.current(), m_scroll.target());
   m_place.clocks.strip.begin();
   debug::trace::animStart("strip_scroll", "strip_step", "", st.ms, st.curve.c_str());
+  ensureAnimPump();
+}
+
+void Overview::animateGridTo(double from, double to) {
+  const auto st = anim::cfg(anim::Id::StripStep);
+  if (!st.on || !m_gridScroll.beginGlide(from, to)) {
+    m_gridScroll.snap(to);
+    debug::trace::scroll("gsnap", m_gridScroll.describe());
+    return;
+  }
+  debug::trace::scroll("gglide", m_gridScroll.describe());
+  if (!m_place.clocks.strip.done(st.ms))
+    m_gridScroll.beginGlide(m_gridScroll.current(), m_gridScroll.target());
+  m_place.clocks.strip.begin();
+  debug::trace::animStart("grid_scroll", "grid_step", "", st.ms, st.curve.c_str());
   ensureAnimPump();
 }
 

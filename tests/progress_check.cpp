@@ -14,7 +14,7 @@
 
 #include "../src/clock/progress.hpp"
 
-using gloview::clock::Progress;
+using hyprview::clock::Progress;
 
 namespace {
 
