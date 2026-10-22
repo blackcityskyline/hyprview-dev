@@ -27,7 +27,7 @@ struct Tile {
   SubjectRef subj;
   LRect natural;
   LRect home;
-  int workspace = 0;  // the desktop view groups the cards by it
+  int workspace = 0;
   LRect target;
   bool parked = false;
   std::string labelText;

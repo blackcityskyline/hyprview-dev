@@ -475,24 +475,25 @@ void Overview::layoutTiles() {
   }
 
   if (m_view.desktop()) {
-    const double usableX = cfg.padLeft;
-    const double usableY = cfg.padTop;
-    const double usableW =
-        std::max(1.0, m->m_size.x - cfg.padLeft - cfg.padRight);
-    const double usableH =
-        std::max(1.0, m->m_size.y - cfg.padTop - cfg.padBottom);
-    const double s = std::min({usableW / m->m_size.x, usableH / m->m_size.y,
-                               static_cast<double>(cfg.maxScale)});
-    m_view.setTransform(s, usableX + (usableW - m->m_size.x * s) / 2.0,
-                        usableY + (usableH - m->m_size.y * s) / 2.0);
+    // The desktop view: every workspace gets a cell of the screen, and the windows of a
+    // workspace keep their own places inside their cell.
+    std::vector<LRect> nat;
+    std::vector<int> groups;
+    nat.reserve(m_scene.size());
+    groups.reserve(m_scene.size());
+    for (const auto &t : m_scene.tiles()) {
+      nat.push_back(t.natural);
+      groups.push_back(t.workspace);
+    }
+    LayoutCfg natCfg = cfg;
+    natCfg.engine = Engine::Natural;
+    const auto boxes =
+        computeLayout(nat, LRect{0, 0, m->m_size.x, m->m_size.y}, natCfg, groups);
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
       if (t.parked)
         continue;
-      t.target = LRect{m_view.ox() + t.natural.x * s,
-                       m_view.oy() + t.natural.y * s,
-                       std::max(1.0, t.natural.w * s),
-                       std::max(1.0, t.natural.h * s)};
+      t.target = boxes[i];
     }
     return;
   }

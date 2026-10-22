@@ -118,7 +118,6 @@ std::vector<LRect> layoutGrid(const std::vector<LRect>& w, const LRect& area, co
         return {};
     const int    cols  = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n)))));
     const int    rows  = std::max(1, static_cast<int>(std::ceil(static_cast<double>(n) / cols)));
-    // Floor the cell: a negative box asserts in the compositor's render entry points.
     const double cellW = std::max(1.0, (area.w - (cols - 1) * cfg.gap) / cols);
     const double cellH = std::max(1.0, (area.h - (rows - 1) * cfg.gap) / rows);
 
