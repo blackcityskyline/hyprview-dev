@@ -152,6 +152,7 @@ def poll_once(root, generation):
     """One sweep over the port range. Returns how many mediators answered."""
     os.makedirs(os.path.join(root, "previews"), exist_ok=True)
     live = 0
+    port_by_pid = {}
     for port in range(MIN_PORT, MAX_PORT + 1):
         raw_pid = get(port, "/get_pid")
         if raw_pid is None:
@@ -163,6 +164,7 @@ def poll_once(root, generation):
         browser_pid = parent_pid(mediator_pid)
         if not browser_pid:
             continue
+        port_by_pid[browser_pid] = port
         tabs = get(port, "/list_tabs")
         if tabs is None:
             continue
@@ -184,7 +186,45 @@ def poll_once(root, generation):
         if shot and shot.startswith(b"\x89PNG"):
             for tab_id in active_tab_ids(active):
                 atomic_write(os.path.join(root, "previews", "%s.png" % tab_id), shot)
+    pop_close(root, port_by_pid)
     return live
+
+
+CLOSE_MAX_AGE = 5.0
+
+
+def pop_close(root, port_by_pid):
+    """A tab card was closed: ask brotab to close that tab, in that browser.
+
+    brotab's mediator knows the tab ids it reported, so the id the plugin holds is the id
+    brotab knows. The pid inside the request picks the browser: tab ids are per browser.
+    """
+    path = os.path.join(root, "close")
+    try:
+        age = time.time() - os.path.getmtime(path)
+        with open(path, "rb") as f:
+            line = f.read(200).decode("utf-8", "replace").strip()
+    except OSError:
+        return
+    parts = line.split()
+    try:
+        pid, _window, tab = (int(v) for v in parts[1:])
+    except (IndexError, ValueError):
+        pid, tab = 0, 0
+    if age > CLOSE_MAX_AGE or len(parts) != 4 or parts[0] != "c":
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        return
+    port = port_by_pid.get(pid)
+    if port is None:
+        return
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    get(port, "/close_tabs/%d" % tab)
 
 
 def active_tab_ids(active):

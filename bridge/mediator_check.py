@@ -170,8 +170,21 @@ def main():
              "a request for this browser reaches the extension: %r" % pushed)
         want(not os.path.exists(request), "and the request is consumed")
 
+        # --- a close the compositor asked for, pushed without being asked ---------------------
+        # A tab is the browser's, so the compositor asks the browser to close it. The pid in
+        # the request picks the browser: tab ids mean nothing in another one.
+        close_request = os.path.join(root, "close")
+        open(close_request, "w").write("c %d 12 42\n" % os.getpid())
+        pushed = recv_ready(proc, 3)
+        want(pushed == {"name": "close", "window": 12, "tab": 42},
+             "a close request reaches the extension: %r" % pushed)
+        want(not os.path.exists(close_request), "and the request is consumed")
+
+        open(close_request, "w").write("c %d 12 42\n" % (os.getpid() + 1))
+        want(recv_ready(proc, 0.6) is None, "another browser's close is not answered here")
+        want(os.path.exists(close_request), "and is left on disk for its own mediator")
+
         open(request, "w").write("a %d 12 42\n" % (os.getpid() + 1))
-        want(recv_ready(proc, 0.6) is None, "another browser's request is not answered here")
         want(os.path.exists(request), "and is left on disk for its own mediator")
         os.unlink(request)
 

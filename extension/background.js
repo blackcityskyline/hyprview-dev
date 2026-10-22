@@ -47,6 +47,8 @@ function connect() {
   port.onMessage.addListener((reply) => {
     if (reply && reply.name === 'activate')
       activate(reply);
+    else if (reply && reply.name === 'close')
+      closeTab(reply);
     else if (reply && reply.name === 'shot') {
       shotPending = true;
       repicture();
@@ -252,6 +254,16 @@ async function activate(command) {
       await api.windows.update(windowId, { focused: true });
   } catch (e) {
     console.error('hyprview: activate failed:', e && e.message ? e.message : e);
+  }
+}
+
+// The compositor closed a tab card. The tab is the browser's, not the compositor's, so the
+// browser closes it; the next report drops the card.
+async function closeTab(command) {
+  try {
+    await api.tabs.remove(command.tab);
+  } catch (e) {
+    console.error('hyprview: close failed:', e && e.message ? e.message : e);
   }
 }
 

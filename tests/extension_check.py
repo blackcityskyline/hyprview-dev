@@ -79,6 +79,12 @@ def main():
         want(unpaint >= 0 and unpaint > shoot,
              "the canvas is not unpainted after the shot -- the page keeps the painted layer")
 
+    # (3) the close verb: the compositor asks the browser to close a tab, because a tab is
+    # not a window the compositor owns. Without it the card's x does nothing at all.
+    want("api.tabs.remove(" in js, "background.js has no close verb -- a tab card's x does nothing")
+    want("reply.name === 'close'" in js,
+         "the close request is never answered by the extension")
+
     if failures:
         print("extension_check: %d failure(s)" % failures, file=sys.stderr)
         return 1
