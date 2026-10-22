@@ -179,6 +179,15 @@ void Overview::updateAnimation() {
     return done;
   });
 
+  if (m_pendingKill) {
+    const auto w = m_pendingKill.lock();
+    if (!w || !m_fx.swapActive(subjectOf(w), false)) {
+      if (w)
+        w->sendClose();
+      m_pendingKill.reset();
+    }
+  }
+
   const double t = m_place.clocks.master.raw(dur);
   m_place.progress.fromMaster(t, opening());
   if (m_newCardAnim && m_place.clocks.newCard.done(newCardDur())) {

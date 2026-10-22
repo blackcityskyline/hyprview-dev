@@ -593,16 +593,14 @@ void Overview::killTile(int i, double lx, double ly) {
     if (!sent)
       return;
     beginTabFX(t.subj, from, to, style, ms, curve);
-    m_scene.remove(static_cast<std::size_t>(i));
     damage();
     return;
   }
   const auto w = tileWindow(t);
   if (!w)
     return;
-  w->sendClose();
   beginSwapFX(w, from, style, ms, curve, false, to);
-  m_scene.remove(static_cast<std::size_t>(i));
+  m_pendingKill = w;
   ensureAnimPump();
   damage();
 }
