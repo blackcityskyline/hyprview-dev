@@ -264,7 +264,11 @@ std::string Overview::runCommand(const std::string &args) {
                       "|ccx=" +
                       std::to_string(static_cast<int>(m_view.carousel().area.x +
                                                      m_view.carousel().originX +
-                                                     m_view.carousel().area.w / 2.0));
+                                                     m_view.carousel().area.w / 2.0)) +
+                      "|zone=" + std::to_string(static_cast<int>(killZoneRect().x)) + "," +
+                      std::to_string(static_cast<int>(killZoneRect().y)) + "," +
+                      std::to_string(static_cast<int>(killZoneRect().w)) + "," +
+                      std::to_string(static_cast<int>(killZoneRect().h));
     for (std::size_t i = 0; i < m_scene.size(); ++i) {
       const auto w = tileWindow(m_scene.tiles()[i]);
       const auto &t = m_scene.tiles()[i];
@@ -291,8 +295,11 @@ std::string Overview::runCommand(const std::string &args) {
       const char *kind = it.kind == model::StripItem::Kind::Ws   ? "Ws"
                          : it.kind == model::StripItem::Kind::Plus ? "Plus"
                                                                   : "All";
+      const LRect cb = stripCardAt(i);
       out += "\nCARD|" + std::to_string(i) + "|" + kind + "|" +
-             std::to_string(it.wins.size());
+             std::to_string(it.wins.size()) + "|" + std::to_string(static_cast<int>(cb.x)) +
+             "," + std::to_string(static_cast<int>(cb.y)) + "," +
+             std::to_string(static_cast<int>(cb.w)) + "," + std::to_string(static_cast<int>(cb.h));
     }
     debug::trace::emitState(out);
     return "";
