@@ -137,8 +137,10 @@ int main(int argc, char **argv) {
            buildSrc.find("m_tabs.snapshot().stamp") != std::string::npos,
        "the tabs deck never reads the feed again: a closed tab's card stays for ever");
   const auto tiles = codeOnly(slurp(root + "/src/render/tile_view.cpp"));
-  want(tiles.find("m_pixel.picture(g.subj)") != std::string::npos,
+  want(tiles.find("drawTabContent(g.subj") != std::string::npos,
        "the ghost of a tab draws nothing: the card blinks out instead of leaving");
+  want(tiles.find("drawTabContent(t.subj") != std::string::npos,
+       "the card and its ghost draw different things: a card leaves unlike it lived");
 
   // captureCurrentBoxes once converted subjects to windows and dropped every tab, so the
   // glide never armed and a card drew at the browser window's full-screen box. Keyed by
