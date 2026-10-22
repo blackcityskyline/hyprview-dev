@@ -59,6 +59,28 @@ int main(int argc, char **argv) {
     }
   }
 
+  // The hover-only mode (`close_button_visibility = hover`) hides the ✕ until the tile
+  // or card under the cursor asks for it. The mouse gates the hit with
+  // tileCloseButtons(), which stays true on a non-hovered surface -- so a draw site
+  // that loses its hover check leaves an invisible button accepting clicks.
+  {
+    const auto tv = slurp(root + "/src/render/tile_view.cpp");
+    if (tv.find("btnHovered") == std::string::npos ||
+        tv.find("closeOnHover()") == std::string::npos ||
+        tv.find("m_scene.hoveredTile()") == std::string::npos) {
+      std::printf("FAIL: tile_view.cpp lost the close button's hover gate -- an "
+                  "invisible button would keep accepting clicks\n");
+      ++bad;
+    }
+    const auto sv = slurp(root + "/src/render/strip_view.cpp");
+    if (sv.find("hoverOnly") == std::string::npos ||
+        sv.find("m_scene.hoveredStrip()") == std::string::npos) {
+      std::printf("FAIL: strip_view.cpp lost the close card's hover gate -- an "
+                  "invisible button would keep accepting clicks\n");
+      ++bad;
+    }
+  }
+
   if (bad)
     return 1;
   std::printf("the close glyph: one rule, and every surface asks it\n");

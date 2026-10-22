@@ -236,7 +236,7 @@ void Overview::renderStripButtons() const {
   const double s = m->m_scale;
   const int cardRound = cfg::strip.card_round;
   const float roundPow = cfg::look.preview_round_power;
-  const bool showClose = m_view.desktop() || closeButtonsAlwaysOn();
+  const bool hoverOnly = closeOnHover();
   const bool travelling = m_drag.travelSq() > 64.0;
   const bool dropping = m_drag.armed() && m_drag.lifted() && travelling;
   const bool isRmb = dropping && m_drag.button() == BTN_RIGHT;
@@ -319,7 +319,9 @@ void Overview::renderStripButtons() const {
       }
     }
 
-    if (showClose) {
+    if (closeButtonsAlwaysOn() ||
+        (hoverOnly ? static_cast<int>(i) == m_scene.hoveredStrip()
+                   : m_view.desktop())) {
       const LRect br = closeButtonRect(card);
       const double rad = br.w / 2.0;
       safeRenderRect("closebtn", 

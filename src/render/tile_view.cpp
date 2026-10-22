@@ -34,6 +34,10 @@ bool Overview::closeButtonsAlwaysOn() const {
   return cfg::look.close_button_visibility.get() == "always";
 }
 
+bool Overview::closeOnHover() const {
+  return cfg::look.close_button_visibility.get() == "hover";
+}
+
 bool Overview::closeOnDoubleClick() const {
   return cfg::look.close_trigger.get() == "doubleclick";
 }
@@ -234,7 +238,9 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
     drawTileCaption(i, look);
 
   const auto closeGlyph = m_pixel.closeGlyph();
-    if (look.button && !look.lift && closeGlyph && closeGlyph->m_size.x > 0) {
+    const bool btnHovered =
+        !closeOnHover() || static_cast<int>(i) == m_scene.hoveredTile();
+    if (look.button && !look.lift && btnHovered && closeGlyph && closeGlyph->m_size.x > 0) {
     const LRect br = closeButtonRect(box);
     safeRenderRect("tile", pxb(br, s), cfg::colors.close_button.get(e),
                               {.round = pxr(br.h / 2.0, s)});
