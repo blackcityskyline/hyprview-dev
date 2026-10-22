@@ -226,7 +226,8 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
         tall += span.second;
     }
     tall += gap * static_cast<double>(std::max(0, onScreen - 1));
-    const double scale = std::min({area.w / std::max(1.0, widest), area.h / std::max(1.0, tall),
+    const double scale = std::min({area.w / std::max(1.0, widest),
+                                   area.h / std::max(1.0, tall) * std::max(0.1, cfg.cellScale),
                                    cfg.maxScale});
 
     double y = area.y + (area.h - tall * scale) / 2.0;

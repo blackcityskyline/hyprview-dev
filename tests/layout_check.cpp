@@ -164,6 +164,46 @@ int main() {
       if (r.y >= screen.h - 1.0)
         ++below;
     check(below == 2, "the row past the ceiling hangs below the screen");
+
+  }
+
+  // The knob lifts the height fit only and the width fit always binds, so more columns
+  // make smaller tiles and the grid stays on the screen. The monitor and the pads mirror
+  // the live desktop view: 1366x768 with the band and the caption room off the area.
+  {
+    LayoutCfg cfg;
+    cfg.engine    = Engine::Natural;
+    cfg.cellGap   = 8.0;
+    cfg.padTop    = 190;
+    cfg.padBottom = 112;
+    const LRect mon{0, 0, 1366, 768};
+
+    std::vector<LRect> four, five;
+    std::vector<int>   ig, jg;
+    for (int g = 0; g < 4; ++g) { four.push_back(LRect{0, 0, 1354, 756}); ig.push_back(g); }
+    for (int g = 0; g < 5; ++g) { five.push_back(LRect{0, 0, 1354, 756}); jg.push_back(g); }
+
+    cfg.cellScale = 1.0;
+    const auto plain   = computeLayout(four, mon, cfg, ig);
+    cfg.cellScale      = 1.125;
+    const auto boosted = computeLayout(four, mon, cfg, ig);
+    check(boosted[0].w > plain[0].w * 1.1, "the knob lifts the height-limited tiles");
+
+    // The fit weighs the cell gap scaled, the walk draws it raw: the overshoot per row is
+    // (cols-1)*gap*(1-scale), tolerable at these sizes and approved in the live look.
+    double right = 0.0;
+    for (const auto &r : boosted)
+      right = std::max(right, r.x + r.w);
+    double tol = 1.0 * 8.0 * (1.0 - boosted[0].w / 1354.0) + 0.5;
+    check(right <= mon.w - cfg.padRight + tol, "the boosted grid stays inside the monitor");
+
+    const auto fiveOut = computeLayout(five, mon, cfg, jg);
+    check(fiveOut[0].w < boosted[0].w, "more columns make smaller tiles");
+    right = 0.0;
+    for (const auto &r : fiveOut)
+      right = std::max(right, r.x + r.w);
+    tol = 2.0 * 8.0 * (1.0 - fiveOut[0].w / 1354.0) + 0.5;
+    check(right <= mon.w - cfg.padRight + tol, "the wide grid stays inside the monitor");
   }
 
   // Ordinary: the layout the user actually sees.

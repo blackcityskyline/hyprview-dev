@@ -52,6 +52,7 @@ struct LayoutCfg {
     double cellGap   = 0.0;
     int    cellCols  = 4;
     int    cellRows  = 3;
+    double cellScale = 1.0;
     double maxScale  = 1.0;
 };
 

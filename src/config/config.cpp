@@ -179,6 +179,7 @@ constexpr FloatSpec kFloats[] = {
     {&behavior.kill_zone_size, "plugin:hyprview:kill_zone_size", 40.0},
     {&behavior.kill_zone_falloff, "plugin:hyprview:kill_zone_falloff", 150.0},
     {&grid.max_scale, "plugin:hyprview:max_scale", 1.0F},
+    {&grid.desktop_tile_scale, "plugin:hyprview:desktop_tile_scale", 1.125F},
     {&look.preview_round_power, "plugin:hyprview:preview_round_power", 2.0F},
     {&blur.strength, "plugin:hyprview:blur", 1.0F},
     {&look.close_button_size, "plugin:hyprview:close_button_size", 1.0F},
