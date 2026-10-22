@@ -614,11 +614,9 @@ void Overview::layoutTiles() {
 }
 
 std::vector<std::pair<model::SubjectRef, LRect>>
-Overview::captureCurrentBoxes(PHLWINDOW exclude) const {
+Overview::captureCurrentBoxes(const model::SubjectRef &exclude) const {
   // Placement already filters by SUBJECT; resolving back to windows here would drop every tab.
-  const auto keep = m_place.capture(
-      frame(), exclude ? model::SubjectRef{reinterpret_cast<std::uintptr_t>(exclude.get()), 0}
-                       : model::SubjectRef{});
+  const auto keep = m_place.capture(frame(), exclude);
   return keep;
 }
 

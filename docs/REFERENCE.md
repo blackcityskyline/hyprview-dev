@@ -140,7 +140,7 @@
 |---|---|---|
 | `ANIM\|` | `begin`, `end`, `reject` | `beginSwapFX`, `animStart` |
 | `LIFE\|` | `park`, `promote`, `abort`, `close`, `requestDeactivate`, `deactivate`, `open` | `Lifecycle` |
-| `DRAG\|` | `release`, `branch` | `input/mouse.cpp` |
+| `DRAG\|` | `release`, `branch`, `drop` | `input/mouse.cpp` |
 | `SCROLL\|` | `setMax`, `glide`, `snap` | `ScrollState` |
 | `SWAP\|` | `decide` | `swapWindows` |
 | `CMD\|` | `ok`, `err` | шов `cmd()` |

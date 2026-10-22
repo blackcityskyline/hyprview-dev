@@ -422,7 +422,7 @@ private:
   double m_killGlow = 0.0; // 1 at the zone, 0 a screen-width away, while dragging
   // Keyed by SUBJECT: a window-keyed vector drops every tab.
   std::vector<std::pair<model::SubjectRef, LRect>> captureCurrentBoxes(
-      PHLWINDOW exclude = {}) const;
+      const model::SubjectRef &exclude = {}) const;
   void replayReflow(std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes);
   void releaseNewWorkspaces();
   void syncTiles();

@@ -81,7 +81,7 @@ bool Overview::dropOnStripCard(const PHLWINDOW &w, double lx, double ly,
     const auto tvj = vj->layoutTarget();
     const auto tw  = w->layoutTarget();
     if (tw && tvj && tvj->space()) {
-      auto oldBoxes = captureCurrentBoxes(w);
+      auto oldBoxes = captureCurrentBoxes(w ? subjectOf(w) : model::SubjectRef{});
       const auto vjPos  = vj->positionAnimation()->goal();
       const auto vjSize = vj->sizeAnimation()->goal();
       const Vector2D focalPoint{vjPos.x + vjSize.x / 2.0,
@@ -144,7 +144,7 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
     return;
   }
 
-  auto oldBoxes = captureCurrentBoxes(w);
+  auto oldBoxes = captureCurrentBoxes(w ? subjectOf(w) : model::SubjectRef{});
 
   Desktop::globalWindowController()->moveWindowToWorkspace(w, target);
 
@@ -525,7 +525,7 @@ std::string Overview::runCommand(const std::string &args) {
       target = State::workspaceState()->create(ws, m->m_id);
     if (!target)
       return "movews: no workspace";
-    auto oldBoxes = captureCurrentBoxes(w);
+    auto oldBoxes = captureCurrentBoxes(w ? subjectOf(w) : model::SubjectRef{});
     Desktop::globalWindowController()->moveWindowToWorkspace(w, target);
     replayReflow(oldBoxes);
     landAfterSwap(w, LRect{}, LRect{}, m_lastDragBox, anim::cfg(anim::Id::Drop).ms,

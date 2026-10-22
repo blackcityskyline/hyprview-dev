@@ -393,7 +393,10 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
     if (m_drag.lifted()) {
       const bool rmb = m_drag.button() == BTN_RIGHT;
       m_lastDragBox = dragVisualBox();
-      auto oldBoxes = captureCurrentBoxes(w);
+      const auto dragged = press >= 0 && press < static_cast<int>(m_scene.tiles().size())
+                               ? m_scene.tiles()[static_cast<std::size_t>(press)].subj
+                               : model::SubjectRef{};
+      auto oldBoxes = captureCurrentBoxes(dragged);
       m_drag.clear();
       int cardIdx = -1;
       for (int i = 0; i < static_cast<int>(m_strip.size()); ++i)
@@ -440,6 +443,12 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         }
       }
       // The closing zone wins over everything else, carousel or plain.
+      debug::trace::drag("drop", "at=" + std::to_string(static_cast<int>(lx)) + "," +
+                                   std::to_string(static_cast<int>(ly)) + "|zone=" +
+                                   std::to_string(static_cast<int>(killZoneRect().x)) + "," +
+                                   std::to_string(static_cast<int>(killZoneRect().y)) + "," +
+                                   std::to_string(static_cast<int>(killZoneRect().w)) + "," +
+                                   std::to_string(static_cast<int>(killZoneRect().h)));
       if ((w || cardOf(m_scene.tiles()[press]).isTab()) &&
           killZoneRect().contains(lx, ly)) {
         debug::trace::dragBranch("Tile->killZone");
@@ -477,7 +486,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           return true;
         }
       }
-      if (m_view.desktop() && w) {
+      if (m_view.desktop()) {
         debug::trace::dragBranch("Tile->desktopPark");
         const LRect cur =
             m_scene.tiles()[press].target;
@@ -488,9 +497,9 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         return true;
       }
       debug::trace::dragBranch("Tile->flyback");
-      // Own glide source: captureCurrentBoxes excludes the dragged window; startTileGlide would fade it in as a newcomer.
-      if (w)
-        oldBoxes.emplace_back(subjectOf(w), m_lastDragBox);
+      // Own glide source: captureCurrentBoxes excludes the dragged card; startTileGlide would fade it in as a newcomer.
+      if (dragged.id != 0)
+        oldBoxes.emplace_back(dragged, m_lastDragBox);
       replayReflow(oldBoxes);
       ensureAnimPump();
       damage();
