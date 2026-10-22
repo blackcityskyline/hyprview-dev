@@ -397,6 +397,13 @@ std::string Overview::runCommand(const std::string &args) {
     return true;
   };
 
+  if (tok[0] == "killzone") {
+    const int t = num(1);
+    const auto zone = killZoneRect();
+    killTile(t, zone.cx(), zone.cy());
+    return "";
+  }
+
   if (tok[0] == "dropcard") {
     const int t = num(1), ci = num(2);
     const auto w = tile(t);
@@ -564,7 +571,7 @@ void Overview::killTile(int i, double lx, double ly) {
     return;
   const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
   const LRect from = tileRect(static_cast<std::size_t>(i));
-  const LRect to{lx, ly, 0.0, 0.0};
+  const LRect to{lx, ly, 1.0, 1.0};
   const auto style = anim::Move{anim::Travel::Slide, anim::Axis::Horizontal};
   const auto ms = anim::cfg(anim::Id::SwapFly).ms;
   const auto curve = anim::cfg(anim::Id::SwapFly).curve;
