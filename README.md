@@ -297,6 +297,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `close_glyph_fill` | float | `0.62` | fraction of the close button the glyph fills |
 | `drop_hint_color` | color | `"0x38ffffff"` | drop-zone highlight flash on a workspace card while dragging |
 | `close_button` | bool (0/1) | `1` | The global switch on every x: `0` removes close buttons everywhere, strip band included, whatever `close_button_visibility` says |
+| `close_button_hover_only` | bool (0/1) | `1` | `1`: the x appears only while the cursor is over that surface (tile, deck card, band card) — `0`: as soon as its visibility rule allows it |
 | `close_button_visibility` | `desktop` \| `everywhere` \| `none` | `desktop` | Where the x lives: `desktop` — tiles, cards and the carousel deck in desktop/canvas mode (`key_desktop`) only — `everywhere`: the same surfaces in every view — `none`: nowhere. The strip band follows this rule too |
 | `close_button_icon` | string | `✕` | Glyph drawn in the close buttons |
 | `close_button_size` | float | `1.0` | Scale multiplier over the computed base button size |

@@ -104,6 +104,7 @@ constexpr IntSpec kInts[] = {
     {&behavior.kill_zone_reach, "plugin:hyprview:kill_zone_reach", 160},
     {&look.title_font_size, "plugin:hyprview:title_font_size", 12},
     {&look.close_button, "plugin:hyprview:close_button", 1},
+    {&look.close_button_hover_only, "plugin:hyprview:close_button_hover_only", 1},
     {&look.counter_font_size, "plugin:hyprview:counter_font_size", 12},
     {&carousel.enabled, "plugin:hyprview:carousel", 0},
     {&carousel.on_open, "plugin:hyprview:carousel_on_open", 1},

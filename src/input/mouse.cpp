@@ -204,6 +204,9 @@ void Overview::updateHover() {
   const int newTile = tileAt(lx, ly);
   const int newStrip = stripItemAt(lx, ly);
   if (newTile != m_scene.hoveredTile() || newStrip != m_scene.hoveredStrip()) {
+    debug::trace::emitState("HOVER|tile=" + std::to_string(newTile) + "|strip=" +
+                            std::to_string(newStrip) + "|cur=" + std::to_string(lx) + "," +
+                            std::to_string(ly));
     const int oldTile = m_scene.hoveredTile(), oldStrip = m_scene.hoveredStrip(),
               oldSel = m_scene.selected();
     m_scene.hover(newTile, newStrip);

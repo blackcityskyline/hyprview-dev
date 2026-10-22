@@ -152,6 +152,7 @@
 | `CURSORMV\|` | `at=<open\|closed>` | `input/mouse.cpp` |
 | `DOMAIN\|` | `to=<windows\|tabs\|both>` | `lifecycle.cpp` |
 | `TILEBOX\|` | `i=<n>` | `clock/placement.cpp` |
+| `HOVER\|` | `tile=<n>,strip=<n>` | `input/mouse.cpp` |
 | `TRACE\|` | `gate=<n>` | команда `trace` |
 
 Пять семейств гейтятся маской (биты ниже). Остальные теги пишутся всегда,

@@ -70,14 +70,18 @@ int main(int argc, char **argv) {
   {
     const auto tv = slurp(root + "/src/render/tile_view.cpp");
     if (tv.find("closeButtonsOn()") == std::string::npos ||
-        tv.find("closeButtonsEverywhere()") == std::string::npos) {
-      fail("tile_view.cpp must read the master and the visibility knob");
+        tv.find("closeButtonsEverywhere()") == std::string::npos ||
+        tv.find("closeButtonsHoverOnly()") == std::string::npos ||
+        tv.find("m_scene.hoveredTile()") == std::string::npos) {
+      fail("tile_view.cpp must read the master, the visibility knob and the hover gate");
     }
     const auto sv = slurp(root + "/src/render/strip_view.cpp");
     if (sv.find("closeButtonsOn()") == std::string::npos ||
-        sv.find("closeButtonsEverywhere()") == std::string::npos) {
-      fail("strip_view.cpp must read the master and the visibility knob too -- the "
-           "band lost its exemption when the switch went global");
+        sv.find("closeButtonsEverywhere()") == std::string::npos ||
+        sv.find("closeButtonsHoverOnly()") == std::string::npos ||
+        sv.find("m_scene.hoveredStrip()") == std::string::npos) {
+      fail("strip_view.cpp must read the master, the visibility knob and the hover gate "
+           "-- the band lost its exemption when the switch went global");
     }
     const auto mv = slurp(root + "/src/input/mouse.cpp");
     if (mv.find("closeWorkspaceWindows(m_strip[i])") == std::string::npos ||

@@ -318,7 +318,8 @@ void Overview::renderStripButtons() const {
       }
     }
 
-    if (closeButtonsOn() && (m_view.desktop() || closeButtonsEverywhere())) {
+    if (closeButtonsOn() && (m_view.desktop() || closeButtonsEverywhere()) &&
+        (!closeButtonsHoverOnly() || static_cast<int>(i) == m_scene.hoveredStrip())) {
       const LRect br = closeButtonRect(card);
       const double rad = br.w / 2.0;
       safeRenderRect("closebtn", 
