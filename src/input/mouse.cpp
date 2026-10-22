@@ -394,7 +394,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           cardIdx = i;
           break;
         }
-      if (cardIdx >= 0) {
+      if (cardIdx >= 0 && w) {
         const bool wsCard = m_strip[cardIdx].kind == model::StripItem::Kind::Ws;
         debug::trace::dragBranch("Tile->stripCard",
                                  "rmb=" + std::to_string(rmb) + "|kind=" +
@@ -433,7 +433,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         }
       }
       // The closing zone wins over everything else, carousel or plain.
-      if (w && killZoneRect().contains(lx, ly)) {
+      if ((w || cardOf(m_scene.tiles()[press]).isTab()) &&
+          killZoneRect().contains(lx, ly)) {
         debug::trace::dragBranch("Tile->killZone");
         if (press == m_scene.selected() && m_scene.tiles().size() > 1) {
           m_scene.select(static_cast<int>(press % (m_scene.tiles().size() - 1)));

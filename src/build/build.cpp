@@ -667,35 +667,41 @@ void Overview::setDiscardedShown(bool on) {
   }
 }
 
-// Whole, then renamed: the mediator polls this file while the plugin may be writing it.
-bool Overview::writeTabRequest(std::uint64_t browserWindow, std::int64_t tab) {
-  const auto &pids = m_tabs.snapshot().pids;
-  const auto it = pids.find(browserWindow);
-  if (it == pids.end())
-    return false;
-  const std::string line = model::activateCommand(it->second, browserWindow, tab);
-  const std::string path = browserSideDir() + "/activate";
+namespace {
+bool writeAtomic(const std::string &path, const std::string &data) {
   const std::string part = path + ".part";
   {
     std::ofstream out(part, std::ios::binary | std::ios::trunc);
     if (!out)
       return false;
-    out.write(line.data(), static_cast<std::streamsize>(line.size()));
+    out.write(data.data(), static_cast<std::streamsize>(data.size()));
   }
   return std::rename(part.c_str(), path.c_str()) == 0;
+}
+} // namespace
+
+bool Overview::writeTabRequest(std::uint64_t browserWindow, std::int64_t tab) {
+  const auto &pids = m_tabs.snapshot().pids;
+  const auto it = pids.find(browserWindow);
+  if (it == pids.end())
+    return false;
+  return writeAtomic(browserSideDir() + "/activate",
+                     model::activateCommand(it->second, browserWindow, tab));
+}
+
+bool Overview::writeTabClose(std::uint64_t browserWindow, std::int64_t tab) {
+  const auto &pids = m_tabs.snapshot().pids;
+  const auto it = pids.find(browserWindow);
+  if (it == pids.end())
+    return false;
+  return writeAtomic(browserSideDir() + "/close",
+                     model::closeCommand(it->second, browserWindow, tab));
 }
 
 // The picture on disk is from when the tab was last active; a page restyled since keeps that look.
 void Overview::requestTabShots() {
   for (const auto &entry : m_tabs.snapshot().pids) {
-    const std::string path = browserSideDir() + "/shot." + std::to_string(entry.second);
-    const std::string part = path + ".part";
-    {
-      std::ofstream out(part, std::ios::binary | std::ios::trunc);
-      if (!out)
-        continue;
-    }
-    std::rename(part.c_str(), path.c_str());
+    writeAtomic(browserSideDir() + "/shot." + std::to_string(entry.second), "");
   }
 }
 

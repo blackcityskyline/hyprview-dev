@@ -27,6 +27,12 @@ struct TabInfo {
            std::to_string(tab) + "\n";
 }
 
+[[nodiscard]] inline std::string closeCommand(std::uint64_t pid, std::uint64_t window,
+                                              std::int64_t tab) {
+    return "c " + std::to_string(pid) + " " + std::to_string(window) + " " +
+           std::to_string(tab) + "\n";
+}
+
 // `known` separates "reported no tabs" from "never reported" -- the whole fallback rule: a browser that has not spoken yet must still be shown as a window (entriesFor).
 struct ReportedTabs {
     bool known = false;

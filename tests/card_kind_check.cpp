@@ -111,6 +111,26 @@ int main(int argc, char **argv) {
   want(all.find("m_tabs.isTab") == std::string::npos,
        "a site classifies a card with m_tabs.isTab() instead of cardOf()");
 
+  // The close of a card: a tab has no window, so a close that asks the window first closes
+  // nothing -- the tab card's x was a button that did nothing, and the drag into the closing
+  // zone ended in the same silence. The kind comes first, and a tab leaves as a request to
+  // the browser that owns it.
+  const auto actions = codeOnly(slurp(root + "/src/actions/actions.cpp"));
+  want(actions.find("writeTabClose") != std::string::npos,
+       "a close never asks the browser to close a tab -- the tab card's x does nothing");
+  const auto mouse = codeOnly(slurp(root + "/src/input/mouse.cpp"));
+  const auto zone = mouse.find("killZoneRect().contains");
+  const auto kind = zone == std::string::npos ? std::string::npos
+                                              : mouse.rfind("isTab()", zone);
+  want(zone != std::string::npos && kind != std::string::npos &&
+           zone - kind < 200,
+       "the closing zone skips a tab: a drag into it does nothing");
+  want(mouse.find("cardIdx >= 0 && w") != std::string::npos,
+       "a tab card can reach the window drop path, where the window is null");
+  const auto buildSrc = codeOnly(slurp(root + "/src/build/build.cpp"));
+  want(buildSrc.find("/close") != std::string::npos,
+       "the close request has no file of its own: an old mediator drops it as malformed");
+
   // captureCurrentBoxes once converted subjects to windows and dropped every tab, so the
   // glide never armed and a card drew at the browser window's full-screen box. Keyed by
   // subject, never by window: that is the regression.

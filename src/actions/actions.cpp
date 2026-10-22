@@ -852,7 +852,19 @@ void Overview::addWorkspace() {
 void Overview::closeTileWindow(int i) {
   if (i < 0 || i >= static_cast<int>(m_scene.tiles().size()))
     return;
-  const auto w = tileWindow(m_scene.tiles()[i]);
+  const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
+  if (cardOf(t).isTab()) {
+    const auto group = m_tabs.groupOf(t.subj);
+    if (group.id == 0)
+      return;
+    const bool sent = writeTabClose(group.id, static_cast<std::int64_t>(t.subj.id));
+    debug::trace::record("TABS", "close",
+                         "tab=" + std::to_string(t.subj.id) + "|window=" +
+                             std::to_string(group.id) + "|sent=" + std::to_string(sent ? 1 : 0));
+    damage();
+    return;
+  }
+  const auto w = tileWindow(t);
   if (!w)
     return;
   debug::dbg("close tile window");
