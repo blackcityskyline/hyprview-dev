@@ -130,6 +130,12 @@ int main(int argc, char **argv) {
   const auto buildSrc = codeOnly(slurp(root + "/src/build/build.cpp"));
   want(buildSrc.find("/close") != std::string::npos,
        "the close request has no file of its own: an old mediator drops it as malformed");
+  // A card that leaves must leave the way every other card leaves: the ghost, the fading
+  // copy the rebuild leaves behind. A tab has no window to draw, so the ghost must be able
+  // to draw the card's picture -- otherwise the card blinks out of the layout.
+  const auto tiles = codeOnly(slurp(root + "/src/render/tile_view.cpp"));
+  want(tiles.find("m_pixel.picture(g.subj)") != std::string::npos,
+       "the ghost of a tab draws nothing: the card blinks out instead of leaving");
 
   // captureCurrentBoxes once converted subjects to windows and dropped every tab, so the
   // glide never armed and a card drew at the browser window's full-screen box. Keyed by

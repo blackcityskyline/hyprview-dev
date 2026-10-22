@@ -145,7 +145,7 @@
 | `SWAP\|` | `decide` | `swapWindows` |
 | `CMD\|` | `ok`, `err` | шов `cmd()` |
 | `STATE\|` | — | команда `state` |
-| `TABS\|` | `load`, `match`, `activate` | `buildTiles`, `activateTab` |
+| `TABS\|` | `load`, `match`, `activate`, `close` | `buildTiles`, `activateTab` |
 | `GL\|` | `at=paint`, `leak` | `state_fence.hpp` |
 | `RING\|` | `kind=<...>` | `log.cpp` |
 | `CURSOR\|` | `mode=<...>` | `cursor.cpp` |

@@ -431,7 +431,17 @@ void Overview::renderGhosts() const {
 
   for (const auto &g : m_fx.ghosts()) {
     const auto w = m_windows.windowOf(g.subj);
-    if (!w || !w->m_isMapped || w->isHidden())
+    if (!w) {
+      const auto art = m_pixel.picture(g.subj);
+      if (!art)
+        continue;
+      const double k  = 1.0 - 0.3 * eOut;
+      const LRect box = render::scaledAboutCentre(g.box, k);
+      g_pHyprOpenGL->renderTexture(art, pxb(box, scale),
+                                   {.a = static_cast<float>((1.0 - eOut) * 0.85)});
+      continue;
+    }
+    if (!w->m_isMapped || w->isHidden())
       continue;
     const double k  = 1.0 - 0.3 * eOut;
     const LRect box = render::scaledAboutCentre(g.box, k);
