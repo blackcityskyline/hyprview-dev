@@ -49,10 +49,10 @@ struct LayoutCfg {
     double padBottom = 70.0;
     double padLeft   = 80.0;
     double gap       = 36.0;
+    double cellGap   = 0.0;
     double maxScale  = 1.0;
 };
 
-// parallel to `naturals`, inside `area`
 std::vector<LRect> computeLayout(const std::vector<LRect>& naturals, const LRect& area,
                                  const LayoutCfg& cfg, const std::vector<int> &groups = {});
 

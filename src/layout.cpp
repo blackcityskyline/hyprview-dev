@@ -136,7 +136,7 @@ std::vector<LRect> layoutGrid(const std::vector<LRect>& w, const LRect& area, co
 }
 
 static void fitGroup(const std::vector<LRect> &w, const std::vector<int> &idx, const LRect &cell,
-                     const LayoutCfg &cfg, std::vector<LRect> &out) {
+                     const LayoutCfg &cfg, std::vector<LRect> &out) {  // one workspace in a cell
     double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
     for (const int i : idx) {
         const auto& r = w[i];
@@ -178,15 +178,17 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
 
     const int cols = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(G)))));
     const int rows = (G + cols - 1) / cols;
-    const double cw = area.w / static_cast<double>(cols);
-    const double ch = area.h / static_cast<double>(rows);
+    // The gap between the cells, the same on both axes.
+    const double gap = std::max(0.0, cfg.cellGap);
+    const double cw = (area.w - gap * (cols - 1)) / static_cast<double>(cols);
+    const double ch = (area.h - gap * (rows - 1)) / static_cast<double>(rows);
     for (int g = 0; g < G; ++g) {
         std::vector<int> idx;
         for (int i = 0; i < n; ++i)
             if (gs[i] == uniq[g])
                 idx.push_back(i);
         const int cx = g % cols, cy = g / cols;
-        fitGroup(w, idx, LRect{area.x + cx * cw, area.y + cy * ch, cw, ch}, cfg, out);
+        fitGroup(w, idx, LRect{area.x + cx * (cw + gap), area.y + cy * (ch + gap), cw, ch}, cfg, out);
     }
     return out;
 }
@@ -241,7 +243,6 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
         slotOf[static_cast<size_t>(idx)] = rel;
         idxOfSlot.push_back(idx);
     }
-    // The cards just OUTSIDE the window get a box as well.
     for (const int rel : {-leftSlots - 1, rightSlots + 1}) {
         const int idx = ((sel + rel) % count + count) % count;
         if (slotOf[static_cast<size_t>(idx)] != 99)
