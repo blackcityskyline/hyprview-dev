@@ -133,6 +133,9 @@ int main(int argc, char **argv) {
   // A card that leaves must leave the way every other card leaves: the ghost, the fading
   // copy the rebuild leaves behind. A tab has no window to draw, so the ghost must be able
   // to draw the card's picture -- otherwise the card blinks out of the layout.
+  want(buildSrc.find("syncTabs()") != std::string::npos &&
+           buildSrc.find("m_tabs.snapshot().stamp") != std::string::npos,
+       "the tabs deck never reads the feed again: a closed tab's card stays for ever");
   const auto tiles = codeOnly(slurp(root + "/src/render/tile_view.cpp"));
   want(tiles.find("m_pixel.picture(g.subj)") != std::string::npos,
        "the ghost of a tab draws nothing: the card blinks out instead of leaving");

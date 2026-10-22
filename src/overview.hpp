@@ -418,6 +418,7 @@ private:
   void replayReflow(std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes);
   void releaseNewWorkspaces();
   void syncTiles();
+  void syncTabs();
   void stepWorkspace(int dir);
   void hideLayers();
   void restoreLayers();

@@ -38,13 +38,23 @@ static std::string browserSideDir() {
 
 static std::string tabFeedPath() { return browserSideDir() + "/tabs"; }
 
+static std::int64_t feedStamp() {
+    std::error_code ec;
+    const auto t = std::filesystem::last_write_time(tabFeedPath(), ec);
+    if (ec)
+        return 0;
+    return static_cast<std::int64_t>(t.time_since_epoch().count());
+}
+
 void Overview::loadTabs() {
     std::ifstream in(tabFeedPath(), std::ios::binary);
     std::string text;
     if (in)
         text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 
-    const auto parsed = model::parseTabs(text);
+    auto parsed = model::parseTabs(text);
+    if (parsed)
+        parsed->stamp = feedStamp();
     if (!parsed || !m_tabs.adopt(*parsed)) {
         debug::trace::record("TABS", "load",
                              std::string("mode=") + model::domainName(m_view.domain()) +
@@ -747,12 +757,29 @@ void Overview::replayReflow(
   damage();
 }
 
+void Overview::syncTabs() {
+  const auto stamp = feedStamp();
+  if (stamp == 0 || stamp == m_tabs.snapshot().stamp)
+    return;
+  std::vector<model::SubjectRef> before;
+  for (const auto &t : m_scene.tiles())
+    if (cardOf(t).isTab())
+      before.push_back(t.subj);
+  loadTabs();
+  if (model::sameSubjects(before, m_tabs.enumerate()))
+    return;
+  auto oldBoxes = captureCurrentBoxes();
+  replayReflow(oldBoxes);
+}
+
 void Overview::syncTiles() {
   if (!m_life.openingNow() || m_life.deactivating())
     return;
   // A tabs deck is not a window count: comparing them rebuilds and restarts the entry every frame.
-  if (m_view.domain() != model::Domain::Windows)
+  if (m_view.domain() != model::Domain::Windows) {
+    syncTabs();
     return;
+  }
   const auto ws = m_workspace.lock();
   if (!ws)
     return;

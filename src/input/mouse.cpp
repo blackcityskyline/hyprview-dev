@@ -376,6 +376,13 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
   }
   case model::Drag::Press::Tile: {
     const int press = m_drag.idx();
+    if (press < 0 || press >= static_cast<int>(m_scene.tiles().size())) {
+      debug::trace::drag("release", m_drag.describe() + "|stale=1");
+      m_drag.clear();
+      m_killGlow = 0.0;
+      damage();
+      return true;
+    }
     m_killGlow = 0.0;
     const auto w = tileWindow(m_scene.tiles()[press]);
     const double grabDX = m_drag.grabX(), grabDY = m_drag.grabY();
