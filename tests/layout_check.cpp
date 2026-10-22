@@ -113,6 +113,21 @@ void engines(const std::string &what, const std::vector<LRect> &ns,
 int main() {
   const LRect screen{0, 0, 1920, 1080};
 
+  // The desktop view: the windows of two workspaces sit at the SAME place, so without a cell
+  // per workspace the cards land on top of each other.
+  {
+    LayoutCfg cfg;
+    cfg.engine = Engine::Natural;
+    const std::vector<LRect> nat{{0, 0, 960, 1080}, {0, 0, 960, 1080}};
+    const auto out = computeLayout(nat, screen, cfg, {1, 2});
+    const bool apart = out.size() == 2 && (out[0].x != out[1].x || out[0].y != out[1].y);
+    printf("two workspaces, one place: %s\n", apart ? "apart" : "ON TOP OF EACH OTHER");
+    check(apart, "the cards of two workspaces must not share a box");
+    // One group: the windows keep their own places, as before.
+    const auto one = computeLayout(nat, screen, cfg, {1, 1});
+    check(one.size() == 2 && one[0].x == one[1].x, "one workspace keeps the windows together");
+  }
+
   // Ordinary: the layout the user actually sees.
   engines("9 equal", naturals({{673, 756}, {673, 756}, {673, 756},
                                {673, 756}, {673, 756}, {673, 756},

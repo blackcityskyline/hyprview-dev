@@ -125,6 +125,7 @@ void Overview::buildTiles() {
       // A tab's natural is its host's box: the layout needs an aspect, and its preview is of that window.
       t.natural = box;
       t.home = box;
+      t.workspace = w->m_workspace ? w->m_workspace->m_id : 0;  // the desktop view groups by it
       if (const auto it = priorTargets.find(t.subj); it != priorTargets.end()) {
         t.target = it->second.first;
         t.parked = true;
@@ -578,12 +579,16 @@ void Overview::layoutTiles() {
   m_view.clearCards();
 
   std::vector<LRect> nat;
+  std::vector<int> groups;
   nat.reserve(m_scene.size());
-  for (const auto &t : m_scene.tiles())
+  groups.reserve(m_scene.size());
+  for (const auto &t : m_scene.tiles()) {
     nat.push_back(t.natural);
+    groups.push_back(t.workspace);
+  }
 
   const auto out =
-      computeLayout(nat, LRect{0, 0, m->m_size.x, m->m_size.y}, cfg);
+      computeLayout(nat, LRect{0, 0, m->m_size.x, m->m_size.y}, cfg, groups);
   m_scene.setTargets(out);
 }
 

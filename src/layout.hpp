@@ -53,7 +53,8 @@ struct LayoutCfg {
 };
 
 // parallel to `naturals`, inside `area`
-std::vector<LRect> computeLayout(const std::vector<LRect>& naturals, const LRect& area, const LayoutCfg& cfg);
+std::vector<LRect> computeLayout(const std::vector<LRect>& naturals, const LRect& area,
+                                 const LayoutCfg& cfg, const std::vector<int> &groups = {});
 
 Engine parseEngine(const char* s);
 

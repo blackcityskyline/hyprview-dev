@@ -118,7 +118,7 @@ std::vector<LRect> layoutGrid(const std::vector<LRect>& w, const LRect& area, co
         return {};
     const int    cols  = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n)))));
     const int    rows  = std::max(1, static_cast<int>(std::ceil(static_cast<double>(n) / cols)));
-    // Floor the cell: the area minus gaps can go negative and a negative box asserts in the compositor's render entry points.
+    // Floor the cell: a negative box asserts in the compositor's render entry points.
     const double cellW = std::max(1.0, (area.w - (cols - 1) * cfg.gap) / cols);
     const double cellH = std::max(1.0, (area.h - (rows - 1) * cfg.gap) / rows);
 
@@ -136,12 +136,11 @@ std::vector<LRect> layoutGrid(const std::vector<LRect>& w, const LRect& area, co
     return out;
 }
 
-std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area, const LayoutCfg& cfg) {
-    const int n = static_cast<int>(w.size());
-    if (n == 0)
-        return {};
+static void fitGroup(const std::vector<LRect> &w, const std::vector<int> &idx, const LRect &cell,
+                     const LayoutCfg &cfg, std::vector<LRect> &out) {
     double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
-    for (const auto& r : w) {
+    for (const int i : idx) {
+        const auto& r = w[i];
         minX = std::min(minX, r.x);
         minY = std::min(minY, r.y);
         maxX = std::max(maxX, r.x + r.w);
@@ -149,23 +148,58 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
     }
     const double bw = std::max(1.0, maxX - minX);
     const double bh = std::max(1.0, maxY - minY);
-    const double s  = std::min({area.w / bw, area.h / bh, cfg.maxScale});
-    const double ox = area.x + (area.w - bw * s) / 2.0;
-    const double oy = area.y + (area.h - bh * s) / 2.0;
-
-    std::vector<LRect> out(n);
-    for (int i = 0; i < n; ++i)
+    const double s  = std::min({cell.w / bw, cell.h / bh, cfg.maxScale});
+    const double ox = cell.x + (cell.w - bw * s) / 2.0;
+    const double oy = cell.y + (cell.h - bh * s) / 2.0;
+    for (const int i : idx)
         out[i] = LRect{ox + (w[i].x - minX) * s, oy + (w[i].y - minY) * s, w[i].w * s, w[i].h * s};
+}
+
+std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area, const LayoutCfg& cfg,
+                                 const std::vector<int> &groups) {
+    const int n = static_cast<int>(w.size());
+    if (n == 0)
+        return {};
+    std::vector<LRect> out(n);
+
+    std::vector<int> gs = groups;
+    if (static_cast<int>(gs.size()) != n)
+        gs.assign(n, 0);
+    std::vector<int> uniq = gs;
+    std::sort(uniq.begin(), uniq.end());
+    uniq.erase(std::unique(uniq.begin(), uniq.end()), uniq.end());
+    const int G = static_cast<int>(uniq.size());
+    if (G <= 1) {
+        std::vector<int> idx(n);
+        for (int i = 0; i < n; ++i)
+            idx[i] = i;
+        fitGroup(w, idx, area, cfg, out);
+        return out;
+    }
+
+    const int cols = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(G)))));
+    const int rows = (G + cols - 1) / cols;
+    const double cw = area.w / static_cast<double>(cols);
+    const double ch = area.h / static_cast<double>(rows);
+    for (int g = 0; g < G; ++g) {
+        std::vector<int> idx;
+        for (int i = 0; i < n; ++i)
+            if (gs[i] == uniq[g])
+                idx.push_back(i);
+        const int cx = g % cols, cy = g / cols;
+        fitGroup(w, idx, LRect{area.x + cx * cw, area.y + cy * ch, cw, ch}, cfg, out);
+    }
     return out;
 }
 
 }
 
-std::vector<LRect> computeLayout(const std::vector<LRect>& naturals, const LRect& area, const LayoutCfg& cfg) {
+std::vector<LRect> computeLayout(const std::vector<LRect>& naturals, const LRect& area,
+                                 const LayoutCfg& cfg, const std::vector<int> &groups) {
     const LRect a = inset(area, cfg);
     switch (cfg.engine) {
         case Engine::Grid: return layoutGrid(naturals, a, cfg);
-        case Engine::Natural: return layoutNatural(naturals, a, cfg);
+        case Engine::Natural: return layoutNatural(naturals, a, cfg, groups);
         case Engine::Rows:
         default: return layoutRows(naturals, a, cfg);
     }
@@ -208,8 +242,7 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
         slotOf[static_cast<size_t>(idx)] = rel;
         idxOfSlot.push_back(idx);
     }
-    // The cards just OUTSIDE the window get a box as well: a card about to leave
-    // needs somewhere to slide from, one about to come in somewhere to slide to.
+    // The cards just OUTSIDE the window get a box as well.
     for (const int rel : {-leftSlots - 1, rightSlots + 1}) {
         const int idx = ((sel + rel) % count + count) % count;
         if (slotOf[static_cast<size_t>(idx)] != 99)
@@ -239,11 +272,10 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     const double k =
         std::min({1.0, availW / std::max(1.0, stripW),
                   availH / std::max(1.0, stripH)}) * mt.scale;
-    // Must NOT push the focused card past the screen: a lone card has no neighbours to absorb the zoom.
+    // Must NOT push the focused card past the screen.
     const double kCard =
         std::min(k, std::min(screen.w / boxW, screen.h / stripH));
 
-    // kCard, not k: a panel measured at the unclamped scale is taller than what it holds.
     L.stripW = stripW * kCard;
     L.stripH = stripH * kCard;
     L.panelH = L.stripH;
