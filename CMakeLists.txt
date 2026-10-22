@@ -36,6 +36,7 @@ add_library(hyprview SHARED
   src/session/preview_visibility.cpp
   src/session/overview_lifetime.cpp
   src/session/pending_click.cpp
+  src/session/feed_poll.cpp
   src/session/layer_visibility.cpp
   src/build/build.cpp
   src/input/mouse.cpp

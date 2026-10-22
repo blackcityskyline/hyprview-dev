@@ -51,6 +51,7 @@ class CGradientValueData; // general:col.active_border's real type
 #include "session/hooks.hpp"
 #include "session/layer_visibility.hpp"
 #include "session/pending_click.hpp"
+#include "session/feed_poll.hpp"
 #include "session/preview_visibility.hpp"
 #include "render/tile_look.hpp"
 #include "blur.hpp"
@@ -130,6 +131,7 @@ public:
   // Three axes, not refinements of one another (AGENTS.md 3.3).
   [[nodiscard]] bool active() const { return m_life.active(); }
   [[nodiscard]] bool openedOrParked() const { return m_life.ownsScreen(); }
+  void startFeedPoll();
   [[nodiscard]] bool opening() const { return m_life.opening(); }
   [[nodiscard]] std::uint64_t frameTick() const { return m_pump.tick(); }
   [[nodiscard]] PHLMONITOR monitor() const { return m_monitor.lock(); }
@@ -217,6 +219,7 @@ private:
 
   int m_newCardId = 0;
   bool m_newCardAnim = false;
+  session::FeedPoll m_feedPoll;
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
   model::GridScroll m_gridScroll;
@@ -419,6 +422,7 @@ private:
   void releaseNewWorkspaces();
   void syncTiles();
   void syncTabs();
+  [[nodiscard]] bool feedChanged() const;
   void stepWorkspace(int dir);
   void hideLayers();
   void restoreLayers();

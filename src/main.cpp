@@ -89,6 +89,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 
     g_overviewOwned = std::make_unique<hyprview::Overview>(handle);
     g_overview      = g_overviewOwned.get();
+    g_overview->startFeedPoll();
     if (!g_overview->initialize()) {
         HyprlandAPI::addNotification(handle, "[hyprview] initialization failed", CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
         g_overview = nullptr;

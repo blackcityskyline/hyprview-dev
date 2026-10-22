@@ -757,9 +757,20 @@ void Overview::replayReflow(
   damage();
 }
 
-void Overview::syncTabs() {
+bool Overview::feedChanged() const {
   const auto stamp = feedStamp();
-  if (stamp == 0 || stamp == m_tabs.snapshot().stamp)
+  return stamp != 0 && stamp != m_tabs.snapshot().stamp;
+}
+
+void Overview::startFeedPoll() {
+  m_feedPoll.start(std::chrono::milliseconds(250), [this] {
+    if (openedOrParked() && feedChanged())
+      damage();
+  });
+}
+
+void Overview::syncTabs() {
+  if (!feedChanged())
     return;
   std::vector<model::SubjectRef> before;
   for (const auto &t : m_scene.tiles())
