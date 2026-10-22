@@ -103,7 +103,7 @@ constexpr IntSpec kInts[] = {
     {&grid.padding_bottom, "plugin:hyprview:padding_bottom", 70},
     {&behavior.kill_zone_reach, "plugin:hyprview:kill_zone_reach", 160},
     {&look.title_font_size, "plugin:hyprview:title_font_size", 12},
-    {&look.close_button_everywhere, "plugin:hyprview:close_button_everywhere", 0},
+    {&look.close_button, "plugin:hyprview:close_button", 1},
     {&look.counter_font_size, "plugin:hyprview:counter_font_size", 12},
     {&carousel.enabled, "plugin:hyprview:carousel", 0},
     {&carousel.on_open, "plugin:hyprview:carousel_on_open", 1},
@@ -199,6 +199,7 @@ constexpr StrSpec kStrs[] = {
     {&strip.bar_position, "plugin:hyprview:bar_position", "top"}, // deprecated alias
     {&strip.empty_mode, "plugin:hyprview:strip_empty_mode", "show"},
     {&look.close_button_position, "plugin:hyprview:close_button_position", "top-right"},
+    {&look.close_button_visibility, "plugin:hyprview:close_button_visibility", "desktop"},
     {&look.title_position, "plugin:hyprview:title_position", "bottom"},
     {&look.counter_position, "plugin:hyprview:counter_position", ""},
     {&look.close_trigger, "plugin:hyprview:close_trigger", "button"},

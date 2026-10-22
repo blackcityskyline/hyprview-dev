@@ -30,8 +30,12 @@ namespace {
 
 }
 
+bool Overview::closeButtonsOn() const {
+  return cfg::look.close_button != 0;
+}
+
 bool Overview::closeButtonsEverywhere() const {
-  return cfg::look.close_button_everywhere != 0;
+  return cfg::look.close_button_visibility.get() == "everywhere";
 }
 
 bool Overview::closeOnDoubleClick() const {
@@ -40,7 +44,8 @@ bool Overview::closeOnDoubleClick() const {
 
 // One rule for every layout, read by the hit-test too: the ✕ never appears where a click won't close.
 bool Overview::tileCloseButtons() const {
-  return !closeOnDoubleClick() && (m_view.desktop() || closeButtonsEverywhere());
+  return closeButtonsOn() && !closeOnDoubleClick() &&
+         (m_view.desktop() || closeButtonsEverywhere());
 }
 
 LRect Overview::closeButtonRect(const LRect &lb) const {

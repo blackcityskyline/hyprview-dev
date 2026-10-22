@@ -301,15 +301,17 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       }
     }
 
-    for (size_t i = 0; i < m_strip.size(); ++i) {
-      if (m_strip[i].kind == model::StripItem::Kind::Plus || m_strip[i].kind == model::StripItem::Kind::All)
-        continue;
-      const LRect c = stripCardAt(i);
-      const LRect br = closeButtonRect(c);
-      if (br.contains(lx, ly)) {
-        m_drag.consume(e.button);
-        closeWorkspaceWindows(m_strip[i]);
-        return true;
+    if (closeButtonsOn() && (m_view.desktop() || closeButtonsEverywhere())) {
+      for (size_t i = 0; i < m_strip.size(); ++i) {
+        if (m_strip[i].kind == model::StripItem::Kind::Plus || m_strip[i].kind == model::StripItem::Kind::All)
+          continue;
+        const LRect c = stripCardAt(i);
+        const LRect br = closeButtonRect(c);
+        if (br.contains(lx, ly)) {
+          m_drag.consume(e.button);
+          closeWorkspaceWindows(m_strip[i]);
+          return true;
+        }
       }
     }
 

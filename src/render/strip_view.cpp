@@ -318,7 +318,7 @@ void Overview::renderStripButtons() const {
       }
     }
 
-    {
+    if (closeButtonsOn() && (m_view.desktop() || closeButtonsEverywhere())) {
       const LRect br = closeButtonRect(card);
       const double rad = br.w / 2.0;
       safeRenderRect("closebtn", 

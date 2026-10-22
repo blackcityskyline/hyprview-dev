@@ -379,6 +379,7 @@ private:
   void closeWorkspaceWindows(const model::StripItem &it);
   void setDesktopMode(bool on);
   LRect closeButtonRect(const LRect &tile) const;
+  bool closeButtonsOn() const;
   bool closeButtonsEverywhere() const;
   bool closeOnDoubleClick() const;
   bool tileCloseButtons() const;

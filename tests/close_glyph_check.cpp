@@ -27,6 +27,10 @@ std::string slurp(const std::string &path) {
 int main(int argc, char **argv) {
   const std::string root = argc > 1 ? argv[1] : ".";
   int bad = 0;
+  const auto fail = [&bad](const char *msg) {
+    std::printf("FAIL: %s\n", msg);
+    ++bad;
+  };
 
   // Every surface that draws the close button asks the rule.
   for (const char *file : {"src/render/tile_view.cpp", "src/render/strip_view.cpp"}) {
@@ -59,28 +63,26 @@ int main(int argc, char **argv) {
     }
   }
 
-  // The knob's rule: tiles, deck cards and the hit-test read closeButtonsEverywhere();
-  // the strip band is exempt -- its cards show the x in every view and their click path
-  // must not consult the knob either, or a drawn button would go deaf in the run view.
+  // Two rules: the master switch (`close_button = 0`) kills the x everywhere, the strip
+  // band included; the visibility knob names the views. A band draw or click that skips
+  // the master leaves buttons the user asked to remove; a tile path that skips the knob
+  // shows the x where the user asked a view to be clean.
   {
     const auto tv = slurp(root + "/src/render/tile_view.cpp");
-    if (tv.find("closeButtonsEverywhere()") == std::string::npos) {
-      std::printf("FAIL: tile_view.cpp lost the close button's knob read\n");
-      ++bad;
+    if (tv.find("closeButtonsOn()") == std::string::npos ||
+        tv.find("closeButtonsEverywhere()") == std::string::npos) {
+      fail("tile_view.cpp must read the master and the visibility knob");
     }
     const auto sv = slurp(root + "/src/render/strip_view.cpp");
-    if (sv.find("closeButtonRect(card)") == std::string::npos ||
-        sv.find("closeButtonsEverywhere") != std::string::npos ||
-        sv.find("close_button_everywhere") != std::string::npos) {
-      std::printf("FAIL: strip_view.cpp consults the knob -- the band is exempt and "
-                  "must always show the x\n");
-      ++bad;
+    if (sv.find("closeButtonsOn()") == std::string::npos ||
+        sv.find("closeButtonsEverywhere()") == std::string::npos) {
+      fail("strip_view.cpp must read the master and the visibility knob too -- the "
+           "band lost its exemption when the switch went global");
     }
     const auto mv = slurp(root + "/src/input/mouse.cpp");
     if (mv.find("closeWorkspaceWindows(m_strip[i])") == std::string::npos ||
-        mv.find("close_button_everywhere") != std::string::npos) {
-      std::printf("FAIL: mouse.cpp lost the band's unconditional close click\n");
-      ++bad;
+        mv.find("closeButtonsOn()") == std::string::npos) {
+      fail("mouse.cpp lost the band's master-gated close click");
     }
   }
 

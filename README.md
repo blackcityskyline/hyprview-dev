@@ -296,7 +296,8 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `title_margin` | float | `6` | screen margin kept around the title pill |
 | `close_glyph_fill` | float | `0.62` | fraction of the close button the glyph fills |
 | `drop_hint_color` | color | `"0x38ffffff"` | drop-zone highlight flash on a workspace card while dragging |
-| `close_button_everywhere` | bool (0/1) | `0` | `0`: the x stays in desktop/canvas mode only — `1`: every tile, card and carousel card offers it in every view. The strip band ignores this knob: its cards always show the x and always close on it |
+| `close_button` | bool (0/1) | `1` | The global switch on every x: `0` removes close buttons everywhere, strip band included, whatever `close_button_visibility` says |
+| `close_button_visibility` | `desktop` \| `everywhere` \| `none` | `desktop` | Where the x lives: `desktop` — tiles, cards and the carousel deck in desktop/canvas mode (`key_desktop`) only — `everywhere`: the same surfaces in every view — `none`: nowhere. The strip band follows this rule too |
 | `close_button_icon` | string | `✕` | Glyph drawn in the close buttons |
 | `close_button_size` | float | `1.0` | Scale multiplier over the computed base button size |
 | `drag_size` | float (0.15–1.0) | `0.55` | Drag-phase preview size as a fraction of its source slot — applies to grid tiles and strip thumbs alike; `1.0` keeps the full-size preview under the cursor |
