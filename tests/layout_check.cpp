@@ -128,6 +128,44 @@ int main() {
     check(one.size() == 2 && one[0].x == one[1].x, "one workspace keeps the windows together");
   }
 
+  // The desktop view's grid: the groups make a square, the ceiling caps it, and the rows
+  // past the ceiling hang below the screen for the scrolling to walk.
+  {
+    LayoutCfg cfg;
+    cfg.engine = Engine::Natural;
+    cfg.cellGap = 8.0;
+    std::vector<LRect> nat;
+    std::vector<int> groups;
+    for (int g = 0; g < 4; ++g) {
+      nat.push_back(LRect{0, 0, 1354, 756});
+      groups.push_back(g);
+    }
+    const auto out = computeLayout(nat, screen, cfg, groups);
+    int cols = 0, rows = 0;
+    for (size_t i = 0; i < out.size(); ++i) {
+      bool newCol = true, newRow = true;
+      for (size_t j = 0; j < i; ++j) {
+        if (std::abs(out[j].x - out[i].x) < 1.0)
+          newCol = false;
+        if (std::abs(out[j].y - out[i].y) < 1.0)
+          newRow = false;
+      }
+      cols += newCol ? 1 : 0;
+      rows += newRow ? 1 : 0;
+    }
+    printf("four workspaces: %d columns, %d rows\n", cols, rows);
+    check(cols == 2 && rows == 2, "four workspaces make two columns and two rows");
+
+    cfg.cellCols = 2;
+    cfg.cellRows = 1;
+    const auto capped = computeLayout(nat, screen, cfg, groups);
+    int below = 0;
+    for (const auto &r : capped)
+      if (r.y >= screen.h - 1.0)
+        ++below;
+    check(below == 2, "the row past the ceiling hangs below the screen");
+  }
+
   // Ordinary: the layout the user actually sees.
   engines("9 equal", naturals({{673, 756}, {673, 756}, {673, 756},
                                {673, 756}, {673, 756}, {673, 756},

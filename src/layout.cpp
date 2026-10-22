@@ -176,10 +176,13 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
         return out;
     }
 
-    const int cols = std::max(1, cfg.cellCols);
+    // The cells are packed: a column is as wide as its group, so the gap is the gap. The grid is
+    // the square of the groups, up to the ceiling; the rows past it hang below the screen.
+    const int cols = std::min(std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(G))))),
+                              std::max(1, cfg.cellCols));
+    const int rows = (G + cols - 1) / cols;
+    const int onScreen = std::min(rows, std::max(1, cfg.cellRows));
     const double gap = std::max(0.0, cfg.cellGap);
-    const double cw = (area.w - gap * (cols - 1)) / static_cast<double>(cols);
-    const double ch = (area.h - gap * (std::max(1, cfg.cellRows) - 1)) / static_cast<double>(std::max(1, cfg.cellRows));
 
     std::vector<std::vector<int>> members(G);
     for (int i = 0; i < n; ++i) {
@@ -189,33 +192,12 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
                 break;
             }
     }
-    double scale = cfg.maxScale;
-    for (int g = 0; g < G; ++g) {
-        double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
-        for (const int i : members[g]) {
-            minX = std::min(minX, w[i].x);
-            minY = std::min(minY, w[i].y);
-            maxX = std::max(maxX, w[i].x + w[i].w);
-            maxY = std::max(maxY, w[i].y + w[i].h);
-        }
-        if (members[g].empty())
-            continue;
-        scale = std::min(scale, std::min({cw / std::max(1.0, maxX - minX),
-                                           ch / std::max(1.0, maxY - minY)}));
-    }
 
-    // The cells are packed: a column is as wide as its group, so the gap is the gap. The row
-    // wraps after cellCols groups.
-    struct Cell {
-        int    g;
-        double w = 0.0, h = 0.0;
-        double minX = 0.0, minY = 0.0;
+    struct Box {
+        double w = 0.0, h = 0.0, minX = 0.0, minY = 0.0;
     };
-    std::vector<std::vector<Cell>> rowList;
-    std::vector<Cell> row;
+    std::vector<Box> box(G);
     for (int g = 0; g < G; ++g) {
-        if (members[g].empty())
-            continue;
         double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
         for (const int i : members[g]) {
             minX = std::min(minX, w[i].x);
@@ -223,49 +205,47 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
             maxX = std::max(maxX, w[i].x + w[i].w);
             maxY = std::max(maxY, w[i].y + w[i].h);
         }
-        Cell c;
-        c.g = g;
-        c.w = (maxX - minX) * scale;
-        c.h = (maxY - minY) * scale;
-        c.minX = minX;
-        c.minY = minY;
-        if (static_cast<int>(row.size()) >= cols) {
-            rowList.push_back(row);
-            row.clear();
-        }
-        row.push_back(c);
+        box[g] = Box{maxX - minX, maxY - minY, minX, minY};
     }
-    if (!row.empty())
-        rowList.push_back(row);
 
-    double blockH = 0.0;
-    for (const auto &r : rowList) {
-        double h = 0.0;
-        for (const auto &c : r)
-            h = std::max(h, c.h);
-        blockH += h;
-    }
-    blockH += gap * static_cast<double>(rowList.size() > 0 ? rowList.size() - 1 : 0);
-
-    double y = area.y + (area.h - blockH) / 2.0;
-    for (const auto &r : rowList) {
-        double rowH = 0.0, rowWidth = 0.0;
-        for (const auto &c : r) {
-            rowH = std::max(rowH, c.h);
-            rowWidth += c.w;
+    auto rowSpan = [&](int r) {
+        double width = 0.0, height = 0.0;
+        int    count = 0;
+        for (int g = r * cols; g < std::min(G, (r + 1) * cols); ++g) {
+            width += box[g].w + (count > 0 ? gap : 0.0);
+            height = std::max(height, box[g].h);
+            ++count;
         }
-        rowWidth += gap * static_cast<double>(r.size() > 0 ? r.size() - 1 : 0);
-        double x = area.x + (area.w - rowWidth) / 2.0;
-        for (const auto &c : r) {
-            for (const int i : members[c.g])
-                out[i] = LRect{x + (w[i].x - c.minX) * scale, y + (w[i].y - c.minY) * scale,
+        return std::pair<double, double>{width, height};
+    };
+
+    double widest = 0.0, tall = 0.0;
+    for (int r = 0; r < onScreen; ++r) {
+        const auto span = rowSpan(r);
+        widest = std::max(widest, span.first);
+        tall += span.second;
+    }
+    tall += gap * static_cast<double>(std::max(0, onScreen - 1));
+    const double scale = std::min({area.w / std::max(1.0, widest), area.h / std::max(1.0, tall),
+                                   cfg.maxScale});
+
+    double y = area.y + (area.h - tall * scale) / 2.0;
+    for (int r = 0; r < rows; ++r) {
+        if (r == onScreen)
+            y = area.y + area.h + cfg.padBottom;
+        const auto span = rowSpan(r);
+        double x = area.x + (area.w - span.first * scale) / 2.0;
+        for (int g = r * cols; g < std::min(G, (r + 1) * cols); ++g) {
+            for (const int i : members[g])
+                out[i] = LRect{x + (w[i].x - box[g].minX) * scale, y + (w[i].y - box[g].minY) * scale,
                                w[i].w * scale, w[i].h * scale};
-            x += c.w + gap;
+            x += box[g].w * scale + gap;
         }
-        y += rowH + gap;
+        y += span.second * scale + gap;
     }
     return out;
 }
+
 
 }
 
