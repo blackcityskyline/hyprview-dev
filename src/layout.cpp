@@ -178,17 +178,61 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
 
     const int cols = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(G)))));
     const int rows = (G + cols - 1) / cols;
-    // The gap between the cells, the same on both axes.
     const double gap = std::max(0.0, cfg.cellGap);
     const double cw = (area.w - gap * (cols - 1)) / static_cast<double>(cols);
     const double ch = (area.h - gap * (rows - 1)) / static_cast<double>(rows);
+
+    std::vector<std::vector<int>> members(G);
+    for (int i = 0; i < n; ++i) {
+        for (int g = 0; g < G; ++g)
+            if (gs[i] == uniq[g]) {
+                members[g].push_back(i);
+                break;
+            }
+    }
+    double scale = cfg.maxScale;
     for (int g = 0; g < G; ++g) {
-        std::vector<int> idx;
-        for (int i = 0; i < n; ++i)
-            if (gs[i] == uniq[g])
-                idx.push_back(i);
-        const int cx = g % cols, cy = g / cols;
-        fitGroup(w, idx, LRect{area.x + cx * (cw + gap), area.y + cy * (ch + gap), cw, ch}, cfg, out);
+        double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+        for (const int i : members[g]) {
+            minX = std::min(minX, w[i].x);
+            minY = std::min(minY, w[i].y);
+            maxX = std::max(maxX, w[i].x + w[i].w);
+            maxY = std::max(maxY, w[i].y + w[i].h);
+        }
+        if (members[g].empty())
+            continue;
+        scale = std::min(scale, std::min({cw / std::max(1.0, maxX - minX),
+                                           ch / std::max(1.0, maxY - minY)}));
+    }
+
+    // The cells are packed: a column is as wide as its group, so the gap is the gap.
+    double x = area.x, y = area.y, rowH = 0.0;
+    int inRow = 0;
+    for (int g = 0; g < G; ++g) {
+        if (members[g].empty())
+            continue;
+        double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+        for (const int i : members[g]) {
+            minX = std::min(minX, w[i].x);
+            minY = std::min(minY, w[i].y);
+            maxX = std::max(maxX, w[i].x + w[i].w);
+            maxY = std::max(maxY, w[i].y + w[i].h);
+        }
+        const double gw = (maxX - minX) * scale, gh = (maxY - minY) * scale;
+        if (inRow > 0 && x + gw > area.x + area.w + 0.5) {
+            x = area.x;
+            y += rowH + gap;
+            rowH = 0.0;
+            inRow = 0;
+        }
+        const double ox = x + (gw - (maxX - minX) * scale) / 2.0;
+        const double oy = y + (gh - (maxY - minY) * scale) / 2.0;
+        for (const int i : members[g])
+            out[i] = LRect{ox + (w[i].x - minX) * scale, oy + (w[i].y - minY) * scale,
+                           w[i].w * scale, w[i].h * scale};
+        x += gw + gap;
+        rowH = std::max(rowH, gh);
+        ++inRow;
     }
     return out;
 }
