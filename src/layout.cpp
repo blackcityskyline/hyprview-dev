@@ -205,9 +205,16 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
                                            ch / std::max(1.0, maxY - minY)}));
     }
 
-    // The cells are packed: a column is as wide as its group, so the gap is the gap.
-    double x = area.x, y = area.y, rowH = 0.0;
-    int inRow = 0;
+    // The cells are packed and centred: a column is as wide as its group, and a third group
+    // re-centres the row instead of pushing the others left.
+    struct Cell {
+        int    g;
+        double w = 0.0, h = 0.0;
+        double minX = 0.0, minY = 0.0;
+    };
+    std::vector<std::vector<Cell>> rowList;
+    std::vector<Cell> row;
+    double rowW = 0.0;
     for (int g = 0; g < G; ++g) {
         if (members[g].empty())
             continue;
@@ -218,21 +225,48 @@ std::vector<LRect> layoutNatural(const std::vector<LRect>& w, const LRect& area,
             maxX = std::max(maxX, w[i].x + w[i].w);
             maxY = std::max(maxY, w[i].y + w[i].h);
         }
-        const double gw = (maxX - minX) * scale, gh = (maxY - minY) * scale;
-        if (inRow > 0 && x + gw > area.x + area.w + 0.5) {
-            x = area.x;
-            y += rowH + gap;
-            rowH = 0.0;
-            inRow = 0;
+        Cell c;
+        c.g = g;
+        c.w = (maxX - minX) * scale;
+        c.h = (maxY - minY) * scale;
+        c.minX = minX;
+        c.minY = minY;
+        if (!row.empty() && rowW + gap + c.w > area.w + 0.5) {
+            rowList.push_back(row);
+            row.clear();
+            rowW = 0.0;
         }
-        const double ox = x + (gw - (maxX - minX) * scale) / 2.0;
-        const double oy = y + (gh - (maxY - minY) * scale) / 2.0;
-        for (const int i : members[g])
-            out[i] = LRect{ox + (w[i].x - minX) * scale, oy + (w[i].y - minY) * scale,
-                           w[i].w * scale, w[i].h * scale};
-        x += gw + gap;
-        rowH = std::max(rowH, gh);
-        ++inRow;
+        rowW += (row.empty() ? 0.0 : gap) + c.w;
+        row.push_back(c);
+    }
+    if (!row.empty())
+        rowList.push_back(row);
+
+    double blockH = 0.0;
+    for (const auto &r : rowList) {
+        double h = 0.0;
+        for (const auto &c : r)
+            h = std::max(h, c.h);
+        blockH += h;
+    }
+    blockH += gap * static_cast<double>(rowList.size() > 0 ? rowList.size() - 1 : 0);
+
+    double y = area.y + (area.h - blockH) / 2.0;
+    for (const auto &r : rowList) {
+        double rowH = 0.0, rowWidth = 0.0;
+        for (const auto &c : r) {
+            rowH = std::max(rowH, c.h);
+            rowWidth += c.w;
+        }
+        rowWidth += gap * static_cast<double>(r.size() > 0 ? r.size() - 1 : 0);
+        double x = area.x + (area.w - rowWidth) / 2.0;
+        for (const auto &c : r) {
+            for (const int i : members[c.g])
+                out[i] = LRect{x + (w[i].x - c.minX) * scale, y + (w[i].y - c.minY) * scale,
+                               w[i].w * scale, w[i].h * scale};
+            x += c.w + gap;
+        }
+        y += rowH + gap;
     }
     return out;
 }
@@ -316,7 +350,6 @@ CarouselLayout computeCarousel(int count, int selected, const LRect& screen,
     const double k =
         std::min({1.0, availW / std::max(1.0, stripW),
                   availH / std::max(1.0, stripH)}) * mt.scale;
-    // Must NOT push the focused card past the screen.
     const double kCard =
         std::min(k, std::min(screen.w / boxW, screen.h / stripH));
 
