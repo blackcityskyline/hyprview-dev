@@ -349,6 +349,11 @@ add_test(NAME scan_depth_glide
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/depth_glide_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/depth_glide_check && ${CMAKE_CURRENT_BINARY_DIR}/depth_glide_check ${CMAKE_SOURCE_DIR}")
 
+# The run's reflow staggers outward from the focused slot, by slot distance.
+add_test(NAME scan_reflow_stagger
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/reflow_stagger_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/reflow_stagger_check && ${CMAKE_CURRENT_BINARY_DIR}/reflow_stagger_check ${CMAKE_SOURCE_DIR}")
+
 # The extension: it asks for every page, and it paints the canvas around the shot.
 add_test(NAME extension
          COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/extension_check.py)
