@@ -297,7 +297,6 @@ void Overview::close() {
       t.target = currentBox(t, static_cast<int>(i));
       // The natural box is where the tile RETURNS TO; otherwise the card dissolves instead (entryFade).
       if (const auto w = tileWindow(t)) {
-        // No window on the landing ws means no visible home: confirm already moved m_workspace to its window.
         const auto wws = w->m_workspace;
         if ((wws && wws != m_workspace.lock()) ||
             anim::tileExit(frame().goesHome(t)) == anim::TileExit::InPlace) {

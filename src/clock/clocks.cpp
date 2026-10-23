@@ -179,12 +179,14 @@ void Overview::updateAnimation() {
     return done;
   });
 
+  // Held until the window is gone: resetting on sendClose re-adds it to the next scene build.
   if (m_pendingKill) {
     const auto w = m_pendingKill.lock();
-    if (!w || !m_fx.swapActive(subjectOf(w), false)) {
-      if (w)
-        w->sendClose();
+    if (!w)
       m_pendingKill.reset();
+    else if (!m_killSent && !m_fx.swapActive(subjectOf(w), false)) {
+      w->sendClose();
+      m_killSent = true;
     }
   }
 

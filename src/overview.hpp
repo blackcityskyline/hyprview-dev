@@ -223,6 +223,7 @@ private:
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
   PHLWINDOWREF m_pendingKill;
+  bool m_killSent = false;
   model::GridScroll m_gridScroll;
   void animateGridTo(double from, double to);
   void followGrid(int i);

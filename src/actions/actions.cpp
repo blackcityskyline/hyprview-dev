@@ -600,6 +600,7 @@ void Overview::killTile(int i, double lx, double ly, const LRect &fromBox) {
     return;
   beginSwapFX(w, from, style, ms, curve, false, to);
   m_pendingKill = w;
+  m_killSent = false;
   ensureAnimPump();
   damage();
 }
