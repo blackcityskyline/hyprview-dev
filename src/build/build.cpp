@@ -572,6 +572,8 @@ void Overview::layoutTiles() {
       const double ox = usable.x + m_view.carousel().originX;
       const double oy = usable.y + m_view.carousel().originY + m_view.carousel().stripY;
       t.target = c.visible ? LRect{ox + c.x, oy + c.y, c.w, c.h} : LRect{};
+      t.depthFrom += (t.depthTo - t.depthFrom) * tileProgress(static_cast<int>(i));
+      t.depthTo = static_cast<float>(c.depth);
       // Caption cut to the card width HERE, where it is known; paint only reads.
       if (c.visible && !t.labelText.empty()) {
         // Not cut: a long title runs under the cards beside it, and they cover it.

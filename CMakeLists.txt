@@ -344,6 +344,11 @@ add_test(NAME scan_hide_motion
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/hide_motion_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/hide_motion_check && ${CMAKE_CURRENT_BINARY_DIR}/hide_motion_check ${CMAKE_SOURCE_DIR}")
 
+# The deck's scale rides the tile clock like the box: three sites, one rule.
+add_test(NAME scan_depth_glide
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/depth_glide_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/depth_glide_check && ${CMAKE_CURRENT_BINARY_DIR}/depth_glide_check ${CMAKE_SOURCE_DIR}")
+
 # The extension: it asks for every page, and it paints the canvas around the shot.
 add_test(NAME extension
          COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/extension_check.py)
