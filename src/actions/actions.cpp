@@ -184,10 +184,9 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
   const LRect thumbA = stripThumbRect(wa), thumbB = stripThumbRect(wb);
   g_layoutManager->switchTargets(ta, tb);
   replayReflow(oldBoxes);
-  // The overlay's own exchange, ONLY when the rebuild left nothing to animate: a second exchange lands each window back on its own box.
+  // The overlay's own exchange, ONLY when the rebuild left nothing to animate (natural == target; the trace records it, a second exchange homes both windows).
   const int ia = m_scene.tileIndexOf(subjectOf(wa));
   const int ib = m_scene.tileIndexOf(subjectOf(wb));
-  // Slot exchange needs natural == target: mid-entry "at motion" skips it; the trace records the verdict.
   const bool restA = m_scene.tileAtRest(ia), restB = m_scene.tileAtRest(ib);
   debug::trace::record(
       "SWAP", "decide",
@@ -577,7 +576,8 @@ void Overview::killTile(int i, double lx, double ly) {
   if (i < 0 || i >= static_cast<int>(m_scene.tiles().size()))
     return;
   const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
-  const LRect from = tileRect(static_cast<std::size_t>(i));
+  // The flight starts where the drop left the card, not at its slot: the slot reads as a snap home.
+  const LRect from = m_drag.lifted() ? dragVisualBox() : tileRect(static_cast<std::size_t>(i));
   const LRect to{lx, ly, 1.0, 1.0};
   const auto style = anim::Move{anim::Travel::Slide, anim::Axis::Horizontal};
   const auto ms = anim::cfg(anim::Id::SwapFly).ms;
