@@ -258,7 +258,7 @@ private:
   void kickPulse(model::SubjectRef s);
   void beginTabFX(const model::SubjectRef &subj, const LRect &from, const LRect &to,
                    anim::Move style, double ms, const std::string &curve);
-  void killTile(int i, double lx, double ly);
+  void killTile(int i, double lx, double ly, const LRect &fromBox = {});
   void beginSwapFX(const PHLWINDOW &w, const LRect &from,
                    anim::Move style, double ms, const std::string &curve,
                    bool toStrip = false, const LRect &to = {});

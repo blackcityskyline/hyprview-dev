@@ -269,7 +269,12 @@ void Overview::close() {
   }
   if (!active())
     return;
-  // Re-read: the landing workspace can change while the overview was up (all-workspaces, digit jump).
+  // Re-read: the landing workspace follows the focused card -- all-workspaces, digit jump, or a kill.
+  if (m_scene.focused() >= 0) {
+    if (const auto w = tileWindow(m_scene.tiles()[static_cast<size_t>(m_scene.focused())]);
+        w && w->m_workspace && w->m_workspace->m_monitor.lock() == m_monitor.lock())
+      m_workspace = w->m_workspace;
+  }
   m_landingEmpty = !workspaceHasWindows(m_workspace.lock());
   // Keep the overlay up until Hyprland's own blur rebuilds, or releasing early uncovers a sharp desktop.
   if (const auto m = m_monitor.lock())

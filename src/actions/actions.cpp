@@ -572,12 +572,12 @@ void Overview::beginTabFX(const model::SubjectRef &subj, const LRect &from,
   damage();
 }
 
-void Overview::killTile(int i, double lx, double ly) {
+void Overview::killTile(int i, double lx, double ly, const LRect &fromBox) {
   if (i < 0 || i >= static_cast<int>(m_scene.tiles().size()))
     return;
   const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
-  // The flight starts where the drop left the card, not at its slot: the slot reads as a snap home.
-  const LRect from = m_drag.lifted() ? dragVisualBox() : tileRect(static_cast<std::size_t>(i));
+  // The flight starts where the release left the card, not at its slot: the slot reads as a snap home.
+  const LRect from = fromBox.w > 0.0 ? fromBox : tileRect(static_cast<std::size_t>(i));
   const LRect to{lx, ly, 1.0, 1.0};
   const auto style = anim::Move{anim::Travel::Slide, anim::Axis::Horizontal};
   const auto ms = anim::cfg(anim::Id::SwapFly).ms;
