@@ -90,7 +90,7 @@ void Overview::buildTiles() {
   std::string hostTitles;
   for (const auto subj : subjects) {
     const auto w = m_windows.windowOf(subj);
-    if (w) {
+    if (w && w != m_pendingKill.lock()) {
   // PID, not title: a browser appends its own name to the window title (AGENTS.md 2.26).
       hosts.push_back(model::HostWindow{reinterpret_cast<std::uintptr_t>(w.get()),
                                         static_cast<std::uint64_t>(w->getPID())});
@@ -111,7 +111,7 @@ void Overview::buildTiles() {
                            cfg::behavior.tile_mode.get() + "|hostLens=" + hostTitles);
   for (const auto subj : subjects) {
     const auto w = m_windows.windowOf(subj);
-    if (!w)
+    if (!w || w == m_pendingKill.lock())
       continue;
 
     // goal(), not value(): value() carries the slide offset.
@@ -807,7 +807,7 @@ void Overview::syncTiles() {
   };
   size_t expected = 0;
   for (const auto &w : Desktop::windowState()->windows())
-    if (belongs(w))
+    if (belongs(w) && w != m_pendingKill.lock())
       ++expected;
 
   bool diff = expected != m_scene.size();
@@ -825,7 +825,8 @@ void Overview::syncTiles() {
   // Recency caches the live set; a dead window's slot would pass to the next window at the same address.
   pruneRecency();
 
-  auto oldBoxes = captureCurrentBoxes();
+  const auto dying = m_pendingKill.lock();
+  auto oldBoxes = captureCurrentBoxes(dying ? subjectOf(dying) : model::SubjectRef{});
 
   // no parking here: only the drop path sets `parked`; parking every survivor froze free-arrange.
   replayReflow(oldBoxes);

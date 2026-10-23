@@ -269,12 +269,7 @@ void Overview::close() {
   }
   if (!active())
     return;
-  // Re-read: the landing workspace follows the focused card -- all-workspaces, digit jump, or a kill.
-  if (m_scene.focused() >= 0) {
-    if (const auto w = tileWindow(m_scene.tiles()[static_cast<size_t>(m_scene.focused())]);
-        w && w->m_workspace && w->m_workspace->m_monitor.lock() == m_monitor.lock())
-      m_workspace = w->m_workspace;
-  }
+  // Re-read: the landing workspace can change while the overview was up (all-workspaces, digit jump).
   m_landingEmpty = !workspaceHasWindows(m_workspace.lock());
   // Keep the overlay up until Hyprland's own blur rebuilds, or releasing early uncovers a sharp desktop.
   if (const auto m = m_monitor.lock())
@@ -302,7 +297,10 @@ void Overview::close() {
       t.target = currentBox(t, static_cast<int>(i));
       // The natural box is where the tile RETURNS TO; otherwise the card dissolves instead (entryFade).
       if (const auto w = tileWindow(t)) {
-        if (anim::tileExit(frame().goesHome(t)) == anim::TileExit::InPlace) {
+        // No window on the landing ws means no visible home: confirm already moved m_workspace to its window.
+        const auto wws = w->m_workspace;
+        if ((wws && wws != m_workspace.lock()) ||
+            anim::tileExit(frame().goesHome(t)) == anim::TileExit::InPlace) {
           t.natural = t.target;
           continue;
         }
