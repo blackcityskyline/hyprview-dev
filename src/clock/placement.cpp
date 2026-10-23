@@ -54,8 +54,14 @@ double Placement::tileProgress(int i, const view::State &view, bool opening,
   // Read clocks.tileMs, not recipes.glide.ms: a glideLeaf() flip jumps progress.
   const double glideMs = (clocks.tileMs > 0) ? clocks.tileMs : recipes.glide.ms;
   const double base = opening ? clocks.tiles.raw(glideMs) : progress.raw();
-  // The FOCUSED tile is never staggered: stagger() assumes a rising 0..1, so on close it would delay the landing.
-  if (view.run() || i == scene.focused())
+  if (view.run()) {
+    const int k = view.slotOf(static_cast<std::size_t>(i));
+    const int f = view.slotOf(static_cast<std::size_t>(scene.focused()));
+    return staggered(base, k < 0 || f < 0 ? 0 : (k > f ? k - f : f - k),
+                     static_cast<int>(scene.tiles().size()));
+  }
+  // The FOCUSED grid tile is never staggered: a delayed landing reads as a stuck close.
+  if (i == scene.focused())
     return base;
   return staggered(base, i, static_cast<int>(scene.tiles().size()));
 }
