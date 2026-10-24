@@ -90,7 +90,7 @@ void Overview::buildTiles() {
   std::string hostTitles;
   for (const auto subj : subjects) {
     const auto w = m_windows.windowOf(subj);
-    if (w && w != m_pendingKill.lock()) {
+    if (w && subj != m_pendingKill) {
   // PID, not title: a browser appends its own name to the window title (AGENTS.md 2.26).
       hosts.push_back(model::HostWindow{reinterpret_cast<std::uintptr_t>(w.get()),
                                         static_cast<std::uint64_t>(w->getPID())});
@@ -111,7 +111,7 @@ void Overview::buildTiles() {
                            cfg::behavior.tile_mode.get() + "|hostLens=" + hostTitles);
   for (const auto subj : subjects) {
     const auto w = m_windows.windowOf(subj);
-    if (!w || w == m_pendingKill.lock())
+    if (!w || subj == m_pendingKill)
       continue;
 
     // goal(), not value(): value() carries the slide offset.
@@ -132,6 +132,8 @@ void Overview::buildTiles() {
       t.subj = entry.tabId < 0 ? subj
                                : model::SubjectRef{static_cast<std::uint64_t>(entry.tabId),
                                                    m_tabs.generation()};
+      if (t.subj == m_pendingKill)
+        continue;
       // A tab's natural is its host's box: the layout needs an aspect, and its preview is of that window.
       t.natural = box;
       t.home = box;
@@ -770,17 +772,26 @@ void Overview::startFeedPoll() {
 }
 
 void Overview::syncTabs() {
-  if (m_drag.armed() || !feedChanged())
+  if (m_drag.armed())
+    return;
+  // A pending kill leaves the scene now, not on the feed tick; a card left behind lands home as a ghost.
+  bool holdsPending = false;
+  for (const auto &t : m_scene.tiles())
+    if (t.subj == m_pendingKill) {
+      holdsPending = true;
+      break;
+    }
+  if (!feedChanged() && !holdsPending)
     return;
   std::vector<model::SubjectRef> before;
   for (const auto &t : m_scene.tiles())
-    if (cardOf(t).isTab())
+    if (cardOf(t).isTab() && t.subj != m_pendingKill)
       before.push_back(t.subj);
   loadTabs();
-  if (model::sameSubjects(before, m_tabs.enumerate()))
+  if (!holdsPending && model::sameSubjects(before, m_tabs.enumerate()))
     return;
   pruneRecency();
-  auto oldBoxes = captureCurrentBoxes();
+  auto oldBoxes = captureCurrentBoxes(m_pendingKill);
   replayReflow(oldBoxes);
 }
 
@@ -807,7 +818,7 @@ void Overview::syncTiles() {
   };
   size_t expected = 0;
   for (const auto &w : Desktop::windowState()->windows())
-    if (belongs(w) && w != m_pendingKill.lock())
+    if (belongs(w) && subjectOf(w) != m_pendingKill)
       ++expected;
 
   bool diff = expected != m_scene.size();
@@ -825,8 +836,7 @@ void Overview::syncTiles() {
   // Recency caches the live set; a dead window's slot would pass to the next window at the same address.
   pruneRecency();
 
-  const auto dying = m_pendingKill.lock();
-  auto oldBoxes = captureCurrentBoxes(dying ? subjectOf(dying) : model::SubjectRef{});
+  auto oldBoxes = captureCurrentBoxes(m_pendingKill);
 
   // no parking here: only the drop path sets `parked`; parking every survivor froze free-arrange.
   replayReflow(oldBoxes);

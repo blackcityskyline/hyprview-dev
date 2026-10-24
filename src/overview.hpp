@@ -222,7 +222,7 @@ private:
   session::FeedPoll m_feedPoll;
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
-  PHLWINDOWREF m_pendingKill;
+  model::SubjectRef m_pendingKill;
   bool m_killSent = false;
   model::GridScroll m_gridScroll;
   void animateGridTo(double from, double to);

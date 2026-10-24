@@ -591,16 +591,19 @@ void Overview::killTile(int i, double lx, double ly, const LRect &fromBox) {
                              std::to_string(group.id) + "|sent=" + std::to_string(sent ? 1 : 0));
     if (!sent)
       return;
+    m_pendingKill = t.subj;
+    m_killSent = true;
     beginTabFX(t.subj, from, to, style, ms, curve);
+    ensureAnimPump();
     damage();
     return;
   }
   const auto w = tileWindow(t);
   if (!w)
     return;
-  beginSwapFX(w, from, style, ms, curve, false, to);
-  m_pendingKill = w;
+  m_pendingKill = t.subj;
   m_killSent = false;
+  beginSwapFX(w, from, style, ms, curve, false, to);
   ensureAnimPump();
   damage();
 }

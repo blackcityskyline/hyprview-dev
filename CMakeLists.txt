@@ -339,6 +339,12 @@ add_test(NAME scan_card_home
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/card_home_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/card_home_check && ${CMAKE_CURRENT_BINARY_DIR}/card_home_check ${CMAKE_SOURCE_DIR}")
 
+# The kill path: a tab card leaves the scene in the drop frame, like a window card, instead of
+# waiting for the feed tick and landing back home as a ghost.
+add_test(NAME scan_tab_kill
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_kill_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_kill_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_kill_check ${CMAKE_SOURCE_DIR}")
+
 # The card's hide motion: written once, in the placement. The run used to carry its own copy.
 add_test(NAME scan_hide_motion
          COMMAND ${CMAKE_COMMAND} -E env sh -c

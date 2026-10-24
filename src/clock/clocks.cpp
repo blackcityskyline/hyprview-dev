@@ -179,15 +179,14 @@ void Overview::updateAnimation() {
     return done;
   });
 
-  // Held until the window is gone: resetting on sendClose re-adds it to the next scene build.
-  if (m_pendingKill) {
-    const auto w = m_pendingKill.lock();
-    if (!w)
-      m_pendingKill.reset();
-    else if (!m_killSent && !m_fx.swapActive(subjectOf(w), false)) {
+  if (m_pendingKill.id != 0) {
+    const auto w = m_windows.windowOf(m_pendingKill);
+    if (w && !m_killSent && !m_fx.swapActive(m_pendingKill, false)) {
       w->sendClose();
       m_killSent = true;
     }
+    if (!w && m_tabs.groupOf(m_pendingKill).id == 0)
+      m_pendingKill = {};
   }
 
   const double t = m_place.clocks.master.raw(dur);
