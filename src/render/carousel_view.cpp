@@ -80,7 +80,7 @@ void Overview::renderCarousel() const {
 
     const auto &t = m_scene.tiles()[static_cast<size_t>(i)];
     // Already drawn by renderSwapFX during a grid flight: skip it in the run too.
-    if (swapfxActive(tileWindow(t), false))
+    if (swapfxActiveSubject(t.subj, false))
       continue;
 
     // The hide motion is the placement's: one rule for the grid and the run.

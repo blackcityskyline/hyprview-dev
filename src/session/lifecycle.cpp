@@ -285,7 +285,7 @@ void Overview::close() {
     // Two passes on purpose: the pin test needs the focused tile's natural, which the loop rewrites as it goes.
     LRect selNat{};
     if (m_scene.focused() >= 0) {
-      if (const auto w = tileWindow(m_scene.tiles()[static_cast<size_t>(m_scene.focused())])) {
+      if (const auto w = ownerWindow(m_scene.tiles()[static_cast<size_t>(m_scene.focused())])) {
         const auto p = w->positionAnimation()->goal();
         const auto s = w->sizeAnimation()->goal();
         selNat = LRect{p.x - m->m_position.x, p.y - m->m_position.y,
@@ -296,7 +296,7 @@ void Overview::close() {
       auto &t = m_scene.tileAt(i);
       t.target = currentBox(t, static_cast<int>(i));
       // The natural box is where the tile RETURNS TO; otherwise the card dissolves instead (entryFade).
-      if (const auto w = tileWindow(t)) {
+      if (const auto w = ownerWindow(t)) {
         const auto wws = w->m_workspace;
         if ((wws && wws != m_workspace.lock()) ||
             anim::tileExit(frame().goesHome(t)) == anim::TileExit::InPlace) {
