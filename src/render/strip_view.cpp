@@ -184,7 +184,7 @@ void Overview::renderStripWindows() const {
     return;
   const double scale = m->m_scale;
   const auto when    = Time::steadyNow();
-  const int previewRound = cfg::look.preview_round;
+  const int cardRound = cfg::strip.card_round.get();
   const float roundPow   = cfg::look.preview_round_power;
 
   for (size_t i = 0; i < m_strip.size(); ++i) {
@@ -209,7 +209,8 @@ void Overview::renderStripWindows() const {
                    std::to_string(j) + " rel=" + std::to_string(it.wins[j].rel.w) +
                    "x" + std::to_string(it.wins[j].rel.h) + " -> " +
                    std::to_string(slot.w) + "x" + std::to_string(slot.h));
-      const int round = clampRound(previewRound, slot.w, slot.h);
+      // The preview follows its card: rounder than the card, its corner opens a gap to the backdrop.
+      const int round = clampRound(cardRound, slot.w, slot.h);
       const CBox slotPx = pxb(slot, scale);
       const CBox cardPx = pxb(card, scale);
       if (slot.w >= 1.0 && slot.h >= 1.0 && it.ws && it.ws->m_isSpecialWorkspace)
@@ -217,10 +218,8 @@ void Overview::renderStripWindows() const {
                    std::to_string(slotPx.h) + "px of " + std::to_string(slot.w) + "x" +
                    std::to_string(slot.h) + " card=" + std::to_string(card.w) + "x" +
                    std::to_string(card.h));
-      // Grab ring or plain border: whichever is on top, the content radius follows it.
-      const int ringW = stripSlotGrabbed(i, j) ? 2 : cfg::look.border_size;
       renderWindowLive(w, m, slotPx, cardPx, static_cast<float>(e), when,
-                       contentRadiusPx(round, ringW, scale),
+                       contentRadiusPx(round, 0, scale),
                        roundPow, true);
     }
   }
