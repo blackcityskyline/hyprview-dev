@@ -229,6 +229,18 @@ void Backdrop::render(const BackdropFrame &f) const {
   const double e      = f.eased;
   const auto baseCol  = f.baseCol;
 
+  // Entry: the desktop recedes 10% and the border is its own edge pixels stretched, so the seam is a colour match.
+  const double zoom = 1.0 - 0.10 * std::clamp(e, 0.0, 1.0);
+  const double uvM  = (1.0 - zoom) / (2.0 * zoom);
+  const auto baseData = [&](float a) {
+    Render::GL::CHyprOpenGLImpl::STextureRenderData d{};
+    d.a = a;
+    d.allowCustomUV = true;
+    d.primarySurfaceUVTopLeft = {-uvM, -uvM};
+    d.primarySurfaceUVBottomRight = {1.0 + uvM, 1.0 + uvM};
+    return d;
+  };
+
   const float k = static_cast<float>(e);
   const double dimK = f.dimK;
   debug::dbg(std::string("backdrop e=") + std::to_string(e).substr(0, 5) +
@@ -253,7 +265,7 @@ void Backdrop::render(const BackdropFrame &f) const {
     switch (base) {
       case BackdropBase::Blur:
         baseIsBlur = true;
-        g_pHyprOpenGL->renderTexture(cachedTex, fullPx, {.a = baseA});
+        g_pHyprOpenGL->renderTexture(cachedTex, fullPx, baseData(baseA));
         break;
       case BackdropBase::OpaqueDim:
         safeRenderRect("backdrop", fullPx, CHyprColor(baseCol.r, baseCol.g, baseCol.b, 1.0F), {});
@@ -261,12 +273,11 @@ void Backdrop::render(const BackdropFrame &f) const {
       case BackdropBase::Source: {
         const auto comp = frameSource(f);
         if (comp && comp->ok())
-          g_pHyprOpenGL->renderTexture(comp, fullPx, {.a = baseA});
+          g_pHyprOpenGL->renderTexture(comp, fullPx, baseData(baseA));
         break;
       }
     }
   }
-
 
   if (!f.blurEnabled) {
     const auto col = argb(baseCol, dimK);
@@ -294,8 +305,7 @@ void Backdrop::render(const BackdropFrame &f) const {
   const auto tex = m_blur.fb ? m_blur.fb->getTexture() : nullptr;
   const float kk = static_cast<float>(f.dimK);
   if (tex && tex->ok() && !baseIsBlur) {
-    // Through g_pHyprOpenGL->blend so m_capStatus follows: a raw glEnable makes the pass's own
-    // blend(false) early-return (OpenGL.cpp:2620), leaving GL on with the cache saying off.
+    // Through g_pHyprOpenGL->blend so m_capStatus follows: a raw glEnable makes the pass's own blend(false) early-return (OpenGL.cpp:2620), leaving GL on with the cache saying off.
     const bool blendBefore = glIsEnabled(GL_BLEND) == GL_TRUE;
     GLint      srcRGB = GL_ONE, dstRGB = GL_ZERO, srcA = GL_ONE, dstA = GL_ZERO;
     glGetIntegerv(GL_BLEND_SRC_RGB, &srcRGB);
@@ -304,7 +314,7 @@ void Backdrop::render(const BackdropFrame &f) const {
     glGetIntegerv(GL_BLEND_DST_ALPHA, &dstA);
     g_pHyprOpenGL->blend(true);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    g_pHyprOpenGL->renderTexture(tex, fullPx, {.a = kk});
+    g_pHyprOpenGL->renderTexture(tex, fullPx, baseData(kk));
     glBlendFuncSeparate(srcRGB, dstRGB, srcA, dstA);
     if (!blendBefore)
       g_pHyprOpenGL->blend(false);
@@ -312,12 +322,9 @@ void Backdrop::render(const BackdropFrame &f) const {
     m_blur.valid = false;
   }
 
-
   const auto dimCol = argb(baseCol, dimK);
   if (dimCol.a > 0.0)
     safeRenderRect("backdrop", fullPx, dimCol, {});
-
-
 }
 }
 

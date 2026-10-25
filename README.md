@@ -92,6 +92,11 @@ A card's caption is the window title — or, for a tab, the page title — cut a
 characters with `...` at the end, the dots included. The limit counts characters, so a
 Cyrillic title is cut between letters and not through one.
 
+On entry the desktop recedes by 10% over the whole entry. The ring that opens around it
+is the frame's own edge pixels stretched outward, so the seam is a colour match and there
+is no border line. A close grows it back to exactly 1:1, so the cut to the desktop matches.
+Works with `blur = 0` too.
+
 Lua:
 
 ```lua
