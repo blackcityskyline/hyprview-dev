@@ -234,6 +234,7 @@ private:
                                anim::cfg(anim::Id::StripStep).ms);
   }
   double blurAlpha() const; // backdrop strength, on the open/close clock
+  double backdropRecede() const;
   // A window that really occupies the desktop; tells an empty workspace from a busy one.
   static bool workspaceHasWindows(const PHLWORKSPACE &ws);
   // Windowed exit is done: tiles landed and Hyprland has spent the forced blur frames.

@@ -229,7 +229,7 @@ void Backdrop::render(const BackdropFrame &f) const {
   const double e      = f.eased;
   const auto baseCol  = f.baseCol;
 
-  // Entry: the desktop recedes 10% and the border is its own edge pixels stretched, so the seam is a colour match.
+  // The desktop recedes 10%; the border is its own edge pixels stretched, so the seam is a colour match.
   const double zoom = 1.0 - 0.10 * std::clamp(e, 0.0, 1.0);
   const double uvM  = (1.0 - zoom) / (2.0 * zoom);
   const auto baseData = [&](float a) {
@@ -330,7 +330,7 @@ void Backdrop::render(const BackdropFrame &f) const {
 
 // The owner reads the config here, every frame, and hands the backdrop a plain recipe: nothing below reaches back out for it (AGENTS.md 2.15, 2.16).
 render::BackdropFrame Overview::backdropFrame() const {
-  return {m_monitor.lock(), eased(), blurAlpha(), cfg::blur.backdrop.get(), opening(),
+  return {m_monitor.lock(), backdropRecede(), blurAlpha(), cfg::blur.backdrop.get(), opening(),
           blurEnabled(), blurPasses(), blurSize(), blurResolution(), blurStrength()};
 }
 

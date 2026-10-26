@@ -94,8 +94,9 @@ Cyrillic title is cut between letters and not through one.
 
 On entry the desktop recedes by 10% over the whole entry. The ring that opens around it
 is the frame's own edge pixels stretched outward, so the seam is a colour match and there
-is no border line. A close grows it back to exactly 1:1, so the cut to the desktop matches.
-Works with `blur = 0` too.
+is no border line. A close grows it back to exactly 1:1 playing the same ease-out forward:
+a time-reversed playback stalls for half the close, then snaps into the cut. Works with
+`blur = 0` too.
 
 Lua:
 

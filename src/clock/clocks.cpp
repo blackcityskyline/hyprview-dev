@@ -37,7 +37,6 @@ anim::Id Overview::glideLeaf() const {
 // progress.raw() runs DOWN on a close, so every exit fraction reads it here, not on its own.
 double Overview::exitT() const { return m_place.progress.exit(opening()); }
 
-// The same number on the way in, so one schedule can be played in both directions.
 double Overview::openT() const { return opening() ? m_place.progress.raw() : 1.0; }
 
 // Hold the backdrop until our tiles are done AND Hyprland has spent its forced full frames.
@@ -54,6 +53,15 @@ double Overview::blurAlpha() const {
 }
 
 double Overview::eased() const { return m_place.eased(); }
+
+// The close plays the entry's ease-out FORWARD: eval(curve, progress) sat still for half of it, then snapped.
+double Overview::backdropRecede() const {
+  if (opening())
+    return std::clamp(m_place.eased(), 0.0, 1.0);
+  const auto id = m_place.masterId(m_view, false);
+  const double elapsed = 1.0 - std::clamp(m_place.progress.raw(), 0.0, 1.0);
+  return std::clamp(1.0 - curves::eval(anim::cfg(id).curve, elapsed), 0.0, 1.0);
+}
 
 double Overview::animDuration() const { return m_place.masterDuration(); }
 
