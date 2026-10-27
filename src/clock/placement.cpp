@@ -90,7 +90,10 @@ double Placement::entryFade(const model::Tile &t, int i, const Frame &f) const {
 LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   const std::string &curve =
       clocks.tileCurve.empty() ? recipes.glide.curve : clocks.tileCurve;
-  const double e = curves::eval(curve, tileProgress(i, f.view, f.opening, f.scene));
+  // The exit plays the entry FORWARD: the curve on a falling progress held the card still, then snapped it home.
+  const double p = tileProgress(i, f.view, f.opening, f.scene);
+  const double e = f.opening ? curves::eval(curve, p)
+                             : 1.0 - curves::eval(curve, 1.0 - p);
   // The closed end of the flight: the place the card belongs to.
   const auto &a = f.opening ? t.natural : t.home;
   const auto &b = t.target;
