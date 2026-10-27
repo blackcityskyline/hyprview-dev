@@ -248,9 +248,8 @@ void Overview::open() {
   m_place.progress.closed();
   // Parked already counts as owned (see inputRoutedAway): the real windows lose focus on the first parked frame.
   dropFocusFromWindows();
-  // Immersive fade only without windows: their Hyprland blur is what covers the gap the ramp would open.
-  m_landingEmpty = !workspaceHasWindows(m_liveWsAtOpen.lock());
-  debug::dbg("open: ws=" + std::to_string(m_liveWsAtOpen.lock() ? m_liveWsAtOpen.lock()->m_id : -1) + " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
+  debug::dbg("open: ws=" + std::to_string(m_liveWsAtOpen.lock() ? m_liveWsAtOpen.lock()->m_id : -1) +
+             " empty=" + std::to_string(workspaceHasWindows(m_liveWsAtOpen.lock()) ? 0 : 1));
   m_place.clocks.master.begin();
   debug::trace::animStart("master", "master", "", m_place.recipes.glide.ms, m_place.recipes.glide.curve.c_str());
   m_place.clocks.tiles.begin();
@@ -270,11 +269,11 @@ void Overview::close() {
   if (!active())
     return;
   // Re-read: the landing workspace can change while the overview was up (all-workspaces, digit jump).
-  m_landingEmpty = !workspaceHasWindows(m_workspace.lock());
   // Keep the overlay up until Hyprland's own blur rebuilds, or releasing early uncovers a sharp desktop.
   if (const auto m = m_monitor.lock())
     m->m_forceFullFrames = std::max(m->m_forceFullFrames, 8);
-  debug::dbg("close: ws=" + std::to_string(m_workspace.lock() ? m_workspace.lock()->m_id : -1) + " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
+  debug::dbg("close: ws=" + std::to_string(m_workspace.lock() ? m_workspace.lock()->m_id : -1) +
+             " empty=" + std::to_string(workspaceHasWindows(m_workspace.lock()) ? 0 : 1));
   m_life.endEntry();
   m_life.consumeJumpClosing();
 

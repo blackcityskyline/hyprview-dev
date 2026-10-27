@@ -1,6 +1,6 @@
-// The band leaves on the same number the cards leave on. It used to read exitT(), which
-// rises on a close: the band dropped to zero on the first exit frame and then darkened
-// back to full opacity while the strip slid away.
+// The band leaves on the same number the cards leave on: one curtain, one value. It read
+// exitT(), which rises on a close, and later ran on a second clock while the backdrop ran
+// on its own -- both left the band and the desktop as two separate actions.
 
 #include <cstdio>
 #include <fstream>
@@ -29,8 +29,12 @@ int main(int argc, char **argv) {
   if (strip.empty())
     return fail("src/render/strip_view.cpp not found");
 
-  if (strip.find("bandE = opening() ? stripE : e;") == std::string::npos)
-    return fail("the band no longer fades on the cards' eased value -- it must leave with them");
+  if (strip.find("bandE") != std::string::npos)
+    return fail("the band carries a fade value of its own -- the curtain leaves on the cards' e");
+
+  if (strip.find("cfg::colors.strip_band.get(e)") == std::string::npos ||
+      strip.find("stripBandAlpha(cfg::strip.band_opacity.get(), e)") == std::string::npos)
+    return fail("the band's colour and alpha no longer read the cards' eased value");
 
   if (strip.find("exitT(") != std::string::npos)
     return fail("the band reads exitT(), which rises on a close -- an exit-progress number is not a fade");

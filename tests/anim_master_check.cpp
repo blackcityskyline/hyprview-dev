@@ -16,7 +16,6 @@
 
 #include "../src/anim_types.hpp"
 
-using hyprview::anim::backdropFades;
 using hyprview::anim::masterLeaf;
 using hyprview::anim::MasterLeaf;
 
@@ -30,25 +29,6 @@ int main() {
   assert(masterLeaf(true, true)   == MasterLeaf::Open);
   assert(masterLeaf(true, false)  == MasterLeaf::JumpOut);
   std::puts("jumpMode only changes the exit leaf");
-
-  // --- the backdrop ---------------------------------------------------------------
-  // With windows present on the landing workspace, the real windows' own blur covers the
-  // exit, so ours holds. On an empty workspace there is nothing to cover it and the
-  // backdrop must ride the clock, or the exit opens onto a sharp desktop.
-  {
-    assert(backdropFades(true, true));    // opening: fades regardless
-    assert(backdropFades(true, false));   // opening onto occupied: fades, it is arriving
-    assert(backdropFades(false, true));   // closing off empty: nothing to cover
-    assert(!backdropFades(false, false)); // closing off occupied: holds
-  }
-  std::puts("backdrop holds on exit only when windows are underneath");
-
-  // The distinction that matters is exit-only. Opening onto an occupied workspace still
-  // fades -- the backdrop is arriving, not leaving, and holding it would show a sharp
-  // desktop under the rising overview. Symmetric reasoning on both directions would get
-  // this wrong, which is why both cells are asserted rather than the rule summarised.
-  assert(backdropFades(true, false) != backdropFades(false, false));
-  std::puts("the two directions are not symmetric, and are not treated as such");
 
   std::puts("OK");
   return 0;

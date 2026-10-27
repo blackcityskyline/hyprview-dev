@@ -254,10 +254,25 @@ void Backdrop::render(const BackdropFrame &f) const {
       " opening=" + std::to_string(f.opening) +
       " k=" + std::to_string(k).substr(0, 5));
 
-  // Opaque base from the backdrop SOURCES: at low k the blend target is currentFB, stale and dark.
-  const float baseA = f.opening ? 1.0F : static_cast<float>(f.dimK);
+  // Glass fades against the sharp source; a blur held to the last frame reads as a cut (AGENTS.md 4).
+  const auto drawBlended = [&](const SP<Render::ITexture> &tex, float a) {
+    // Through g_pHyprOpenGL->blend so m_capStatus follows: a raw glEnable makes the pass's own blend(false) early-return (OpenGL.cpp:2620), leaving GL on with the cache saying off.
+    const bool blendBefore = glIsEnabled(GL_BLEND) == GL_TRUE;
+    GLint      srcRGB = GL_ONE, dstRGB = GL_ZERO, srcA = GL_ONE, dstA = GL_ZERO;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &srcRGB);
+    glGetIntegerv(GL_BLEND_DST_RGB, &dstRGB);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcA);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &dstA);
+    g_pHyprOpenGL->blend(true);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    g_pHyprOpenGL->renderTexture(tex, fullPx, baseData(a));
+    glBlendFuncSeparate(srcRGB, dstRGB, srcA, dstA);
+    if (!blendBefore)
+      g_pHyprOpenGL->blend(false);
+  };
+
   bool baseIsBlur = false;
-  if (baseA > 0.0F) {
+  {
     // NOT gated on m_blur.valid: valid drives RECOMPUTATION; the FB keeps the last good blur.
     const bool blurCacheReady = m_blur.fb && m_blur.fb->isAllocated() &&
         m_blur.fb->m_size == Vector2D(W, H);
@@ -270,17 +285,21 @@ void Backdrop::render(const BackdropFrame &f) const {
                                            : (base == BackdropBase::OpaqueDim ? "dim" : "source")) +
                "|blurOn=" + std::to_string(f.blurEnabled ? 1 : 0));
     switch (base) {
-      case BackdropBase::Blur:
+      case BackdropBase::Blur: {
         baseIsBlur = true;
-        g_pHyprOpenGL->renderTexture(cachedTex, fullPx, baseData(baseA));
+        const auto comp = frameSource(f);
+        if (comp && comp->ok())
+          drawBlended(comp, 1.0F);
+        drawBlended(cachedTex, static_cast<float>(dimK));
         break;
+      }
       case BackdropBase::OpaqueDim:
         safeRenderRect("backdrop", fullPx, CHyprColor(baseCol.r, baseCol.g, baseCol.b, 1.0F), {});
         break;
       case BackdropBase::Source: {
         const auto comp = frameSource(f);
         if (comp && comp->ok())
-          g_pHyprOpenGL->renderTexture(comp, fullPx, baseData(baseA));
+          drawBlended(comp, 1.0F);
         break;
       }
     }
@@ -310,24 +329,10 @@ void Backdrop::render(const BackdropFrame &f) const {
   }
 
   const auto tex = m_blur.fb ? m_blur.fb->getTexture() : nullptr;
-  const float kk = static_cast<float>(f.dimK);
-  if (tex && tex->ok() && !baseIsBlur) {
-    // Through g_pHyprOpenGL->blend so m_capStatus follows: a raw glEnable makes the pass's own blend(false) early-return (OpenGL.cpp:2620), leaving GL on with the cache saying off.
-    const bool blendBefore = glIsEnabled(GL_BLEND) == GL_TRUE;
-    GLint      srcRGB = GL_ONE, dstRGB = GL_ZERO, srcA = GL_ONE, dstA = GL_ZERO;
-    glGetIntegerv(GL_BLEND_SRC_RGB, &srcRGB);
-    glGetIntegerv(GL_BLEND_DST_RGB, &dstRGB);
-    glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcA);
-    glGetIntegerv(GL_BLEND_DST_ALPHA, &dstA);
-    g_pHyprOpenGL->blend(true);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    g_pHyprOpenGL->renderTexture(tex, fullPx, baseData(kk));
-    glBlendFuncSeparate(srcRGB, dstRGB, srcA, dstA);
-    if (!blendBefore)
-      g_pHyprOpenGL->blend(false);
-  } else if (!baseIsBlur) {
+  if (tex && tex->ok() && !baseIsBlur)
+    drawBlended(tex, static_cast<float>(dimK));
+  else if (!baseIsBlur)
     m_blur.valid = false;
-  }
 
   const auto dimCol = argb(baseCol, dimK);
   if (dimCol.a > 0.0)
@@ -337,7 +342,7 @@ void Backdrop::render(const BackdropFrame &f) const {
 
 // The owner reads the config here, every frame, and hands the backdrop a plain recipe: nothing below reaches back out for it (AGENTS.md 2.15, 2.16).
 render::BackdropFrame Overview::backdropFrame() const {
-  return {m_monitor.lock(), backdropRecede(), blurAlpha(), cfg::blur.backdrop.get(), opening(),
+  return {m_monitor.lock(), eased(), blurAlpha(), cfg::blur.backdrop.get(), opening(),
           blurEnabled(), blurPasses(), blurSize(), blurResolution(), blurStrength()};
 }
 

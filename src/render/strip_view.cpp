@@ -33,25 +33,20 @@ void Overview::renderStrip() const {
   if (!m || m_strip.empty())
     return;
   const double e = eased();
-  // Windowed exit holds the overlay PAST the animation, so gate on blurAlpha(), not e.
-  const double stripE = blurAlpha();
-  if (stripE <= 0.01)
+  if (e <= 0.01)
     return;
   const double s = m->m_scale;
   const int   previewRound = cfg::look.preview_round;
   const float roundPow     = cfg::look.preview_round_power;
 
-
-  // Chrome, not backdrop: blurAlpha() is pinned to 1.0 on a close, so the band leaves on the cards' own e.
-  const double bandE = opening() ? stripE : e;
-  auto bandCol = cfg::colors.strip_band.get(bandE);
-  bandCol.a = render::stripBandAlpha(cfg::strip.band_opacity.get(), bandE);
+  auto bandCol = cfg::colors.strip_band.get(e);
+  bandCol.a = render::stripBandAlpha(cfg::strip.band_opacity.get(), e);
 
   const LRect bandR  = stripBand();
   const Vector2D slide = stripOffset(e);
   // STRIPBAND: offset, alpha and the rect they came from -- two causes of a blink look alike.
-  debug::trace::ring("strip_band", LRect{slide.x, slide.y, bandCol.a, bandE}, 0, bandE);
-  debug::trace::ring("strip_band_rect", stripBand(), 0, bandE);
+  debug::trace::ring("strip_band", LRect{slide.x, slide.y, bandCol.a, e}, 0, e);
+  debug::trace::ring("strip_band_rect", stripBand(), 0, e);
   safeRenderRect("band", pxb(CBox(bandR.x + slide.x, bandR.y + slide.y, bandR.w, bandR.h), s),
                  bandCol, {});
 

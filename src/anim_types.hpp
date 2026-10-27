@@ -155,10 +155,6 @@ enum class MasterLeaf : std::uint8_t { Open, Close, JumpOut };
 
 // false = the backdrop holds while the real windows' blur covers the exit (never fade out
 // with windows present).
-[[nodiscard]] constexpr bool backdropFades(bool opening, bool landingEmpty) {
-  return opening || landingEmpty;
-}
-
 enum class DismissIntent : std::uint8_t { Open, Cancel, Commit };
 
 // False on an empty workspace: committing nothing is cancelling, not an activateSelection().

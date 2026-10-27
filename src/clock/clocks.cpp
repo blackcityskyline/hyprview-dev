@@ -45,23 +45,17 @@ bool Overview::backdropSettled() const {
   return m_place.clocks.tiles.done(animDuration()) && (!m || m->m_forceFullFrames <= 0);
 }
 
-// The backdrop rides the open/close animation; WINDOWED exit is the one exception.
-double Overview::blurAlpha() const {
-  if (!anim::backdropFades(opening(), m_landingEmpty))
-    return 1.0;
-  return std::clamp(eased(), 0.0, 1.0);
-}
-
-double Overview::eased() const { return m_place.eased(); }
-
 // The close plays the entry's ease-out FORWARD: eval(curve, progress) sat still for half of it, then snapped.
-double Overview::backdropRecede() const {
+double Overview::eased() const {
   if (opening())
     return std::clamp(m_place.eased(), 0.0, 1.0);
   const auto id = m_place.masterId(m_view, false);
   const double elapsed = 1.0 - std::clamp(m_place.progress.raw(), 0.0, 1.0);
   return std::clamp(1.0 - curves::eval(anim::cfg(id).curve, elapsed), 0.0, 1.0);
 }
+
+// Glass, band and cards ride this one value; on three clocks the same exit read as three actions.
+double Overview::blurAlpha() const { return eased(); }
 
 double Overview::animDuration() const { return m_place.masterDuration(); }
 

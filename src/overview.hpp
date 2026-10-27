@@ -233,14 +233,11 @@ private:
     return m_place.clocks.anyRunning(anim::cfg(entryLeaf()).ms, anim::cfg(ghostLeaf()).ms,
                                anim::cfg(anim::Id::StripStep).ms);
   }
-  double blurAlpha() const; // backdrop strength, on the open/close clock
-  double backdropRecede() const;
+  double blurAlpha() const; // glass strength: blur and dim, both edges
   // A window that really occupies the desktop; tells an empty workspace from a busy one.
   static bool workspaceHasWindows(const PHLWORKSPACE &ws);
   // Windowed exit is done: tiles landed and Hyprland has spent the forced blur frames.
   bool backdropSettled() const;
-  // Re-read on every open and close: the landing workspace can change while the overview is up.
-  mutable bool m_landingEmpty = true;
   // The group of the picked card: a tab's group is its browser window.
   mutable model::GroupRef m_landingGroup;
   double entryProgress(int i) const;

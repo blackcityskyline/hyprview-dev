@@ -173,31 +173,39 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                  ringW, round, roundPow);
   }
 
-  // Frost: the cached blur at CONSTANT alpha, plus the backdrop's own dim. A tab ALWAYS needs it.
+  // Frost: the same two layers as the backdrop -- sharp source, then glass -- so a plate and the desktop under it never disagree.
   const double apNow = entryNow(t, static_cast<int>(i));
   if (tab || (opening() && (e < 0.999 || apNow < 0.999))) {
-    if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
+    const auto src  = backdropSourceTexture();
+    const auto btex = blurEnabled() ? backdropBlurTexture() : SP<Render::ITexture>{};
+    if (src && src->ok()) {
       const double pxW = static_cast<double>(m->m_pixelSize.x);
       const double pxH = static_cast<double>(m->m_pixelSize.y);
       const CBox  boxPx = pxb(box, s);
       const auto  uv = render::frostUV(boxPx.x, boxPx.y, boxPx.width, boxPx.height, pxW, pxH,
-                                       render::backdropZoom(backdropRecede()));
-      CTexPassElement::SRenderData td{};
-      td.tex           = btex;
-      td.box           = boxPx;
-      td.a             = 1.0F;
-      td.round         = pxr(round, s);
-      td.roundingPower = roundPow;
-      td.allowCustomUV = true;
+                                       render::backdropZoom(e));
+      const auto blit = [&](const SP<Render::ITexture> &tex, float a) {
+        CTexPassElement::SRenderData td{};
+        td.tex           = tex;
+        td.box           = boxPx;
+        td.a             = a;
+        td.round         = pxr(round, s);
+        td.roundingPower = roundPow;
+        td.allowCustomUV = true;
+        g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
+      };
       auto &uvTL = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
       auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
       uvTL = Vector2D{uv.u0, uv.v0};
       uvBR = Vector2D{uv.u1, uv.v1};
-      g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
+      blit(src, 1.0F);
+      if (btex && btex->ok())
+        blit(btex, static_cast<float>(blurAlpha()));
       uvTL = Vector2D{-1.0, -1.0};
       uvBR = Vector2D{-1.0, -1.0};
-      safeRenderRect("tile", boxPx, cfg::blur.backdrop.get(static_cast<float>(blurAlpha())),
-                                {.round = pxr(round, s), .roundingPower = roundPow});
+      const auto dim = cfg::blur.backdrop.get(static_cast<float>(blurAlpha()));
+      if (dim.a > 0.0)
+        safeRenderRect("tile", boxPx, dim, {.round = pxr(round, s), .roundingPower = roundPow});
     }
   }
   // The card is the frame; the content fits in it and the rest is the plate under it.
