@@ -92,8 +92,8 @@ int main(int argc, char **argv) {
   // Names the type as `namespace::Type`; the header is matched by its own name only.
   const std::vector<Subsystem> subs{
       {"Backdrop", "render/backdrop.hpp",
-       {"m_blur", "m_srcFB", "m_scratchFB", "m_drawn", "m_blurDrawn", "m_srcTex",
-        "m_lastObservedTex", "m_srcAnimStreak", "m_srcAnimated", "m_blurFilter"}},
+       {"m_blur", "m_srcFB", "m_scratchFB", "m_drawn", "m_blurDrawn", "m_srcSig",
+        "m_srcAnimStreak", "m_blurFilter"}},
       // The three pieces of compositor state a cross-workspace preview has to be shown
       // against, saved as a set and put back as a set.
       {"PreviewVisibility", "session/preview_visibility.hpp", {"m_ws", "m_wins", "m_regions"}},

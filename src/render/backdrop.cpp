@@ -41,7 +41,11 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   if (!fit(m_srcFB))
     return nullptr;
 
-  const void *tex = nullptr;
+  std::vector<LayerSig> sig;
+  if (m->m_background && m->m_background->ok())
+    sig.push_back({m->m_background.get(), 0.0, 0.0,
+                   static_cast<double>(m->m_background->m_size.x),
+                   static_cast<double>(m->m_background->m_size.y), 1.0F});
   for (const int li : {0, 1})
     for (const auto &lr : m->m_layerSurfaceLayers[li]) {
       const auto layer = lr.lock();
@@ -51,18 +55,20 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
       const auto surf = layer->wlSurface()->resource();
       if (!surf->m_current.texture || !surf->m_current.texture->ok())
         continue;
-      tex = surf->m_current.texture.get();
-      break;
+      const auto pos = layer->position(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
+      const auto sz = layer->size(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
+      if (sz.x < 1.0 || sz.y < 1.0)
+        continue;
+      sig.push_back({surf->m_current.texture.get(), pos.x - m->m_position.x,
+                     pos.y - m->m_position.y, sz.x, sz.y,
+                     layer->alpha()[Desktop::View::LS_ALPHA_FADE]->value()});
     }
-  if (tex != m_lastObservedTex) {
-    m_srcAnimStreak   = m_lastObservedTex ? m_srcAnimStreak + 1 : 0;
-    m_lastObservedTex = tex;
-  } else {
-    m_srcAnimStreak = 0;
-  }
-  m_srcAnimated = m_srcAnimStreak >= render::kSourceAnimatedStreak;
 
-  if (m_drawn && (m_srcAnimated || (tex && tex == m_srcTex)))
+  const bool sigChanged = sig != m_srcSig;
+  m_srcAnimStreak = m_drawn && sigChanged ? m_srcAnimStreak + 1 : 0;
+  const bool animated = m_srcAnimStreak >= render::kSourceAnimatedStreak;
+
+  if (m_drawn && (animated || !sigChanged))
     return m_srcFB->getTexture();
 
   // The source changed: rebuild into SCRATCH and let its CONTENT decide -- mid-recreation reads black.
@@ -135,13 +141,14 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   glReadPixels(W / 4, H / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, q);
   // Black check skipped for a live source: a dark frame of a video wallpaper IS the wallpaper.
   const bool haveContent = drew || m->m_background;
-  const bool good = haveContent && (m_srcAnimated || !render::looksBlack(q[0], q[1], q[2]));
+  const bool good = haveContent && (animated || !render::looksBlack(q[0], q[1], q[2]));
   if (good) {
     std::swap(m_srcFB, m_scratchFB);
     m_drawn = true;
-    m_srcTex = tex;
+    m_srcSig = std::move(sig);
     // Content changed under the same FB identity, so the srcId-keyed blur cache cannot see it.
     m_blur.valid = false;
+    debug::dbg("backdrop source rebuilt: " + std::to_string(m_srcSig.size()) + " layers");
   }
   return m_drawn ? m_srcFB->getTexture() : nullptr;
 }
