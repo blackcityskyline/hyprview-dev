@@ -38,9 +38,17 @@ int main(int argc, char **argv) {
       strip.find("stripBandAlpha(cfg::strip.band_opacity.get(), fade)") == std::string::npos)
     return fail("the band's colour and alpha no longer read the curtain's fade");
 
-  if (strip.find("render::stripFade(e)") == std::string::npos)
-    return fail("the strip's alpha is the raw eased value again -- a short slide would fade it "
-                "out while it is still half on screen");
+  // The fade is for an EMPTY desktop, where the desktop sharpens under the strip and the band
+  // may dissolve. Over windows the overlay hands back to the compositor and the strip must be
+  // gone by then: it travels all the way out instead of fading mid-screen.
+  if (strip.find("m_landingEmpty ? render::stripFade(e) : 1.0") == std::string::npos)
+    return fail("the strip fades over an occupied desktop -- there it has to slide all the way out");
+
+  const std::string geo = slurp(root + "/src/session/geometry.cpp");
+  if (geo.empty())
+    return fail("src/session/geometry.cpp not found");
+  if (geo.find("m_landingEmpty ? cfg::strip.slide_frac : 1.0") == std::string::npos)
+    return fail("an occupied close stops the slide short of the edge -- the band would hang on screen");
 
   if (strip.find("exitT(") != std::string::npos)
     return fail("the band reads exitT(), which rises on a close -- an exit-progress number is not a fade");

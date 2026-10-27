@@ -285,7 +285,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `click_window_ms` | int | `400` | window in which two clicks count as a double-click (`close_trigger=doubleclick`) |
 | `strip_label_band` | float | `26` | height of the label strip under a strip card |
 | `strip_label_extra` | float | `24` | how far a strip card widens to fit its label |
-| `strip_slide_frac` | float | `0.55` | fraction of the band thickness the slide-out covers |
+| `strip_slide_frac` | float | `0.55` | fraction of the band thickness the slide-out covers on an empty workspace; over windows the band always leaves by the full thickness |
 | `strip_offset_max` | float | `0.42` | hard ceiling on `strip_offset`, as a fraction of the cross axis |
 | `shadow_radius` | float | `6` | tile shadow blur at rest |
 | `shadow_radius_lift` | float | `14` | tile shadow blur while dragged |

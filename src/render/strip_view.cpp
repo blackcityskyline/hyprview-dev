@@ -35,7 +35,7 @@ void Overview::renderStrip() const {
   const double e = eased();
   if (e <= 0.01)
     return;
-  const double fade = render::stripFade(e);
+  const double fade = m_landingEmpty ? render::stripFade(e) : 1.0;
   const double s = m->m_scale;
   const int   previewRound = cfg::look.preview_round;
   const float roundPow     = cfg::look.preview_round_power;
@@ -178,7 +178,7 @@ void Overview::renderStripWindows() const {
   const double e = eased();
   if (e <= 0.01)
     return;
-  const double fade = render::stripFade(e);
+  const double fade = m_landingEmpty ? render::stripFade(e) : 1.0;
   const double scale = m->m_scale;
   const auto when    = Time::steadyNow();
   const int cardRound = cfg::strip.card_round.get();
