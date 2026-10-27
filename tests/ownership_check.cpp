@@ -206,14 +206,14 @@ int main(int argc, char **argv) {
   // requiring two is what keeps this from crying wolf on every scalar Overview owns.
   //
   // Exemptions are listed with the reason they are legitimately shared rather than merely
-  // small. m_monitor/m_workspace/m_liveWsAtOpen are what the overlay is
+  // small. m_monitor/m_workspace/m_liveWsAtOpen/m_landingEmpty are what the overlay is
   // looking at -- there is no second type for "the thing being looked at". m_clocks and
   // m_animPump are the animation engine, written through member calls that this scan does
   // not see. The rest are single values of the coordinator itself.
   // Each entry is a field of the coordinator that has no second type to live in.
   const std::set<std::string> exempt{
       // what the overlay is looking at
-      "m_monitor", "m_workspace", "m_liveWsAtOpen",
+      "m_monitor", "m_workspace", "m_liveWsAtOpen", "m_landingEmpty",
       // the run itself
       "m_openStamp",
       "m_newCardId", "m_newCardAnim", "m_altTabbing", "m_commitPending",

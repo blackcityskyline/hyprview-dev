@@ -198,12 +198,15 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
       auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
       uvTL = Vector2D{uv.u0, uv.v0};
       uvBR = Vector2D{uv.u1, uv.v1};
-      blit(src, 1.0F);
-      if (btex && btex->ok())
-        blit(btex, static_cast<float>(blurAlpha()));
+      const bool   blurOk = btex && btex->ok();
+      const double glass  = glassAlpha();
+      if (!blurOk || glass < 1.0)
+        blit(src, 1.0F);
+      if (blurOk)
+        blit(btex, static_cast<float>(glass));
       uvTL = Vector2D{-1.0, -1.0};
       uvBR = Vector2D{-1.0, -1.0};
-      const auto dim = cfg::blur.backdrop.get(static_cast<float>(blurAlpha()));
+      const auto dim = cfg::blur.backdrop.get(static_cast<float>(dimAlpha()));
       if (dim.a > 0.0)
         safeRenderRect("tile", boxPx, dim, {.round = pxr(round, s), .roundingPower = roundPow});
     }

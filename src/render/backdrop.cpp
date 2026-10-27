@@ -250,11 +250,14 @@ void Backdrop::render(const BackdropFrame &f) const {
 
   const float k = static_cast<float>(e);
   const double dimK = f.dimK;
+  const double glassK = f.glass;
   debug::dbg(std::string("backdrop e=") + std::to_string(e).substr(0, 5) +
+      " glass=" + std::to_string(glassK).substr(0, 5) +
+      " dim=" + std::to_string(dimK).substr(0, 5) +
       " opening=" + std::to_string(f.opening) +
       " k=" + std::to_string(k).substr(0, 5));
 
-  // Glass fades against the sharp source; a blur held to the last frame reads as a cut (AGENTS.md 4).
+  // Glass against the sharp source: with no window under it the desktop sharpens as it lifts.
   const auto drawBlended = [&](const SP<Render::ITexture> &tex, float a) {
     // Through g_pHyprOpenGL->blend so m_capStatus follows: a raw glEnable makes the pass's own blend(false) early-return (OpenGL.cpp:2620), leaving GL on with the cache saying off.
     const bool blendBefore = glIsEnabled(GL_BLEND) == GL_TRUE;
@@ -287,10 +290,12 @@ void Backdrop::render(const BackdropFrame &f) const {
     switch (base) {
       case BackdropBase::Blur: {
         baseIsBlur = true;
-        const auto comp = frameSource(f);
-        if (comp && comp->ok())
-          drawBlended(comp, 1.0F);
-        drawBlended(cachedTex, static_cast<float>(dimK));
+        if (glassK < 1.0) {
+          const auto comp = frameSource(f);
+          if (comp && comp->ok())
+            drawBlended(comp, 1.0F);
+        }
+        drawBlended(cachedTex, static_cast<float>(glassK));
         break;
       }
       case BackdropBase::OpaqueDim:
@@ -318,7 +323,7 @@ void Backdrop::render(const BackdropFrame &f) const {
     src = frameSource(f);
   }
 
-  if (!src || k <= 0.0F)
+  if (!src)
     return;
 
   if (!computeBlur(f, src)) {
@@ -330,7 +335,7 @@ void Backdrop::render(const BackdropFrame &f) const {
 
   const auto tex = m_blur.fb ? m_blur.fb->getTexture() : nullptr;
   if (tex && tex->ok() && !baseIsBlur)
-    drawBlended(tex, static_cast<float>(dimK));
+    drawBlended(tex, static_cast<float>(glassK));
   else if (!baseIsBlur)
     m_blur.valid = false;
 
@@ -342,7 +347,7 @@ void Backdrop::render(const BackdropFrame &f) const {
 
 // The owner reads the config here, every frame, and hands the backdrop a plain recipe: nothing below reaches back out for it (AGENTS.md 2.15, 2.16).
 render::BackdropFrame Overview::backdropFrame() const {
-  return {m_monitor.lock(), eased(), blurAlpha(), cfg::blur.backdrop.get(), opening(),
+  return {m_monitor.lock(), eased(), dimAlpha(), glassAlpha(), cfg::blur.backdrop.get(), opening(),
           blurEnabled(), blurPasses(), blurSize(), blurResolution(), blurStrength()};
 }
 

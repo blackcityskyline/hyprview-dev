@@ -153,8 +153,18 @@ enum class MasterLeaf : std::uint8_t { Open, Close, JumpOut };
   return opening ? MasterLeaf::Open : MasterLeaf::Close;
 }
 
-// false = the backdrop holds while the real windows' blur covers the exit (never fade out
-// with windows present).
+// False = the dim holds while the real windows' blur covers the exit (never fade out with
+// windows present).
+[[nodiscard]] constexpr bool backdropFades(bool opening, bool landingEmpty) {
+  return opening || landingEmpty;
+}
+
+// The glass never fades over a window: its blur is the compositor's and is gone while we cover
+// it, so a sharp desktop shows through the card as a hole. Only an empty desktop fades.
+[[nodiscard]] constexpr double glassAlpha(double eased, bool landingEmpty) {
+  return landingEmpty ? eased : 1.0;
+}
+
 enum class DismissIntent : std::uint8_t { Open, Cancel, Commit };
 
 // False on an empty workspace: committing nothing is cancelling, not an activateSelection().

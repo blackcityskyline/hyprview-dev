@@ -35,6 +35,7 @@ struct BackdropFrame {
   PHLMONITOR mon;
   double   eased = 0.0;
   double   dimK  = 0.0; // backdrop strength on the open/close clock
+  double   glass = 0.0;
   CHyprColor baseCol{};
   bool  opening = false;
   bool  blurEnabled = false;

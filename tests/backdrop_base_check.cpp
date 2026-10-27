@@ -1,6 +1,7 @@
-// The backdrop's base: the sharp source always, with the glass over it -- the blur at the
-// open/close value. A transparent window shows whatever is behind it in the framebuffer, so
-// the base is never currentFB, and the glass never fades against it.
+// The backdrop's base: the sharp source, with the glass over it. The blur rides the glass
+// value, which holds while a window is under the overlay -- a transparent window's blur is the
+// compositor's, and ours has to stand in for it once we cover it. When the glass does fade, it
+// fades over the sharp source, never over a stale framebuffer.
 //
 // Two regressions this pins: the Blur branch drawing the glass without the source under it
 // (a fading blur would fade to a stale framebuffer), and the sharp source being faded with
@@ -73,6 +74,12 @@ int main(int argc, char **argv) {
 
   if (src.find("drawBlended(comp, static_cast<float>(dimK))") != std::string::npos)
     return fail("the sharp source fades with the glass -- the desktop would dim and pop at the cut");
+
+  // The glass is keyed on the desktop under it: holding it over a window is what keeps a
+  // transparent card from showing a sharp hole.
+  const auto clocks = slurp(root + "/src/clock/clocks.cpp");
+  if (clocks.find("anim::glassAlpha(eased(), m_landingEmpty)") == std::string::npos)
+    return fail("the glass is no longer keyed on the landing -- a windowed desktop fades and holes");
 
   // The parked phase primes the blur: the first VISIBLE frame must find one ready.
   const auto prime = bodyOf(src, "void Overview::primeBackdrop()");

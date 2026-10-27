@@ -233,11 +233,13 @@ private:
     return m_place.clocks.anyRunning(anim::cfg(entryLeaf()).ms, anim::cfg(ghostLeaf()).ms,
                                anim::cfg(anim::Id::StripStep).ms);
   }
-  double blurAlpha() const; // glass strength: blur and dim, both edges
+  double glassAlpha() const; // the blur over the desktop: holds while a window is under it
+  double dimAlpha() const;   // the tint: rides the entry, holds on a windowed exit
   // A window that really occupies the desktop; tells an empty workspace from a busy one.
   static bool workspaceHasWindows(const PHLWORKSPACE &ws);
   // Windowed exit is done: tiles landed and Hyprland has spent the forced blur frames.
   bool backdropSettled() const;
+  mutable bool m_landingEmpty = true;
   // The group of the picked card: a tab's group is its browser window.
   mutable model::GroupRef m_landingGroup;
   double entryProgress(int i) const;
