@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
   // The glass is keyed on the desktop under it: holding it over a window is what keeps a
   // transparent card from showing a sharp hole.
   const auto clocks = slurp(root + "/src/clock/clocks.cpp");
-  if (clocks.find("anim::glassAlpha(eased(), m_landingEmpty)") == std::string::npos)
+  if (clocks.find("anim::glassAlpha(eased(), m_place.progress.raw(), opening(), m_landingEmpty)") == std::string::npos)
     return fail("the glass is no longer keyed on the landing -- a windowed desktop fades and holes");
 
   // The parked phase primes the blur: the first VISIBLE frame must find one ready.

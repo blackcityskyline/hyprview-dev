@@ -36,10 +36,11 @@ int main() {
   // the window. Ours stands in for it, so the glass holds on the entry as well as the exit; a
   // sharp desktop under a transparent card is a hole. The dim is a tint, not the blur, and
   // rides the clock on both edges -- a tint that held would pop at the cut.
-  assert(glassAlpha(0.0, false) == 1.0);
-  assert(glassAlpha(0.0, true) == 0.0);
-  assert(glassAlpha(0.4, true) == 0.4);
-  std::puts("the glass holds over a window and fades only over an empty desktop");
+  assert(glassAlpha(0.0, 0.0, true, false) == 1.0);
+  assert(glassAlpha(0.4, 0.9, true, true) == 0.4);
+  assert(glassAlpha(0.9, 0.4, false, true) == 0.4);
+  assert(glassAlpha(0.0, 0.0, false, true) == 0.0);
+  std::puts("the glass holds over a window; an empty one enters on the ease and leaves on the clock");
 
   std::puts("OK");
   return 0;
