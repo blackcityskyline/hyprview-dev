@@ -641,6 +641,7 @@ static void theGlArithmeticIsReachable() {
 // frost. Both were arithmetic at the draw site.
 static void theTileDecidesItsRingAndItsFrost() {
   using hyprview::render::focusRingWidth;
+  using hyprview::render::backdropZoom;
   using hyprview::render::frostUV;
 
   // The hover ring wins over the selection ring, and the base ring shows when
@@ -652,14 +653,20 @@ static void theTileDecidesItsRingAndItsFrost() {
        "with the focus border off there is no focus ring");
 
   // The frost shows the backdrop under the tile: the tile's own box, normalized.
-  const auto uv = frostUV(100.0, 50.0, 200.0, 100.0, 1000.0, 500.0);
+  const auto uv = frostUV(100.0, 50.0, 200.0, 100.0, 1000.0, 500.0, 1.0);
   near(uv.u0, 0.1, "the left edge");
   near(uv.v0, 0.1, "the top edge");
   near(uv.u1, 0.3, "the right edge");
   near(uv.v1, 0.3, "the bottom edge");
-  const auto full = frostUV(0.0, 0.0, 1000.0, 500.0, 1000.0, 500.0);
+  const auto full = frostUV(0.0, 0.0, 1000.0, 500.0, 1000.0, 500.0, 1.0);
   near(full.u1, 1.0, "the whole monitor");
   near(full.v1, 1.0, "the whole monitor");
+  // Receded: the frost samples the same zoomed backdrop the screen shows around it.
+  near(backdropZoom(0.0), 1.0, "no recede, no zoom");
+  near(backdropZoom(1.0), 0.9, "the entry pulls it in 10%");
+  const auto rc = frostUV(0.0, 0.0, 1000.0, 500.0, 1000.0, 500.0, backdropZoom(1.0));
+  near(rc.u0, 0.5 - 0.5 * (1.0 / 0.9), "the receded frost starts past the edge like the backdrop");
+  near(rc.u1, 0.5 + 0.5 * (1.0 / 0.9), "and ends past the other");
   std::puts("the tile: the ring on top, and the frost under it");
 }
 

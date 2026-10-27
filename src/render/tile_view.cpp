@@ -173,14 +173,15 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                  ringW, round, roundPow);
   }
 
-  // Frost: the cached blur at CONSTANT alpha, plus the dim at the global e. A tab ALWAYS needs it.
+  // Frost: the cached blur at CONSTANT alpha, plus the backdrop's own dim. A tab ALWAYS needs it.
   const double apNow = entryNow(t, static_cast<int>(i));
   if (tab || (opening() && (e < 0.999 || apNow < 0.999))) {
     if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
       const double pxW = static_cast<double>(m->m_pixelSize.x);
       const double pxH = static_cast<double>(m->m_pixelSize.y);
       const CBox  boxPx = pxb(box, s);
-      const auto  uv = render::frostUV(boxPx.x, boxPx.y, boxPx.width, boxPx.height, pxW, pxH);
+      const auto  uv = render::frostUV(boxPx.x, boxPx.y, boxPx.width, boxPx.height, pxW, pxH,
+                                       render::backdropZoom(backdropRecede()));
       CTexPassElement::SRenderData td{};
       td.tex           = btex;
       td.box           = boxPx;
@@ -195,7 +196,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
       g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
       uvTL = Vector2D{-1.0, -1.0};
       uvBR = Vector2D{-1.0, -1.0};
-      safeRenderRect("tile", boxPx, cfg::blur.backdrop.get(static_cast<float>(e)),
+      safeRenderRect("tile", boxPx, cfg::blur.backdrop.get(static_cast<float>(blurAlpha())),
                                 {.round = pxr(round, s), .roundingPower = roundPow});
     }
   }

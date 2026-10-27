@@ -230,7 +230,7 @@ void Backdrop::render(const BackdropFrame &f) const {
   const auto baseCol  = f.baseCol;
 
   // The desktop recedes 10%; the border is its own edge pixels stretched, so the seam is a colour match.
-  const double zoom = 1.0 - 0.10 * std::clamp(e, 0.0, 1.0);
+  const double zoom = render::backdropZoom(e);
   const double uvM  = (1.0 - zoom) / (2.0 * zoom);
   const auto baseData = [&](float a) {
     Render::GL::CHyprOpenGLImpl::STextureRenderData d{};

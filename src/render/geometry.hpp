@@ -498,19 +498,22 @@ inline constexpr int kSourceAnimatedStreak = 4;
   return baseWidth;
 }
 
-// The part of the backdrop that shows through a frost: the tile's box, normalized.
+// The part of the backdrop that shows through a frost: the tile's box, normalized and receded.
 struct FrostUV {
   double u0 = 0.0, v0 = 0.0, u1 = 0.0, v1 = 0.0;
 };
 
+inline constexpr double kBackdropRecede = 0.10;
+
+[[nodiscard]] inline double backdropZoom(double recede) {
+  return 1.0 - kBackdropRecede * std::clamp(recede, 0.0, 1.0);
+}
+
 [[nodiscard]] inline FrostUV frostUV(double x, double y, double w, double h, double pxW,
-                                     double pxH) {
-  FrostUV uv;
-  uv.u0 = x / pxW;
-  uv.v0 = y / pxH;
-  uv.u1 = (x + w) / pxW;
-  uv.v1 = (y + h) / pxH;
-  return uv;
+                                     double pxH, double zoom) {
+  const double k    = 1.0 / std::max(zoom, 1e-6);
+  const auto   axis = [k](double p, double len) { return 0.5 + (p / len - 0.5) * k; };
+  return {axis(x, pxW), axis(y, pxH), axis(x + w, pxW), axis(y + h, pxH)};
 }
 
 // The GL layer's own arithmetic, pure: the radii and the pixel conversion. They
