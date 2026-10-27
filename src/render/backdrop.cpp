@@ -249,11 +249,9 @@ void Backdrop::render(const BackdropFrame &f) const {
   };
 
   const float k = static_cast<float>(e);
-  const double dimK = f.dimK;
   const double glassK = f.glass;
   debug::dbg(std::string("backdrop e=") + std::to_string(e).substr(0, 5) +
       " glass=" + std::to_string(glassK).substr(0, 5) +
-      " dim=" + std::to_string(dimK).substr(0, 5) +
       " opening=" + std::to_string(f.opening) +
       " k=" + std::to_string(k).substr(0, 5));
 
@@ -311,7 +309,7 @@ void Backdrop::render(const BackdropFrame &f) const {
   }
 
   if (!f.blurEnabled) {
-    const auto col = argb(baseCol, dimK);
+    const auto col = argb(baseCol, e);
     if (col.a <= 0.0)
       return;
     safeRenderRect("backdrop", fullPx, col, {});
@@ -329,7 +327,7 @@ void Backdrop::render(const BackdropFrame &f) const {
   if (!computeBlur(f, src)) {
     // Never leave currentFB exposed: it can hold a solitary fullscreen window.
     debug::dbg("backdrop FALLBACK: blur unavailable / no source");
-    safeRenderRect("backdrop", fullPx, argb(baseCol, dimK), {});
+    safeRenderRect("backdrop", fullPx, argb(baseCol, e), {});
     return;
   }
 
@@ -339,7 +337,7 @@ void Backdrop::render(const BackdropFrame &f) const {
   else if (!baseIsBlur)
     m_blur.valid = false;
 
-  const auto dimCol = argb(baseCol, dimK);
+  const auto dimCol = argb(baseCol, e);
   if (dimCol.a > 0.0)
     safeRenderRect("backdrop", fullPx, dimCol, {});
 }
@@ -347,7 +345,7 @@ void Backdrop::render(const BackdropFrame &f) const {
 
 // The owner reads the config here, every frame, and hands the backdrop a plain recipe: nothing below reaches back out for it (AGENTS.md 2.15, 2.16).
 render::BackdropFrame Overview::backdropFrame() const {
-  return {m_monitor.lock(), eased(), dimAlpha(), glassAlpha(), cfg::blur.backdrop.get(), opening(),
+  return {m_monitor.lock(), eased(), glassAlpha(), cfg::blur.backdrop.get(), opening(),
           blurEnabled(), blurPasses(), blurSize(), blurResolution(), blurStrength()};
 }
 

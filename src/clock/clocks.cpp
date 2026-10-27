@@ -54,10 +54,6 @@ double Overview::eased() const {
   return std::clamp(1.0 - curves::eval(anim::cfg(id).curve, elapsed), 0.0, 1.0);
 }
 
-double Overview::dimAlpha() const {
-  return anim::backdropFades(opening(), m_landingEmpty) ? eased() : 1.0;
-}
-
 double Overview::glassAlpha() const { return anim::glassAlpha(eased(), m_landingEmpty); }
 
 double Overview::animDuration() const { return m_place.masterDuration(); }

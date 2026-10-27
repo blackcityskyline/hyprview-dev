@@ -225,6 +225,12 @@ enum class CardContent { Window, Picture, PlateAndTitle };
 
 
 
+// The strip's own alpha: the slide is shorter than the band, so a ramp on the slide left the
+// curtain invisible while it was still half on screen.
+[[nodiscard]] inline double stripFade(double bandE) {
+  return std::clamp(bandE * 2.0, 0.0, 1.0);
+}
+
 // The band's alpha has ONE source: the knob is the band, and the band's own clock scales it. The colour string's alpha is not a second source.
 [[nodiscard]] inline double stripBandAlpha(double opacityPct, double bandE) {
   return std::clamp(opacityPct / 100.0, 0.0, 1.0) * bandE;

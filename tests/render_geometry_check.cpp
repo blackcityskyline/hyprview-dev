@@ -1066,6 +1066,7 @@ int main() {
     using hyprview::render::isHorizontal;
     using hyprview::render::parseAnchor;
     using hyprview::render::stripBand;
+    using hyprview::render::stripFade;
     using hyprview::render::stripOffset;
     using hyprview::render::stripSlide;
     using hyprview::render::stripThickness;
@@ -1129,6 +1130,14 @@ int main() {
     near(stripSlide(Anchor::Top, 0.0, 120.0, 0.5).y, -60.0, "slide scales with thickness");
     near(stripSlide(Anchor::Top, 0.0, 60.0, 0.0).y, 0.0, "a zero slide_frac never moves");
     std::puts("strip slide: off the anchored edge, scaled by thickness and slide_frac");
+
+    // The curtain's own alpha. Linear in the slide, a 14% band sat at 7% while half of it was
+    // on screen; the strip vanished while it was still arriving.
+    near(stripFade(0.0), 0.0, "fade starts at nothing");
+    near(stripFade(0.25), 0.5, "a quarter of the slide is half the alpha");
+    near(stripFade(0.5), 1.0, "half the slide is full colour");
+    near(stripFade(1.0), 1.0, "in place is full colour");
+    std::puts("strip fade: full colour from half the slide");
   }
 
   

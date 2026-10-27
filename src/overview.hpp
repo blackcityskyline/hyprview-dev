@@ -234,7 +234,6 @@ private:
                                anim::cfg(anim::Id::StripStep).ms);
   }
   double glassAlpha() const; // the blur over the desktop: holds while a window is under it
-  double dimAlpha() const;   // the tint: rides the entry, holds on a windowed exit
   // A window that really occupies the desktop; tells an empty workspace from a busy one.
   static bool workspaceHasWindows(const PHLWORKSPACE &ws);
   // Windowed exit is done: tiles landed and Hyprland has spent the forced blur frames.

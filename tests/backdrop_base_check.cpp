@@ -72,8 +72,8 @@ int main(int argc, char **argv) {
       blurBranch.find("cachedTex") == std::string::npos)
     return fail("the Blur branch must draw the sharp source at full alpha, then the glass over it");
 
-  if (src.find("drawBlended(comp, static_cast<float>(dimK))") != std::string::npos)
-    return fail("the sharp source fades with the glass -- the desktop would dim and pop at the cut");
+  if (src.find("drawBlended(comp, static_cast<float>(glassK))") != std::string::npos)
+    return fail("the sharp source fades with the glass -- the fade has nothing opaque under it");
 
   // The glass is keyed on the desktop under it: holding it over a window is what keeps a
   // transparent card from showing a sharp hole.

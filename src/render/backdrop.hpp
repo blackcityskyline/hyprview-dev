@@ -33,9 +33,8 @@ struct BlurCache {
 // fresh every frame, so a config edit applies in flight.
 struct BackdropFrame {
   PHLMONITOR mon;
-  double   eased = 0.0;
-  double   dimK  = 0.0; // backdrop strength on the open/close clock
-  double   glass = 0.0;
+  double   eased = 0.0; // recede and dim
+  double   glass = 0.0; // the blur: holds at 1 while a window is under it
   CHyprColor baseCol{};
   bool  opening = false;
   bool  blurEnabled = false;

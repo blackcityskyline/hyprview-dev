@@ -206,7 +206,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
         blit(btex, static_cast<float>(glass));
       uvTL = Vector2D{-1.0, -1.0};
       uvBR = Vector2D{-1.0, -1.0};
-      const auto dim = cfg::blur.backdrop.get(static_cast<float>(dimAlpha()));
+      const auto dim = cfg::blur.backdrop.get(static_cast<float>(e));
       if (dim.a > 0.0)
         safeRenderRect("tile", boxPx, dim, {.round = pxr(round, s), .roundingPower = roundPow});
     }

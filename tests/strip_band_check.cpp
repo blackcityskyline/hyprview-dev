@@ -1,6 +1,8 @@
 // The band leaves on the same number the cards leave on: one curtain, one value. It read
 // exitT(), which rises on a close, and later ran on a second clock while the backdrop ran
-// on its own -- both left the band and the desktop as two separate actions.
+// on its own -- both left the band and the desktop as two separate actions. The alpha is the
+// curtain's own fade: the slide is shorter than the band, and a ramp on the slide alone left
+// the strip invisible while it was still half on screen.
 
 #include <cstdio>
 #include <fstream>
@@ -32,9 +34,13 @@ int main(int argc, char **argv) {
   if (strip.find("bandE") != std::string::npos)
     return fail("the band carries a fade value of its own -- the curtain leaves on the cards' e");
 
-  if (strip.find("cfg::colors.strip_band.get(e)") == std::string::npos ||
-      strip.find("stripBandAlpha(cfg::strip.band_opacity.get(), e)") == std::string::npos)
-    return fail("the band's colour and alpha no longer read the cards' eased value");
+  if (strip.find("cfg::colors.strip_band.get(fade)") == std::string::npos ||
+      strip.find("stripBandAlpha(cfg::strip.band_opacity.get(), fade)") == std::string::npos)
+    return fail("the band's colour and alpha no longer read the curtain's fade");
+
+  if (strip.find("render::stripFade(e)") == std::string::npos)
+    return fail("the strip's alpha is the raw eased value again -- a short slide would fade it "
+                "out while it is still half on screen");
 
   if (strip.find("exitT(") != std::string::npos)
     return fail("the band reads exitT(), which rises on a close -- an exit-progress number is not a fade");

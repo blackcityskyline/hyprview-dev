@@ -35,12 +35,13 @@ void Overview::renderStrip() const {
   const double e = eased();
   if (e <= 0.01)
     return;
+  const double fade = render::stripFade(e);
   const double s = m->m_scale;
   const int   previewRound = cfg::look.preview_round;
   const float roundPow     = cfg::look.preview_round_power;
 
-  auto bandCol = cfg::colors.strip_band.get(e);
-  bandCol.a = render::stripBandAlpha(cfg::strip.band_opacity.get(), e);
+  auto bandCol = cfg::colors.strip_band.get(fade);
+  bandCol.a = render::stripBandAlpha(cfg::strip.band_opacity.get(), fade);
 
   const LRect bandR  = stripBand();
   const Vector2D slide = stripOffset(e);
@@ -51,12 +52,12 @@ void Overview::renderStrip() const {
                  bandCol, {});
 
   const int  cardRound = cfg::strip.card_round;
-  const auto cardBg    = cfg::colors.strip_card.get(e);
-  const auto activeBg  = cfg::colors.strip_active.get(e);
-  const auto activeLine = cfg::colors.strip_active_border.get(e);
-  const auto hoverLine  = cfg::colors.strip_hover.get(e);
-  const auto plusCol    = cfg::colors.strip_plus.get(e);
-  const auto allCol     = cfg::colors.strip_all.get(e);
+  const auto cardBg    = cfg::colors.strip_card.get(fade);
+  const auto activeBg  = cfg::colors.strip_active.get(fade);
+  const auto activeLine = cfg::colors.strip_active_border.get(fade);
+  const auto hoverLine  = cfg::colors.strip_hover.get(fade);
+  const auto plusCol    = cfg::colors.strip_plus.get(fade);
+  const auto allCol     = cfg::colors.strip_all.get(fade);
   const bool allWs       = showAllWorkspaces();
   const bool allCardShown = cfg::strip.all_card != 0;
 
@@ -115,7 +116,7 @@ void Overview::renderStrip() const {
           CTexPassElement::SRenderData td{};
           td.tex           = tex;
           td.box           = pxb(c, s);
-          td.a             = static_cast<float>(e);
+          td.a             = static_cast<float>(fade);
           td.round         = pxr(cardRound, s);
           td.roundingPower = roundPow;
           td.allowCustomUV = true;
@@ -148,7 +149,7 @@ void Overview::renderStrip() const {
           }
           const int wRound = clampRound(previewRound, wbL.w, wbL.h);
           if (stripSlotGrabbed(i, j)) {
-            strokeRing(wbL, s, cfg::colors.hover_border.get(e), 2, wRound, roundPow);
+            strokeRing(wbL, s, cfg::colors.hover_border.get(fade), 2, wRound, roundPow);
             debug::trace::ring("strip_hover", wbL, wRound, e);
           }
         }
@@ -159,7 +160,7 @@ void Overview::renderStrip() const {
       const LRect lb = render::stripLabelBox(card, it.label->m_size.x, it.label->m_size.y,
                                               cfg::strip.label_band, cfg::strip.label_extra);
       const float la =
-          it.active ? static_cast<float>(e) : static_cast<float>(e) * 0.75F;
+          it.active ? static_cast<float>(fade) : static_cast<float>(fade) * 0.75F;
       g_pHyprOpenGL->renderTexture(it.label, pxb(box(lb), s), {.a = la});
     }
   }
@@ -177,6 +178,7 @@ void Overview::renderStripWindows() const {
   const double e = eased();
   if (e <= 0.01)
     return;
+  const double fade = render::stripFade(e);
   const double scale = m->m_scale;
   const auto when    = Time::steadyNow();
   const int cardRound = cfg::strip.card_round.get();
@@ -213,7 +215,7 @@ void Overview::renderStripWindows() const {
                    std::to_string(slotPx.h) + "px of " + std::to_string(slot.w) + "x" +
                    std::to_string(slot.h) + " card=" + std::to_string(card.w) + "x" +
                    std::to_string(card.h));
-      renderWindowLive(w, m, slotPx, cardPx, static_cast<float>(e), when,
+      renderWindowLive(w, m, slotPx, cardPx, static_cast<float>(fade), when,
                        contentRadiusPx(round, 0, scale),
                        roundPow, true);
     }
