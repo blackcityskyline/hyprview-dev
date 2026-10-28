@@ -661,12 +661,14 @@ static void theTileDecidesItsRingAndItsFrost() {
   const auto full = frostUV(0.0, 0.0, 1000.0, 500.0, 1000.0, 500.0, 1.0);
   near(full.u1, 1.0, "the whole monitor");
   near(full.v1, 1.0, "the whole monitor");
-  // Receded: the frost samples the same zoomed backdrop the screen shows around it.
-  near(backdropZoom(0.0), 1.0, "no recede, no zoom");
-  near(backdropZoom(1.0), 0.9, "the entry pulls it in 10%");
+  // Zoomed: the frost samples the same pushed-in backdrop the screen shows around it.
+  near(backdropZoom(0.0), 1.0, "no push, no zoom");
+  near(backdropZoom(1.0), 1.1, "the entry pushes it in 10%");
   const auto rc = frostUV(0.0, 0.0, 1000.0, 500.0, 1000.0, 500.0, backdropZoom(1.0));
-  near(rc.u0, 0.5 - 0.5 * (1.0 / 0.9), "the receded frost starts past the edge like the backdrop");
-  near(rc.u1, 0.5 + 0.5 * (1.0 / 0.9), "and ends past the other");
+  near(rc.u0, 0.5 - 0.5 * (1.0 / 1.1), "the frost crops the edge like the backdrop");
+  near(rc.u1, 0.5 + 0.5 * (1.0 / 1.1), "and crops the other");
+  // A recede (zoom < 1) would sample outside the frame: that is the edge streak on a sharp frame.
+  want(rc.u0 >= 0.0 && rc.u1 <= 1.0, true, "the frost never samples past the frame");
   std::puts("the tile: the ring on top, and the frost under it");
 }
 

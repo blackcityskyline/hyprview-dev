@@ -504,15 +504,16 @@ inline constexpr int kSourceAnimatedStreak = 4;
   return baseWidth;
 }
 
-// The part of the backdrop that shows through a frost: the tile's box, normalized and receded.
+// The part of the backdrop that shows through a frost: the tile's box, normalized and zoomed.
 struct FrostUV {
   double u0 = 0.0, v0 = 0.0, u1 = 0.0, v1 = 0.0;
 };
 
-inline constexpr double kBackdropRecede = 0.10;
+inline constexpr double kBackdropPush = 0.10;
 
-[[nodiscard]] inline double backdropZoom(double recede) {
-  return 1.0 - kBackdropRecede * std::clamp(recede, 0.0, 1.0);
+// Advancing, not receding: UV stays inside [0,1], so the frame crops its edge instead of stretching it (a sharp frame showed the seams).
+[[nodiscard]] inline double backdropZoom(double push) {
+  return 1.0 + kBackdropPush * std::clamp(push, 0.0, 1.0);
 }
 
 [[nodiscard]] inline FrostUV frostUV(double x, double y, double w, double h, double pxW,
