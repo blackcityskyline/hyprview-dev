@@ -50,8 +50,7 @@ std::string bodyOf(const std::string &src, const std::string &signature) {
 
 // The fenced block that documents the order.
 std::string docBlock(const std::string &md) {
-  // The heading, not the rule that points at it: 2.7 mentions the order too.
-  const auto at = md.find("### 3.4");
+  const auto at = md.find("### paint()");
   if (at == std::string::npos)
     return {};
   const auto fence = md.find("```", at);
