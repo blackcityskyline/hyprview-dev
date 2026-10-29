@@ -61,12 +61,8 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
     // Swallowed either way: letting it through fires the user's own SUPER binding and tears the state down.
     if (m_altTabbing && modBitForKeycode(e.keycode) == altTabModBit()) {
       m_altTabbing = false;
-      if (cfg::keys.alt_tab_commit_on_release != 0 && !m_commitPending) {
-        if (entrySettled())
-          activateSelection();
-        else
-          m_commitPending = true;
-      }
+      if (cfg::keys.alt_tab_commit_on_release != 0)
+        activateSelection();
       cancel = true;
       return;
     }
@@ -153,6 +149,9 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
         }
       }
       if (doJump) {
+        const auto target = m_workspace.lock();
+        m_landingGroup = model::GroupRef{};
+        commitFocus(target ? target->getLastFocusedWindow() : nullptr);
         if (instant)
           close();
         else

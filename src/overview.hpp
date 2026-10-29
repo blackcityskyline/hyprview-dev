@@ -317,7 +317,6 @@ private:
   model::Drag m_drag;
   LRect m_lastDragBox; // drag box at RELEASE, the `from` for landings
   bool m_altTabbing = false;
-  bool m_commitPending = false;
 
   session::Hooks m_hooks;
 
@@ -354,7 +353,7 @@ private:
   double eased() const;
   double animDuration() const; // read LIVE, so config applies in-flight
   double glideDur() const { return m_place.clocks.tileMs > 0 ? m_place.clocks.tileMs : anim::cfg(glideLeaf()).ms; }
-  bool entrySettled() const;
+  void commitFocus(const PHLWINDOW &w);
   uint32_t altTabModBit() const;
   double newCardDur() const { return anim::cfg(anim::Id::NewCard).ms; }
   double tileProgress(int i) const;

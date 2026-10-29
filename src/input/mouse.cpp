@@ -708,7 +708,7 @@ void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
       }
     }
   }
-  m_pendingWindow = w;
+  commitFocus(w);
   close();
   if (w && !deferFocus)
     Desktop::focusState()->fullWindowFocus(w, reason);

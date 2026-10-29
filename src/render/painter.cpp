@@ -17,11 +17,6 @@ using Render::GL::g_pHyprOpenGL;
 
 namespace hyprview {
 
-// Both entry clocks done. Committing before this truncates what the tap was for.
-bool Overview::entrySettled() const {
-  return m_place.clocks.master.done(anim::cfg(anim::Id::Open).ms) && m_place.clocks.tiles.done(glideDur());
-}
-
 namespace {
 
 class PainterPass final : public IPassElement {
@@ -130,9 +125,9 @@ void Overview::renderStage(eRenderStage stage) {
   }
 
   updateHover();
-  if (m_altTabbing && m_life.openingNow() && !m_commitPending && g_pInputManager &&
+  if (m_altTabbing && m_life.openingNow() && g_pInputManager &&
       !(g_pInputManager->getModsFromAllKBs() & altTabModBit()))
-    m_commitPending = true;
+    activateSelection();
   relayoutCarousel();
   syncTiles();
   // syncTiles() just rebuilt the deck: re-assert the three pieces of state every frame, idempotently.
@@ -143,6 +138,8 @@ void Overview::renderStage(eRenderStage stage) {
     m_liveWsAtOpen = m->m_activeWorkspace;
     if (cfg::behavior.exit_on_switch != 0) {
       m_workspace = m->m_activeWorkspace;
+      m_landingGroup = model::GroupRef{};
+      commitFocus(m->m_activeWorkspace ? m->m_activeWorkspace->getLastFocusedWindow() : nullptr);
       close();
     } else if (!showAllWorkspaces()) {
       // capture + replay reflow, else stale ghosts survive
@@ -249,11 +246,6 @@ void Overview::paint() {
 
   rearmanim(); // tail: damage() here hits already-committed damage
   glStateReport(glEnter, "paint");
-  if (m_commitPending && m_life.openingNow() && !m_life.deactivating() &&
-      entrySettled()) {
-    m_commitPending = false;
-    activateSelection();
-  }
   finishPendingDeactivate();
 
   const double cpu = msSince(frameStart);

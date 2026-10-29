@@ -203,6 +203,7 @@ void Overview::open() {
 
   m_drag = {};
   m_pendingWindow.reset();
+  m_landingGroup = model::GroupRef{};
   cancelPendingClick();
   m_altTabbing = false;
   m_view.setDesktop( false);
@@ -223,11 +224,12 @@ void Overview::open() {
   if (m_scene.tiles().empty() && m_strip.size() <= 1)
     return;
 
-  // seed selection BEFORE layoutTiles
+  // Seed selection BEFORE layoutTiles: m_lastFocus remembers the pick while the compositor's focus lags.
   m_scene.select(m_scene.tiles().empty() ? -1 : 0);
-  if (const auto fw = Desktop::focusState()->window()) {
+  const auto seed = m_lastFocus.lock() ? m_lastFocus.lock() : Desktop::focusState()->window();
+  if (seed) {
     for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-      if (tileWindow(m_scene.tiles()[i]) == fw) {
+      if (tileWindow(m_scene.tiles()[i]) == seed) {
         m_scene.select(static_cast<int>(i));
         break;
       }
@@ -446,6 +448,15 @@ void Overview::damageWindowPreview(const PHLWINDOW &w) const {
   }
   debug::trace::emitState("DMGPREV|win=" + std::to_string(reinterpret_cast<std::uintptr_t>(w.get())) +
                           "|boxes=" + std::to_string(boxes));
+}
+
+// The pick is final at once: recency must not wait for the focus our own hooks hold.
+void Overview::commitFocus(const PHLWINDOW &w) {
+  m_pendingWindow = w;
+  if (!w)
+    return;
+  m_lastFocus = w;
+  m_recency.promote(model::Recency::key(subjectOf(w)));
 }
 
 void Overview::syncRecency() {
