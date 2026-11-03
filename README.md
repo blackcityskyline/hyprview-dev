@@ -208,7 +208,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `strip_margin` | int (px) | `22` | Padding around the strip |
 | `strip_gap` | int (px) | `18` | Spacing between workspace cards |
 | `strip_card_round` | int (px) | `10` | Workspace card corner radius |
-| `backdrop_color` | color/role | `"0x73070a10"` | Dim + blur fill over the desktop |
+| `backdrop_color` | color/role | `"0x33070a10"` | Dim + blur fill over the desktop |
 | `surface_color` | color/role | `"0x1e1e26"` | The plate under a carousel card: the card is a frame, the window fits inside it, and the rest is this colour |
 | `strip_band_color` | color/role | `"0x24ffffff"` | Band behind the cards |
 | `strip_band_opacity` | int `0`..`100` | `70` | Strip band opacity, in percent — the band's only alpha source; `strip_band_color` supplies RGB |
@@ -535,7 +535,7 @@ pcall(function()
                 blur           = 1,
                 anchor         = "top",
                 key_close      = "escape",
-                backdrop_color = "0x73070a10",
+                backdrop_color = "0x33070a10",
             },
         },
     })
@@ -552,7 +552,7 @@ plugin {
         blur = 1
         anchor = top
         key_close = escape
-        backdrop_color = 0x73070a10
+        backdrop_color = 0x33070a10
     }
 }
 ```

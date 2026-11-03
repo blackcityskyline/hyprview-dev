@@ -121,7 +121,7 @@
 | `blur_passes` | int 1..16 | `3` | итераций гауссиана на дне |
 | `blur_size` | int 1..200 | `8` | радиус в пикселях экрана |
 | `blur_resolution` | int 1..32 | `4` | глубина пирамиды |
-| `backdrop_color` | colour | `0x73070a10` | dim, рисуется отдельным rect'ом |
+| `backdrop_color` | colour | `0x33070a10` | dim, рисуется отдельным rect'ом |
 
 ---
 

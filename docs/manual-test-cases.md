@@ -227,7 +227,7 @@ LIFE|deactivate|own=screen|opening=0
 > `plugin:hyprview:layout` (config.cpp:186) — `setTuning` ищет по плоскому имени.
 
 **TC-62 ·часто· `set` на цветовой ключ**
-`cmd("set backdrop_color 73070a10")` → `CMD|ok`, цвет применился.
+`cmd("set backdrop_color 33070a10")` → `CMD|ok`, цвет применился.
 Провал: `ok`, но ничего не изменилось — `Color::get` не читает override.
 
 **TC-63 ·часто· `set` на ключ анимации**
