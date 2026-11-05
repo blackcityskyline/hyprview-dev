@@ -10,6 +10,8 @@
 #include <numeric>
 #include <utility>
 
+#include <linux/input-event-codes.h>
+
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
@@ -74,6 +76,14 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   // Held mods minus the pressed key's own bit, or a bare modifier name never matches.
   uint32_t mods = g_pInputManager ? g_pInputManager->getModsFromAllKBs() : 0;
   mods &= ~modBitForKeycode(k);
+
+  // The run steps itself once open -- Tab forward, Shift+Tab back -- so no second verb is needed.
+  if (m_altTabbing && k == KEY_TAB) {
+    stepAltTab((mods & HL_MODIFIER_SHIFT) != 0 ? -1 : 1);
+    cancel = true;
+    return;
+  }
+
   bool handled = true;
   if (keyMatches(k, mods, cfg::keys.close.get()))
     close();
@@ -233,9 +243,8 @@ void Overview::followGrid(int i) {
   animateGridTo(m_gridScroll.current(), m_gridScroll.follow(t.target));
 }
 
-// Steps the order the user SEES: slot order in the run, array order in the grid; the run is MRU-first.
-// One step along the run, in the order the cards STAND in. The arrows, the wheel
-// and the alt-tab all step this way, so the counter, the motion and the picture cannot disagree about which card is next.
+// One step along the run in the order the cards STAND in: the arrows, the wheel and the alt-tab
+// all come here, so the counter, the motion and the picture cannot disagree about the next card.
 bool Overview::stepRun(int dir) {
   const auto &slot = m_view.slot();
   if (!m_scene.hasSelection() || slot.size() != m_scene.size())

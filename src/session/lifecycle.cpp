@@ -56,6 +56,29 @@ void Overview::toggle() {
   }
 }
 
+void Overview::toggleOne() {
+  if (m_life.openingNow()) {
+    toggle(); // open: commit the pick, or close when nothing is focused
+    return;
+  }
+  m_view.setAllOverride(0);
+  open();
+  if (!openedOrParked())
+    m_view.setAllOverride(-1);
+}
+
+void Overview::toggleBrowser() {
+  if (!m_life.openingNow()) {
+    m_view.setDomain(model::Domain::Tabs); // open(true) keeps it instead of re-reading tile_mode
+    m_view.setAllOverride(1);
+    open(true);
+    if (!openedOrParked())
+      m_view.setAllOverride(-1);
+    return;
+  }
+  toggleBrowserView();
+}
+
 // Asymmetric on purpose, NOT a copy of the "a" binding: no path back -- that is "a"'s job.
 void Overview::toggleCarousel() {
   if (!m_life.openingNow()) {
@@ -176,7 +199,7 @@ void Overview::setDesktopMode(bool on) {
   replayReflow(oldBoxes);
 }
 
-void Overview::open() {
+void Overview::open(bool keepDomain) {
   const auto openEntryStamp = std::chrono::steady_clock::now();
   if (m_life.openingNow())
     return;
@@ -211,7 +234,8 @@ void Overview::open() {
   m_newCardId = 0;
   releaseNewWorkspaces();
 
-  m_view.setDomain(model::parseDomain(cfg::behavior.tile_mode.get()));
+  if (!keepDomain)
+    m_view.setDomain(model::parseDomain(cfg::behavior.tile_mode.get()));
   if (model::showsTabs(m_view.domain()) && !showAllWorkspaces()) {
     m_allForced = 0;
     m_view.setAllOverride(1);
@@ -283,7 +307,6 @@ void Overview::close() {
 
   cancelPendingClick();
 
-  // close: target = shown, natural = real geometry
   if (const auto m = m_monitor.lock()) {
     // Two passes on purpose: the pin test needs the focused tile's natural, which the loop rewrites as it goes.
     LRect selNat{};
@@ -557,7 +580,6 @@ void Overview::finishPendingDeactivate() {
 }
 
 
-// snapshot mode: per-window last committed texture, frozen
 bool Overview::snapshotMode() const {
   return cfg::behavior.preview_mode.get() == "snapshot";
 }

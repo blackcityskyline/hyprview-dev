@@ -469,7 +469,7 @@ std::string Overview::runCommand(const std::string &args) {
     return "";
   }
 
-  // The two ways a step along the run is asked for: the arrows and the alt-tab.
+  // The two ways a step along the run is asked for: the arrows and the switcher.
   if (tok[0] == "altstep") {
     stepAltTab(num(1) >= 0 ? 1 : -1);
     return "";

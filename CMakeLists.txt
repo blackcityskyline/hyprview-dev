@@ -413,6 +413,12 @@ add_test(NAME entries
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/entries_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/entries_check && ${CMAKE_CURRENT_BINARY_DIR}/entries_check")
 
+# The five public verbs, and the switcher's step living inside the run instead of in a second
+# binding. A renamed verb that keeps its old name is a binding nobody can guess.
+add_test(NAME scan_action_verbs
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/action_verbs_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/action_verbs_check && ${CMAKE_CURRENT_BINARY_DIR}/action_verbs_check ${CMAKE_SOURCE_DIR}")
+
 # The carousel slot: which tile the k-th slot holds. view/state.hpp needs no compositor on
 # the include path.
 

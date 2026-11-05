@@ -73,8 +73,10 @@ public:
   bool initialize();
 
   void toggle();
+  void toggleOne();     // the single-workspace view, whatever the config default says
+  void toggleBrowser(); // open straight into the browser-tab view
 
-  void open();
+  void open(bool keepDomain = false);
   void close();
   void hardClose();           // animation-free teardown for the UNLOAD path
   void toggleDesktop();

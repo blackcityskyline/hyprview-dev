@@ -59,7 +59,7 @@ inputs.hyprview = { url = "github:blackcityskyline/hyprview"; inputs.hyprland.fo
 wayland.windowManager.hyprland = {
   enable = true;
   plugins = [ inputs.hyprview.packages.${pkgs.system}.hyprview ];
-  settings.bind = [ "SUPER, TAB, hyprview:toggle" ];
+  settings.bind = [ "SUPER, TAB, hyprview:one" ];
 };
 ```
 
@@ -77,16 +77,18 @@ hot-reloads into the running Hyprland.
 
 ## Usage
 
-Dispatchers: `hyprview:toggle`, `hyprview:open`, `hyprview:close`, `hyprview:desktop`,
-`hyprview:allworkspaces` (the all-workspaces "expo" view — opens into it if closed),
-`hyprview:togglecarousel`, `hyprview:alttab` / `hyprview:alttabback` (alt-tab cycling —
-see `alt_tab_*` below). The hyprctl equivalents are `hyprview` / `hyprviewclose` /
-`hyprviewdesktop` / `hyprviewall` / `hyprviewcarousel` / `hyprviewalttab` /
-`hyprviewalttabback`; `hyprviewunload` is the unload-safe close.
+Five verbs, each named for the view it opens: `hyprview:one` (the current workspace),
+`hyprview:all` (the all-workspaces "expo"), `hyprview:desktop`, `hyprview:browser` (the
+browser-tab view) and `hyprview:switcher` (alt-tab cycling — see `alt_tab_*` below).
+`hyprview:open`, `hyprview:close` and `hyprview:togglecarousel` stay for scripting. The
+hyprctl equivalents are `hyprviewone` / `hyprviewall` / `hyprviewdesktop` /
+`hyprviewbrowser` / `hyprviewswitcher` / `hyprviewcarousel` / `hyprviewclose`;
+`hyprviewunload` is the unload-safe close.
 
-`hyprview:toggle` is not a plain close: closed it opens, open with a card focused it
-confirms that card (switches to its workspace and focuses it — the same thing Enter does),
-and open with nothing focused it cancels. Use `hyprview:close` for an unconditional cancel.
+`hyprview:one` is not a plain close: closed it opens the single-workspace overview
+(whatever `show_all_workspaces` says), open with a card focused it confirms that card
+(switches to its workspace and focuses it — the same thing Enter does), and open with
+nothing focused it cancels. Use `hyprview:close` for an unconditional cancel.
 
 A card's caption is the window title — or, for a tab, the page title — cut at 50
 characters with `...` at the end, the dots included. The limit counts characters, so a
@@ -101,32 +103,32 @@ a time-reversed playback stalls for half the close, then snaps into the cut. Wor
 Lua:
 
 ```lua
-hl.bind("SUPER + TAB", hl.plugin.hyprview.toggle)
-hl.bind("SUPER + SHIFT + TAB", hl.plugin.hyprview.desktop)
-hl.bind("SUPER + CTRL + TAB", hl.plugin.hyprview.allworkspaces)
+hl.bind("SUPER + grave", hl.plugin.hyprview.one)
+hl.bind("SUPER + SHIFT + grave", hl.plugin.hyprview.all)
+hl.bind("SUPER + F9", hl.plugin.hyprview.desktop)
+hl.bind("SUPER + TAB", hl.plugin.hyprview.switcher)
 ```
 
 ```ini
-bind = SUPER, TAB, hyprview:toggle
-bind = SUPER SHIFT, TAB, hyprview:desktop
-bind = SUPER CTRL, TAB, hyprview:allworkspaces
+bind = SUPER, grave, hyprview:one
+bind = SUPER SHIFT, grave, hyprview:all
+bind = SUPER, F9, hyprview:desktop
+bind = SUPER, TAB, hyprview:switcher
 ```
 
-### Alt-Tab
+### Switcher
 
-`hyprview:alttab` / `hyprview:alttabback` are meant to be bound to a single modifier+key
-combo, the same way you'd normally bind a real alt-tab — bind the SAME key you might
-otherwise give `hyprview:allworkspaces`:
+`hyprview:switcher` is meant to be bound to a single modifier+key combo, the same way you'd
+normally bind a real alt-tab:
 
 ```ini
-bind = SUPER, TAB, hyprview:alttab
-bind = SUPER SHIFT, TAB, hyprview:alttabback
+bind = SUPER, TAB, hyprview:switcher
 ```
 
 Closed → opens straight into the all-workspaces view with the selection on the first tile.
-Already open → tapping the same bound key again (while still holding the modifier) advances
-the cycle — Hyprland re-invokes the dispatcher on every physical press, exactly like holding
-Alt and tapping Tab. Tiles keep their normal spatial grid order; cycling just walks the
+Already open → Tab advances the cycle and Shift+Tab goes back. Both are handled inside the
+plugin while the run is up: the binding only opens the run, so the run needs no second verb
+and no second binding. Tiles keep their normal spatial grid order; cycling just walks the
 selection through them. Set `alt_tab_modifier` to whatever modifier is in that bind (`alt`
 by default) so releasing it can commit the selection — see the config table.
 
@@ -242,11 +244,11 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `key_all_workspaces` | key names | `a` | Toggle the all-workspaces (expo) view; `""` to disable |
 | `key_workspace` | key names | `1,2,3,4,5,6,7,8,9,0` | Key at position N switches DIRECTLY to workspace N+1 (so `0` is always workspace 10) — creates it first if needed, independent of what's currently on the strip |
 | `key_workspace_mode` | `switch` \| `jump` | `switch` | `switch`: a digit changes the displayed workspace and the overview stays open — `jump`: a digit switches AND immediately closes the overview; `Ctrl+digit` keeps the overview open in both modes |
-| `alt_tab_modifier` | `alt` \| `ctrl` \| `shift` \| `super` | `alt` | Which modifier's release commits the Alt-Tab selection (match whatever you bound `hyprview:alttab` with) |
+| `alt_tab_modifier` | `alt` \| `ctrl` \| `shift` \| `super` | `alt` | Which modifier's release commits the Alt-Tab selection (match whatever you bound `hyprview:switcher` with) |
 | `alt_tab_commit_on_release` | bool (0/1) | `1` | Releasing `alt_tab_modifier` focuses the selection & closes, like a normal alt-tab — off: releasing does nothing, confirm with `key_activate`/click instead |
 | `exit_on_click` | bool (0/1) | `1` | Click on empty space dismisses the overview |
 | `exit_on_switch` | bool (0/1) | `0` | Dismiss when the live workspace changes underneath (e.g. a keybind) |
-| `show_all_workspaces` | bool (0/1) | `0` | Main area shows every window on the monitor (expo), not just the displayed workspace. Toggle live with `hyprview:allworkspaces`, the `key_all_workspaces` key, or the strip's "All" card |
+| `show_all_workspaces` | bool (0/1) | `0` | Main area shows every window on the monitor (expo), not just the displayed workspace. Toggle live with `hyprview:all`, the `key_all_workspaces` key, or the strip's "All" card |
 | `strip_wallpaper` | bool (0/1) | `1` | Empty workspace cards show a cover-fit wallpaper thumbnail (the same source the backdrop uses) instead of a flat body |
 | `strip_empty_mode` | `show` \| `neighbors` \| `hide` | `show` | `show`: every numeric workspace up to the highest one in use (at least 1-10) gets a strip card, even ones that were never created — `neighbors`: only occupied workspaces plus the displayed one's immediate numeric neighbors (reveals a run of empties one hop at a time as you navigate into it) — `hide`: only occupied workspaces, no empty ones at all. `show`/`neighbors` cards for a workspace that doesn't exist yet are created lazily on click/drop, same as `+` but at that specific number. |
 | `show_special` | bool (0/1) | `0` | Include the special (scratchpad) workspace as a strip card |
@@ -353,7 +355,7 @@ The imperative twin of these keys is the Lua API
 | `strip_step` | 200 | easeinout | animated strip scroll per workspace step |
 | `ws_enter` | 250 | easeout | incoming tiles' timing on a workspace switch (style: `ws_enter_style`) |
 | `ws_exit` | 250 | easeout | outgoing ghosts on a workspace switch (style: `ws_exit_style`) |
-| `expo_in` | 250 | easeout | one→all spread during the all↔one flip (`hyprview:allworkspaces`) |
+| `expo_in` | 250 | easeout | one→all spread during the all↔one flip (`hyprview:all`) |
 | `expo_out` | 250 | easeout | all→one collapse during the flip |
 | `jump_in` | 180 | easeout | one→all flip started from the keyboard (`jump_style`) |
 | `jump_out` | 220 | easeout | all→one flip started from the keyboard |
@@ -447,7 +449,7 @@ state when the view is opened from outside; the key ignores it.
 - Click an off-centre card to bring it to centre; click the centred card to
   commit. Hover only swaps the ring - the slots are built around the selection.
 - Left/Right step the run circularly; Tab/Shift-Tab, the digits and
-  `hyprview:allworkspaces` keep their workspace meaning. Enter or a click
+  `hyprview:all` keep their workspace meaning. Enter or a click
   commits; the close glyph closes that window.
 - A drop zone on the edge opposite the strip's anchor closes a dragged window,
   in the carousel and in any plain layout. It spans the whole monitor width, is

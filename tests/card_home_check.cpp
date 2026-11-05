@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
   const std::string lifecycle = slurp(root + "/src/session/lifecycle.cpp");
   if (lifecycle.empty())
     return fail("src/session/lifecycle.cpp not found");
-  const auto openAt = lifecycle.find("void Overview::open()");
+  const auto openAt = lifecycle.find("void Overview::open(");
   const auto groupAt = lifecycle.find("m_landingGroup = model::GroupRef{};");
   if (openAt == std::string::npos || groupAt == std::string::npos || groupAt < openAt ||
       groupAt > lifecycle.find("void Overview::close()"))
