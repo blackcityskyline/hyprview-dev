@@ -249,7 +249,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `exit_on_click` | bool (0/1) | `1` | Click on empty space dismisses the overview |
 | `exit_on_switch` | bool (0/1) | `0` | Dismiss when the live workspace changes underneath (e.g. a keybind) |
 | `show_all_workspaces` | bool (0/1) | `0` | Main area shows every window on the monitor (expo), not just the displayed workspace. Toggle live with `hyprview:all`, the `key_all_workspaces` key, or the strip's "All" card |
-| `strip_wallpaper` | bool (0/1) | `1` | Empty workspace cards show a cover-fit wallpaper thumbnail (the same source the backdrop uses) instead of a flat body |
+| `strip_wallpaper` | bool (0/1) | `1` | Empty workspace cards show a cover-fit wallpaper thumbnail (the same source the backdrop uses, frosted with its blur) instead of a flat body |
 | `strip_empty_mode` | `show` \| `neighbors` \| `hide` | `show` | `show`: every numeric workspace up to the highest one in use (at least 1-10) gets a strip card, even ones that were never created — `neighbors`: only occupied workspaces plus the displayed one's immediate numeric neighbors (reveals a run of empties one hop at a time as you navigate into it) — `hide`: only occupied workspaces, no empty ones at all. `show`/`neighbors` cards for a workspace that doesn't exist yet are created lazily on click/drop, same as `+` but at that specific number. |
 | `show_special` | bool (0/1) | `0` | Include the special (scratchpad) workspace as a strip card |
 | `show_discarded_tabs` | bool (0/1) | `0` | List unloaded (discarded) browser tabs as cards too. The `discarded` command flips the same thing at runtime; a browser left with nothing to show falls back to its window card |

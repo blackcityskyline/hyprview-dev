@@ -26,8 +26,7 @@ CBox box(const LRect &r) { return CBox{r.x, r.y, r.w, r.h}; }
 
 }
 
-// Z2 strip chrome. Thumbnails follow in renderStripWindows, hints/close in
-// renderStripButtons: anything that sits ON TOP of content must come later.
+// Z2 strip chrome: thumbnails and hints/close come later -- anything ON TOP of content is drawn after.
 void Overview::renderStrip() const {
   const auto m = m_monitor.lock();
   if (!m || m_strip.empty())
@@ -108,25 +107,38 @@ void Overview::renderStrip() const {
         safeRenderRect("all", pxb(box(cell), s), allCol, {.round = pxr(2, s)});
     } else {
       if (cfg::strip.wallpaper != 0) {
-        SP<Render::ITexture> tex = backdropSourceTexture();
-        if (tex && tex->ok()) {
-          const double texW = std::max(1.0, static_cast<double>(tex->m_size.x));
-          const double texH = std::max(1.0, static_cast<double>(tex->m_size.y));
+        // The grid's three layers -- source, glass, dim -- so a transparent window keeps its frost here too.
+        const auto src  = backdropSourceTexture();
+        const auto btex = blurEnabled() ? backdropBlurTexture() : SP<Render::ITexture>{};
+        if (src && src->ok()) {
+          const double texW = std::max(1.0, static_cast<double>(src->m_size.x));
+          const double texH = std::max(1.0, static_cast<double>(src->m_size.y));
           const auto uv = render::coverFitUV(card.w, card.h, texW, texH);
-          CTexPassElement::SRenderData td{};
-          td.tex           = tex;
-          td.box           = pxb(c, s);
-          td.a             = static_cast<float>(fade);
-          td.round         = pxr(cardRound, s);
-          td.roundingPower = roundPow;
-          td.allowCustomUV = true;
+          const auto blit = [&](const SP<Render::ITexture> &tex, float a) {
+            CTexPassElement::SRenderData td{};
+            td.tex           = tex;
+            td.box           = pxb(c, s);
+            td.a             = a;
+            td.round         = pxr(cardRound, s);
+            td.roundingPower = roundPow;
+            td.allowCustomUV = true;
+            g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
+          };
           auto &uvTL = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
           auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
           uvTL = Vector2D{uv.u0, uv.v0};
           uvBR = Vector2D{uv.u1, uv.v1};
-          g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
+          const bool   blurOk = btex && btex->ok();
+          const double glass  = glassAlpha();
+          if (!blurOk || glass < 1.0)
+            blit(src, static_cast<float>(fade));
+          if (blurOk)
+            blit(btex, static_cast<float>(fade * glass));
           uvTL = Vector2D{-1.0, -1.0};
           uvBR = Vector2D{-1.0, -1.0};
+          const auto dim = cfg::blur.backdrop.get(static_cast<float>(fade));
+          if (dim.a > 0.0)
+            safeRenderRect("strip", pxb(c, s), dim, {.round = pxr(cardRound, s), .roundingPower = roundPow});
         }
       }
       if (!suppressContent) {
