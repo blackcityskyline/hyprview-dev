@@ -71,15 +71,13 @@ void Overview::toggleBrowser() {
   if (!m_life.openingNow()) {
     m_view.setDomain(model::Domain::Tabs); // open(true) keeps it instead of re-reading tile_mode
     m_view.setAllOverride(1);
-    open(true);
-    if (!openedOrParked())
+    if (!openStepped(cfg::behavior.browser_advances != 0 ? 1 : 0, true))
       m_view.setAllOverride(-1);
     return;
   }
   toggleBrowserView();
 }
 
-// Asymmetric on purpose, NOT a copy of the "a" binding: no path back -- that is "a"'s job.
 void Overview::toggleCarousel() {
   if (!m_life.openingNow()) {
     m_view.setCarouselOn( true); // BEFORE open(): buildTiles reads it
@@ -141,8 +139,7 @@ void Overview::toggleAllWorkspaces() {
   if (!m_life.openingNow()) {
     m_view.setAllOverride(
         1); // BEFORE open(), so buildTiles sees it
-    open();
-    if (!openedOrParked())
+    if (!openStepped(cfg::behavior.all_advances != 0 ? 1 : 0))
       m_view.setAllOverride( -1);
     return;
   }
@@ -152,7 +149,7 @@ void Overview::toggleAllWorkspaces() {
   m_view.setExpoFlip( wasAll ? -1 : 1);
   auto oldBoxes = captureCurrentBoxes();
   replayReflow(oldBoxes);
-  // AFTER the rebuild: captureCurrentBoxes() is empty on an empty workspace, so arming entry before it is a no-op.
+  // AFTER the rebuild: capture is empty on an empty workspace, so arming entry before it is a no-op.
   if (oldBoxes.empty()) {
     m_scene.armEntry();
     // rebuild must start BEFORE the direction, or updateAnimation clears it in the same tick (clocks.cpp:145).
@@ -167,23 +164,29 @@ void Overview::toggleAllWorkspaces() {
 
 void Overview::altTabInvoke(bool reverse) {
   if (!m_life.openingNow()) {
-    // Armed BEFORE open(), consumed by the layout it triggers: ONE motion of ONE duration.
-    m_pendingStep = cfg::behavior.alttab_advances != 0 ? (reverse ? -1 : 1) : 0;
     m_view.setAllOverride( 1);
-    open();
-    m_pendingStep = 0;
-    if (!openedOrParked()) {
+    if (!openStepped(cfg::behavior.switcher_advances != 0 ? (reverse ? -1 : 1) : 0)) {
       m_view.setAllOverride( -1);
       return;
     }
     m_altTabbing = true; // armed AFTER open(): a plain open resets it
-    // open() already seeded the selection from the compositor's focus; index 0 would discard it.
     if (carouselMode() && !m_scene.empty())
       layoutTiles();
     damage();
     return;
   }
   stepAltTab(reverse ? -1 : 1);
+}
+
+// The entry aimed `step` cards along the run: ONE motion of ONE duration, 0 = the focused card.
+bool Overview::openStepped(int step, bool keepDomain) {
+  m_pendingStep = step;
+  open(keepDomain);
+  // open() sets the carousel after its own layout, so a fresh session stands the run up next.
+  if (m_pendingStep != 0 && carouselMode() && !m_scene.empty())
+    layoutTiles();
+  m_pendingStep = 0;
+  return openedOrParked();
 }
 
 void Overview::toggleDesktop() {

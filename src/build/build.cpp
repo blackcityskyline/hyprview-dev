@@ -555,6 +555,8 @@ void Overview::layoutTiles() {
           ((selSlot + m_pendingStep) % n + n) % n;
       m_scene.select(static_cast<int>(slot[static_cast<std::size_t>(nxt)]));
       selSlot = nxt;
+      // Consumed here: open() may have laid out a grid first, and a second pass would step again.
+      m_pendingStep = 0;
     }
 
     // Card k is slot k, so the centred card is at the selection's own position in the sequence.

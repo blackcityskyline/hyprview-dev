@@ -77,6 +77,7 @@ public:
   void toggleBrowser(); // open straight into the browser-tab view
 
   void open(bool keepDomain = false);
+  bool openStepped(int step, bool keepDomain = false);
   void close();
   void hardClose();           // animation-free teardown for the UNLOAD path
   void toggleDesktop();

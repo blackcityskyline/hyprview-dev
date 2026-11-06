@@ -77,6 +77,31 @@ int main(int argc, char **argv) {
   if (life.find("if (!keepDomain)") == std::string::npos)
     return fail("open() overwrites the domain -- `browser` opens into the config's view");
 
-  std::printf("PASS: five verbs, and the switcher steps itself\n");
+  // The `*_advances` rule is per verb: one key used to be named after alt-tab, which no longer
+  // says what it does, and all/browser had no way to ask for the same start.
+  const std::string configCpp = slurp(root + "/src/config/config.cpp");
+  const std::string readme = slurp(root + "/README.md");
+  if (configCpp.empty() || readme.empty())
+    return fail("src/config/config.cpp or README.md not found");
+  for (const char *key : {"switcher_advances", "all_advances", "browser_advances"}) {
+    if (configCpp.find(std::string("plugin:hyprview:") + key) == std::string::npos)
+      return fail((std::string("`") + key + "` is not registered").c_str());
+    if (readme.find(std::string("`") + key + "`") == std::string::npos)
+      return fail((std::string("`") + key + "` has no README row").c_str());
+  }
+  if (configCpp.find("alttab_advances") != std::string::npos)
+    return fail("`alttab_advances` still exists -- the verb is the switcher");
+
+  // Each verb reads its OWN key: one rule for all three would make two of them lie.
+  const auto all = life.find("void Overview::toggleAllWorkspaces()");
+  const auto allBody = life.substr(all, life.find("void Overview::altTabInvoke", all) - all);
+  if (allBody.find("all_advances") == std::string::npos)
+    return fail("`all` never reads all_advances");
+  const auto browser = life.find("void Overview::toggleBrowser()");
+  const auto browserBody = life.substr(browser, life.find("void Overview::toggleCarousel", browser) - browser);
+  if (browserBody.find("browser_advances") == std::string::npos)
+    return fail("`browser` never reads browser_advances");
+
+  std::printf("PASS: five verbs, the switcher steps itself, and each verb has its own start\n");
   return 0;
 }
