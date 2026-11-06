@@ -278,6 +278,26 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
     m_drag.clear();
     m_drag.miss(e.button);
 
+    if (m_menuOpen) {
+      const auto box = menuBoxes();
+      if (box.browser.contains(lx, ly)) {
+        m_drag.consume(e.button);
+        toggleBrowserView();
+        return true;
+      }
+      if (box.carousel.contains(lx, ly)) {
+        m_drag.consume(e.button);
+        toggleCarousel();
+        return true;
+      }
+      const double shown = menuProgress();
+      m_menuOpen = false;
+      m_place.clocks.menu.seek(1.0 - shown, menuDur());
+      m_drag.consume(e.button);
+      damage();
+      return true;
+    }
+
     if (e.button == BTN_MIDDLE) {
       const int idx = stripItemAt(lx, ly);
       if (idx >= 0 && m_strip[idx].kind != model::StripItem::Kind::Plus && m_strip[idx].kind != model::StripItem::Kind::All)
@@ -360,6 +380,10 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       return true;
     }
     m_drag.miss(e.button);
+    if (e.button == BTN_RIGHT) {
+      m_drag.consume(e.button);
+      toggleMenu(lx, ly);
+    }
     return true;
   }
 

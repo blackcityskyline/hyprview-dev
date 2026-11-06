@@ -675,6 +675,37 @@ static void theTileDecidesItsRingAndItsFrost() {
 // The ✕ glyph inside its button. One rule for every surface that draws it: the
 // strip used a hardcoded fraction, so the knob meant nothing there and the glyph
 // did not match its button.
+// The menu is placed at the click but must not run off the monitor: a panel half off the
+// edge is a button no one can press. The buttons are placed FROM the panel, not from the
+// click, or clamping the panel would leave them behind.
+static void theMenuStaysOnTheMonitor() {
+  using hyprview::render::menuLayout;
+
+  const auto mid = menuLayout(400.0, 300.0, 1366.0, 768.0);
+  want(mid.panel.contains(mid.browser.x, mid.browser.y), true, "the browser button is inside");
+  want(mid.panel.contains(mid.carousel.x + mid.carousel.w, mid.carousel.y + mid.carousel.h),
+       true, "the carousel button is inside");
+  near(mid.browser.w, mid.carousel.w, "equal buttons");
+  near(mid.browser.y, mid.carousel.y, "one row");
+  want(mid.carousel.x > mid.browser.x + mid.browser.w, true, "and no overlap");
+  near(mid.panel.x, 400.0, "a click with room is used as-is");
+  near(mid.panel.y, 300.0, "a click with room is used as-is");
+
+  // Bottom-right corner: the panel is pulled back, buttons follow it.
+  const auto edge = menuLayout(1360.0, 760.0, 1366.0, 768.0);
+  want(edge.panel.x + edge.panel.w <= 1366.0, true, "the panel stays on the monitor");
+  want(edge.panel.y + edge.panel.h <= 768.0, true, "the panel stays on the monitor");
+  want(edge.browser.x >= edge.panel.x, true, "buttons follow the clamped panel");
+  want(edge.carousel.x + edge.carousel.w <= edge.panel.x + edge.panel.w, true,
+       "buttons follow the clamped panel");
+
+  // A negative click cannot land off the top-left either.
+  const auto neg = menuLayout(-50.0, -20.0, 1366.0, 768.0);
+  want(neg.panel.x >= 0.0 && neg.panel.y >= 0.0, true, "a negative click is clamped too");
+
+  std::puts("the menu: buttons ride the panel, and the panel stays on the monitor");
+}
+
 static void theCloseGlyphFillsItsButton() {
   using hyprview::render::glyphRect;
 
@@ -1231,6 +1262,7 @@ int main() {
   theGlArithmeticIsReachable();
   theTileDecidesItsRingAndItsFrost();
   theCloseGlyphFillsItsButton();
+  theMenuStaysOnTheMonitor();
   thePulseAndTheDropHintAreDecisions();
   theContentKeepsItsAspectInsideTheCard();
   theCaptionDoesNotShrinkWithTheTitle();

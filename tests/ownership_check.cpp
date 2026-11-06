@@ -222,6 +222,7 @@ int main(int argc, char **argv) {
       "m_lastAnimTick",
       // one value each, owned by the coordinator because nothing else does the owning
       "m_scrollAccum", "m_killGlow", "m_lastDragBox", "m_lastFocus", "m_handle",
+      "m_menuAt",
       // A value type held by the coordinator, written through member calls the scan sees as
       // one writer: buildTiles() is where a placement is made.
       "m_place",

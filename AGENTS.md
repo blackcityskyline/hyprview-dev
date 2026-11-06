@@ -120,7 +120,7 @@ Overview                     единственный владелец сост�
 
 ```
 backdrop → tiles/carousel → ghosts → pulses → strip → strip windows
-        → strip buttons → pulses → swapfx → drag → aboveLayers → cursor
+        → strip buttons → pulses → swapfx → drag → aboveLayers → menu → cursor
 ```
 
 Сидящее поверх контента рисуется после него; кнопки — после своих поверхностей. Исключение: `pushOut()` двигает хром из paint.

@@ -67,7 +67,7 @@ const char *kPasses[] = {
     "renderBackdrop",  "renderCarousel", "renderTiles",   "renderGhosts",
     "renderPulses",    "renderStrip",    "renderStripWindows", "renderStripButtons",
     "renderSwapFX",    "renderKillZone", "renderDragTile", "renderDragWindow",
-    "renderAboveLayers", "renderCursorOnTop",
+    "renderAboveLayers", "renderMenu", "renderCursorOnTop",
 };
 
 // Every pass call in the order the code makes them.
@@ -127,6 +127,7 @@ std::vector<std::vector<std::string>> docSlots(const std::string &block) {
     else if (slot == "swapfx") slots.push_back({"renderSwapFX"});
     else if (slot == "drag") slots.push_back({"renderKillZone", "renderDragTile", "renderDragWindow"});
     else if (slot == "aboveLayers") slots.push_back({"renderAboveLayers"});
+    else if (slot == "menu") slots.push_back({"renderMenu"});
     else if (slot == "cursor") slots.push_back({"renderCursorOnTop"});
     else {
       std::printf("FAIL: the document names a slot this check does not know: %s\n", slot.c_str());

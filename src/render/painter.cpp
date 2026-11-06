@@ -9,6 +9,7 @@
 #include <hyprland/src/render/pass/PassElement.hpp>
 
 #include "gl_util.hpp"
+#include "../clock/curves.hpp"
 #include "../config/config.hpp"
 #include "../debug/log.hpp"
 #include "../overview.hpp"
@@ -186,7 +187,8 @@ void Overview::renderStage(eRenderStage stage) {
 
   {
     const bool busy = secondaryAnimsActive() ||
-                      !m_place.clocks.tiles.done(glideDur()) || m_newCardAnim ||
+                      !m_place.clocks.tiles.done(glideDur()) ||
+                      !m_place.clocks.menu.done(menuDur()) || m_newCardAnim ||
                       m_drag.lifted() || !m_fx.pulses().empty() ||
                       !m_fx.swapfx().empty() ||
                       (opening() ? m_place.progress.raw() < 1.0 : m_place.progress.raw() > 0.0);
@@ -242,6 +244,8 @@ void Overview::paint() {
 
   renderAboveLayers();
 
+  renderMenu();
+
   renderCursorOnTop();
 
   rearmanim(); // tail: damage() here hits already-committed damage
@@ -261,6 +265,44 @@ void Overview::paint() {
                " tiles=" + std::to_string(m_scene.tiles().size()) + " strip=" +
                std::to_string(m_strip.size()));
   }
+}
+
+void Overview::renderMenu() const {
+  const double p = menuProgress();
+  if (p <= 0.001)
+    return;
+  const auto m = m_monitor.lock();
+  if (!m)
+    return;
+  const double s = m->m_scale;
+  const float a = static_cast<float>(std::clamp(p, 0.0, 1.0));
+  const double e = curves::eval(anim::cfg(anim::Id::Card).curve, p);
+  const auto box = menuBoxes();
+  const float roundPow = cfg::look.preview_round_power;
+  const auto grow = [&](const LRect &r) {
+    const double k = 0.72 + 0.28 * e;
+    return LRect{r.cx() - r.w * k / 2.0, r.cy() - r.h * k / 2.0, r.w * k, r.h * k};
+  };
+  const LRect panel = grow(box.panel);
+  safeRenderRect("menu", pxb(panel, s), cfg::colors.strip_card.get(a),
+                 {.round = pxr(12.0, s), .roundingPower = roundPow});
+
+  const auto button = [&](const LRect &r, bool on, const char *glyph) {
+    const LRect b = grow(r);
+    if (on) {
+      safeRenderRect("menu_on", pxb(b, s), cfg::colors.strip_active.get(a),
+                     {.round = pxr(10.0, s), .roundingPower = roundPow});
+      strokeRingPx(pxb(b, s), cfg::colors.strip_active_border.get(), 0.8F * a,
+                   pxr(10.0, s), roundPow);
+    }
+    const auto tex = m_pixel.menuGlyph(glyph, cfg::colors.label.get(a), 20);
+    if (tex && tex->m_size.x > 0)
+      g_pHyprOpenGL->renderTexture(tex,
+                                   pxb(render::glyphRect(b, tex->m_size.x, tex->m_size.y, 0.55), s),
+                                   {.a = a});
+  };
+  button(box.browser, model::showsTabs(m_view.domain()), "\xF3\xB0\x96\x9F");
+  button(box.carousel, carouselMode(), "\xF3\xB0\x95\xAC");
 }
 
 void Overview::renderCursorOnTop() const {

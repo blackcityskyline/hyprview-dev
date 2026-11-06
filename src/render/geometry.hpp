@@ -492,6 +492,26 @@ inline constexpr int kSourceAnimatedStreak = 4;
   return LRect{button.x + (button.w - w) / 2.0, button.y + (button.h - h) / 2.0, w, h};
 }
 
+struct MenuLayout {
+    LRect panel;
+    LRect browser;
+    LRect carousel;
+};
+
+[[nodiscard]] inline MenuLayout menuLayout(double x, double y, double monW, double monH) {
+    constexpr double kPad = 10.0;
+    constexpr double kButton = 44.0;
+    constexpr double kGap = 8.0;
+    const double w = kPad * 2.0 + kButton * 2.0 + kGap;
+    const double h = kPad * 2.0 + kButton;
+    MenuLayout out;
+    out.panel = LRect{std::clamp(x, 0.0, std::max(0.0, monW - w)),
+                      std::clamp(y, 0.0, std::max(0.0, monH - h)), w, h};
+    out.browser = LRect{out.panel.x + kPad, out.panel.y + kPad, kButton, kButton};
+    out.carousel = LRect{out.browser.x + kButton + kGap, out.browser.y, kButton, kButton};
+    return out;
+}
+
 // The ring on top of a tile: hover over selection over base.
 [[nodiscard]] inline int focusRingWidth(bool showFocusBorder, bool framed, bool selected,
                                         int hoverWidth, int selectWidth, int baseWidth) {

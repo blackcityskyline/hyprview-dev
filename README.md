@@ -90,6 +90,11 @@ hyprctl equivalents are `hyprviewone` / `hyprviewall` / `hyprviewdesktop` /
 (switches to its workspace and focuses it — the same thing Enter does), and open with
 nothing focused it cancels. Use `hyprview:close` for an unconditional cancel.
 
+A right-click on empty space opens a small panel at the cursor: the globe button toggles
+the browser-tab view, the carousel button toggles the carousel. A button stays lit while
+its mode is on, and any other press dismisses the panel. It appears on the card animation,
+so it follows the same easing and duration as the cards.
+
 A card's caption is the window title — or, for a tab, the page title — cut at 50
 characters with `...` at the end, the dots included. The limit counts characters, so a
 Cyrillic title is cut between letters and not through one.

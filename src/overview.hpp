@@ -86,6 +86,10 @@ public:
   void switchDomain(model::Domain d);
   void toggleBrowserView();
   void altTabInvoke(bool reverse);
+  void toggleMenu(double x, double y);
+  [[nodiscard]] render::MenuLayout menuBoxes() const;
+  double menuDur() const { return anim::cfg(anim::Id::Card).ms; }
+  [[nodiscard]] double menuProgress() const;
 
   void renderStage(eRenderStage stage);
   void paint();
@@ -106,6 +110,7 @@ public:
   void renderGhosts() const;
   void renderDragTile() const;
   void renderDragWindow() const;
+  void renderMenu() const;
   void renderCursorOnTop() const;
 
   void rearmanim() const { m_pump.ensure(animBusy(), m_monitor.lock()); }
@@ -320,6 +325,8 @@ private:
   model::Drag m_drag;
   LRect m_lastDragBox; // drag box at RELEASE, the `from` for landings
   bool m_altTabbing = false;
+  bool m_menuOpen = false;
+  LRect m_menuAt;
 
   session::Hooks m_hooks;
 

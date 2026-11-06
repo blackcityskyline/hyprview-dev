@@ -257,7 +257,8 @@ std::string Overview::runCommand(const std::string &args) {
                       std::to_string(showAllWorkspaces()) + "|carousel=" +
                       std::to_string(carouselMode()) + "|run=" +
                       std::to_string(m_view.run() ? m_view.carousel().cards.size() : 0) +
-                      "|pos=" + std::to_string(runPosition()) + "|disc=" +
+                      "|pos=" + std::to_string(runPosition()) + "|menu=" +
+                      std::to_string(m_menuOpen ? 1 : 0) + "|disc=" +
                       std::to_string(m_showDiscarded >= 0 ? m_showDiscarded
                                                           : cfg::behavior.show_discarded_tabs != 0 ? 1 : 0) +
                       "|ccx=" +

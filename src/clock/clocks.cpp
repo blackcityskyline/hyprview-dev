@@ -210,6 +210,7 @@ void Overview::updateAnimation() {
 bool Overview::animBusy() const {
   return active() &&
          (secondaryAnimsActive() || !m_place.clocks.tiles.done(glideDur()) ||
+          !m_place.clocks.menu.done(menuDur()) ||
           m_newCardAnim || m_drag.lifted() || !m_fx.swapfx().empty() ||
           m_life.jumpClosing() || m_life.deactivating() ||
           (opening() && m_place.progress.raw() < 1.0) || (!opening() && m_place.progress.raw() > 0.0));

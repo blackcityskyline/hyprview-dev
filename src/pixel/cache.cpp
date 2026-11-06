@@ -309,6 +309,20 @@ SP<Render::ITexture> PixelCache::glyph(const std::string &icon,
 
 SP<Render::ITexture> PixelCache::closeGlyph() const { return m_glyph; }
 
+SP<Render::ITexture> PixelCache::menuGlyph(const std::string &icon,
+                                           const CHyprColor &col, int size) {
+  const std::string key =
+      icon + "@" + std::to_string(size) + "#" + std::to_string(col.getAsHex());
+  if (const auto it = m_menuGlyphs.find(key); it != m_menuGlyphs.end())
+    return it->second;
+  auto tex = g_pHyprRenderer
+                 ? g_pHyprRenderer->renderText(icon, col, size, false, "", 0, 400)
+                 : nullptr;
+  if (tex)
+    m_menuGlyphs[key] = tex;
+  return tex;
+}
+
 void PixelCache::putSnapshot(const PHLWINDOW &win,
                              const SP<Render::ITexture> &tex) {
   const PHLWINDOWREF ref = win;

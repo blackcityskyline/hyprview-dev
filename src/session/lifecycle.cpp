@@ -135,6 +135,33 @@ void Overview::toggleBrowserView() {
                                                       : model::Domain::Tabs);
 }
 
+render::MenuLayout Overview::menuBoxes() const {
+  const auto m = m_monitor.lock();
+  if (!m)
+    return {};
+  return render::menuLayout(m_menuAt.x, m_menuAt.y, m->m_size.x, m->m_size.y);
+}
+
+double Overview::menuProgress() const {
+  const double r = m_place.clocks.menu.raw(menuDur());
+  return m_menuOpen ? r : 1.0 - r;
+}
+
+void Overview::toggleMenu(double x, double y) {
+  const double shown = std::clamp(menuProgress(), 0.0, 1.0);
+  if (m_menuOpen) {
+    m_menuOpen = false;
+    m_place.clocks.menu.seek(1.0 - shown, menuDur());
+  } else {
+    m_menuOpen = true;
+    m_menuAt = LRect{x, y, 0.0, 0.0};
+    m_place.clocks.menu.seek(shown, menuDur());
+    const auto c = anim::cfg(anim::Id::Card);
+    debug::trace::animStart("menu", "card", c.curve.c_str(), c.ms, c.curve.c_str());
+  }
+  damage();
+}
+
 void Overview::toggleAllWorkspaces() {
   if (!m_life.openingNow()) {
     m_view.setAllOverride(
@@ -232,6 +259,7 @@ void Overview::open(bool keepDomain) {
   m_landingGroup = model::GroupRef{};
   cancelPendingClick();
   m_altTabbing = false;
+  m_menuOpen = false;
   m_view.setDesktop( false);
   m_newCardAnim = false;
   m_newCardId = 0;
@@ -307,6 +335,8 @@ void Overview::close() {
              " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
   m_life.endEntry();
   m_life.consumeJumpClosing();
+  m_menuOpen = false;
+  m_place.clocks.menu.pinEnd(menuDur());
 
   cancelPendingClick();
 
@@ -369,6 +399,8 @@ void Overview::hardClose() {
   m_life.hardClose();
   debug::trace::life("close", m_life.describe());
   m_view.setDesktop( false);
+  m_menuOpen = false;
+  m_place.clocks.menu.reset();
   m_newCardAnim = false;
   m_newCardId = 0;
   m_place.progress.closed();
