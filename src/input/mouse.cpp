@@ -278,6 +278,26 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
     m_drag.clear();
     m_drag.miss(e.button);
 
+    if (m_menuOpen) {
+      const auto box = menuBoxes();
+      if (box.browser.contains(lx, ly)) {
+        m_drag.consume(e.button);
+        toggleBrowserView();
+        return true;
+      }
+      if (box.carousel.contains(lx, ly)) {
+        m_drag.consume(e.button);
+        toggleCarousel();
+        return true;
+      }
+      const double shown = menuProgress();
+      m_menuOpen = false;
+      m_place.clocks.menu.seek(1.0 - shown, menuDur());
+      m_drag.consume(e.button);
+      damage();
+      return true;
+    }
+
     if (e.button == BTN_MIDDLE) {
       const int idx = stripItemAt(lx, ly);
       if (idx >= 0 && m_strip[idx].kind != model::StripItem::Kind::Plus && m_strip[idx].kind != model::StripItem::Kind::All)
@@ -360,6 +380,10 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       return true;
     }
     m_drag.miss(e.button);
+    if (e.button == BTN_RIGHT) {
+      m_drag.consume(e.button);
+      toggleMenu(lx, ly);
+    }
     return true;
   }
 
@@ -376,6 +400,13 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
   }
   case model::Drag::Press::Tile: {
     const int press = m_drag.idx();
+    if (press < 0 || press >= static_cast<int>(m_scene.tiles().size())) {
+      debug::trace::drag("release", m_drag.describe() + "|stale=1");
+      m_drag.clear();
+      m_killGlow = 0.0;
+      damage();
+      return true;
+    }
     m_killGlow = 0.0;
     const auto w = tileWindow(m_scene.tiles()[press]);
     const double grabDX = m_drag.grabX(), grabDY = m_drag.grabY();
@@ -386,7 +417,10 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
     if (m_drag.lifted()) {
       const bool rmb = m_drag.button() == BTN_RIGHT;
       m_lastDragBox = dragVisualBox();
-      auto oldBoxes = captureCurrentBoxes(w);
+      const auto dragged = press >= 0 && press < static_cast<int>(m_scene.tiles().size())
+                               ? m_scene.tiles()[static_cast<std::size_t>(press)].subj
+                               : model::SubjectRef{};
+      auto oldBoxes = captureCurrentBoxes(dragged);
       m_drag.clear();
       int cardIdx = -1;
       for (int i = 0; i < static_cast<int>(m_strip.size()); ++i)
@@ -394,7 +428,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           cardIdx = i;
           break;
         }
-      if (cardIdx >= 0) {
+      if (cardIdx >= 0 && w) {
         const bool wsCard = m_strip[cardIdx].kind == model::StripItem::Kind::Ws;
         debug::trace::dragBranch("Tile->stripCard",
                                  "rmb=" + std::to_string(rmb) + "|kind=" +
@@ -433,14 +467,21 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         }
       }
       // The closing zone wins over everything else, carousel or plain.
-      if (w && killZoneRect().contains(lx, ly)) {
+      debug::trace::drag("drop", "at=" + std::to_string(static_cast<int>(lx)) + "," +
+                                   std::to_string(static_cast<int>(ly)) + "|zone=" +
+                                   std::to_string(static_cast<int>(killZoneRect().x)) + "," +
+                                   std::to_string(static_cast<int>(killZoneRect().y)) + "," +
+                                   std::to_string(static_cast<int>(killZoneRect().w)) + "," +
+                                   std::to_string(static_cast<int>(killZoneRect().h)));
+      if ((w || cardOf(m_scene.tiles()[press]).isTab()) &&
+          killZoneRect().contains(lx, ly)) {
         debug::trace::dragBranch("Tile->killZone");
         if (press == m_scene.selected() && m_scene.tiles().size() > 1) {
           m_scene.select(static_cast<int>(press % (m_scene.tiles().size() - 1)));
           m_scene.select(std::clamp(m_scene.selected(), 0,
                                    static_cast<int>(m_scene.tiles().size()) - 2));
         }
-        closeTileWindow(press);
+        killTile(press, lx, ly, m_lastDragBox);
         return true;
       }
       // Nearest tile within gap/2, not containment: a natural drop lands in the gap.
@@ -469,7 +510,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           return true;
         }
       }
-      if (m_view.desktop() && w) {
+      if (m_view.desktop()) {
         debug::trace::dragBranch("Tile->desktopPark");
         const LRect cur =
             m_scene.tiles()[press].target;
@@ -480,9 +521,9 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         return true;
       }
       debug::trace::dragBranch("Tile->flyback");
-      // Own glide source: captureCurrentBoxes excludes the dragged window; startTileGlide would fade it in as a newcomer.
-      if (w)
-        oldBoxes.emplace_back(subjectOf(w), m_lastDragBox);
+      // Own glide source: captureCurrentBoxes excludes the dragged card; startTileGlide would fade it in as a newcomer.
+      if (dragged.id != 0)
+        oldBoxes.emplace_back(dragged, m_lastDragBox);
       replayReflow(oldBoxes);
       ensureAnimPump();
       damage();
@@ -691,7 +732,7 @@ void Overview::focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason) {
       }
     }
   }
-  m_pendingWindow = w;
+  commitFocus(w);
   close();
   if (w && !deferFocus)
     Desktop::focusState()->fullWindowFocus(w, reason);

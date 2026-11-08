@@ -290,6 +290,24 @@ static void theFlightHasFourKinds() {
     near(f.alpha, 1.0, "a slide does not fade");
   }
 
+  // The closing zone is a POINT: the card is sucked into it, so the box shrinks to nothing
+  // on the way -- a slide to a point is a shrink to a point.
+  {
+    SwapFlightInput in;
+    in.travel = Travel::Slide;
+    in.axis = Axis::Horizontal;
+    in.from = from;
+    in.to = LRect{300.0, 0.0, 0.0, 0.0};
+    in.p = 0.5;
+    const auto f = swapFlight(in);
+    near(f.box.x, 150.0, "halfway to the zone is halfway there");
+    near(f.box.w, 50.0, "the card is half its size on the way");
+    near(f.box.h, 50.0, "and half as tall");
+    in.p = 1.0;
+    const auto end = swapFlight(in);
+    near(end.box.w, 0.0, "at the zone there is nothing left of the card");
+  }
+
   // The vertical swap is an ARC, not a slide on Y: the card leaves upwards by its own
   // height plus the lift, and comes down on the other card.
   {
@@ -623,6 +641,7 @@ static void theGlArithmeticIsReachable() {
 // frost. Both were arithmetic at the draw site.
 static void theTileDecidesItsRingAndItsFrost() {
   using hyprview::render::focusRingWidth;
+  using hyprview::render::backdropZoom;
   using hyprview::render::frostUV;
 
   // The hover ring wins over the selection ring, and the base ring shows when
@@ -634,20 +653,59 @@ static void theTileDecidesItsRingAndItsFrost() {
        "with the focus border off there is no focus ring");
 
   // The frost shows the backdrop under the tile: the tile's own box, normalized.
-  const auto uv = frostUV(100.0, 50.0, 200.0, 100.0, 1000.0, 500.0);
+  const auto uv = frostUV(100.0, 50.0, 200.0, 100.0, 1000.0, 500.0, 1.0);
   near(uv.u0, 0.1, "the left edge");
   near(uv.v0, 0.1, "the top edge");
   near(uv.u1, 0.3, "the right edge");
   near(uv.v1, 0.3, "the bottom edge");
-  const auto full = frostUV(0.0, 0.0, 1000.0, 500.0, 1000.0, 500.0);
+  const auto full = frostUV(0.0, 0.0, 1000.0, 500.0, 1000.0, 500.0, 1.0);
   near(full.u1, 1.0, "the whole monitor");
   near(full.v1, 1.0, "the whole monitor");
+  // Zoomed: the frost samples the same pushed-in backdrop the screen shows around it.
+  near(backdropZoom(0.0), 1.0, "no push, no zoom");
+  near(backdropZoom(1.0), 1.1, "the entry pushes it in 10%");
+  const auto rc = frostUV(0.0, 0.0, 1000.0, 500.0, 1000.0, 500.0, backdropZoom(1.0));
+  near(rc.u0, 0.5 - 0.5 * (1.0 / 1.1), "the frost crops the edge like the backdrop");
+  near(rc.u1, 0.5 + 0.5 * (1.0 / 1.1), "and crops the other");
+  // A recede (zoom < 1) would sample outside the frame: that is the edge streak on a sharp frame.
+  want(rc.u0 >= 0.0 && rc.u1 <= 1.0, true, "the frost never samples past the frame");
   std::puts("the tile: the ring on top, and the frost under it");
 }
 
 // The ✕ glyph inside its button. One rule for every surface that draws it: the
 // strip used a hardcoded fraction, so the knob meant nothing there and the glyph
 // did not match its button.
+// The menu is placed at the click but must not run off the monitor: a panel half off the
+// edge is a button no one can press. The buttons are placed FROM the panel, not from the
+// click, or clamping the panel would leave them behind.
+static void theMenuStaysOnTheMonitor() {
+  using hyprview::render::menuLayout;
+
+  const auto mid = menuLayout(400.0, 300.0, 1366.0, 768.0);
+  want(mid.panel.contains(mid.browser.x, mid.browser.y), true, "the browser button is inside");
+  want(mid.panel.contains(mid.carousel.x + mid.carousel.w, mid.carousel.y + mid.carousel.h),
+       true, "the carousel button is inside");
+  near(mid.browser.w, mid.carousel.w, "equal buttons");
+  near(mid.browser.y, mid.carousel.y, "one row");
+  want(mid.carousel.x > mid.browser.x + mid.browser.w, true, "and no overlap");
+  near(mid.panel.x, 400.0, "a click with room is used as-is");
+  near(mid.panel.y, 300.0, "a click with room is used as-is");
+
+  // Bottom-right corner: the panel is pulled back, buttons follow it.
+  const auto edge = menuLayout(1360.0, 760.0, 1366.0, 768.0);
+  want(edge.panel.x + edge.panel.w <= 1366.0, true, "the panel stays on the monitor");
+  want(edge.panel.y + edge.panel.h <= 768.0, true, "the panel stays on the monitor");
+  want(edge.browser.x >= edge.panel.x, true, "buttons follow the clamped panel");
+  want(edge.carousel.x + edge.carousel.w <= edge.panel.x + edge.panel.w, true,
+       "buttons follow the clamped panel");
+
+  // A negative click cannot land off the top-left either.
+  const auto neg = menuLayout(-50.0, -20.0, 1366.0, 768.0);
+  want(neg.panel.x >= 0.0 && neg.panel.y >= 0.0, true, "a negative click is clamped too");
+
+  std::puts("the menu: buttons ride the panel, and the panel stays on the monitor");
+}
+
 static void theCloseGlyphFillsItsButton() {
   using hyprview::render::glyphRect;
 
@@ -1041,6 +1099,7 @@ int main() {
     using hyprview::render::isHorizontal;
     using hyprview::render::parseAnchor;
     using hyprview::render::stripBand;
+    using hyprview::render::stripFade;
     using hyprview::render::stripOffset;
     using hyprview::render::stripSlide;
     using hyprview::render::stripThickness;
@@ -1104,6 +1163,14 @@ int main() {
     near(stripSlide(Anchor::Top, 0.0, 120.0, 0.5).y, -60.0, "slide scales with thickness");
     near(stripSlide(Anchor::Top, 0.0, 60.0, 0.0).y, 0.0, "a zero slide_frac never moves");
     std::puts("strip slide: off the anchored edge, scaled by thickness and slide_frac");
+
+    // The curtain's own alpha. Linear in the slide, a 14% band sat at 7% while half of it was
+    // on screen; the strip vanished while it was still arriving.
+    near(stripFade(0.0), 0.0, "fade starts at nothing");
+    near(stripFade(0.25), 0.5, "a quarter of the slide is half the alpha");
+    near(stripFade(0.5), 1.0, "half the slide is full colour");
+    near(stripFade(1.0), 1.0, "in place is full colour");
+    std::puts("strip fade: full colour from half the slide");
   }
 
   
@@ -1195,6 +1262,7 @@ int main() {
   theGlArithmeticIsReachable();
   theTileDecidesItsRingAndItsFrost();
   theCloseGlyphFillsItsButton();
+  theMenuStaysOnTheMonitor();
   thePulseAndTheDropHintAreDecisions();
   theContentKeepsItsAspectInsideTheCard();
   theCaptionDoesNotShrinkWithTheTitle();

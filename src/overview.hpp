@@ -51,6 +51,7 @@ class CGradientValueData; // general:col.active_border's real type
 #include "session/hooks.hpp"
 #include "session/layer_visibility.hpp"
 #include "session/pending_click.hpp"
+#include "session/feed_poll.hpp"
 #include "session/preview_visibility.hpp"
 #include "render/tile_look.hpp"
 #include "blur.hpp"
@@ -72,8 +73,11 @@ public:
   bool initialize();
 
   void toggle();
+  void toggleOne();     // the single-workspace view, whatever the config default says
+  void toggleBrowser(); // open straight into the browser-tab view
 
-  void open();
+  void open(bool keepDomain = false);
+  bool openStepped(int step, bool keepDomain = false);
   void close();
   void hardClose();           // animation-free teardown for the UNLOAD path
   void toggleDesktop();
@@ -82,6 +86,10 @@ public:
   void switchDomain(model::Domain d);
   void toggleBrowserView();
   void altTabInvoke(bool reverse);
+  void toggleMenu(double x, double y);
+  [[nodiscard]] render::MenuLayout menuBoxes() const;
+  double menuDur() const { return anim::cfg(anim::Id::Card).ms; }
+  [[nodiscard]] double menuProgress() const;
 
   void renderStage(eRenderStage stage);
   void paint();
@@ -102,6 +110,7 @@ public:
   void renderGhosts() const;
   void renderDragTile() const;
   void renderDragWindow() const;
+  void renderMenu() const;
   void renderCursorOnTop() const;
 
   void rearmanim() const { m_pump.ensure(animBusy(), m_monitor.lock()); }
@@ -130,6 +139,7 @@ public:
   // Three axes, not refinements of one another (AGENTS.md 3.3).
   [[nodiscard]] bool active() const { return m_life.active(); }
   [[nodiscard]] bool openedOrParked() const { return m_life.ownsScreen(); }
+  void startFeedPoll();
   [[nodiscard]] bool opening() const { return m_life.opening(); }
   [[nodiscard]] std::uint64_t frameTick() const { return m_pump.tick(); }
   [[nodiscard]] PHLMONITOR monitor() const { return m_monitor.lock(); }
@@ -217,8 +227,11 @@ private:
 
   int m_newCardId = 0;
   bool m_newCardAnim = false;
+  session::FeedPoll m_feedPoll;
   model::ScrollState m_scroll;
   void animateStripTo(double from, double to);
+  model::SubjectRef m_pendingKill;
+  bool m_killSent = false;
   model::GridScroll m_gridScroll;
   void animateGridTo(double from, double to);
   void followGrid(int i);
@@ -228,12 +241,11 @@ private:
     return m_place.clocks.anyRunning(anim::cfg(entryLeaf()).ms, anim::cfg(ghostLeaf()).ms,
                                anim::cfg(anim::Id::StripStep).ms);
   }
-  double blurAlpha() const; // backdrop strength, on the open/close clock
+  double glassAlpha() const; // the blur over the desktop: holds while a window is under it
   // A window that really occupies the desktop; tells an empty workspace from a busy one.
   static bool workspaceHasWindows(const PHLWORKSPACE &ws);
   // Windowed exit is done: tiles landed and Hyprland has spent the forced blur frames.
   bool backdropSettled() const;
-  // Re-read on every open and close: the landing workspace can change while the overview is up.
   mutable bool m_landingEmpty = true;
   // The group of the picked card: a tab's group is its browser window.
   mutable model::GroupRef m_landingGroup;
@@ -252,9 +264,12 @@ private:
   void restorePreviewVisibility();
   session::PreviewVisibility m_previewVis;
   void kickPulse(model::SubjectRef s);
+  void beginTabFX(const model::SubjectRef &subj, const LRect &from, const LRect &to,
+                   anim::Move style, double ms, const std::string &curve);
+  void killTile(int i, double lx, double ly, const LRect &fromBox = {});
   void beginSwapFX(const PHLWINDOW &w, const LRect &from,
                    anim::Move style, double ms, const std::string &curve,
-                   bool toStrip = false);
+                   bool toStrip = false, const LRect &to = {});
   void landAfterMove(const PHLWINDOW &w, const LRect &oldBox, double ms,
                      const std::string &curve, bool strip);
   // Both surfaces of a swap: the dragged one from the cursor, the bystander from where it was.
@@ -310,7 +325,8 @@ private:
   model::Drag m_drag;
   LRect m_lastDragBox; // drag box at RELEASE, the `from` for landings
   bool m_altTabbing = false;
-  bool m_commitPending = false;
+  bool m_menuOpen = false;
+  LRect m_menuAt;
 
   session::Hooks m_hooks;
 
@@ -347,7 +363,7 @@ private:
   double eased() const;
   double animDuration() const; // read LIVE, so config applies in-flight
   double glideDur() const { return m_place.clocks.tileMs > 0 ? m_place.clocks.tileMs : anim::cfg(glideLeaf()).ms; }
-  bool entrySettled() const;
+  void commitFocus(const PHLWINDOW &w);
   uint32_t altTabModBit() const;
   double newCardDur() const { return anim::cfg(anim::Id::NewCard).ms; }
   double tileProgress(int i) const;
@@ -362,6 +378,8 @@ private:
   void dropLiftIfNotMoved();
   void drawTile(size_t i, const TileLook &look, bool withCaption = true) const;
   void drawTileCaption(int i, const TileLook &look) const;
+  void drawTabContent(const model::SubjectRef &subj, const LRect &box,
+                     SP<Render::ITexture> label, float contentAlpha, float plateAlpha) const;
   LRect tileBox(size_t i, const LRect &slot) const;
   void switchToWorkspace(const model::StripItem &it, bool instant = false);
   void dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it);
@@ -404,6 +422,7 @@ private:
   [[nodiscard]] bool discardedShown() const;
   void setDiscardedShown(bool on);
   bool writeTabRequest(std::uint64_t browserWindow, std::int64_t tab);
+  bool writeTabClose(std::uint64_t browserWindow, std::int64_t tab);
   void requestTabShots();
   bool crossesRealWorkspace(const PHLWINDOW &w) const;
   void closeTileWindow(int i);
@@ -413,10 +432,12 @@ private:
   double m_killGlow = 0.0; // 1 at the zone, 0 a screen-width away, while dragging
   // Keyed by SUBJECT: a window-keyed vector drops every tab.
   std::vector<std::pair<model::SubjectRef, LRect>> captureCurrentBoxes(
-      PHLWINDOW exclude = {}) const;
+      const model::SubjectRef &exclude = {}) const;
   void replayReflow(std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes);
   void releaseNewWorkspaces();
   void syncTiles();
+  void syncTabs();
+  [[nodiscard]] bool feedChanged() const;
   void stepWorkspace(int dir);
   void hideLayers();
   void restoreLayers();

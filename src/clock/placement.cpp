@@ -54,8 +54,14 @@ double Placement::tileProgress(int i, const view::State &view, bool opening,
   // Read clocks.tileMs, not recipes.glide.ms: a glideLeaf() flip jumps progress.
   const double glideMs = (clocks.tileMs > 0) ? clocks.tileMs : recipes.glide.ms;
   const double base = opening ? clocks.tiles.raw(glideMs) : progress.raw();
-  // The FOCUSED tile is never staggered: stagger() assumes a rising 0..1, so on close it would delay the landing.
-  if (view.run() || i == scene.focused())
+  if (view.run()) {
+    const int k = view.slotOf(static_cast<std::size_t>(i));
+    const int f = view.slotOf(static_cast<std::size_t>(scene.focused()));
+    return staggered(base, k < 0 || f < 0 ? 0 : (k > f ? k - f : f - k),
+                     static_cast<int>(scene.tiles().size()));
+  }
+  // The FOCUSED grid tile is never staggered: a delayed landing reads as a stuck close.
+  if (i == scene.focused())
     return base;
   return staggered(base, i, static_cast<int>(scene.tiles().size()));
 }
@@ -84,7 +90,10 @@ double Placement::entryFade(const model::Tile &t, int i, const Frame &f) const {
 LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   const std::string &curve =
       clocks.tileCurve.empty() ? recipes.glide.curve : clocks.tileCurve;
-  const double e = curves::eval(curve, tileProgress(i, f.view, f.opening, f.scene));
+  // The exit plays the entry FORWARD: the curve on a falling progress held the card still, then snapped it home.
+  const double p = tileProgress(i, f.view, f.opening, f.scene);
+  const double e = f.opening ? curves::eval(curve, p)
+                             : 1.0 - curves::eval(curve, 1.0 - p);
   // The closed end of the flight: the place the card belongs to.
   const auto &a = f.opening ? t.natural : t.home;
   const auto &b = t.target;

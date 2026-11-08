@@ -81,7 +81,7 @@ bool Overview::dropOnStripCard(const PHLWINDOW &w, double lx, double ly,
     const auto tvj = vj->layoutTarget();
     const auto tw  = w->layoutTarget();
     if (tw && tvj && tvj->space()) {
-      auto oldBoxes = captureCurrentBoxes(w);
+      auto oldBoxes = captureCurrentBoxes(w ? subjectOf(w) : model::SubjectRef{});
       const auto vjPos  = vj->positionAnimation()->goal();
       const auto vjSize = vj->sizeAnimation()->goal();
       const Vector2D focalPoint{vjPos.x + vjSize.x / 2.0,
@@ -144,7 +144,7 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
     return;
   }
 
-  auto oldBoxes = captureCurrentBoxes(w);
+  auto oldBoxes = captureCurrentBoxes(w ? subjectOf(w) : model::SubjectRef{});
 
   Desktop::globalWindowController()->moveWindowToWorkspace(w, target);
 
@@ -184,10 +184,9 @@ bool Overview::swapWindows(const PHLWINDOW &wa, const PHLWINDOW &wb,
   const LRect thumbA = stripThumbRect(wa), thumbB = stripThumbRect(wb);
   g_layoutManager->switchTargets(ta, tb);
   replayReflow(oldBoxes);
-  // The overlay's own exchange, ONLY when the rebuild left nothing to animate: a second exchange lands each window back on its own box.
+  // The overlay's own exchange, ONLY when the rebuild left nothing to animate (natural == target; the trace records it, a second exchange homes both windows).
   const int ia = m_scene.tileIndexOf(subjectOf(wa));
   const int ib = m_scene.tileIndexOf(subjectOf(wb));
-  // Slot exchange needs natural == target: mid-entry "at motion" skips it; the trace records the verdict.
   const bool restA = m_scene.tileAtRest(ia), restB = m_scene.tileAtRest(ib);
   debug::trace::record(
       "SWAP", "decide",
@@ -258,13 +257,18 @@ std::string Overview::runCommand(const std::string &args) {
                       std::to_string(showAllWorkspaces()) + "|carousel=" +
                       std::to_string(carouselMode()) + "|run=" +
                       std::to_string(m_view.run() ? m_view.carousel().cards.size() : 0) +
-                      "|pos=" + std::to_string(runPosition()) + "|disc=" +
+                      "|pos=" + std::to_string(runPosition()) + "|menu=" +
+                      std::to_string(m_menuOpen ? 1 : 0) + "|disc=" +
                       std::to_string(m_showDiscarded >= 0 ? m_showDiscarded
                                                           : cfg::behavior.show_discarded_tabs != 0 ? 1 : 0) +
                       "|ccx=" +
                       std::to_string(static_cast<int>(m_view.carousel().area.x +
                                                      m_view.carousel().originX +
-                                                     m_view.carousel().area.w / 2.0));
+                                                     m_view.carousel().area.w / 2.0)) +
+                      "|zone=" + std::to_string(static_cast<int>(killZoneRect().x)) + "," +
+                      std::to_string(static_cast<int>(killZoneRect().y)) + "," +
+                      std::to_string(static_cast<int>(killZoneRect().w)) + "," +
+                      std::to_string(static_cast<int>(killZoneRect().h));
     for (std::size_t i = 0; i < m_scene.size(); ++i) {
       const auto w = tileWindow(m_scene.tiles()[i]);
       const auto &t = m_scene.tiles()[i];
@@ -291,8 +295,11 @@ std::string Overview::runCommand(const std::string &args) {
       const char *kind = it.kind == model::StripItem::Kind::Ws   ? "Ws"
                          : it.kind == model::StripItem::Kind::Plus ? "Plus"
                                                                   : "All";
+      const LRect cb = stripCardAt(i);
       out += "\nCARD|" + std::to_string(i) + "|" + kind + "|" +
-             std::to_string(it.wins.size());
+             std::to_string(it.wins.size()) + "|" + std::to_string(static_cast<int>(cb.x)) +
+             "," + std::to_string(static_cast<int>(cb.y)) + "," +
+             std::to_string(static_cast<int>(cb.w)) + "," + std::to_string(static_cast<int>(cb.h));
     }
     debug::trace::emitState(out);
     return "";
@@ -397,6 +404,13 @@ std::string Overview::runCommand(const std::string &args) {
     return true;
   };
 
+  if (tok[0] == "killzone") {
+    const int t = num(1);
+    const auto zone = killZoneRect();
+    killTile(t, zone.cx(), zone.cy());
+    return "";
+  }
+
   if (tok[0] == "dropcard") {
     const int t = num(1), ci = num(2);
     const auto w = tile(t);
@@ -456,7 +470,7 @@ std::string Overview::runCommand(const std::string &args) {
     return "";
   }
 
-  // The two ways a step along the run is asked for: the arrows and the alt-tab.
+  // The two ways a step along the run is asked for: the arrows and the switcher.
   if (tok[0] == "altstep") {
     stepAltTab(num(1) >= 0 ? 1 : -1);
     return "";
@@ -511,7 +525,7 @@ std::string Overview::runCommand(const std::string &args) {
       target = State::workspaceState()->create(ws, m->m_id);
     if (!target)
       return "movews: no workspace";
-    auto oldBoxes = captureCurrentBoxes(w);
+    auto oldBoxes = captureCurrentBoxes(w ? subjectOf(w) : model::SubjectRef{});
     Desktop::globalWindowController()->moveWindowToWorkspace(w, target);
     replayReflow(oldBoxes);
     landAfterSwap(w, LRect{}, LRect{}, m_lastDragBox, anim::cfg(anim::Id::Drop).ms,
@@ -534,9 +548,71 @@ void Overview::swapTiles(int a, int b, const LRect &fromA) {
     damage();
 }
 
+void Overview::beginTabFX(const model::SubjectRef &subj, const LRect &from,
+                          const LRect &to, anim::Move style, double ms,
+                          const std::string &curve) {
+  m_fx.dropSwap([&subj](const model::SwapFX &f) {
+    return f.subj == subj && !f.toStrip;
+  });
+  model::SwapFX fx;
+  fx.subj    = subj;
+  fx.from    = from;
+  fx.to      = to;
+  fx.toStrip = false;
+  fx.style   = style;
+  fx.ms      = ms;
+  fx.curve   = curve;
+  fx.clock.begin();
+  fx.traceSeq = debug::trace::nextSeq();
+  fx.traceStart = std::chrono::steady_clock::now();
+  if (fx.traceSeq)
+    debug::trace::animBegin(fx.traceSeq, "tab_swap", "tab", anim::moveName(style).c_str(),
+                            ms, curve.c_str(), "tab", "grid", from, to);
+  m_fx.addSwap(std::move(fx));
+  ensureAnimPump();
+  damage();
+}
+
+void Overview::killTile(int i, double lx, double ly, const LRect &fromBox) {
+  if (i < 0 || i >= static_cast<int>(m_scene.tiles().size()))
+    return;
+  const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
+  const LRect from = fromBox.w > 0.0 ? fromBox : tileRect(static_cast<std::size_t>(i));
+  const LRect to{lx, ly, 1.0, 1.0};
+  const auto style = anim::Move{anim::Travel::Slide, anim::Axis::Horizontal};
+  const auto ms = anim::cfg(anim::Id::SwapFly).ms;
+  const auto curve = anim::cfg(anim::Id::SwapFly).curve;
+  if (cardOf(t).isTab()) {
+    const auto group = m_tabs.groupOf(t.subj);
+    if (group.id == 0)
+      return;
+    const bool sent = writeTabClose(group.id, static_cast<std::int64_t>(t.subj.id));
+    debug::trace::record("TABS", "close",
+                         "tab=" + std::to_string(t.subj.id) + "|window=" +
+                             std::to_string(group.id) + "|sent=" + std::to_string(sent ? 1 : 0));
+    if (!sent)
+      return;
+    m_pendingKill = t.subj;
+    m_killSent = true;
+    beginTabFX(t.subj, from, to, style, ms, curve);
+    ensureAnimPump();
+    damage();
+    return;
+  }
+  const auto w = tileWindow(t);
+  if (!w)
+    return;
+  m_pendingKill = t.subj;
+  m_killSent = false;
+  beginSwapFX(w, from, style, ms, curve, false, to);
+  ensureAnimPump();
+  damage();
+}
+
 void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
                            anim::Move style, double ms,
-                           const std::string &curve, bool toStrip) {
+                           const std::string &curve, bool toStrip,
+                           const LRect &to) {
   if (!w || !w->m_isMapped || w->isHidden())
     return;
   // Same surface only: in all-workspaces view a window has two live flights; dropping by window alone lets the second cancel the first.
@@ -546,6 +622,7 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
   model::SwapFX fx;
   fx.subj    = subjectOf(w);
   fx.from    = from;
+  fx.to      = to;
   fx.toStrip = toStrip;
   fx.style   = style;
   fx.ms      = ms;
@@ -556,7 +633,7 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
 
   // Here, not in the painter: paint() is const; this resolves the destination the next frame draws.
   if (fx.traceSeq) {
-    const auto dests = swapDests(w, toStrip);
+    const auto dests = to.w > 0.0 ? std::vector<LRect>{to} : swapDests(w, toStrip);
     if (dests.empty())
       debug::trace::animReject("swap", toStrip ? "no-strip-slot" : "no-tile");
     else {
@@ -731,7 +808,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
     for (size_t i = 0; i < m_scene.size(); ++i) {
       const auto w = tileWindow(m_scene.tiles()[i]);
       if (w && w->m_workspace == ws) {
-        keys.push_back(w.get());
+        keys.push_back(model::Recency::key(m_scene.tiles()[i].subj));
         idx.push_back(static_cast<int>(i));
       }
     }
@@ -852,7 +929,19 @@ void Overview::addWorkspace() {
 void Overview::closeTileWindow(int i) {
   if (i < 0 || i >= static_cast<int>(m_scene.tiles().size()))
     return;
-  const auto w = tileWindow(m_scene.tiles()[i]);
+  const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
+  if (cardOf(t).isTab()) {
+    const auto group = m_tabs.groupOf(t.subj);
+    if (group.id == 0)
+      return;
+    const bool sent = writeTabClose(group.id, static_cast<std::int64_t>(t.subj.id));
+    debug::trace::record("TABS", "close",
+                         "tab=" + std::to_string(t.subj.id) + "|window=" +
+                             std::to_string(group.id) + "|sent=" + std::to_string(sent ? 1 : 0));
+    damage();
+    return;
+  }
+  const auto w = tileWindow(t);
   if (!w)
     return;
   debug::dbg("close tile window");

@@ -56,7 +56,28 @@ void Overview::toggle() {
   }
 }
 
-// Asymmetric on purpose, NOT a copy of the "a" binding: no path back -- that is "a"'s job.
+void Overview::toggleOne() {
+  if (m_life.openingNow()) {
+    toggle(); // open: commit the pick, or close when nothing is focused
+    return;
+  }
+  m_view.setAllOverride(0);
+  open();
+  if (!openedOrParked())
+    m_view.setAllOverride(-1);
+}
+
+void Overview::toggleBrowser() {
+  if (!m_life.openingNow()) {
+    m_view.setDomain(model::Domain::Tabs); // open(true) keeps it instead of re-reading tile_mode
+    m_view.setAllOverride(1);
+    if (!openStepped(cfg::behavior.browser_advances != 0 ? 1 : 0, true))
+      m_view.setAllOverride(-1);
+    return;
+  }
+  toggleBrowserView();
+}
+
 void Overview::toggleCarousel() {
   if (!m_life.openingNow()) {
     m_view.setCarouselOn( true); // BEFORE open(): buildTiles reads it
@@ -114,12 +135,38 @@ void Overview::toggleBrowserView() {
                                                       : model::Domain::Tabs);
 }
 
+render::MenuLayout Overview::menuBoxes() const {
+  const auto m = m_monitor.lock();
+  if (!m)
+    return {};
+  return render::menuLayout(m_menuAt.x, m_menuAt.y, m->m_size.x, m->m_size.y);
+}
+
+double Overview::menuProgress() const {
+  const double r = m_place.clocks.menu.raw(menuDur());
+  return m_menuOpen ? r : 1.0 - r;
+}
+
+void Overview::toggleMenu(double x, double y) {
+  const double shown = std::clamp(menuProgress(), 0.0, 1.0);
+  if (m_menuOpen) {
+    m_menuOpen = false;
+    m_place.clocks.menu.seek(1.0 - shown, menuDur());
+  } else {
+    m_menuOpen = true;
+    m_menuAt = LRect{x, y, 0.0, 0.0};
+    m_place.clocks.menu.seek(shown, menuDur());
+    const auto c = anim::cfg(anim::Id::Card);
+    debug::trace::animStart("menu", "card", c.curve.c_str(), c.ms, c.curve.c_str());
+  }
+  damage();
+}
+
 void Overview::toggleAllWorkspaces() {
   if (!m_life.openingNow()) {
     m_view.setAllOverride(
         1); // BEFORE open(), so buildTiles sees it
-    open();
-    if (!openedOrParked())
+    if (!openStepped(cfg::behavior.all_advances != 0 ? 1 : 0))
       m_view.setAllOverride( -1);
     return;
   }
@@ -129,7 +176,7 @@ void Overview::toggleAllWorkspaces() {
   m_view.setExpoFlip( wasAll ? -1 : 1);
   auto oldBoxes = captureCurrentBoxes();
   replayReflow(oldBoxes);
-  // AFTER the rebuild: captureCurrentBoxes() is empty on an empty workspace, so arming entry before it is a no-op.
+  // AFTER the rebuild: capture is empty on an empty workspace, so arming entry before it is a no-op.
   if (oldBoxes.empty()) {
     m_scene.armEntry();
     // rebuild must start BEFORE the direction, or updateAnimation clears it in the same tick (clocks.cpp:145).
@@ -144,23 +191,29 @@ void Overview::toggleAllWorkspaces() {
 
 void Overview::altTabInvoke(bool reverse) {
   if (!m_life.openingNow()) {
-    // Armed BEFORE open(), consumed by the layout it triggers: ONE motion of ONE duration.
-    m_pendingStep = cfg::behavior.alttab_advances != 0 ? (reverse ? -1 : 1) : 0;
     m_view.setAllOverride( 1);
-    open();
-    m_pendingStep = 0;
-    if (!openedOrParked()) {
+    if (!openStepped(cfg::behavior.switcher_advances != 0 ? (reverse ? -1 : 1) : 0)) {
       m_view.setAllOverride( -1);
       return;
     }
     m_altTabbing = true; // armed AFTER open(): a plain open resets it
-    // open() already seeded the selection from the compositor's focus; index 0 would discard it.
     if (carouselMode() && !m_scene.empty())
       layoutTiles();
     damage();
     return;
   }
   stepAltTab(reverse ? -1 : 1);
+}
+
+// The entry aimed `step` cards along the run: ONE motion of ONE duration, 0 = the focused card.
+bool Overview::openStepped(int step, bool keepDomain) {
+  m_pendingStep = step;
+  open(keepDomain);
+  // open() sets the carousel after its own layout, so a fresh session stands the run up next.
+  if (m_pendingStep != 0 && carouselMode() && !m_scene.empty())
+    layoutTiles();
+  m_pendingStep = 0;
+  return openedOrParked();
 }
 
 void Overview::toggleDesktop() {
@@ -176,7 +229,7 @@ void Overview::setDesktopMode(bool on) {
   replayReflow(oldBoxes);
 }
 
-void Overview::open() {
+void Overview::open(bool keepDomain) {
   const auto openEntryStamp = std::chrono::steady_clock::now();
   if (m_life.openingNow())
     return;
@@ -203,14 +256,17 @@ void Overview::open() {
 
   m_drag = {};
   m_pendingWindow.reset();
+  m_landingGroup = model::GroupRef{};
   cancelPendingClick();
   m_altTabbing = false;
+  m_menuOpen = false;
   m_view.setDesktop( false);
   m_newCardAnim = false;
   m_newCardId = 0;
   releaseNewWorkspaces();
 
-  m_view.setDomain(model::parseDomain(cfg::behavior.tile_mode.get()));
+  if (!keepDomain)
+    m_view.setDomain(model::parseDomain(cfg::behavior.tile_mode.get()));
   if (model::showsTabs(m_view.domain()) && !showAllWorkspaces()) {
     m_allForced = 0;
     m_view.setAllOverride(1);
@@ -223,11 +279,12 @@ void Overview::open() {
   if (m_scene.tiles().empty() && m_strip.size() <= 1)
     return;
 
-  // seed selection BEFORE layoutTiles
+  // Seed selection BEFORE layoutTiles: m_lastFocus remembers the pick while the compositor's focus lags.
   m_scene.select(m_scene.tiles().empty() ? -1 : 0);
-  if (const auto fw = Desktop::focusState()->window()) {
+  const auto seed = m_lastFocus.lock() ? m_lastFocus.lock() : Desktop::focusState()->window();
+  if (seed) {
     for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-      if (tileWindow(m_scene.tiles()[i]) == fw) {
+      if (tileWindow(m_scene.tiles()[i]) == seed) {
         m_scene.select(static_cast<int>(i));
         break;
       }
@@ -248,9 +305,9 @@ void Overview::open() {
   m_place.progress.closed();
   // Parked already counts as owned (see inputRoutedAway): the real windows lose focus on the first parked frame.
   dropFocusFromWindows();
-  // Immersive fade only without windows: their Hyprland blur is what covers the gap the ramp would open.
   m_landingEmpty = !workspaceHasWindows(m_liveWsAtOpen.lock());
-  debug::dbg("open: ws=" + std::to_string(m_liveWsAtOpen.lock() ? m_liveWsAtOpen.lock()->m_id : -1) + " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
+  debug::dbg("open: ws=" + std::to_string(m_liveWsAtOpen.lock() ? m_liveWsAtOpen.lock()->m_id : -1) +
+             " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
   m_place.clocks.master.begin();
   debug::trace::animStart("master", "master", "", m_place.recipes.glide.ms, m_place.recipes.glide.curve.c_str());
   m_place.clocks.tiles.begin();
@@ -274,18 +331,20 @@ void Overview::close() {
   // Keep the overlay up until Hyprland's own blur rebuilds, or releasing early uncovers a sharp desktop.
   if (const auto m = m_monitor.lock())
     m->m_forceFullFrames = std::max(m->m_forceFullFrames, 8);
-  debug::dbg("close: ws=" + std::to_string(m_workspace.lock() ? m_workspace.lock()->m_id : -1) + " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
+  debug::dbg("close: ws=" + std::to_string(m_workspace.lock() ? m_workspace.lock()->m_id : -1) +
+             " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
   m_life.endEntry();
   m_life.consumeJumpClosing();
+  m_menuOpen = false;
+  m_place.clocks.menu.pinEnd(menuDur());
 
   cancelPendingClick();
 
-  // close: target = shown, natural = real geometry
   if (const auto m = m_monitor.lock()) {
     // Two passes on purpose: the pin test needs the focused tile's natural, which the loop rewrites as it goes.
     LRect selNat{};
     if (m_scene.focused() >= 0) {
-      if (const auto w = tileWindow(m_scene.tiles()[static_cast<size_t>(m_scene.focused())])) {
+      if (const auto w = ownerWindow(m_scene.tiles()[static_cast<size_t>(m_scene.focused())])) {
         const auto p = w->positionAnimation()->goal();
         const auto s = w->sizeAnimation()->goal();
         selNat = LRect{p.x - m->m_position.x, p.y - m->m_position.y,
@@ -296,8 +355,10 @@ void Overview::close() {
       auto &t = m_scene.tileAt(i);
       t.target = currentBox(t, static_cast<int>(i));
       // The natural box is where the tile RETURNS TO; otherwise the card dissolves instead (entryFade).
-      if (const auto w = tileWindow(t)) {
-        if (anim::tileExit(frame().goesHome(t)) == anim::TileExit::InPlace) {
+      if (const auto w = ownerWindow(t)) {
+        const auto wws = w->m_workspace;
+        if ((wws && wws != m_workspace.lock()) ||
+            anim::tileExit(frame().goesHome(t)) == anim::TileExit::InPlace) {
           t.natural = t.target;
           continue;
         }
@@ -338,6 +399,8 @@ void Overview::hardClose() {
   m_life.hardClose();
   debug::trace::life("close", m_life.describe());
   m_view.setDesktop( false);
+  m_menuOpen = false;
+  m_place.clocks.menu.reset();
   m_newCardAnim = false;
   m_newCardId = 0;
   m_place.progress.closed();
@@ -445,6 +508,15 @@ void Overview::damageWindowPreview(const PHLWINDOW &w) const {
                           "|boxes=" + std::to_string(boxes));
 }
 
+// The pick is final at once: recency must not wait for the focus our own hooks hold.
+void Overview::commitFocus(const PHLWINDOW &w) {
+  m_pendingWindow = w;
+  if (!w)
+    return;
+  m_lastFocus = w;
+  m_recency.promote(model::Recency::key(subjectOf(w)));
+}
+
 void Overview::syncRecency() {
   if (active())
     return;
@@ -453,7 +525,7 @@ void Overview::syncRecency() {
     return;
   m_lastFocus = now;
   if (now)
-    m_recency.promote(now.get());
+    m_recency.promote(model::Recency::key(subjectOf(now)));
 }
 
 int Overview::tileOf(const PHLWINDOW &w) const {
@@ -468,7 +540,7 @@ void Overview::pruneRecency() {
   std::vector<const void *> live;
   live.reserve(m_scene.size());
   for (const auto &t : m_scene.tiles())
-    live.push_back(tileWindow(t).get());
+    live.push_back(model::Recency::key(t.subj));
   m_recency.forgetDead(live);
 }
 
@@ -543,7 +615,6 @@ void Overview::finishPendingDeactivate() {
 }
 
 
-// snapshot mode: per-window last committed texture, frozen
 bool Overview::snapshotMode() const {
   return cfg::behavior.preview_mode.get() == "snapshot";
 }

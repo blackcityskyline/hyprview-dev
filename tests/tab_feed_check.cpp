@@ -14,6 +14,7 @@
 
 using hyprview::model::TabInfo;
 using hyprview::model::activateCommand;
+using hyprview::model::closeCommand;
 using hyprview::model::TabSnapshot;
 using hyprview::model::parseTabs;
 
@@ -187,6 +188,12 @@ int main() {
     // only the mediator of that browser consumes it.
     want(activateCommand(1234, 12, 42) == "a 1234 12 42\n", true,
          "an activation names the process, the window and the tab");
+    // The close request: the same three names behind another verb, so the mediator can tell
+    // them apart without a second file format.
+    want(closeCommand(1234, 12, 42) == "c 1234 12 42\n", true,
+         "a close names the process, the window and the tab");
+    want(closeCommand(1234, 12, 42) != activateCommand(1234, 12, 42), true,
+         "the close verb is not the activation verb");
     std::puts("flags: one number, and a title that reads like one");
   }
 

@@ -2,6 +2,8 @@
 #include <cctype>
 #include <cmath>
 
+#include "../model/title_text.hpp"
+
 #include <hyprland/src/desktop/view/LayerSurface.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/helpers/Color.hpp>
@@ -256,9 +258,14 @@ void Overview::renderSwapFX() const {
 
   for (const auto &fx : m_fx.swapfx()) {
     const auto w = m_windows.windowOf(fx.subj);
-    if (!w || !w->m_isMapped || w->isHidden())
-      continue;
-    std::vector<LRect> dests = swapDests(w, fx.toStrip);
+    std::vector<LRect> dests;
+    if (fx.to.w > 0.0) {
+      dests.push_back(fx.to);
+    } else {
+      if (!w || !w->m_isMapped || w->isHidden())
+        continue;
+      dests = swapDests(w, fx.toStrip);
+    }
     if (dests.empty())
       continue;
 
@@ -293,9 +300,17 @@ void Overview::renderSwapFX() const {
     if (alpha > 0.02F)
       dropShadow(box, s, cfg::colors.shadow.get(), 6.0, 16.0,
                  static_cast<float>(0.18 * alpha), lr, roundPow);
-    renderWindowLive(w, m, px, px, alpha, when,
-                     contentRadiusPx(round, cfg::look.border_size, s),
-                     roundPow, true);
+    if (w) {
+      renderWindowLive(w, m, px, px, alpha, when,
+                       contentRadiusPx(round, cfg::look.border_size, s),
+                       roundPow, true);
+    } else {
+      const auto label = m_pixel.subjectLabel(
+          fx.subj, model::truncateTitle(m_tabs.label(fx.subj)),
+          cfg::colors.title_label.get(1.0), cfg::look.title_font_size.get(),
+          static_cast<int>(box.w * 0.8));
+      drawTabContent(fx.subj, box, label, alpha, alpha);
+    }
     }
   }
 }

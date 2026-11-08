@@ -69,8 +69,9 @@ LRect Overview::stripBand() const {
 }
 
 Vector2D Overview::stripSlide(double e) const {
-  const auto s = render::stripSlide(stripAnchor(), e, stripThickness(),
-                                    cfg::strip.slide_frac);
+  // An occupied desktop hands over to the compositor: the curtain travels all the way out, no fade.
+  const double frac = m_landingEmpty ? cfg::strip.slide_frac : 1.0;
+  const auto s = render::stripSlide(stripAnchor(), e, stripThickness(), frac);
   return Vector2D{s.x, s.y};
 }
 

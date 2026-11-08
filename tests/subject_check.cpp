@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <unordered_map>
+#include <vector>
 
 #include "../src/model/subject.hpp"
 
@@ -21,6 +22,7 @@ using hyprview::model::Domain;
 using hyprview::model::GroupRef;
 using hyprview::model::SubjectRef;
 using hyprview::model::showsTabs;
+using hyprview::model::sameSubjects;
 using hyprview::model::showsWindows;
 
 namespace {
@@ -125,6 +127,20 @@ int main() {
     const SubjectRef tab{0, 1};
     want(win != tab, true, "window 0 and tab 0 are different subjects under both");
     std::puts("domain: windows, tabs, both, and window 0 != tab 0");
+  }
+
+  // --- the same set, whatever the order ---------------------------------------------------
+  // The feed and the scene walk their tabs differently, and a rebuild must not be triggered
+  // by an order. The epoch is part of the identity: a tab id from another connection is a
+  // different subject, so it is a different set.
+  {
+    const SubjectRef a{7, 1}, b{8, 1}, c{9, 1};
+    want(sameSubjects({a, b, c}, {c, a, b}), true, "the same tabs in another order");
+    want(!sameSubjects({a, b, c}, {a, b}), true, "a tab that left is a different set");
+    want(!sameSubjects({a, b}, {a, SubjectRef{8, 2}}), true,
+         "the same id under another epoch is another subject");
+    want(sameSubjects({}, {}), true, "no tabs is no tabs");
+    std::puts("sameSubjects: the order is not the set");
   }
 
   std::printf("subject: %d checks\n", g_checks);

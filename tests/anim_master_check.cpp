@@ -16,7 +16,7 @@
 
 #include "../src/anim_types.hpp"
 
-using hyprview::anim::backdropFades;
+using hyprview::anim::glassAlpha;
 using hyprview::anim::masterLeaf;
 using hyprview::anim::MasterLeaf;
 
@@ -31,24 +31,16 @@ int main() {
   assert(masterLeaf(true, false)  == MasterLeaf::JumpOut);
   std::puts("jumpMode only changes the exit leaf");
 
-  // --- the backdrop ---------------------------------------------------------------
-  // With windows present on the landing workspace, the real windows' own blur covers the
-  // exit, so ours holds. On an empty workspace there is nothing to cover it and the
-  // backdrop must ride the clock, or the exit opens onto a sharp desktop.
-  {
-    assert(backdropFades(true, true));    // opening: fades regardless
-    assert(backdropFades(true, false));   // opening onto occupied: fades, it is arriving
-    assert(backdropFades(false, true));   // closing off empty: nothing to cover
-    assert(!backdropFades(false, false)); // closing off occupied: holds
-  }
-  std::puts("backdrop holds on exit only when windows are underneath");
-
-  // The distinction that matters is exit-only. Opening onto an occupied workspace still
-  // fades -- the backdrop is arriving, not leaving, and holding it would show a sharp
-  // desktop under the rising overview. Symmetric reasoning on both directions would get
-  // this wrong, which is why both cells are asserted rather than the rule summarised.
-  assert(backdropFades(true, false) != backdropFades(false, false));
-  std::puts("the two directions are not symmetric, and are not treated as such");
+  // --- the glass and the dim -------------------------------------------------------
+  // A transparent window's blur is the compositor's, and it is gone while the overlay covers
+  // the window. Ours stands in for it, so the glass holds on the entry as well as the exit; a
+  // sharp desktop under a transparent card is a hole. The dim is a tint, not the blur, and
+  // rides the clock on both edges -- a tint that held would pop at the cut.
+  assert(glassAlpha(0.0, 0.0, true, false) == 1.0);
+  assert(glassAlpha(0.4, 0.9, true, true) == 0.4);
+  assert(glassAlpha(0.9, 0.4, false, true) == 0.4);
+  assert(glassAlpha(0.0, 0.0, false, true) == 0.0);
+  std::puts("the glass holds over a window; an empty one enters on the ease and leaves on the clock");
 
   std::puts("OK");
   return 0;

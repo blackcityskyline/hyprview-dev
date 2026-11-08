@@ -262,7 +262,9 @@ struct behavior {
   Int show_special;
   Str tile_mode;
   Int show_discarded_tabs;
-  Int alttab_advances;
+  Int switcher_advances;
+  Int all_advances;
+  Int browser_advances;
   Int hold_lift_ms;
   Str tile_layout;
 };

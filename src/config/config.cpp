@@ -143,7 +143,9 @@ constexpr IntSpec kInts[] = {
     {&behavior.show_all_workspaces, "plugin:hyprview:show_all_workspaces", 0},
     {&behavior.show_special, "plugin:hyprview:show_special", 0},
     {&behavior.show_discarded_tabs, "plugin:hyprview:show_discarded_tabs", 0},
-    {&behavior.alttab_advances, "plugin:hyprview:alttab_advances", 0},
+    {&behavior.switcher_advances, "plugin:hyprview:switcher_advances", 0},
+    {&behavior.all_advances, "plugin:hyprview:all_advances", 0},
+    {&behavior.browser_advances, "plugin:hyprview:browser_advances", 0},
     {&behavior.hold_lift_ms, "plugin:hyprview:hold_lift_ms", 400},
     {&layer.hide_top, "plugin:hyprview:hide_top_layers", 0},
     {&layer.hide_overlay, "plugin:hyprview:hide_overlay_layers", 0},
@@ -230,7 +232,7 @@ constexpr StrSpec kStrs[] = {
 };
 
 constexpr ColorSpec kColors[] = {
-    {&blur.backdrop, "plugin:hyprview:backdrop_color", "0x73070a10"},
+    {&blur.backdrop, "plugin:hyprview:backdrop_color", "0x33070a10"},
     {&colors.surface, "plugin:hyprview:surface_color", "0x1e1e26"},
     {&colors.border, "plugin:hyprview:border_color", "0x50ffffff"},
     {&colors.close_button, "plugin:hyprview:close_button_color", "0xe6e23b3b"},

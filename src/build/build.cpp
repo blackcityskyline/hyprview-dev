@@ -38,13 +38,23 @@ static std::string browserSideDir() {
 
 static std::string tabFeedPath() { return browserSideDir() + "/tabs"; }
 
+static std::int64_t feedStamp() {
+    std::error_code ec;
+    const auto t = std::filesystem::last_write_time(tabFeedPath(), ec);
+    if (ec)
+        return 0;
+    return static_cast<std::int64_t>(t.time_since_epoch().count());
+}
+
 void Overview::loadTabs() {
     std::ifstream in(tabFeedPath(), std::ios::binary);
     std::string text;
     if (in)
         text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 
-    const auto parsed = model::parseTabs(text);
+    auto parsed = model::parseTabs(text);
+    if (parsed)
+        parsed->stamp = feedStamp();
     if (!parsed || !m_tabs.adopt(*parsed)) {
         debug::trace::record("TABS", "load",
                              std::string("mode=") + model::domainName(m_view.domain()) +
@@ -80,7 +90,7 @@ void Overview::buildTiles() {
   std::string hostTitles;
   for (const auto subj : subjects) {
     const auto w = m_windows.windowOf(subj);
-    if (w) {
+    if (w && subj != m_pendingKill) {
   // PID, not title: a browser appends its own name to the window title (AGENTS.md 2.26).
       hosts.push_back(model::HostWindow{reinterpret_cast<std::uintptr_t>(w.get()),
                                         static_cast<std::uint64_t>(w->getPID())});
@@ -101,7 +111,7 @@ void Overview::buildTiles() {
                            cfg::behavior.tile_mode.get() + "|hostLens=" + hostTitles);
   for (const auto subj : subjects) {
     const auto w = m_windows.windowOf(subj);
-    if (!w)
+    if (!w || subj == m_pendingKill)
       continue;
 
     // goal(), not value(): value() carries the slide offset.
@@ -122,6 +132,8 @@ void Overview::buildTiles() {
       t.subj = entry.tabId < 0 ? subj
                                : model::SubjectRef{static_cast<std::uint64_t>(entry.tabId),
                                                    m_tabs.generation()};
+      if (t.subj == m_pendingKill)
+        continue;
       // A tab's natural is its host's box: the layout needs an aspect, and its preview is of that window.
       t.natural = box;
       t.home = box;
@@ -531,7 +543,7 @@ void Overview::layoutTiles() {
       std::vector<const void *> keys;
       keys.reserve(m_scene.size());
       for (const auto &t : m_scene.tiles())
-        keys.push_back(tileWindow(t).get());
+        keys.push_back(model::Recency::key(t.subj));
       m_recency.order(keys, slot);
     }
     auto lead = std::find(slot.begin(), slot.end(), static_cast<std::size_t>(sel));
@@ -543,6 +555,8 @@ void Overview::layoutTiles() {
           ((selSlot + m_pendingStep) % n + n) % n;
       m_scene.select(static_cast<int>(slot[static_cast<std::size_t>(nxt)]));
       selSlot = nxt;
+      // Consumed here: open() may have laid out a grid first, and a second pass would step again.
+      m_pendingStep = 0;
     }
 
     // Card k is slot k, so the centred card is at the selection's own position in the sequence.
@@ -562,6 +576,8 @@ void Overview::layoutTiles() {
       const double ox = usable.x + m_view.carousel().originX;
       const double oy = usable.y + m_view.carousel().originY + m_view.carousel().stripY;
       t.target = c.visible ? LRect{ox + c.x, oy + c.y, c.w, c.h} : LRect{};
+      t.depthFrom += (t.depthTo - t.depthFrom) * tileProgress(static_cast<int>(i));
+      t.depthTo = static_cast<float>(c.depth);
       // Caption cut to the card width HERE, where it is known; paint only reads.
       if (c.visible && !t.labelText.empty()) {
         // Not cut: a long title runs under the cards beside it, and they cover it.
@@ -604,11 +620,9 @@ void Overview::layoutTiles() {
 }
 
 std::vector<std::pair<model::SubjectRef, LRect>>
-Overview::captureCurrentBoxes(PHLWINDOW exclude) const {
+Overview::captureCurrentBoxes(const model::SubjectRef &exclude) const {
   // Placement already filters by SUBJECT; resolving back to windows here would drop every tab.
-  const auto keep = m_place.capture(
-      frame(), exclude ? model::SubjectRef{reinterpret_cast<std::uintptr_t>(exclude.get()), 0}
-                       : model::SubjectRef{});
+  const auto keep = m_place.capture(frame(), exclude);
   return keep;
 }
 
@@ -667,35 +681,41 @@ void Overview::setDiscardedShown(bool on) {
   }
 }
 
-// Whole, then renamed: the mediator polls this file while the plugin may be writing it.
-bool Overview::writeTabRequest(std::uint64_t browserWindow, std::int64_t tab) {
-  const auto &pids = m_tabs.snapshot().pids;
-  const auto it = pids.find(browserWindow);
-  if (it == pids.end())
-    return false;
-  const std::string line = model::activateCommand(it->second, browserWindow, tab);
-  const std::string path = browserSideDir() + "/activate";
+namespace {
+bool writeAtomic(const std::string &path, const std::string &data) {
   const std::string part = path + ".part";
   {
     std::ofstream out(part, std::ios::binary | std::ios::trunc);
     if (!out)
       return false;
-    out.write(line.data(), static_cast<std::streamsize>(line.size()));
+    out.write(data.data(), static_cast<std::streamsize>(data.size()));
   }
   return std::rename(part.c_str(), path.c_str()) == 0;
+}
+} // namespace
+
+bool Overview::writeTabRequest(std::uint64_t browserWindow, std::int64_t tab) {
+  const auto &pids = m_tabs.snapshot().pids;
+  const auto it = pids.find(browserWindow);
+  if (it == pids.end())
+    return false;
+  return writeAtomic(browserSideDir() + "/activate",
+                     model::activateCommand(it->second, browserWindow, tab));
+}
+
+bool Overview::writeTabClose(std::uint64_t browserWindow, std::int64_t tab) {
+  const auto &pids = m_tabs.snapshot().pids;
+  const auto it = pids.find(browserWindow);
+  if (it == pids.end())
+    return false;
+  return writeAtomic(browserSideDir() + "/close",
+                     model::closeCommand(it->second, browserWindow, tab));
 }
 
 // The picture on disk is from when the tab was last active; a page restyled since keeps that look.
 void Overview::requestTabShots() {
   for (const auto &entry : m_tabs.snapshot().pids) {
-    const std::string path = browserSideDir() + "/shot." + std::to_string(entry.second);
-    const std::string part = path + ".part";
-    {
-      std::ofstream out(part, std::ios::binary | std::ios::trunc);
-      if (!out)
-        continue;
-    }
-    std::rename(part.c_str(), path.c_str());
+    writeAtomic(browserSideDir() + "/shot." + std::to_string(entry.second), "");
   }
 }
 
@@ -741,12 +761,54 @@ void Overview::replayReflow(
   damage();
 }
 
+bool Overview::feedChanged() const {
+  const auto stamp = feedStamp();
+  return stamp != 0 && stamp != m_tabs.snapshot().stamp;
+}
+
+void Overview::startFeedPoll() {
+  m_feedPoll.start(std::chrono::milliseconds(250), [this] {
+    if (openedOrParked() && feedChanged())
+      damage();
+  });
+}
+
+void Overview::syncTabs() {
+  if (m_drag.armed())
+    return;
+  // A pending kill leaves the scene now, not on the feed tick; a card left behind lands home as a ghost.
+  bool holdsPending = false;
+  for (const auto &t : m_scene.tiles())
+    if (t.subj == m_pendingKill) {
+      holdsPending = true;
+      break;
+    }
+  if (!feedChanged() && !holdsPending)
+    return;
+  std::vector<model::SubjectRef> before;
+  for (const auto &t : m_scene.tiles())
+    if (cardOf(t).isTab() && t.subj != m_pendingKill)
+      before.push_back(t.subj);
+  loadTabs();
+  if (!holdsPending && model::sameSubjects(before, m_tabs.enumerate()))
+    return;
+  pruneRecency();
+  auto oldBoxes = captureCurrentBoxes(m_pendingKill);
+  replayReflow(oldBoxes);
+}
+
 void Overview::syncTiles() {
   if (!m_life.openingNow() || m_life.deactivating())
     return;
-  // A tabs deck is not a window count: comparing them rebuilds and restarts the entry every frame.
-  if (m_view.domain() != model::Domain::Windows)
+  // A held drag owns the scene: the rebuild would move the card under the cursor, and the
+  // drag's index is a position, not a handle. The rebuild waits for the gesture to end.
+  if (m_drag.armed())
     return;
+  // A tabs deck is not a window count: comparing them rebuilds and restarts the entry every frame.
+  if (m_view.domain() != model::Domain::Windows) {
+    syncTabs();
+    return;
+  }
   const auto ws = m_workspace.lock();
   if (!ws)
     return;
@@ -758,7 +820,7 @@ void Overview::syncTiles() {
   };
   size_t expected = 0;
   for (const auto &w : Desktop::windowState()->windows())
-    if (belongs(w))
+    if (belongs(w) && subjectOf(w) != m_pendingKill)
       ++expected;
 
   bool diff = expected != m_scene.size();
@@ -776,7 +838,7 @@ void Overview::syncTiles() {
   // Recency caches the live set; a dead window's slot would pass to the next window at the same address.
   pruneRecency();
 
-  auto oldBoxes = captureCurrentBoxes();
+  auto oldBoxes = captureCurrentBoxes(m_pendingKill);
 
   // no parking here: only the drop path sets `parked`; parking every survivor froze free-arrange.
   replayReflow(oldBoxes);

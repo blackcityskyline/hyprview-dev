@@ -105,8 +105,11 @@
 - Вызов требует активного мониторного рендера (`m_renderData.pMonitor`) и
   проекции `RPT_EXPORT`; фильтр переключает viewport/fbSize на промежуточных FBO
   и оставляет финальный `(W,H)`.
-- **Блюр не анимируется сам.** Альфа едет на единственных часах `m_progress` через
-  `blurAlpha()`. Отдельного блюр-твина нет — fades сам блит.
+- **Блюр не анимируется сам.** Стекло — альфа блюра над резким композитом: над окном
+  оно стоит на 1 (`glassAlpha`), потому что блюр под прозрачным окном композиторский, и
+  пока окно скрыто, его держит только бэкдроп. Гаснет только пустой стол: вход — на
+  `eased()`, сброс — по часам (комплемент ease-out снимал блюр за два первых кадра);
+  dim едет на `eased()` на обоих краях. Отдельного блюр-твина нет.
 - Dim в фильтре отсутствует: `renderBackdrop()` рисует `backdrop_color` отдельным
   rect'ом, поэтому кэш переиспользуем, а fade живёт в одном месте.
 
@@ -118,7 +121,7 @@
 | `blur_passes` | int 1..16 | `3` | итераций гауссиана на дне |
 | `blur_size` | int 1..200 | `8` | радиус в пикселях экрана |
 | `blur_resolution` | int 1..32 | `4` | глубина пирамиды |
-| `backdrop_color` | colour | `0x73070a10` | dim, рисуется отдельным rect'ом |
+| `backdrop_color` | colour | `0x33070a10` | dim, рисуется отдельным rect'ом |
 
 ---
 
@@ -140,12 +143,12 @@
 |---|---|---|
 | `ANIM\|` | `begin`, `end`, `reject` | `beginSwapFX`, `animStart` |
 | `LIFE\|` | `park`, `promote`, `abort`, `close`, `requestDeactivate`, `deactivate`, `open` | `Lifecycle` |
-| `DRAG\|` | `release`, `branch` | `input/mouse.cpp` |
+| `DRAG\|` | `release`, `branch`, `drop` | `input/mouse.cpp` |
 | `SCROLL\|` | `setMax`, `glide`, `snap` | `ScrollState` |
 | `SWAP\|` | `decide` | `swapWindows` |
 | `CMD\|` | `ok`, `err` | шов `cmd()` |
 | `STATE\|` | — | команда `state` |
-| `TABS\|` | `load`, `match`, `activate` | `buildTiles`, `activateTab` |
+| `TABS\|` | `load`, `match`, `activate`, `close` | `buildTiles`, `activateTab` |
 | `GL\|` | `at=paint`, `leak` | `state_fence.hpp` |
 | `RING\|` | `kind=<...>` | `log.cpp` |
 | `CURSOR\|` | `mode=<...>` | `cursor.cpp` |

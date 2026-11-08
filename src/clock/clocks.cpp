@@ -37,7 +37,6 @@ anim::Id Overview::glideLeaf() const {
 // progress.raw() runs DOWN on a close, so every exit fraction reads it here, not on its own.
 double Overview::exitT() const { return m_place.progress.exit(opening()); }
 
-// The same number on the way in, so one schedule can be played in both directions.
 double Overview::openT() const { return opening() ? m_place.progress.raw() : 1.0; }
 
 // Hold the backdrop until our tiles are done AND Hyprland has spent its forced full frames.
@@ -46,14 +45,18 @@ bool Overview::backdropSettled() const {
   return m_place.clocks.tiles.done(animDuration()) && (!m || m->m_forceFullFrames <= 0);
 }
 
-// The backdrop rides the open/close animation; WINDOWED exit is the one exception.
-double Overview::blurAlpha() const {
-  if (!anim::backdropFades(opening(), m_landingEmpty))
-    return 1.0;
-  return std::clamp(eased(), 0.0, 1.0);
+// The close plays the entry's ease-out FORWARD: eval(curve, progress) sat still for half of it, then snapped.
+double Overview::eased() const {
+  if (opening())
+    return std::clamp(m_place.eased(), 0.0, 1.0);
+  const auto id = m_place.masterId(m_view, false);
+  const double elapsed = 1.0 - std::clamp(m_place.progress.raw(), 0.0, 1.0);
+  return std::clamp(1.0 - curves::eval(anim::cfg(id).curve, elapsed), 0.0, 1.0);
 }
 
-double Overview::eased() const { return m_place.eased(); }
+double Overview::glassAlpha() const {
+  return anim::glassAlpha(eased(), m_place.progress.raw(), opening(), m_landingEmpty);
+}
 
 double Overview::animDuration() const { return m_place.masterDuration(); }
 
@@ -179,6 +182,16 @@ void Overview::updateAnimation() {
     return done;
   });
 
+  if (m_pendingKill.id != 0) {
+    const auto w = m_windows.windowOf(m_pendingKill);
+    if (w && !m_killSent && !m_fx.swapActive(m_pendingKill, false)) {
+      w->sendClose();
+      m_killSent = true;
+    }
+    if (!w && m_tabs.groupOf(m_pendingKill).id == 0)
+      m_pendingKill = {};
+  }
+
   const double t = m_place.clocks.master.raw(dur);
   m_place.progress.fromMaster(t, opening());
   if (m_newCardAnim && m_place.clocks.newCard.done(newCardDur())) {
@@ -197,6 +210,7 @@ void Overview::updateAnimation() {
 bool Overview::animBusy() const {
   return active() &&
          (secondaryAnimsActive() || !m_place.clocks.tiles.done(glideDur()) ||
+          !m_place.clocks.menu.done(menuDur()) ||
           m_newCardAnim || m_drag.lifted() || !m_fx.swapfx().empty() ||
           m_life.jumpClosing() || m_life.deactivating() ||
           (opening() && m_place.progress.raw() < 1.0) || (!opening() && m_place.progress.raw() > 0.0));

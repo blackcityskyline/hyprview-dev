@@ -36,6 +36,7 @@ add_library(hyprview SHARED
   src/session/preview_visibility.cpp
   src/session/overview_lifetime.cpp
   src/session/pending_click.cpp
+  src/session/feed_poll.cpp
   src/session/layer_visibility.cpp
   src/build/build.cpp
   src/input/mouse.cpp
@@ -338,10 +339,26 @@ add_test(NAME scan_card_home
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/card_home_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/card_home_check && ${CMAKE_CURRENT_BINARY_DIR}/card_home_check ${CMAKE_SOURCE_DIR}")
 
+# The kill path: a tab card leaves the scene in the drop frame, like a window card, instead of
+# waiting for the feed tick and landing back home as a ghost.
+add_test(NAME scan_tab_kill
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/tab_kill_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/tab_kill_check && ${CMAKE_CURRENT_BINARY_DIR}/tab_kill_check ${CMAKE_SOURCE_DIR}")
+
 # The card's hide motion: written once, in the placement. The run used to carry its own copy.
 add_test(NAME scan_hide_motion
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/hide_motion_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/hide_motion_check && ${CMAKE_CURRENT_BINARY_DIR}/hide_motion_check ${CMAKE_SOURCE_DIR}")
+
+# The deck's scale rides the tile clock like the box: three sites, one rule.
+add_test(NAME scan_depth_glide
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/depth_glide_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/depth_glide_check && ${CMAKE_CURRENT_BINARY_DIR}/depth_glide_check ${CMAKE_SOURCE_DIR}")
+
+# The run's reflow staggers outward from the focused slot, by slot distance.
+add_test(NAME scan_reflow_stagger
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/reflow_stagger_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/reflow_stagger_check && ${CMAKE_CURRENT_BINARY_DIR}/reflow_stagger_check ${CMAKE_SOURCE_DIR}")
 
 # The extension: it asks for every page, and it paints the canvas around the shot.
 add_test(NAME extension
@@ -395,6 +412,12 @@ add_test(NAME subject
 add_test(NAME entries
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/entries_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/entries_check && ${CMAKE_CURRENT_BINARY_DIR}/entries_check")
+
+# The five public verbs, and the switcher's step living inside the run instead of in a second
+# binding. A renamed verb that keeps its old name is a binding nobody can guess.
+add_test(NAME scan_action_verbs
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/action_verbs_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/action_verbs_check && ${CMAKE_CURRENT_BINARY_DIR}/action_verbs_check ${CMAKE_SOURCE_DIR}")
 
 # The carousel slot: which tile the k-th slot holds. view/state.hpp needs no compositor on
 # the include path.

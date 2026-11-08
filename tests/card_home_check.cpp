@@ -1,6 +1,8 @@
 // A card returns to the place it BELONGS to. Its natural is where it was, and a step overwrites
 // that with the slot the card just left -- so the exit has to read the card's home, or the tab
-// cards of a run have nowhere to fly and vanish in one frame.
+// cards of a run have nowhere to fly and vanish in one frame. The exit also plays the entry
+// FORWARD: eased on a falling progress, the card stood still while the glass was already there,
+// then snapped home.
 
 #include <cstdio>
 #include <fstream>
@@ -45,6 +47,20 @@ int main(int argc, char **argv) {
   if (placement.find("t.home") == std::string::npos)
     return fail("the placement does not read the card's home -- the exit returns to where the "
                 "card was, and a step overwrote that with the slot");
+
+  if (placement.find("1.0 - curves::eval(curve, 1.0 - p)") == std::string::npos)
+    return fail("the exit eases a falling progress -- the card stands still and then snaps home "
+                "while the glass and the strip are already gone");
+
+  // The landing group belongs to ONE pick: left over, it hides the workspace fallback.
+  const std::string lifecycle = slurp(root + "/src/session/lifecycle.cpp");
+  if (lifecycle.empty())
+    return fail("src/session/lifecycle.cpp not found");
+  const auto openAt = lifecycle.find("void Overview::open(");
+  const auto groupAt = lifecycle.find("m_landingGroup = model::GroupRef{};");
+  if (openAt == std::string::npos || groupAt == std::string::npos || groupAt < openAt ||
+      groupAt > lifecycle.find("void Overview::close()"))
+    return fail("open() no longer clears the landing group -- the next jump lands nowhere");
 
   std::printf("PASS: a card returns to the place it belongs to\n");
   return 0;

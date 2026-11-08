@@ -80,13 +80,14 @@ void Overview::renderCarousel() const {
 
     const auto &t = m_scene.tiles()[static_cast<size_t>(i)];
     // Already drawn by renderSwapFX during a grid flight: skip it in the run too.
-    if (swapfxActive(tileWindow(t), false))
+    if (swapfxActiveSubject(t.subj, false))
       continue;
 
     // The hide motion is the placement's: one rule for the grid and the run.
     const LRect box = currentBox(t, i);
-    const auto look = runLook(box, card.depth,
-                              render::carouselTone(card.depth, nearTone(), farTone(),
+    const float depth = t.depthFrom + (t.depthTo - t.depthFrom) * tileProgress(i);
+    const auto look = runLook(box, depth,
+                              render::carouselTone(depth, nearTone(), farTone(),
                                                    depthTaper()),
                               tileCloseButtons(), cfg::look.preview_round);
     looks.emplace_back(i, look);

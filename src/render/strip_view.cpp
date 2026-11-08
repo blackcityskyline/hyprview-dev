@@ -26,42 +26,37 @@ CBox box(const LRect &r) { return CBox{r.x, r.y, r.w, r.h}; }
 
 }
 
-// Z2 strip chrome. Thumbnails follow in renderStripWindows, hints/close in
-// renderStripButtons: anything that sits ON TOP of content must come later.
+// Z2 strip chrome: thumbnails and hints/close come later -- anything ON TOP of content is drawn after.
 void Overview::renderStrip() const {
   const auto m = m_monitor.lock();
   if (!m || m_strip.empty())
     return;
   const double e = eased();
-  // Windowed exit holds the overlay PAST the animation, so gate on blurAlpha(), not e.
-  const double stripE = blurAlpha();
-  if (stripE <= 0.01)
+  if (e <= 0.01)
     return;
+  const double fade = m_landingEmpty ? render::stripFade(e) : 1.0;
   const double s = m->m_scale;
   const int   previewRound = cfg::look.preview_round;
   const float roundPow     = cfg::look.preview_round_power;
 
-
-  // Chrome, not backdrop: blurAlpha() is pinned to 1.0 on a close, so the band leaves on the cards' own e.
-  const double bandE = opening() ? stripE : e;
-  auto bandCol = cfg::colors.strip_band.get(bandE);
-  bandCol.a = render::stripBandAlpha(cfg::strip.band_opacity.get(), bandE);
+  auto bandCol = cfg::colors.strip_band.get(fade);
+  bandCol.a = render::stripBandAlpha(cfg::strip.band_opacity.get(), fade);
 
   const LRect bandR  = stripBand();
   const Vector2D slide = stripOffset(e);
   // STRIPBAND: offset, alpha and the rect they came from -- two causes of a blink look alike.
-  debug::trace::ring("strip_band", LRect{slide.x, slide.y, bandCol.a, bandE}, 0, bandE);
-  debug::trace::ring("strip_band_rect", stripBand(), 0, bandE);
+  debug::trace::ring("strip_band", LRect{slide.x, slide.y, bandCol.a, e}, 0, e);
+  debug::trace::ring("strip_band_rect", stripBand(), 0, e);
   safeRenderRect("band", pxb(CBox(bandR.x + slide.x, bandR.y + slide.y, bandR.w, bandR.h), s),
                  bandCol, {});
 
   const int  cardRound = cfg::strip.card_round;
-  const auto cardBg    = cfg::colors.strip_card.get(e);
-  const auto activeBg  = cfg::colors.strip_active.get(e);
-  const auto activeLine = cfg::colors.strip_active_border.get(e);
-  const auto hoverLine  = cfg::colors.strip_hover.get(e);
-  const auto plusCol    = cfg::colors.strip_plus.get(e);
-  const auto allCol     = cfg::colors.strip_all.get(e);
+  const auto cardBg    = cfg::colors.strip_card.get(fade);
+  const auto activeBg  = cfg::colors.strip_active.get(fade);
+  const auto activeLine = cfg::colors.strip_active_border.get(fade);
+  const auto hoverLine  = cfg::colors.strip_hover.get(fade);
+  const auto plusCol    = cfg::colors.strip_plus.get(fade);
+  const auto allCol     = cfg::colors.strip_all.get(fade);
   const bool allWs       = showAllWorkspaces();
   const bool allCardShown = cfg::strip.all_card != 0;
 
@@ -112,25 +107,38 @@ void Overview::renderStrip() const {
         safeRenderRect("all", pxb(box(cell), s), allCol, {.round = pxr(2, s)});
     } else {
       if (cfg::strip.wallpaper != 0) {
-        SP<Render::ITexture> tex = backdropSourceTexture();
-        if (tex && tex->ok()) {
-          const double texW = std::max(1.0, static_cast<double>(tex->m_size.x));
-          const double texH = std::max(1.0, static_cast<double>(tex->m_size.y));
+        // The grid's three layers -- source, glass, dim -- so a transparent window keeps its frost here too.
+        const auto src  = backdropSourceTexture();
+        const auto btex = blurEnabled() ? backdropBlurTexture() : SP<Render::ITexture>{};
+        if (src && src->ok()) {
+          const double texW = std::max(1.0, static_cast<double>(src->m_size.x));
+          const double texH = std::max(1.0, static_cast<double>(src->m_size.y));
           const auto uv = render::coverFitUV(card.w, card.h, texW, texH);
-          CTexPassElement::SRenderData td{};
-          td.tex           = tex;
-          td.box           = pxb(c, s);
-          td.a             = static_cast<float>(e);
-          td.round         = pxr(cardRound, s);
-          td.roundingPower = roundPow;
-          td.allowCustomUV = true;
+          const auto blit = [&](const SP<Render::ITexture> &tex, float a) {
+            CTexPassElement::SRenderData td{};
+            td.tex           = tex;
+            td.box           = pxb(c, s);
+            td.a             = a;
+            td.round         = pxr(cardRound, s);
+            td.roundingPower = roundPow;
+            td.allowCustomUV = true;
+            g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
+          };
           auto &uvTL = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
           auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
           uvTL = Vector2D{uv.u0, uv.v0};
           uvBR = Vector2D{uv.u1, uv.v1};
-          g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
+          const bool   blurOk = btex && btex->ok();
+          const double glass  = glassAlpha();
+          if (!blurOk || glass < 1.0)
+            blit(src, static_cast<float>(fade));
+          if (blurOk)
+            blit(btex, static_cast<float>(fade * glass));
           uvTL = Vector2D{-1.0, -1.0};
           uvBR = Vector2D{-1.0, -1.0};
+          const auto dim = cfg::blur.backdrop.get(static_cast<float>(fade));
+          if (dim.a > 0.0)
+            safeRenderRect("strip", pxb(c, s), dim, {.round = pxr(cardRound, s), .roundingPower = roundPow});
         }
       }
       if (!suppressContent) {
@@ -153,7 +161,7 @@ void Overview::renderStrip() const {
           }
           const int wRound = clampRound(previewRound, wbL.w, wbL.h);
           if (stripSlotGrabbed(i, j)) {
-            strokeRing(wbL, s, cfg::colors.hover_border.get(e), 2, wRound, roundPow);
+            strokeRing(wbL, s, cfg::colors.hover_border.get(fade), 2, wRound, roundPow);
             debug::trace::ring("strip_hover", wbL, wRound, e);
           }
         }
@@ -164,7 +172,7 @@ void Overview::renderStrip() const {
       const LRect lb = render::stripLabelBox(card, it.label->m_size.x, it.label->m_size.y,
                                               cfg::strip.label_band, cfg::strip.label_extra);
       const float la =
-          it.active ? static_cast<float>(e) : static_cast<float>(e) * 0.75F;
+          it.active ? static_cast<float>(fade) : static_cast<float>(fade) * 0.75F;
       g_pHyprOpenGL->renderTexture(it.label, pxb(box(lb), s), {.a = la});
     }
   }
@@ -182,9 +190,10 @@ void Overview::renderStripWindows() const {
   const double e = eased();
   if (e <= 0.01)
     return;
+  const double fade = m_landingEmpty ? render::stripFade(e) : 1.0;
   const double scale = m->m_scale;
   const auto when    = Time::steadyNow();
-  const int previewRound = cfg::look.preview_round;
+  const int cardRound = cfg::strip.card_round.get();
   const float roundPow   = cfg::look.preview_round_power;
 
   for (size_t i = 0; i < m_strip.size(); ++i) {
@@ -209,7 +218,8 @@ void Overview::renderStripWindows() const {
                    std::to_string(j) + " rel=" + std::to_string(it.wins[j].rel.w) +
                    "x" + std::to_string(it.wins[j].rel.h) + " -> " +
                    std::to_string(slot.w) + "x" + std::to_string(slot.h));
-      const int round = clampRound(previewRound, slot.w, slot.h);
+      // The preview follows its card: rounder than the card, its corner opens a gap to the backdrop.
+      const int round = clampRound(cardRound, slot.w, slot.h);
       const CBox slotPx = pxb(slot, scale);
       const CBox cardPx = pxb(card, scale);
       if (slot.w >= 1.0 && slot.h >= 1.0 && it.ws && it.ws->m_isSpecialWorkspace)
@@ -217,10 +227,8 @@ void Overview::renderStripWindows() const {
                    std::to_string(slotPx.h) + "px of " + std::to_string(slot.w) + "x" +
                    std::to_string(slot.h) + " card=" + std::to_string(card.w) + "x" +
                    std::to_string(card.h));
-      // Grab ring or plain border: whichever is on top, the content radius follows it.
-      const int ringW = stripSlotGrabbed(i, j) ? 2 : cfg::look.border_size;
-      renderWindowLive(w, m, slotPx, cardPx, static_cast<float>(e), when,
-                       contentRadiusPx(round, ringW, scale),
+      renderWindowLive(w, m, slotPx, cardPx, static_cast<float>(fade), when,
+                       contentRadiusPx(round, 0, scale),
                        roundPow, true);
     }
   }

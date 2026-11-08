@@ -32,6 +32,7 @@ struct Tile {
   bool parked = false;
   std::string labelText;
   double landed = 1.0; // 0 = still coming in; ghosts reverse it
+  float depthFrom = 0.0, depthTo = 0.0;
   SP<Render::ITexture> label;
   SP<Render::ITexture> countLabel;
 };

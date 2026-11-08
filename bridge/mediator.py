@@ -249,6 +249,34 @@ def pop_activation(root, browser_pid):
     return {"name": "activate", "window": window, "tab": tab}
 
 
+def pop_close(root, browser_pid):
+    """A tab card was closed. The browser owns the tab, so the browser closes it.
+
+    The file is the plugin's request and the pid inside it says whose browser it is: tab ids
+    are per browser, and the wrong mediator must not close a tab of its own.
+    """
+    path = os.path.join(root, "close")
+    try:
+        age = time.time() - os.path.getmtime(path)
+        with open(path, "rb") as f:
+            line = f.read(200).decode("utf-8", "replace").strip()
+    except OSError:
+        return None
+    parts = line.split()
+    try:
+        pid, window, tab = (int(v) for v in parts[1:])
+    except (IndexError, ValueError):
+        pid, window, tab = 0, 0, 0
+    if age > ACTIVATE_MAX_AGE or len(parts) != 4 or parts[0] != "c":
+        log("dropping a malformed or stale close: %r" % line)
+        drop(path)
+        return None
+    if pid != browser_pid:
+        return None
+    drop(path)
+    return {"name": "close", "window": window, "tab": tab}
+
+
 SHOT_MAX_AGE = 3.0
 
 
@@ -379,7 +407,9 @@ def main():
         if not ready:
             request = None
             if browser:
-                request = pop_shot(directory, browser) or pop_activation(directory, browser)
+                request = (pop_shot(directory, browser) or
+                           pop_activation(directory, browser) or
+                           pop_close(directory, browser))
             if request:
                 log("pushing an activation: %r" % request)
                 write_frame(stdout, request)

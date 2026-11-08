@@ -28,6 +28,7 @@ struct WinPulse {
 struct SwapFX {
   SubjectRef subj;
   LRect from;
+  LRect to;
   // One live flight per surface: a window in the all-workspaces view is drawn twice at once.
   bool        toStrip = false;
   anim::Move  style{};

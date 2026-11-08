@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include <hyprland/src/output/Monitor.hpp>
 #include <hyprland/src/render/Framebuffer.hpp>
 
@@ -31,8 +33,8 @@ struct BlurCache {
 // fresh every frame, so a config edit applies in flight.
 struct BackdropFrame {
   PHLMONITOR mon;
-  double   eased = 0.0;
-  double   dimK  = 0.0; // backdrop strength on the open/close clock
+  double   eased = 0.0; // recede and dim
+  double   glass = 0.0; // the blur: holds at 1 while a window is under it
   CHyprColor baseCol{};
   bool  opening = false;
   bool  blurEnabled = false;
@@ -76,12 +78,16 @@ class Backdrop {
     mutable bool m_drawn = false;
     // The blur has been rendered into its FB at least once: the base may be that blur.
     mutable bool m_blurDrawn = false;
-    // The layer texture the committed composite was made from, compared on every open.
-    mutable const void *m_srcTex = nullptr;
-    // Video wallpaper: the source texture changes every frame, so it is composited once and held.
-    mutable const void *m_lastObservedTex = nullptr;
+    // Every layer the composite is made of: any change in any of them means a rebuild.
+    struct LayerSig {
+      const void *tex = nullptr;
+      double x = 0.0, y = 0.0, w = 0.0, h = 0.0;
+      float a = 1.0F;
+      bool operator==(const LayerSig &o) const = default;
+    };
+    mutable std::vector<LayerSig> m_srcSig;
+    // Video wallpaper: every frame changes, so the composite is built once and held.
     mutable int m_srcAnimStreak = 0;
-    mutable bool m_srcAnimated = false;
     mutable CBlurFilter m_blurFilter; // independent of decoration:blur:*
 };
 

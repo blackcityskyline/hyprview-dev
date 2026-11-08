@@ -92,8 +92,8 @@ int main(int argc, char **argv) {
   // Names the type as `namespace::Type`; the header is matched by its own name only.
   const std::vector<Subsystem> subs{
       {"Backdrop", "render/backdrop.hpp",
-       {"m_blur", "m_srcFB", "m_scratchFB", "m_drawn", "m_blurDrawn", "m_srcTex",
-        "m_lastObservedTex", "m_srcAnimStreak", "m_srcAnimated", "m_blurFilter"}},
+       {"m_blur", "m_srcFB", "m_scratchFB", "m_drawn", "m_blurDrawn", "m_srcSig",
+        "m_srcAnimStreak", "m_blurFilter"}},
       // The three pieces of compositor state a cross-workspace preview has to be shown
       // against, saved as a set and put back as a set.
       {"PreviewVisibility", "session/preview_visibility.hpp", {"m_ws", "m_wins", "m_regions"}},
@@ -206,14 +206,14 @@ int main(int argc, char **argv) {
   // requiring two is what keeps this from crying wolf on every scalar Overview owns.
   //
   // Exemptions are listed with the reason they are legitimately shared rather than merely
-  // small. m_monitor/m_workspace/m_liveWsAtOpen/m_landingEmpty are what the overlay is
-  // looking at -- there is no second type for "the thing being looked at". m_clocks and
+  // small. m_monitor/m_workspace/m_liveWsAtOpen/m_landingEmpty/m_pendingWindow are what the
+  // overlay is looking at and where it lands -- there is no second type for that. m_clocks and
   // m_animPump are the animation engine, written through member calls that this scan does
   // not see. The rest are single values of the coordinator itself.
   // Each entry is a field of the coordinator that has no second type to live in.
   const std::set<std::string> exempt{
       // what the overlay is looking at
-      "m_monitor", "m_workspace", "m_liveWsAtOpen", "m_landingEmpty",
+      "m_monitor", "m_workspace", "m_liveWsAtOpen", "m_landingEmpty", "m_pendingWindow",
       // the run itself
       "m_openStamp",
       "m_newCardId", "m_newCardAnim", "m_altTabbing", "m_commitPending",
@@ -222,6 +222,7 @@ int main(int argc, char **argv) {
       "m_lastAnimTick",
       // one value each, owned by the coordinator because nothing else does the owning
       "m_scrollAccum", "m_killGlow", "m_lastDragBox", "m_lastFocus", "m_handle",
+      "m_menuAt",
       // A value type held by the coordinator, written through member calls the scan sees as
       // one writer: buildTiles() is where a placement is made.
       "m_place",

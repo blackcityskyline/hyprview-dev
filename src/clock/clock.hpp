@@ -33,6 +33,7 @@ class Clocks {
     Clock strip;
     Clock dragLift;
     Clock newCard;
+    Clock menu;
 
     // Snapshotted at the glide's start: a config edit mid-flight must not change a running
     // animation's duration.

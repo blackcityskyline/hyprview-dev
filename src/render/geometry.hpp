@@ -225,6 +225,12 @@ enum class CardContent { Window, Picture, PlateAndTitle };
 
 
 
+// The strip's own alpha: the slide is shorter than the band, so a ramp on the slide left the
+// curtain invisible while it was still half on screen.
+[[nodiscard]] inline double stripFade(double bandE) {
+  return std::clamp(bandE * 2.0, 0.0, 1.0);
+}
+
 // The band's alpha has ONE source: the knob is the band, and the band's own clock scales it. The colour string's alpha is not a second source.
 [[nodiscard]] inline double stripBandAlpha(double opacityPct, double bandE) {
   return std::clamp(opacityPct / 100.0, 0.0, 1.0) * bandE;
@@ -486,6 +492,26 @@ inline constexpr int kSourceAnimatedStreak = 4;
   return LRect{button.x + (button.w - w) / 2.0, button.y + (button.h - h) / 2.0, w, h};
 }
 
+struct MenuLayout {
+    LRect panel;
+    LRect browser;
+    LRect carousel;
+};
+
+[[nodiscard]] inline MenuLayout menuLayout(double x, double y, double monW, double monH) {
+    constexpr double kPad = 10.0;
+    constexpr double kButton = 44.0;
+    constexpr double kGap = 8.0;
+    const double w = kPad * 2.0 + kButton * 2.0 + kGap;
+    const double h = kPad * 2.0 + kButton;
+    MenuLayout out;
+    out.panel = LRect{std::clamp(x, 0.0, std::max(0.0, monW - w)),
+                      std::clamp(y, 0.0, std::max(0.0, monH - h)), w, h};
+    out.browser = LRect{out.panel.x + kPad, out.panel.y + kPad, kButton, kButton};
+    out.carousel = LRect{out.browser.x + kButton + kGap, out.browser.y, kButton, kButton};
+    return out;
+}
+
 // The ring on top of a tile: hover over selection over base.
 [[nodiscard]] inline int focusRingWidth(bool showFocusBorder, bool framed, bool selected,
                                         int hoverWidth, int selectWidth, int baseWidth) {
@@ -498,19 +524,23 @@ inline constexpr int kSourceAnimatedStreak = 4;
   return baseWidth;
 }
 
-// The part of the backdrop that shows through a frost: the tile's box, normalized.
+// The part of the backdrop that shows through a frost: the tile's box, normalized and zoomed.
 struct FrostUV {
   double u0 = 0.0, v0 = 0.0, u1 = 0.0, v1 = 0.0;
 };
 
+inline constexpr double kBackdropPush = 0.10;
+
+// Advancing, not receding: UV stays inside [0,1], so the frame crops its edge instead of stretching it (a sharp frame showed the seams).
+[[nodiscard]] inline double backdropZoom(double push) {
+  return 1.0 + kBackdropPush * std::clamp(push, 0.0, 1.0);
+}
+
 [[nodiscard]] inline FrostUV frostUV(double x, double y, double w, double h, double pxW,
-                                     double pxH) {
-  FrostUV uv;
-  uv.u0 = x / pxW;
-  uv.v0 = y / pxH;
-  uv.u1 = (x + w) / pxW;
-  uv.v1 = (y + h) / pxH;
-  return uv;
+                                     double pxH, double zoom) {
+  const double k    = 1.0 / std::max(zoom, 1e-6);
+  const auto   axis = [k](double p, double len) { return 0.5 + (p / len - 0.5) * k; };
+  return {axis(x, pxW), axis(y, pxH), axis(x + w, pxW), axis(y + h, pxH)};
 }
 
 // The GL layer's own arithmetic, pure: the radii and the pixel conversion. They

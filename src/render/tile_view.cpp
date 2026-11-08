@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "../anim.hpp"
+#include "../model/title_text.hpp"
 #include <cmath>
 #include <ctime>
 #include <string>
@@ -90,6 +91,33 @@ LRect Overview::tileRect(size_t i) const {
   return tileBox(i, currentBox(m_scene.tiles()[i], static_cast<int>(i)));
 }
 
+void Overview::drawTabContent(const model::SubjectRef &subj, const LRect &box,
+                               SP<Render::ITexture> label, float contentAlpha,
+                               float plateAlpha) const {
+  const auto m = m_monitor.lock();
+  if (!m)
+    return;
+  const double s = m->m_scale;
+  const int round = cfg::look.preview_round;
+  const float roundPow = cfg::look.preview_round_power;
+  const auto tex = m_pixel.picture(subj);
+  if (tex) {
+    const LRect pic = render::contentInside(box, tex->m_size.x, tex->m_size.y);
+    g_pHyprOpenGL->renderTexture(tex, pxb(pic, s),
+                                 {.a = contentAlpha, .round = pxr(round, s),
+                                  .roundingPower = roundPow});
+    return;
+  }
+  safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(plateAlpha),
+                            {.round = pxr(round, s), .roundingPower = roundPow});
+  if (label && label->m_size.x > 0) {
+    const LRect room{box.x + box.w * 0.1, box.y + box.h * 0.35, box.w * 0.8, box.h * 0.3};
+    g_pHyprOpenGL->renderTexture(
+        label, pxb(render::contentInside(room, label->m_size.x, label->m_size.y), s),
+        {.a = 0.45F * contentAlpha});
+  }
+}
+
 // THE tile: shadow, ring, focus ring, frost, content, pill, ✕ — each under the next.
 void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const {
   const auto m = m_monitor.lock();
@@ -145,30 +173,42 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                  ringW, round, roundPow);
   }
 
-  // Frost: the cached blur at CONSTANT alpha, plus the dim at the global e. A tab ALWAYS needs it.
+  // Frost: the same two layers as the backdrop -- sharp source, then glass -- so a plate and the desktop under it never disagree.
   const double apNow = entryNow(t, static_cast<int>(i));
   if (tab || (opening() && (e < 0.999 || apNow < 0.999))) {
-    if (const auto btex = backdropBlurTexture(); btex && btex->ok()) {
+    const auto src  = backdropSourceTexture();
+    const auto btex = blurEnabled() ? backdropBlurTexture() : SP<Render::ITexture>{};
+    if (src && src->ok()) {
       const double pxW = static_cast<double>(m->m_pixelSize.x);
       const double pxH = static_cast<double>(m->m_pixelSize.y);
       const CBox  boxPx = pxb(box, s);
-      const auto  uv = render::frostUV(boxPx.x, boxPx.y, boxPx.width, boxPx.height, pxW, pxH);
-      CTexPassElement::SRenderData td{};
-      td.tex           = btex;
-      td.box           = boxPx;
-      td.a             = 1.0F;
-      td.round         = pxr(round, s);
-      td.roundingPower = roundPow;
-      td.allowCustomUV = true;
+      const auto  uv = render::frostUV(boxPx.x, boxPx.y, boxPx.width, boxPx.height, pxW, pxH,
+                                       render::backdropZoom(e));
+      const auto blit = [&](const SP<Render::ITexture> &tex, float a) {
+        CTexPassElement::SRenderData td{};
+        td.tex           = tex;
+        td.box           = boxPx;
+        td.a             = a;
+        td.round         = pxr(round, s);
+        td.roundingPower = roundPow;
+        td.allowCustomUV = true;
+        g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
+      };
       auto &uvTL = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
       auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
       uvTL = Vector2D{uv.u0, uv.v0};
       uvBR = Vector2D{uv.u1, uv.v1};
-      g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
+      const bool   blurOk = btex && btex->ok();
+      const double glass  = glassAlpha();
+      if (!blurOk || glass < 1.0)
+        blit(src, 1.0F);
+      if (blurOk)
+        blit(btex, static_cast<float>(glass));
       uvTL = Vector2D{-1.0, -1.0};
       uvBR = Vector2D{-1.0, -1.0};
-      safeRenderRect("tile", boxPx, cfg::blur.backdrop.get(static_cast<float>(e)),
-                                {.round = pxr(round, s), .roundingPower = roundPow});
+      const auto dim = cfg::blur.backdrop.get(static_cast<float>(e));
+      if (dim.a > 0.0)
+        safeRenderRect("tile", boxPx, dim, {.round = pxr(round, s), .roundingPower = roundPow});
     }
   }
   // The card is the frame; the content fits in it and the rest is the plate under it.
@@ -176,36 +216,15 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                                                    w->sizeAnimation()->goal().y)
                            : box;
   const auto tabTex = tab ? tabArt(t) : SP<Render::ITexture>{};
-  const auto what = render::cardContent(tab ? render::CardKind::Tab : render::CardKind::Window,
-                                         tabTex != nullptr);
-  if (look.surface && !tab)
-    safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
-                              {.round = pxr(round, s), .roundingPower = roundPow});
-  switch (what) {
-    case render::CardContent::Picture: {
-      // The picture keeps its aspect: the card is a frame, the picture sits inside it.
-      const LRect pic = render::contentInside(box, tabTex->m_size.x, tabTex->m_size.y);
-      g_pHyprOpenGL->renderTexture(tabTex, pxb(pic, s),
-                                   {.a = f, .round = pxr(round, s), .roundingPower = roundPow});
-      break;
-    }
-    case render::CardContent::PlateAndTitle: {
+  if (tab) {
+    drawTabContent(t.subj, box, t.label, f, static_cast<float>(e * f));
+  } else {
+    if (look.surface)
       safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
-                              {.round = pxr(round, s), .roundingPower = roundPow});
-      if (t.label && t.label->m_size.x > 0) {
-        // No picture: the title, centred and dim, is all the card can say about the page.
-        const LRect room{box.x + box.w * 0.1, box.y + box.h * 0.35, box.w * 0.8, box.h * 0.3};
-        g_pHyprOpenGL->renderTexture(
-            t.label, pxb(render::contentInside(room, t.label->m_size.x, t.label->m_size.y), s),
-            {.a = 0.45F * f});
-      }
-      break;
-    }
-    case render::CardContent::Window:
-      renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
-                       render::contentRadiusFor(round, content, ringW, s, !look.contain),
-                       roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
-      break;
+                                {.round = pxr(round, s), .roundingPower = roundPow});
+    renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
+                     render::contentRadiusFor(round, content, ringW, s, !look.contain),
+                     roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
   }
   // The card's own icon in the corner the caption does not reach: the browser for a tab, the app for a window.
   const double iconSide = render::badgeSide(box.h);
@@ -431,7 +450,18 @@ void Overview::renderGhosts() const {
 
   for (const auto &g : m_fx.ghosts()) {
     const auto w = m_windows.windowOf(g.subj);
-    if (!w || !w->m_isMapped || w->isHidden())
+    if (!w) {
+      const float gAlpha = static_cast<float>((1.0 - eOut) * 0.85);
+      const double k  = 1.0 - 0.3 * eOut;
+      const LRect box = render::scaledAboutCentre(g.box, k);
+      const auto label = m_pixel.subjectLabel(
+          g.subj, model::truncateTitle(m_tabs.label(g.subj)),
+          cfg::colors.title_label.get(1.0), cfg::look.title_font_size.get(),
+          static_cast<int>(box.w * 0.8));
+      drawTabContent(g.subj, box, label, gAlpha, gAlpha);
+      continue;
+    }
+    if (!w->m_isMapped || w->isHidden())
       continue;
     const double k  = 1.0 - 0.3 * eOut;
     const LRect box = render::scaledAboutCentre(g.box, k);

@@ -153,10 +153,13 @@ enum class MasterLeaf : std::uint8_t { Open, Close, JumpOut };
   return opening ? MasterLeaf::Open : MasterLeaf::Close;
 }
 
-// false = the backdrop holds while the real windows' blur covers the exit (never fade out
-// with windows present).
-[[nodiscard]] constexpr bool backdropFades(bool opening, bool landingEmpty) {
-  return opening || landingEmpty;
+// The glass holds over a window (a sharp desktop under a transparent card is a hole); an empty
+// one's entry rushes in on the master's ease-out, its exit dissolves on the clock.
+[[nodiscard]] constexpr double glassAlpha(double ease, double clock, bool opening,
+                                          bool landingEmpty) {
+  if (!landingEmpty)
+    return 1.0;
+  return opening ? ease : clock;
 }
 
 enum class DismissIntent : std::uint8_t { Open, Cancel, Commit };

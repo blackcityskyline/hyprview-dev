@@ -41,7 +41,11 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   if (!fit(m_srcFB))
     return nullptr;
 
-  const void *tex = nullptr;
+  std::vector<LayerSig> sig;
+  if (m->m_background && m->m_background->ok())
+    sig.push_back({m->m_background.get(), 0.0, 0.0,
+                   static_cast<double>(m->m_background->m_size.x),
+                   static_cast<double>(m->m_background->m_size.y), 1.0F});
   for (const int li : {0, 1})
     for (const auto &lr : m->m_layerSurfaceLayers[li]) {
       const auto layer = lr.lock();
@@ -51,18 +55,20 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
       const auto surf = layer->wlSurface()->resource();
       if (!surf->m_current.texture || !surf->m_current.texture->ok())
         continue;
-      tex = surf->m_current.texture.get();
-      break;
+      const auto pos = layer->position(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
+      const auto sz = layer->size(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
+      if (sz.x < 1.0 || sz.y < 1.0)
+        continue;
+      sig.push_back({surf->m_current.texture.get(), pos.x - m->m_position.x,
+                     pos.y - m->m_position.y, sz.x, sz.y,
+                     layer->alpha()[Desktop::View::LS_ALPHA_FADE]->value()});
     }
-  if (tex != m_lastObservedTex) {
-    m_srcAnimStreak   = m_lastObservedTex ? m_srcAnimStreak + 1 : 0;
-    m_lastObservedTex = tex;
-  } else {
-    m_srcAnimStreak = 0;
-  }
-  m_srcAnimated = m_srcAnimStreak >= render::kSourceAnimatedStreak;
 
-  if (m_drawn && (m_srcAnimated || (tex && tex == m_srcTex)))
+  const bool sigChanged = sig != m_srcSig;
+  m_srcAnimStreak = m_drawn && sigChanged ? m_srcAnimStreak + 1 : 0;
+  const bool animated = m_srcAnimStreak >= render::kSourceAnimatedStreak;
+
+  if (m_drawn && (animated || !sigChanged))
     return m_srcFB->getTexture();
 
   // The source changed: rebuild into SCRATCH and let its CONTENT decide -- mid-recreation reads black.
@@ -135,13 +141,14 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   glReadPixels(W / 4, H / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, q);
   // Black check skipped for a live source: a dark frame of a video wallpaper IS the wallpaper.
   const bool haveContent = drew || m->m_background;
-  const bool good = haveContent && (m_srcAnimated || !render::looksBlack(q[0], q[1], q[2]));
+  const bool good = haveContent && (animated || !render::looksBlack(q[0], q[1], q[2]));
   if (good) {
     std::swap(m_srcFB, m_scratchFB);
     m_drawn = true;
-    m_srcTex = tex;
+    m_srcSig = std::move(sig);
     // Content changed under the same FB identity, so the srcId-keyed blur cache cannot see it.
     m_blur.valid = false;
+    debug::dbg("backdrop source rebuilt: " + std::to_string(m_srcSig.size()) + " layers");
   }
   return m_drawn ? m_srcFB->getTexture() : nullptr;
 }
@@ -229,16 +236,43 @@ void Backdrop::render(const BackdropFrame &f) const {
   const double e      = f.eased;
   const auto baseCol  = f.baseCol;
 
+  const double zoom = render::backdropZoom(e);
+  const double uvM  = (1.0 - zoom) / (2.0 * zoom);
+  const auto baseData = [&](float a) {
+    Render::GL::CHyprOpenGLImpl::STextureRenderData d{};
+    d.a = a;
+    d.allowCustomUV = true;
+    d.primarySurfaceUVTopLeft = {-uvM, -uvM};
+    d.primarySurfaceUVBottomRight = {1.0 + uvM, 1.0 + uvM};
+    return d;
+  };
+
   const float k = static_cast<float>(e);
-  const double dimK = f.dimK;
+  const double glassK = f.glass;
   debug::dbg(std::string("backdrop e=") + std::to_string(e).substr(0, 5) +
+      " glass=" + std::to_string(glassK).substr(0, 5) +
       " opening=" + std::to_string(f.opening) +
       " k=" + std::to_string(k).substr(0, 5));
 
-  // Opaque base from the backdrop SOURCES: at low k the blend target is currentFB, stale and dark.
-  const float baseA = f.opening ? 1.0F : static_cast<float>(f.dimK);
+  // Glass against the sharp source: with no window under it the desktop sharpens as it lifts.
+  const auto drawBlended = [&](const SP<Render::ITexture> &tex, float a) {
+    // Through g_pHyprOpenGL->blend so m_capStatus follows: a raw glEnable makes the pass's own blend(false) early-return (OpenGL.cpp:2620), leaving GL on with the cache saying off.
+    const bool blendBefore = glIsEnabled(GL_BLEND) == GL_TRUE;
+    GLint      srcRGB = GL_ONE, dstRGB = GL_ZERO, srcA = GL_ONE, dstA = GL_ZERO;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &srcRGB);
+    glGetIntegerv(GL_BLEND_DST_RGB, &dstRGB);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcA);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &dstA);
+    g_pHyprOpenGL->blend(true);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    g_pHyprOpenGL->renderTexture(tex, fullPx, baseData(a));
+    glBlendFuncSeparate(srcRGB, dstRGB, srcA, dstA);
+    if (!blendBefore)
+      g_pHyprOpenGL->blend(false);
+  };
+
   bool baseIsBlur = false;
-  if (baseA > 0.0F) {
+  {
     // NOT gated on m_blur.valid: valid drives RECOMPUTATION; the FB keeps the last good blur.
     const bool blurCacheReady = m_blur.fb && m_blur.fb->isAllocated() &&
         m_blur.fb->m_size == Vector2D(W, H);
@@ -251,25 +285,30 @@ void Backdrop::render(const BackdropFrame &f) const {
                                            : (base == BackdropBase::OpaqueDim ? "dim" : "source")) +
                "|blurOn=" + std::to_string(f.blurEnabled ? 1 : 0));
     switch (base) {
-      case BackdropBase::Blur:
+      case BackdropBase::Blur: {
         baseIsBlur = true;
-        g_pHyprOpenGL->renderTexture(cachedTex, fullPx, {.a = baseA});
+        if (glassK < 1.0) {
+          const auto comp = frameSource(f);
+          if (comp && comp->ok())
+            drawBlended(comp, 1.0F);
+        }
+        drawBlended(cachedTex, static_cast<float>(glassK));
         break;
+      }
       case BackdropBase::OpaqueDim:
         safeRenderRect("backdrop", fullPx, CHyprColor(baseCol.r, baseCol.g, baseCol.b, 1.0F), {});
         break;
       case BackdropBase::Source: {
         const auto comp = frameSource(f);
         if (comp && comp->ok())
-          g_pHyprOpenGL->renderTexture(comp, fullPx, {.a = baseA});
+          drawBlended(comp, 1.0F);
         break;
       }
     }
   }
 
-
   if (!f.blurEnabled) {
-    const auto col = argb(baseCol, dimK);
+    const auto col = argb(baseCol, e);
     if (col.a <= 0.0)
       return;
     safeRenderRect("backdrop", fullPx, col, {});
@@ -281,49 +320,31 @@ void Backdrop::render(const BackdropFrame &f) const {
     src = frameSource(f);
   }
 
-  if (!src || k <= 0.0F)
+  if (!src)
     return;
 
   if (!computeBlur(f, src)) {
     // Never leave currentFB exposed: it can hold a solitary fullscreen window.
     debug::dbg("backdrop FALLBACK: blur unavailable / no source");
-    safeRenderRect("backdrop", fullPx, argb(baseCol, dimK), {});
+    safeRenderRect("backdrop", fullPx, argb(baseCol, e), {});
     return;
   }
 
   const auto tex = m_blur.fb ? m_blur.fb->getTexture() : nullptr;
-  const float kk = static_cast<float>(f.dimK);
-  if (tex && tex->ok() && !baseIsBlur) {
-    // Through g_pHyprOpenGL->blend so m_capStatus follows: a raw glEnable makes the pass's own
-    // blend(false) early-return (OpenGL.cpp:2620), leaving GL on with the cache saying off.
-    const bool blendBefore = glIsEnabled(GL_BLEND) == GL_TRUE;
-    GLint      srcRGB = GL_ONE, dstRGB = GL_ZERO, srcA = GL_ONE, dstA = GL_ZERO;
-    glGetIntegerv(GL_BLEND_SRC_RGB, &srcRGB);
-    glGetIntegerv(GL_BLEND_DST_RGB, &dstRGB);
-    glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcA);
-    glGetIntegerv(GL_BLEND_DST_ALPHA, &dstA);
-    g_pHyprOpenGL->blend(true);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    g_pHyprOpenGL->renderTexture(tex, fullPx, {.a = kk});
-    glBlendFuncSeparate(srcRGB, dstRGB, srcA, dstA);
-    if (!blendBefore)
-      g_pHyprOpenGL->blend(false);
-  } else if (!baseIsBlur) {
+  if (tex && tex->ok() && !baseIsBlur)
+    drawBlended(tex, static_cast<float>(glassK));
+  else if (!baseIsBlur)
     m_blur.valid = false;
-  }
 
-
-  const auto dimCol = argb(baseCol, dimK);
+  const auto dimCol = argb(baseCol, e);
   if (dimCol.a > 0.0)
     safeRenderRect("backdrop", fullPx, dimCol, {});
-
-
 }
 }
 
 // The owner reads the config here, every frame, and hands the backdrop a plain recipe: nothing below reaches back out for it (AGENTS.md 2.15, 2.16).
 render::BackdropFrame Overview::backdropFrame() const {
-  return {m_monitor.lock(), eased(), blurAlpha(), cfg::blur.backdrop.get(), opening(),
+  return {m_monitor.lock(), eased(), glassAlpha(), cfg::blur.backdrop.get(), opening(),
           blurEnabled(), blurPasses(), blurSize(), blurResolution(), blurStrength()};
 }
 

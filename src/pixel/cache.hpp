@@ -72,6 +72,7 @@ class PixelCache {
 
     SP<Render::ITexture> glyph(const std::string &icon, const CHyprColor &col);
     [[nodiscard]] SP<Render::ITexture> closeGlyph() const;
+    SP<Render::ITexture> menuGlyph(const std::string &icon, const CHyprColor &col, int size);
 
     void putSnapshot(const PHLWINDOW &win, const SP<Render::ITexture> &tex);
     [[nodiscard]] SP<Render::ITexture> snapshot(const PHLWINDOW &win) const;
@@ -160,6 +161,7 @@ class PixelCache {
     SubjectCache<SP<Render::ITexture>> m_subjectArt;
     SP<Render::ITexture> m_glyph;
     std::string m_glyphIcon;
+    std::unordered_map<std::string, SP<Render::ITexture>> m_menuGlyphs;
 };
 
 }

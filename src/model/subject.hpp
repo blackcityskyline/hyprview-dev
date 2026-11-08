@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <string_view>
+#include <vector>
 
 namespace hyprview::model {
 
@@ -16,6 +18,19 @@ struct SubjectRef {
 
     bool operator==(const SubjectRef &) const = default;
 };
+
+[[nodiscard]] inline bool sameSubjects(const std::vector<SubjectRef> &a,
+                                       const std::vector<SubjectRef> &b) {
+    if (a.size() != b.size())
+        return false;
+    std::vector<SubjectRef> x = a, y = b;
+    const auto byId = [](const SubjectRef &l, const SubjectRef &r) {
+        return l.id == r.id ? l.epoch < r.epoch : l.id < r.id;
+    };
+    std::sort(x.begin(), x.end(), byId);
+    std::sort(y.begin(), y.end(), byId);
+    return x == y;
+}
 
 // Where a subject lives: a workspace for a window, a browser window for a tab -- the same value
 // type rather than a handle that only means something in one of the two domains.

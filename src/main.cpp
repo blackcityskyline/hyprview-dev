@@ -36,22 +36,22 @@ struct Action {
 };
 
 constexpr std::array<Action, 9> kActions{{
-    {"toggle", "hyprview", "toggle",
-     [] { if (g_overview) g_overview->toggle(); }},
+    {"one", "hyprviewone", "one",
+     [] { if (g_overview) g_overview->toggleOne(); }},
+    {"all", "hyprviewall", "all",
+     [] { if (g_overview) g_overview->toggleAllWorkspaces(); }},
+    {"desktop", "hyprviewdesktop", "desktop",
+     [] { if (g_overview) g_overview->toggleDesktop(); }},
+    {"browser", "hyprviewbrowser", "browser",
+     [] { if (g_overview) g_overview->toggleBrowser(); }},
+    {"switcher", "hyprviewswitcher", "switcher",
+     [] { if (g_overview) g_overview->altTabInvoke(false); }},
     {"open", nullptr, "open",
      [] { if (g_overview) g_overview->open(); }},
     {"close", "hyprviewclose", "close",
      [] { if (g_overview) g_overview->close(); }},
-    {"desktop", "hyprviewdesktop", "desktop",
-     [] { if (g_overview) g_overview->toggleDesktop(); }},
-    {"allworkspaces", "hyprviewall", "allworkspaces",
-     [] { if (g_overview) g_overview->toggleAllWorkspaces(); }},
     {"togglecarousel", "hyprviewcarousel", "togglecarousel",
      [] { if (g_overview) g_overview->toggleCarousel(); }},
-    {"alttab", "hyprviewalttab", "alttab",
-     [] { if (g_overview) g_overview->altTabInvoke(false); }},
-    {"alttabback", "hyprviewalttabback", "alttabback",
-     [] { if (g_overview) g_overview->altTabInvoke(true); }},
     {nullptr, "hyprviewunload", nullptr,
      [] { if (g_overview) g_overview->hardClose(); }},
 }};
@@ -89,6 +89,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 
     g_overviewOwned = std::make_unique<hyprview::Overview>(handle);
     g_overview      = g_overviewOwned.get();
+    g_overview->startFeedPoll();
     if (!g_overview->initialize()) {
         HyprlandAPI::addNotification(handle, "[hyprview] initialization failed", CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
         g_overview = nullptr;

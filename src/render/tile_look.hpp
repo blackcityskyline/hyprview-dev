@@ -5,9 +5,8 @@
 
 namespace hyprview {
 
-// How a tile is drawn. The three paths -- the grid, the run, the dragged card --
-// assemble it the same way, so a field set in one path and forgotten in another
-// is a difference between them that nothing says so.
+// How a tile is drawn. The grid, the run and the dragged card assemble it the same way, so a
+// field set in one path and forgotten in another is a difference nothing else reports.
 struct TileLook {
   LRect box;
   double round = -1.0;   // <0 = look.preview_round
