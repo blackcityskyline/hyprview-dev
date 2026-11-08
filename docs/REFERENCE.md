@@ -34,6 +34,9 @@
 | `scroll.hpp` | позиции скролла стрипа, инвариант `[0,max]` | `scroll` |
 | `effects.hpp` | ghosts, pulses, swapfx | — |
 | `view/state.hpp` | режимы: `run` / `desktop` / `allOverride` / `wsSlideDir` / `expoFlip` | — |
+| `fuzzy.hpp` | subsequence-оценка запроса: жадный проход, стабильные ничьи | `launcher` |
+| `launcher.hpp` | строки, глаголы, меню строки, ранжирование, `stepAny` | `launcher` |
+| `render/launcher_layout.hpp` | бокс панели, строка под курсором, скролл, меню строки | `launcher_layout` |
 
 ## Анимации и конфиг
 
@@ -52,6 +55,7 @@
 | `render/painter.cpp` | `renderStage`, порядок проходов, `paint()` |
 | `render/backdrop.cpp` | источники бэкдропа, `primeBackdrop()`, парковка |
 | `render/tile_view.cpp`, `carousel_view.cpp`, `strip_view.cpp` | поверхности: карточка / ряд / полоса |
+| `render/launcher_view.cpp` | панель поиска: поле, строки, меню строки, подвал |
 | `render/fx.cpp` | `renderSwapFX`, `swapDests`, `pushOut`, геометрия драга |
 | `render/window_content.cpp` | live-поверхность окна |
 | `blur.hpp` / `blur.cpp` | dual-Kawase + gaussian, все шейдеры GLSL-литералами здесь |
@@ -68,6 +72,7 @@
 | `session/hooks.cpp` | демонтаж и `initialize()`. Правится на смене ABI Hyprland |
 | `session/geometry.cpp` | геометрия стрипа, blur-акцессоры, forced-visibility |
 | `session/lifecycle.cpp` | `open`/`close`/`hardClose`/`toggle`/`deactivate` |
+| `session/launcher.cpp` | живая половина лаунчера: строки из плиток, клавиши, глаголы |
 
 ## Прочее
 
