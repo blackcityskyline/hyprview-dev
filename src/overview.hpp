@@ -446,6 +446,8 @@ private:
   void setDiscardedShown(bool on);
   bool writeTabRequest(std::uint64_t browserWindow, std::int64_t tab);
   bool writeTabClose(std::uint64_t browserWindow, std::int64_t tab);
+  bool writeTabUnload(std::uint64_t browserWindow, std::int64_t tab);
+  bool writeTabAsk(const char *file, char verb, std::uint64_t browserWindow, std::int64_t tab);
   void requestTabShots();
   bool crossesRealWorkspace(const PHLWINDOW &w) const;
   void closeTileWindow(int i);

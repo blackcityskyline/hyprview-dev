@@ -49,6 +49,8 @@ function connect() {
       activate(reply);
     else if (reply && reply.name === 'close')
       closeTab(reply);
+    else if (reply && reply.name === 'unload')
+      discardTab(reply);
     else if (reply && reply.name === 'shot') {
       shotPending = true;
       repicture();
@@ -264,6 +266,19 @@ async function closeTab(command) {
     await api.tabs.remove(command.tab);
   } catch (e) {
     console.error('hyprview: close failed:', e && e.message ? e.message : e);
+  }
+}
+
+// The compositor unloaded a tab card: the tab stays where it is, its page leaves memory.
+// A browser without discard keeps the page -- the card is correct either way, so a missing
+// API is not an error.
+async function discardTab(command) {
+  if (!api.tabs || typeof api.tabs.discard !== 'function')
+    return;
+  try {
+    await api.tabs.discard(command.tab);
+  } catch (e) {
+    console.error('hyprview: unload failed:', e && e.message ? e.message : e);
   }
 }
 

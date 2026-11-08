@@ -128,8 +128,13 @@ int main(int argc, char **argv) {
   want(mouse.find("cardIdx >= 0 && w") != std::string::npos,
        "a tab card can reach the window drop path, where the window is null");
   const auto buildSrc = codeOnly(slurp(root + "/src/build/build.cpp"));
-  want(buildSrc.find("/close") != std::string::npos,
+  want(buildSrc.find("writeTabAsk(\"close\", 'c'") != std::string::npos,
        "the close request has no file of its own: an old mediator drops it as malformed");
+  want(buildSrc.find("writeTabAsk(\"unload\", 'u'") != std::string::npos,
+       "the unload request has no file of its own: the mediator would never see it");
+  const auto launcherSrc = codeOnly(slurp(root + "/src/session/launcher.cpp"));
+  want(launcherSrc.find("writeTabUnload") != std::string::npos,
+       "the launcher's unload row asks nobody: the verb does nothing");
   // A card that leaves must leave the way every other card leaves: the ghost, the fading
   // copy the rebuild leaves behind. A tab has no window to draw, so the ghost must be able
   // to draw the card's picture -- otherwise the card blinks out of the layout.

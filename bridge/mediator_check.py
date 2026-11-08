@@ -54,6 +54,15 @@ def recv_ready(proc, timeout):
     return recv(proc) if ready else None
 
 
+def write_request(path, text):
+    """The plugin writes a request atomically (temp + rename), so the mediator may read the
+    file at any moment and must never see half a line."""
+    part = path + ".part"
+    with open(part, "w") as f:
+        f.write(text)
+    os.replace(part, path)
+
+
 def start(root):
     # A real child process, so /proc/<pid>/stat has this test as the parent. That is the whole
     # mechanism: the browser starts the mediator, the mediator's parent is the browser.
@@ -164,7 +173,7 @@ def main():
         # The plugin writes the file; only the mediator whose browser it names may consume it,
         # because a tab id means nothing in another browser.
         request = os.path.join(root, "activate")
-        open(request, "w").write("a %d 12 42\n" % os.getpid())
+        write_request(request, "a %d 12 42\n" % os.getpid())
         pushed = recv_ready(proc, 3)
         want(pushed == {"name": "activate", "window": 12, "tab": 42},
              "a request for this browser reaches the extension: %r" % pushed)
@@ -174,17 +183,26 @@ def main():
         # A tab is the browser's, so the compositor asks the browser to close it. The pid in
         # the request picks the browser: tab ids mean nothing in another one.
         close_request = os.path.join(root, "close")
-        open(close_request, "w").write("c %d 12 42\n" % os.getpid())
+        write_request(close_request, "c %d 12 42\n" % os.getpid())
         pushed = recv_ready(proc, 3)
         want(pushed == {"name": "close", "window": 12, "tab": 42},
              "a close request reaches the extension: %r" % pushed)
         want(not os.path.exists(close_request), "and the request is consumed")
 
-        open(close_request, "w").write("c %d 12 42\n" % (os.getpid() + 1))
+        write_request(close_request, "c %d 12 42\n" % (os.getpid() + 1))
         want(recv_ready(proc, 0.6) is None, "another browser's close is not answered here")
         want(os.path.exists(close_request), "and is left on disk for its own mediator")
+        os.unlink(close_request)
 
-        open(request, "w").write("a %d 12 42\n" % (os.getpid() + 1))
+        # An unload is a third verb on the same wire: the tab stays, its page leaves memory.
+        unload_request = os.path.join(root, "unload")
+        write_request(unload_request, "u %d 12 42\n" % os.getpid())
+        pushed = recv_ready(proc, 3)
+        want(pushed == {"name": "unload", "window": 12, "tab": 42},
+             "an unload request reaches the extension: %r" % pushed)
+        want(not os.path.exists(unload_request), "and the request is consumed")
+
+        write_request(request, "a %d 12 42\n" % (os.getpid() + 1))
         want(os.path.exists(request), "and is left on disk for its own mediator")
         os.unlink(request)
 
@@ -192,9 +210,10 @@ def main():
         # A request nobody is in any more is dropped rather than fired on a later start.
         stale = mediator_module()
         stale_request = os.path.join(root, "activate")
-        open(stale_request, "w").write("a %d 12 42\n" % os.getpid())
+        write_request(stale_request, "a %d 12 42\n" % os.getpid())
         os.utime(stale_request, (0, 0))
-        want(stale.pop_activation(root, os.getpid()) is None, "a stale request is not forwarded")
+        want(stale.pop_tab_request(root, os.getpid(), "activate", "a") is None,
+             "a stale request is not forwarded")
         want(not os.path.exists(stale_request), "and it is dropped")
 
         # --- a fresh picture asked for when the overview opens ---------------------------------

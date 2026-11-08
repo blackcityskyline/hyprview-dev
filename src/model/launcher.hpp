@@ -170,6 +170,14 @@ class Launcher {
       m_actions = verbsFor(item->kind);
       return m_actions;
     }
+    // The open menu owns the arrows; with it closed the rows do.
+    void stepAny(int dir) {
+      if (m_menuOpen)
+        stepMenu(dir);
+      else
+        step(dir);
+    }
+
     void stepMenu(int dir) {
       const auto &acts = menuActions();
       const int n = static_cast<int>(acts.size());

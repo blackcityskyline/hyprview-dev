@@ -226,36 +226,14 @@ def drop(path):
         pass  # another browser's mediator took it, or the plugin is rewriting it
 
 
-def pop_activation(root, browser_pid):
-    path = os.path.join(root, "activate")
-    try:
-        age = time.time() - os.path.getmtime(path)
-        with open(path, "rb") as f:
-            line = f.read(200).decode("utf-8", "replace").strip()
-    except OSError:
-        return None
-    parts = line.split()
-    try:
-        pid, window, tab = (int(v) for v in parts[1:])
-    except (IndexError, ValueError):
-        pid, window, tab = 0, 0, 0
-    if age > ACTIVATE_MAX_AGE or len(parts) != 4 or parts[0] != "a":
-        log("dropping a malformed or stale activation: %r" % line)
-        drop(path)
-        return None
-    if pid != browser_pid:
-        return None  # another browser's tab: its own mediator is the one that can open it
-    drop(path)
-    return {"name": "activate", "window": window, "tab": tab}
-
-
-def pop_close(root, browser_pid):
-    """A tab card was closed. The browser owns the tab, so the browser closes it.
+def pop_tab_request(root, browser_pid, name, verb):
+    """One request the plugin wrote for a tab: "<verb> <browser-pid> <window> <tab>".
 
     The file is the plugin's request and the pid inside it says whose browser it is: tab ids
-    are per browser, and the wrong mediator must not close a tab of its own.
+    are per browser, and the wrong mediator must not act on a tab of its own. The verb letter
+    is checked too, so a stale file of another verb is refused rather than acted on.
     """
-    path = os.path.join(root, "close")
+    path = os.path.join(root, name)
     try:
         age = time.time() - os.path.getmtime(path)
         with open(path, "rb") as f:
@@ -267,14 +245,14 @@ def pop_close(root, browser_pid):
         pid, window, tab = (int(v) for v in parts[1:])
     except (IndexError, ValueError):
         pid, window, tab = 0, 0, 0
-    if age > ACTIVATE_MAX_AGE or len(parts) != 4 or parts[0] != "c":
-        log("dropping a malformed or stale close: %r" % line)
+    if age > ACTIVATE_MAX_AGE or len(parts) != 4 or parts[0] != verb:
+        log("dropping a malformed or stale %s: %r" % (name, line))
         drop(path)
         return None
     if pid != browser_pid:
         return None
     drop(path)
-    return {"name": "close", "window": window, "tab": tab}
+    return {"name": name, "window": window, "tab": tab}
 
 
 SHOT_MAX_AGE = 3.0
@@ -408,10 +386,11 @@ def main():
             request = None
             if browser:
                 request = (pop_shot(directory, browser) or
-                           pop_activation(directory, browser) or
-                           pop_close(directory, browser))
+                           pop_tab_request(directory, browser, "activate", "a") or
+                           pop_tab_request(directory, browser, "close", "c") or
+                           pop_tab_request(directory, browser, "unload", "u"))
             if request:
-                log("pushing an activation: %r" % request)
+                log("pushing a request: %r" % request)
                 write_frame(stdout, request)
             continue
         log("waiting for a command")

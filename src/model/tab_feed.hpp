@@ -20,17 +20,25 @@ struct TabInfo {
     bool discarded = false;
 };
 
-// What the plugin asks the mediator for: one tab, in the browser process it names.
+[[nodiscard]] inline std::string tabRequest(char verb, std::uint64_t pid, std::uint64_t window,
+                                            std::int64_t tab) {
+    return std::string(1, verb) + " " + std::to_string(pid) + " " + std::to_string(window) + " " +
+           std::to_string(tab) + "\n";
+}
+
 [[nodiscard]] inline std::string activateCommand(std::uint64_t pid, std::uint64_t window,
                                                  std::int64_t tab) {
-    return "a " + std::to_string(pid) + " " + std::to_string(window) + " " +
-           std::to_string(tab) + "\n";
+    return tabRequest('a', pid, window, tab);
 }
 
 [[nodiscard]] inline std::string closeCommand(std::uint64_t pid, std::uint64_t window,
                                               std::int64_t tab) {
-    return "c " + std::to_string(pid) + " " + std::to_string(window) + " " +
-           std::to_string(tab) + "\n";
+    return tabRequest('c', pid, window, tab);
+}
+
+[[nodiscard]] inline std::string unloadCommand(std::uint64_t pid, std::uint64_t window,
+                                               std::int64_t tab) {
+    return tabRequest('u', pid, window, tab);
 }
 
 // `known` separates "reported no tabs" from "never reported" -- the whole fallback rule: a browser that has not spoken yet must still be shown as a window (entriesFor).

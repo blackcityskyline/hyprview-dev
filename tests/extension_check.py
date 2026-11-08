@@ -85,6 +85,12 @@ def main():
     want("reply.name === 'close'" in js,
          "the close request is never answered by the extension")
 
+    # (4) the unload verb: the tab stays, its page leaves memory. Discarding is the browser's,
+    # so a reply nobody answers leaves the row looking like it worked.
+    want("api.tabs.discard(" in js, "background.js has no unload verb -- an unload row does nothing")
+    want("reply.name === 'unload'" in js,
+         "the unload request is never answered by the extension")
+
     if failures:
         print("extension_check: %d failure(s)" % failures, file=sys.stderr)
         return 1

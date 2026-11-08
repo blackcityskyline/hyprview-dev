@@ -364,6 +364,39 @@ std::string Overview::runCommand(const std::string &args) {
     return "";
   }
 
+  if (tok[0] == "launcher") {
+    const std::string what = word(1);
+    if (what == "on") {
+      openLauncher();
+      return "";
+    }
+    if (what == "off") {
+      closeLauncher();
+      return "";
+    }
+    if (what == "type") {
+      m_launcher.setQuery(word(2));
+      syncLauncherSelection();
+      return "";
+    }
+    if (what == "step") {
+      m_launcher.stepAny(num(2) < 0 ? -1 : 1);
+      syncLauncherSelection();
+      return "";
+    }
+    if (what == "commit") {
+      launcherCommit();
+      return "";
+    }
+    if (what == "menu") {
+      m_launcher.toggleMenu();
+      damage();
+      return "";
+    }
+    toggleLauncher();
+    return "";
+  }
+
   if (!openedOrParked())
     return "overview not open";
 
@@ -495,39 +528,6 @@ std::string Overview::runCommand(const std::string &args) {
   if (tok[0] == "discarded") {
     const int arg = num(1);
     setDiscardedShown(arg < 0 ? !discardedShown() : arg != 0);
-    return "";
-  }
-
-  if (tok[0] == "launcher") {
-    const std::string what = word(1);
-    if (what == "on") {
-      openLauncher();
-      return "";
-    }
-    if (what == "off") {
-      closeLauncher();
-      return "";
-    }
-    if (what == "type") {
-      m_launcher.setQuery(word(2));
-      syncLauncherSelection();
-      return "";
-    }
-    if (what == "step") {
-      m_launcher.step(num(2) < 0 ? -1 : 1);
-      syncLauncherSelection();
-      return "";
-    }
-    if (what == "commit") {
-      launcherCommit();
-      return "";
-    }
-    if (what == "menu") {
-      m_launcher.toggleMenu();
-      damage();
-      return "";
-    }
-    toggleLauncher();
     return "";
   }
 

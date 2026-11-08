@@ -17,6 +17,7 @@ using hyprview::model::activateCommand;
 using hyprview::model::closeCommand;
 using hyprview::model::TabSnapshot;
 using hyprview::model::parseTabs;
+using hyprview::model::unloadCommand;
 
 namespace {
 
@@ -194,6 +195,11 @@ int main() {
          "a close names the process, the window and the tab");
     want(closeCommand(1234, 12, 42) != activateCommand(1234, 12, 42), true,
          "the close verb is not the activation verb");
+    // Unload asks for a third thing: the tab stays, its page leaves memory.
+    want(unloadCommand(1234, 12, 42) == "u 1234 12 42\n", true,
+         "an unload names the process, the window and the tab");
+    want(unloadCommand(1234, 12, 42) != closeCommand(1234, 12, 42), true,
+         "the unload verb is not the close verb");
     std::puts("flags: one number, and a title that reads like one");
   }
 

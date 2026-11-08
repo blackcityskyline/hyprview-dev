@@ -712,22 +712,26 @@ bool writeAtomic(const std::string &path, const std::string &data) {
 }
 } // namespace
 
-bool Overview::writeTabRequest(std::uint64_t browserWindow, std::int64_t tab) {
+bool Overview::writeTabAsk(const char *file, char verb, std::uint64_t browserWindow,
+                           std::int64_t tab) {
   const auto &pids = m_tabs.snapshot().pids;
   const auto it = pids.find(browserWindow);
   if (it == pids.end())
     return false;
-  return writeAtomic(browserSideDir() + "/activate",
-                     model::activateCommand(it->second, browserWindow, tab));
+  return writeAtomic(browserSideDir() + "/" + file,
+                     model::tabRequest(verb, it->second, browserWindow, tab));
+}
+
+bool Overview::writeTabRequest(std::uint64_t browserWindow, std::int64_t tab) {
+  return writeTabAsk("activate", 'a', browserWindow, tab);
 }
 
 bool Overview::writeTabClose(std::uint64_t browserWindow, std::int64_t tab) {
-  const auto &pids = m_tabs.snapshot().pids;
-  const auto it = pids.find(browserWindow);
-  if (it == pids.end())
-    return false;
-  return writeAtomic(browserSideDir() + "/close",
-                     model::closeCommand(it->second, browserWindow, tab));
+  return writeTabAsk("close", 'c', browserWindow, tab);
+}
+
+bool Overview::writeTabUnload(std::uint64_t browserWindow, std::int64_t tab) {
+  return writeTabAsk("unload", 'u', browserWindow, tab);
 }
 
 // The picture on disk is from when the tab was last active; a page restyled since keeps that look.

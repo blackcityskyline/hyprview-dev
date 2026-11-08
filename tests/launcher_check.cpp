@@ -140,8 +140,9 @@ int main() {
   const auto winActs = l.menuActions();
   wantInt(static_cast<int>(winActs.size()), 4, "a window offers four verbs");
   want(winActs[0] == LauncherVerb::CloseWindow, true, "close window first");
-  l.stepMenu(1);
+  l.stepAny(1);
   wantInt(l.menuSelection(), 1, "the menu steps");
+  wantInt(l.selection(), 0, "and the row list stays put while the menu owns the arrows");
   want(l.menuVerb() == LauncherVerb::KillWindow, true, "and names the verb under the cursor");
   l.step(1);
   want(l.menuOpen(), false, "stepping the row list closes the menu");

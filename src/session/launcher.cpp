@@ -185,6 +185,10 @@ void Overview::syncLauncherSelection() {
 }
 
 void Overview::launcherCommit() {
+  if (m_launcher.menuOpen()) {
+    runLauncherVerb(m_launcher.menuVerb());
+    return;
+  }
   const auto *item = m_launcher.selectedItem();
   if (!item)
     return;
@@ -245,8 +249,12 @@ void Overview::runLauncherVerb(model::LauncherVerb verb) {
       writeTabClose(group.id, tab);
     break;
   }
-  case model::LauncherVerb::UnloadTab:
+  case model::LauncherVerb::UnloadTab: {
+    const auto group = m_tabs.groupOf(subj);
+    if (group.id)
+      writeTabUnload(group.id, tab);
     break;
+  }
   case model::LauncherVerb::ViewAll:
   case model::LauncherVerb::ViewOne:
   case model::LauncherVerb::ViewCarousel:
@@ -295,25 +303,16 @@ bool Overview::launcherKey(const IKeyboard::SKeyEvent &e, int k, uint32_t mods) 
     return true;
 
   if (k == KEY_ENTER || k == KEY_KPENTER) {
-    if (m_launcher.menuOpen())
-      runLauncherVerb(m_launcher.menuVerb());
-    else
-      launcherCommit();
+    launcherCommit();
     return true;
   }
   if (keyMatches(k, mods, cfg::keys.up.get())) {
-    if (m_launcher.menuOpen())
-      m_launcher.stepMenu(-1);
-    else
-      m_launcher.step(-1);
+    m_launcher.stepAny(-1);
     syncLauncherSelection();
     return true;
   }
   if (keyMatches(k, mods, cfg::keys.down.get())) {
-    if (m_launcher.menuOpen())
-      m_launcher.stepMenu(1);
-    else
-      m_launcher.step(1);
+    m_launcher.stepAny(1);
     syncLauncherSelection();
     return true;
   }
