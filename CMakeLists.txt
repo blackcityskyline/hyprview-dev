@@ -439,6 +439,12 @@ add_test(NAME strip
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/strip_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/strip_check && ${CMAKE_CURRENT_BINARY_DIR}/strip_check")
 
+# The launcher's search and its row state. model/launcher.hpp is header-only and
+# Hyprland-free: ranking a query wrong is invisible on screen, so it is checked here.
+add_test(NAME launcher
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/launcher_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/launcher_check && ${CMAKE_CURRENT_BINARY_DIR}/launcher_check")
+
 # The run's open/close position. progress.hpp is header-only and Hyprland-free.
 
 add_test(NAME progress
