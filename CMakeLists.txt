@@ -445,6 +445,12 @@ add_test(NAME launcher
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/launcher_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/launcher_check && ${CMAKE_CURRENT_BINARY_DIR}/launcher_check")
 
+# The panel's box and its row window. Pure, so "centred in the grid, not on the monitor"
+# and "the list scrolls instead of spilling" are checkable here.
+add_test(NAME launcher_layout
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/launcher_layout_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/launcher_layout_check && ${CMAKE_CURRENT_BINARY_DIR}/launcher_layout_check")
+
 # The run's open/close position. progress.hpp is header-only and Hyprland-free.
 
 add_test(NAME progress
