@@ -77,6 +77,11 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   uint32_t mods = g_pInputManager ? g_pInputManager->getModsFromAllKBs() : 0;
   mods &= ~modBitForKeycode(k);
 
+  if (launcherKey(e, k, mods)) {
+    cancel = true;
+    return;
+  }
+
   // The run steps itself once open -- Tab forward, Shift+Tab back -- so no second verb is needed.
   if (m_altTabbing && k == KEY_TAB) {
     stepAltTab((mods & HL_MODIFIER_SHIFT) != 0 ? -1 : 1);
@@ -112,6 +117,8 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
     toggleCarousel();
   else if (keyMatches(k, mods, cfg::keys.browser.get()))
     toggleBrowserView();
+  else if (keyMatches(k, mods, cfg::keys.launcher.get()))
+    toggleLauncher();
   else if (keyMatches(k, mods, cfg::keys.discarded.get()) &&
            model::showsTabs(m_view.domain()))
     setDiscardedShown(!discardedShown());

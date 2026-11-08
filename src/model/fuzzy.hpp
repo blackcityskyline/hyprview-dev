@@ -6,13 +6,6 @@
 
 namespace hyprview::model {
 
-// fzf-style subsequence scoring: the query matches only when its characters appear in order.
-// Higher is better, -1 is no match. An empty query matches everything with 0, so the whole
-// list stays visible until the user types.
-//
-// Greedy left-to-right alignment, deliberately: one pass, no table. It cannot find the
-// optimal alignment of a repeated character, and that is the ceiling -- swap in a scoring
-// matrix if a search ever ranks visibly wrong.
 [[nodiscard]] inline bool isWordStart(char prev) {
   const auto c = static_cast<unsigned char>(prev);
   return std::isspace(c) || c == '/' || c == '.' || c == '-' || c == '_' || c == ':' ||
@@ -47,14 +40,11 @@ namespace hyprview::model {
     ++hi;
     ++matched;
   }
-  // An anchored first match outranks the same letters found mid-word.
   if (matched > 0 && lower(hay.front()) == lower(needle.front()))
     score += 8;
   return score;
 }
 
-// The best of several fields: a title hit and a class hit are the same row, so the row keeps
-// its strongest reason to be on screen.
 [[nodiscard]] inline int fuzzyScoreAny(std::string_view needle,
                                        const std::string_view *fields, std::size_t n) {
   int best = -1;
@@ -66,4 +56,4 @@ namespace hyprview::model {
   return best;
 }
 
-} // namespace hyprview::model
+}

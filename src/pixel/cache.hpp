@@ -23,7 +23,7 @@ class IFramebuffer;
 namespace hyprview::pixel {
 
 // Entries with no object behind them live in a map of their own and are never swept.
-enum Slot : int { All = -2, CarouselCount = -1 };
+enum Slot : int { LauncherQuery = -3, All = -2, CarouselCount = -1 };
 
 // The KEYING POLICY is the whole job: entries are owned by what they describe, so an address
 // Hyprland recycles cannot hand one object's texture to another (AGENTS.md 2.9).

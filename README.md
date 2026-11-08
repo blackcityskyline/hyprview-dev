@@ -80,10 +80,16 @@ hot-reloads into the running Hyprland.
 Five verbs, each named for the view it opens: `hyprview:one` (the current workspace),
 `hyprview:all` (the all-workspaces "expo"), `hyprview:desktop`, `hyprview:browser` (the
 browser-tab view) and `hyprview:switcher` (alt-tab cycling — see `alt_tab_*` below).
-`hyprview:open`, `hyprview:close` and `hyprview:togglecarousel` stay for scripting. The
-hyprctl equivalents are `hyprviewone` / `hyprviewall` / `hyprviewdesktop` /
-`hyprviewbrowser` / `hyprviewswitcher` / `hyprviewcarousel` / `hyprviewclose`;
-`hyprviewunload` is the unload-safe close.
+`hyprview:open`, `hyprview:close`, `hyprview:togglecarousel` and `hyprview:launcher` stay
+for scripting. The hyprctl equivalents are `hyprviewone` / `hyprviewall` /
+`hyprviewdesktop` / `hyprviewbrowser` / `hyprviewswitcher` / `hyprviewcarousel` /
+`hyprviewclose`; `hyprviewunload` is the unload-safe close.
+
+`hyprview:launcher` opens the search panel — windows and tabs from the view it stands on,
+plus the plugin's own view verbs as rows. Typing filters, arrows move, `Enter` runs the
+row, `key_launcher_menu` opens that row's action menu. The panel searches every workspace,
+so opening it forces the expo view and closing it puts the previous all-workspaces setting
+back.
 
 `hyprview:one` is not a plain close: closed it opens the single-workspace overview
 (whatever `show_all_workspaces` says), open with a card focused it confirms that card
@@ -225,6 +231,9 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `strip_hover_border` | color/role | `"0x80ffffff"` | Hovered card outline |
 | `strip_plus_color` | color/role | `"0xd0eef4ff"` | The "+" glyph |
 | `strip_all_color` | color/role | `"0xd0eef4ff"` | The "All workspaces" 2×2 glyph — own key, independent of `strip_plus_color` |
+| `launcher_panel_color` | color/role | `"0xd00d1017"` | Launcher panel and its action menu |
+| `launcher_select_color` | color/role | `"0x33ffffff"` | Selected launcher row and the hovered verb |
+| `launcher_hint_color` | color/role | `"0x8affffff"` | Launcher placeholder, row detail and footer hints |
 | `shadow_color` | color/role | `"0x70000000"` | Window preview drop shadow |
 | `hover_border` | color/role | `"0xf0ffffff"` | Hovered window preview outline — a real border stroke, drawn only around the tile, never a fill over it |
 | `select_border` | color/role | `"0xf066ccff"` | Keyboard-selected preview outline (Alt-Tab's cursor) — same real-stroke rendering as `hover_border` |
@@ -249,6 +258,9 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `key_all_workspaces` | key names | `a` | Toggle the all-workspaces (expo) view; `""` to disable |
 | `key_workspace` | key names | `1,2,3,4,5,6,7,8,9,0` | Key at position N switches DIRECTLY to workspace N+1 (so `0` is always workspace 10) — creates it first if needed, independent of what's currently on the strip |
 | `key_workspace_mode` | `switch` \| `jump` | `switch` | `switch`: a digit changes the displayed workspace and the overview stays open — `jump`: a digit switches AND immediately closes the overview; `Ctrl+digit` keeps the overview open in both modes |
+| `key_launcher` | key names | `i` | Open/close the search launcher; while it is up every typed key goes to the field, never to the overview's shortcuts |
+| `key_launcher_menu` | key names | `ctrl+b` | Open the selected row's action menu: close/kill the window or tab, focus its workspace |
+| `launcher_mode` | `overlay` \| `push` | `overlay` | `overlay` paints the panel over the grid; `push` adds the panel's height to the grid's top inset so the cards reflow below it |
 | `alt_tab_modifier` | `alt` \| `ctrl` \| `shift` \| `super` | `alt` | Which modifier's release commits the Alt-Tab selection (match whatever you bound `hyprview:switcher` with) |
 | `alt_tab_commit_on_release` | bool (0/1) | `1` | Releasing `alt_tab_modifier` focuses the selection & closes, like a normal alt-tab — off: releasing does nothing, confirm with `key_activate`/click instead |
 | `exit_on_click` | bool (0/1) | `1` | Click on empty space dismisses the overview |
@@ -275,6 +287,10 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `label_color` | color | `"0xf2ffffff"` | window/workspace name text under tiles and strip cards |
 | `title_pill_color` | color | `"0xcc11151c"` | the caption pill behind a tile's title label in desktop/canvas mode |
 | `title_font_size` | int | `12` | font size of a tile's title label |
+| `launcher_width` | int (px) | `620` | Launcher panel width before the grid's side margins cap it |
+| `launcher_rows` | int | `7` | Visible launcher rows; the list scrolls past this |
+| `launcher_row_height` | int (px) | `44` | Launcher row height, and the action menu's |
+| `launcher_font_size` | int | `15` | Launcher row and search-field font size |
 | `title_label_color` | color | `"0xf2ffffff"` | the title's text colour (both layouts) |
 | `title_position` | string | `"bottom"` | `"top"` or `"bottom"`: which edge of the card the whole caption hangs off |
 | `title_round` | float | `-1.0` | caption pill corner radius in px; negative = capsule (half the height), `0` = square |

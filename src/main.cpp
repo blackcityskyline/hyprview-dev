@@ -35,7 +35,7 @@ struct Action {
     void (*invoke)();
 };
 
-constexpr std::array<Action, 9> kActions{{
+constexpr std::array<Action, 10> kActions{{
     {"one", "hyprviewone", "one",
      [] { if (g_overview) g_overview->toggleOne(); }},
     {"all", "hyprviewall", "all",
@@ -44,6 +44,8 @@ constexpr std::array<Action, 9> kActions{{
      [] { if (g_overview) g_overview->toggleDesktop(); }},
     {"browser", "hyprviewbrowser", "browser",
      [] { if (g_overview) g_overview->toggleBrowser(); }},
+    {"launcher", "hyprviewlauncher", "launcher",
+     [] { if (g_overview) g_overview->toggleLauncher(); }},
     {"switcher", "hyprviewswitcher", "switcher",
      [] { if (g_overview) g_overview->altTabInvoke(false); }},
     {"open", nullptr, "open",

@@ -13,6 +13,7 @@
 
 using hyprview::LRect;
 using hyprview::render::launcherLayout;
+using hyprview::render::launcherMenuAt;
 using hyprview::render::launcherRowAt;
 using hyprview::render::launcherScroll;
 using hyprview::render::LauncherLayout;
@@ -92,6 +93,24 @@ int main() {
   want(launcherScroll(19, 20, 5) == 15, true, "the last row pins the window to the end");
   want(launcherScroll(3, 3, 5) == 0, true, "a list shorter than the window never scrolls");
   want(launcherScroll(3, 3, 0) == 0, true, "no visible rows is not a division by zero");
+
+  // The action menu hangs under its row, stays inside the panel, and answers a hit per verb.
+  const auto menu = launcherMenuAt(l, 2, 4, 180.0, 44.0);
+  want(menu.fit, true, "a selected row has a menu");
+  want(menu.rows.size() == 4, true, "one row per verb");
+  near(menu.panel.x + menu.panel.w, l.rows[2].x + l.rows[2].w,
+       "the menu's right edge follows the row's");
+  want(menu.panel.y >= l.rows[2].y + l.rows[2].h, true, "the menu opens under its row");
+  want(menu.panel.y + menu.panel.h <= l.panel.y + l.panel.h, true,
+       "the menu stays inside the panel");
+  for (std::size_t i = 1; i < menu.rows.size(); ++i)
+    want(menu.rows[i].y > menu.rows[i - 1].y, true, "the menu rows go down");
+  // A row near the bottom flips the menu above itself rather than spilling out.
+  const auto flipped = launcherMenuAt(l, 6, 4, 180.0, 44.0);
+  want(flipped.fit, true, "the last row still gets a menu");
+  want(flipped.panel.y + flipped.panel.h <= l.rows[6].y, true,
+       "no room below: the menu flips above its row");
+  want(launcherMenuAt(l, -1, 4, 180.0, 44.0).fit, false, "no selection, no menu");
 
   std::printf("launcher layout: %d checks\n", g_checks);
   std::puts("launcher layout ok");

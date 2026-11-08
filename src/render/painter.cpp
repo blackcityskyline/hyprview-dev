@@ -229,6 +229,7 @@ void Overview::paint() {
   renderStrip();
   renderStripWindows();
   renderStripButtons();
+  renderLauncher();
   renderPulses(true);
   renderSwapFX();
 

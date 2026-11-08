@@ -185,6 +185,13 @@ int Overview::draggedTile() const {
 void Overview::updateHover() {
   if (!active())
     return;
+  if (m_launcher.active()) {
+    if (m_scene.hoveredTile() >= 0 || m_scene.hoveredStrip() >= 0) {
+      m_scene.clearHover();
+      damage();
+    }
+    return;
+  }
   const auto m = m_monitor.lock();
   if (!m)
     return;
@@ -263,6 +270,8 @@ const auto dblclickWindow = [] {
 bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
   if (!active())
     return false;
+  if (launcherMouse(e))
+    return true;
 
   const auto m = m_monitor.lock();
   if (!m) {

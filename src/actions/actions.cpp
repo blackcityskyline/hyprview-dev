@@ -498,6 +498,39 @@ std::string Overview::runCommand(const std::string &args) {
     return "";
   }
 
+  if (tok[0] == "launcher") {
+    const std::string what = word(1);
+    if (what == "on") {
+      openLauncher();
+      return "";
+    }
+    if (what == "off") {
+      closeLauncher();
+      return "";
+    }
+    if (what == "type") {
+      m_launcher.setQuery(word(2));
+      syncLauncherSelection();
+      return "";
+    }
+    if (what == "step") {
+      m_launcher.step(num(2) < 0 ? -1 : 1);
+      syncLauncherSelection();
+      return "";
+    }
+    if (what == "commit") {
+      launcherCommit();
+      return "";
+    }
+    if (what == "menu") {
+      m_launcher.toggleMenu();
+      damage();
+      return "";
+    }
+    toggleLauncher();
+    return "";
+  }
+
   if (tok[0] == "commit" || tok[0] == "cancel") {
     const bool commit = tok[0] == "commit";
     if (!openedOrParked())

@@ -412,17 +412,7 @@ LRect Overview::stripWinSlotRect(const model::StripItem &it, const LRect &card,
   return render::winSlotRect(it.wins[j].rel, card);
 }
 
-void Overview::layoutTiles() {
-  const auto m = m_monitor.lock();
-  if (!m || m_scene.empty())
-    return;
-
-  // The renderer asks m_view.engine() / run(), never the config: each mode overrides what `layout` says.
-  m_view.setEngine(m_view.desktop() ? Engine::Natural
-                                    : parseEngine(cfg::grid.layout.get().c_str()));
-  m_view.setRun( m_view.carouselOn() && cfg::carousel.enabled != 0 && !m_view.desktop() &&
-         showAllWorkspaces());
-
+LayoutCfg Overview::baseLayoutCfg() const {
   LayoutCfg cfg;
   cfg.engine = m_view.engine();
   cfg.gap = cfg::grid.gap;
@@ -450,6 +440,34 @@ void Overview::layoutTiles() {
     break;
   }
   cfg.maxScale = cfg::grid.max_scale;
+  return cfg;
+}
+
+LRect Overview::gridArea() const {
+  const auto m = m_monitor.lock();
+  if (!m)
+    return LRect{};
+  return inset(LRect{0, 0, m->m_size.x, m->m_size.y}, baseLayoutCfg());
+}
+
+void Overview::layoutTiles() {
+  const auto m = m_monitor.lock();
+  if (!m || m_scene.empty())
+    return;
+
+  m_view.setEngine(m_view.desktop() ? Engine::Natural
+                                    : parseEngine(cfg::grid.layout.get().c_str()));
+  m_view.setRun( m_view.carouselOn() && cfg::carousel.enabled != 0 && !m_view.desktop() &&
+         showAllWorkspaces());
+
+  LayoutCfg cfg = baseLayoutCfg();
+  // push: the cards keep the rest. Measured against baseLayoutCfg(), so no feedback into height.
+  if (m_launcher.active() && m_launcher.mode() == model::LauncherMode::Push &&
+      !m_view.desktop()) {
+    const auto l = launcherLayoutNow();
+    if (l.fit)
+      cfg.padTop += l.panel.h + cfg::launcher.row_height;
+  }
 
   // Caption room per pill: it is not clamped and would draw over the band, which paints AFTER the tiles.
   double titleCapH = 0.0;

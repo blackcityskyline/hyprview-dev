@@ -12,14 +12,9 @@
 
 namespace hyprview::model {
 
-// What a row points at. The launcher searches these three domains, and an action row is the
-// plugin's own verb rather than a window: one list, one selection, one Enter.
 enum class LauncherKind : int { Window, Tab, Action };
-
-// How the launcher meets the grid: displacing it or painting over it.
 enum class LauncherMode : int { Overlay, Push };
 
-// Every verb the launcher can run. Layout comes from the caller; a verb here is only a name.
 enum class LauncherVerb : int {
   FocusWindow,
   CloseWindow,
@@ -37,7 +32,6 @@ enum class LauncherVerb : int {
 
 inline constexpr std::size_t kLauncherVerbCount = static_cast<std::size_t>(LauncherVerb::Count);
 
-// Keyed by verb, sized by the enum: a verb added without a row does not compile.
 inline constexpr const char *const kLauncherVerbLabels[kLauncherVerbCount] = {
     "focus window", "close window", "kill window", "close tab", "unload tab",
     "focus workspace", "all workspaces", "one workspace", "carousel",
@@ -52,19 +46,16 @@ struct LauncherItem {
   LauncherKind kind = LauncherKind::Window;
   SubjectRef   subj;
   std::string  title;
-  std::string  detail; // class, browser, or a verb's hint: searched, shown dimmer
+  std::string  detail;
   LauncherVerb verb = LauncherVerb::FocusWindow;
-  int          tab = -1; // browser tab id for Kind::Tab, -1 otherwise
+  int          tab = -1;
 };
 
-// A ranked row: the item's index in the caller's list, and why it scored.
 struct LauncherHit {
   std::size_t item = 0;
   int         score = 0;
 };
 
-// Score desc, then the caller's order. The list arrives already ordered; a stable tie keeps
-// that order, because recency is not the launcher's to know.
 [[nodiscard]] inline std::vector<LauncherHit> rank(const std::vector<LauncherItem> &items,
                                                    std::string_view query) {
   std::vector<LauncherHit> out;
@@ -80,8 +71,6 @@ struct LauncherHit {
   return out;
 }
 
-// The verbs a row offers. A tab has no window of its own, so its close/kill pair names the
-// host window; a window has no tab, so the tab pair is absent, not disabled.
 [[nodiscard]] inline std::vector<LauncherVerb> verbsFor(LauncherKind kind) {
   switch (kind) {
     case LauncherKind::Tab:
@@ -97,8 +86,6 @@ struct LauncherHit {
   }
 }
 
-// The panel's whole state. Search is recomputed on the two events that can change it -- new
-// items, new query -- never per frame: ranking a few hundred rows per frame is waste.
 class Launcher {
   public:
     void open(LauncherMode mode) {
@@ -137,7 +124,6 @@ class Launcher {
         setQuery(m_query.substr(0, m_query.size() - 1));
     }
 
-    // Ranked hits, and the item a hit names. Both are empty/-1 when nothing matches.
     [[nodiscard]] const std::vector<LauncherHit> &hits() const { return m_hits; }
     [[nodiscard]] const LauncherItem *itemAt(std::size_t hit) const {
       if (hit >= m_hits.size() || m_hits[hit].item >= m_items.size())
@@ -154,7 +140,6 @@ class Launcher {
       m_selection = n == 0 ? 0 : std::clamp(i, 0, n - 1);
       closeMenu();
     }
-    // Wraps: the last row's Down is the first row, so a short list stays reachable.
     void step(int dir) {
       const int n = static_cast<int>(m_hits.size());
       if (n == 0)
@@ -163,7 +148,6 @@ class Launcher {
       closeMenu();
     }
 
-    // A menu on a row that is not there is a menu on nothing; a row with no verbs has no menu.
     [[nodiscard]] bool menuOpen() const { return m_menuOpen && selectedItem(); }
     void toggleMenu() {
       const auto *item = selectedItem();
@@ -174,6 +158,10 @@ class Launcher {
     }
     void closeMenu() { m_menuOpen = false; }
     [[nodiscard]] int menuSelection() const { return m_menuAt; }
+    void setMenuSelection(int i) {
+      const int n = static_cast<int>(menuActions().size());
+      m_menuAt = n == 0 ? 0 : std::clamp(i, 0, n - 1);
+    }
     [[nodiscard]] const std::vector<LauncherVerb> &menuActions() const {
       static const std::vector<LauncherVerb> NONE;
       const auto *item = selectedItem();
@@ -211,7 +199,7 @@ class Launcher {
     bool                      m_menuOpen = false;
     int                       m_menuAt = 0;
     LauncherMode              m_mode = LauncherMode::Overlay;
-    mutable std::vector<LauncherVerb> m_actions; // painted per frame, not stored per row
+    mutable std::vector<LauncherVerb> m_actions;
 };
 
-} // namespace hyprview::model
+}

@@ -206,6 +206,9 @@ struct colors {
   Color strip_hover;
   Color strip_plus;
   Color strip_all;
+  Color launcher_panel;
+  Color launcher_select;
+  Color launcher_hint;
 };
 
 inline colors colors;
@@ -234,11 +237,23 @@ struct keys {
   Str carousel;
   Str browser;
   Str discarded;
+  Str launcher;
+  Str launcher_menu;
   Str alt_tab_modifier;
   Int alt_tab_commit_on_release;
 };
 
 inline keys keys;
+
+struct launcher {
+  Int width;
+  Int rows;
+  Int row_height;
+  Int font_size;
+  Str mode;
+};
+
+inline launcher launcher;
 
 struct behavior {
   Str preview_mode;

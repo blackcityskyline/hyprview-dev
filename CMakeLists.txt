@@ -38,6 +38,7 @@ add_library(hyprview SHARED
   src/session/pending_click.cpp
   src/session/feed_poll.cpp
   src/session/layer_visibility.cpp
+  src/session/launcher.cpp
   src/build/build.cpp
   src/input/mouse.cpp
   src/input/keys.cpp
@@ -65,6 +66,7 @@ add_library(hyprview SHARED
   src/render/tile_view.cpp
   src/render/carousel_view.cpp
   src/render/strip_view.cpp
+  src/render/launcher_view.cpp
   src/render/fx.cpp
   src/render/shadow.cpp
 )

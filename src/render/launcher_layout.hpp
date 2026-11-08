@@ -6,36 +6,30 @@
 #include <cstddef>
 #include <vector>
 
-// Pure launcher geometry, monitor-local LOGICAL px: no GL, no Hyprland, no config reads.
-// The panel is a Spotlight-shaped column centred in the grid's own area, under the strip
-// band: it never touches the screen edge, and the cards keep their side margins.
-
 namespace hyprview::render {
 
 struct LauncherMetrics {
-  double width       = 620.0; // the panel's own width, before the side inset caps it
-  double sideInset   = 0.10;  // share of the area kept free on each side, at least
+  double width       = 620.0;
+  double sideInset   = 0.10;
   double minInset    = 24.0;
   double pad         = 14.0;
   double fieldH      = 52.0;
   double rowH        = 44.0;
   double rowGap      = 2.0;
-  int    rows        = 7;     // visible rows; the list scrolls past this
-  double gap         = 16.0;  // between the strip band and the panel
+  int    rows        = 7;
+  double gap         = 16.0;
   double footerH     = 30.0;
   double round       = 18.0;
 };
 
 struct LauncherLayout {
-  bool                fit = false; // the area was too small to place anything
-  LRect               panel;
-  LRect               field;
-  std::vector<LRect>  rows;
-  LRect               footer;
+  bool               fit = false;
+  LRect              panel;
+  LRect              field;
+  std::vector<LRect> rows;
+  LRect              footer;
 };
 
-// `area` is the box the grid cards live in: the launcher centres in it and takes its width
-// from it, so both modes agree on where the launcher stands.
 [[nodiscard]] inline LauncherLayout launcherLayout(const LRect &area,
                                                    const LauncherMetrics &m) {
   LauncherLayout out;
@@ -48,7 +42,6 @@ struct LauncherLayout {
     return out;
   const double w = std::min(std::max(m.width, 40.0), maxW);
 
-  // Rows give way before the panel runs off the bottom.
   int rows = std::max(1, m.rows);
   const double chrome = m.pad * 2.0 + m.fieldH + m.footerH + m.gap + m.rowGap * (rows - 1);
   const double room   = area.h - m.gap - chrome;
@@ -77,8 +70,6 @@ struct LauncherLayout {
   return out;
 }
 
-// Which row the pointer is over, or -1. Bands own no gaps, so a hover cannot land between two
-// rows and mean neither.
 [[nodiscard]] inline int launcherRowAt(const LauncherLayout &l, double lx, double ly) {
   for (std::size_t i = 0; i < l.rows.size(); ++i)
     if (l.rows[i].contains(lx, ly))
@@ -86,12 +77,38 @@ struct LauncherLayout {
   return -1;
 }
 
-// The first row drawn: the selection stays inside the visible window, and the list scrolls
-// by whole rows. Returns 0 when everything fits.
 [[nodiscard]] inline int launcherScroll(int selection, int total, int visible) {
   if (visible <= 0 || total <= visible || selection <= 0)
     return 0;
   return std::clamp(selection - visible + 1, 0, total - visible);
 }
 
-} // namespace hyprview::render
+struct LauncherMenu {
+  bool               fit = false;
+  LRect              panel;
+  std::vector<LRect> rows;
+};
+
+[[nodiscard]] inline LauncherMenu launcherMenuAt(const LauncherLayout &l, int selection,
+                                                 int count, double width, double rowH) {
+  LauncherMenu out;
+  if (!l.fit || selection < 0 || selection >= static_cast<int>(l.rows.size()) || count <= 0 ||
+      rowH <= 0.0)
+    return out;
+  const LRect &row = l.rows[static_cast<std::size_t>(selection)];
+  const double w = std::min(std::max(width, 40.0), row.w);
+  const double h = rowH * static_cast<double>(count);
+  const double x = row.x + row.w - w;
+  const double floor = l.panel.y + l.panel.h - 8.0;
+  double y = row.y + row.h + 2.0;
+  if (y + h > floor)
+    y = std::max(l.panel.y + 8.0, row.y - h - 2.0);
+  out.fit = true;
+  out.panel = LRect{x, y, w, h};
+  out.rows.reserve(static_cast<std::size_t>(count));
+  for (int i = 0; i < count; ++i)
+    out.rows.push_back(LRect{x, y + rowH * static_cast<double>(i), w, rowH});
+  return out;
+}
+
+}

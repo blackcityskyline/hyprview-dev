@@ -37,6 +37,7 @@ class CGradientValueData; // general:col.active_border's real type
 #include "clock/clock.hpp"
 #include "view/state.hpp"
 #include "model/effects.hpp"
+#include "model/launcher.hpp"
 #include "model/recency.hpp"
 #include "model/scene.hpp"
 #include "model/strip.hpp"
@@ -45,6 +46,7 @@ class CGradientValueData; // general:col.active_border's real type
 #include "render/backdrop.hpp"
 #include "render/frame_pump.hpp"
 #include "render/geometry.hpp"
+#include "render/launcher_layout.hpp"
 #include "model/window_source.hpp"
 #include "model/tab_match.hpp"
 #include "model/tab_source.hpp"
@@ -90,6 +92,11 @@ public:
   [[nodiscard]] render::MenuLayout menuBoxes() const;
   double menuDur() const { return anim::cfg(anim::Id::Card).ms; }
   [[nodiscard]] double menuProgress() const;
+
+  void toggleLauncher();
+  void openLauncher();
+  void closeLauncher();
+  void renderLauncher() const;
 
   void renderStage(eRenderStage stage);
   void paint();
@@ -329,6 +336,22 @@ private:
   LRect m_menuAt;
 
   session::Hooks m_hooks;
+
+  model::Launcher m_launcher;
+  bool m_launcherForcedAll = false;
+  bool m_launcherOpenedOverview = false;
+  int  m_launcherPrevAll = -1;
+  void buildLauncherItems();
+  [[nodiscard]] bool launcherKey(const IKeyboard::SKeyEvent &e, int keycode, uint32_t mods);
+  [[nodiscard]] bool launcherMouse(const IPointer::SButtonEvent &e);
+  void launcherCommit();
+  void runLauncherVerb(model::LauncherVerb verb);
+  void syncLauncherSelection();
+  [[nodiscard]] LRect gridArea() const;
+  [[nodiscard]] render::LauncherMetrics launcherMetrics() const;
+  [[nodiscard]] render::LauncherLayout launcherLayoutNow() const;
+  [[nodiscard]] LayoutCfg baseLayoutCfg() const;
+  void setAllWorkspaces(bool on);
 
   CCursorModule m_cursor; // KMS plane preferred, software erases-and-redraws
 

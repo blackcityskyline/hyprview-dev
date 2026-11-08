@@ -171,9 +171,15 @@ void Overview::toggleAllWorkspaces() {
     return;
   }
   const bool wasAll = showAllWorkspaces();
-  m_view.setAllOverride( wasAll ? 0 : 1);
+  setAllWorkspaces(!wasAll);
+}
+
+void Overview::setAllWorkspaces(bool on) {
+  if (showAllWorkspaces() == on)
+    return;
+  m_view.setAllOverride(on ? 1 : 0);
   // BEFORE the rebuild: glideLeaf()/entryLeaf()/ghostLeaf() read it (clocks.cpp:24-38).
-  m_view.setExpoFlip( wasAll ? -1 : 1);
+  m_view.setExpoFlip(on ? 1 : -1);
   auto oldBoxes = captureCurrentBoxes();
   replayReflow(oldBoxes);
   // AFTER the rebuild: capture is empty on an empty workspace, so arming entry before it is a no-op.
@@ -337,6 +343,12 @@ void Overview::close() {
   m_life.consumeJumpClosing();
   m_menuOpen = false;
   m_place.clocks.menu.pinEnd(menuDur());
+  m_launcher.close();
+  m_launcherOpenedOverview = false;
+  if (m_launcherForcedAll) {
+    m_launcherForcedAll = false;
+    m_view.setAllOverride(m_launcherPrevAll);
+  }
 
   cancelPendingClick();
 
