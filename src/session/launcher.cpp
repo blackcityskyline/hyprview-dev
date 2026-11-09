@@ -213,6 +213,10 @@ void Overview::buildLauncherItems() {
 }
 
 void Overview::syncLauncherSelection() {
+  // Damage FIRST, unconditionally: an App or an Action row returns below without touching the
+  // scene, and an undamaged typing leaves the panel frozen wherever the last foreign damage
+  // patch did not cover -- one half of the list updating while the other keeps the old hits.
+  damage();
   const auto *item = m_launcher.selectedItem();
   if (!item || item->kind == model::LauncherKind::App ||
       item->kind == model::LauncherKind::Action)
@@ -222,7 +226,6 @@ void Overview::syncLauncherSelection() {
     return;
   m_scene.select(idx);
   followGrid(idx);
-  damage();
 }
 
 void Overview::launcherCommit() {
