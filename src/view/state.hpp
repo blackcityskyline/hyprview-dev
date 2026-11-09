@@ -48,6 +48,26 @@ class State {
     [[nodiscard]] int expoFlip() const { return m_expoFlip; }
     void setExpoFlip(int d) { m_expoFlip = d; }
 
+    // The Space preview: `from` is the card it grows out of and shrinks back into.
+    [[nodiscard]] bool quickLook() const { return m_qlOpen; }
+    [[nodiscard]] bool quickLookClosing() const { return m_qlClosing; }
+    [[nodiscard]] const LRect &quickLookFrom() const { return m_qlFrom; }
+    void  beginQuickLook(const LRect &from) {
+      m_qlOpen = true;
+      m_qlClosing = false;
+      m_qlFrom = from;
+    }
+    void startQuickLookClose(const LRect &home) {
+      if (m_qlOpen) {
+        m_qlFrom = home;
+        m_qlClosing = true;
+      }
+    }
+    void endQuickLook() {
+      m_qlOpen = false;
+      m_qlClosing = false;
+    }
+
     [[nodiscard]] bool jumpMode() const { return m_jumpMode; }
     void setJumpMode(bool on) { m_jumpMode = on; }
 
@@ -128,6 +148,9 @@ class State {
     bool m_jumpMode = false;
     std::string m_exposeClass;
     int  m_exposePrevAll = -2;
+
+    bool  m_qlOpen = false, m_qlClosing = false;
+    LRect m_qlFrom;
 
     double m_s = 1.0, m_ox = 0.0, m_oy = 0.0;
 

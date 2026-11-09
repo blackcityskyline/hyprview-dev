@@ -293,7 +293,8 @@ void Overview::open(bool keepDomain) {
   cancelPendingClick();
   m_altTabbing = false;
   m_menuOpen = false;
-  m_quickLook = false;
+  m_view.endQuickLook();
+  m_place.clocks.quickLook.reset();
   m_view.setExposeClass({});
   m_view.setExposePrevAll(-2);
   m_view.setDesktop( false);
@@ -372,7 +373,8 @@ void Overview::close() {
   m_life.endEntry();
   m_life.consumeJumpClosing();
   m_menuOpen = false;
-  m_quickLook = false;
+  m_view.endQuickLook();
+  m_place.clocks.quickLook.reset();
   m_place.clocks.menu.pinEnd(menuDur());
   m_launcher.close();
   m_launcherOpenedOverview = false;
@@ -443,7 +445,8 @@ void Overview::hardClose() {
   debug::trace::life("close", m_life.describe());
   m_view.setDesktop( false);
   m_menuOpen = false;
-  m_quickLook = false;
+  m_view.endQuickLook();
+  m_place.clocks.quickLook.reset();
   m_view.setExposeClass({});
   m_view.setExposePrevAll(-2);
   m_place.clocks.menu.reset();
@@ -479,8 +482,7 @@ bool Overview::tileBelongs(const PHLWINDOW &w, const PHLMONITOR &m,
   const auto wws = w->m_workspace;
   if (!wws)
     return false;
-  // The expose filter lives HERE, not in buildTiles(): syncTiles() counts with this same
-  // predicate, and a rule only one side knows rebuilds the deck on every frame.
+  // Here, not in buildTiles(): syncTiles() counts with this same predicate.
   if (!m_view.exposeClass().empty() && w->m_class != m_view.exposeClass())
     return false;
   if (showAllWorkspaces()) {

@@ -105,9 +105,11 @@ the browser-tab view, the carousel button toggles the carousel. A button stays l
 its mode is on, and any other press dismisses the panel. It appears on the card animation,
 so it follows the same easing and duration as the cards.
 
-`key_quick_look` (`space`) opens the selected card full size: one centred card at the
-window's own aspect with the caption under it. Arrows take the preview to the next card;
-the same key, `Escape`, or a click closes the preview and leaves the overview open.
+`key_quick_look` (`space`) opens the selected card full size: the preview morphs out of
+that card's own box into the biggest card the window's aspect allows in the space the
+strip (and the launcher) leave free, and shrinks back into it on close. Arrows take the
+preview to the next card; the same key, `Escape`, or a click closes the preview and
+leaves the overview open. `quick_look_ms` / `_speed` / `_curve` tune the morph.
 
 `key_app_expose` (`shift+a`) hides every card whose window is not the selected card's
 application, across every workspace; pressing it again restores the full grid. A browser
@@ -407,6 +409,7 @@ The imperative twin of these keys is the Lua API
 | `lift` | 400 | easeout | the raise of a preview at pickup (see `lift_scale`, `lift_rise`) |
 | `carousel_step` | 300 | easeout | the carousel run's selection step |
 | `new_card` | 250 | easeout | a workspace card that appeared on its own |
+| `quick_look` | 220 | easeout | the Space preview growing out of its card and shrinking back into it |
 
 Shape parameters — not timings, but "how it looks", so they are plain floats
 rather than per-leaf keys:

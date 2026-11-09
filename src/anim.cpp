@@ -49,6 +49,7 @@ static std::array<Row, static_cast<std::size_t>(Id::Count)> kRows = {{
 {"lift", {}, {}, {}, {}, {}, 400, "easeout", false, ""},
 {"carousel_step", {}, {}, {}, {}, {}, 300, "easeout", false, ""},
 {"new_card", {}, {}, {}, {}, {}, 250, "easeout", false, ""},
+{"quick_look", {}, {}, {}, {}, {}, 220, "easeout", false, ""},
 }};
 
 static cfg::Int g_globallyEnabled;

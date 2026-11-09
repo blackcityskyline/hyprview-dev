@@ -483,7 +483,7 @@ void Overview::renderGhosts() const {
 }
 
 void Overview::renderQuickLook() const {
-  if (!m_quickLook)
+  if (!m_view.quickLook())
     return;
   const auto m = m_monitor.lock();
   const int idx = m_scene.focused();
@@ -496,13 +496,11 @@ void Overview::renderQuickLook() const {
     return;
 
   const double s = m->m_scale;
-  const double e = eased();
+  const double e = std::clamp(quickLookProgress(), 0.0, 1.0);
   if (e <= 0.01)
     return;
-  const auto size = w->sizeAnimation()->goal();
   constexpr double kPad = 14.0;
-  const LRect card = render::quickLookCard(m->m_size.x, m->m_size.y,
-                                           size.x / std::max(1.0, size.y), 0.84, 0.78, kPad);
+  const LRect card = lerp(m_view.quickLookFrom(), quickLookTarget(t), e);
   const LRect content{card.x + kPad, card.y + kPad, card.w - 2.0 * kPad,
                       card.h - 2.0 * kPad};
   const int round = cfg::look.preview_round;
@@ -517,6 +515,8 @@ void Overview::renderQuickLook() const {
                    render::contentRadiusFor(round, content, cfg::look.border_size, s, false),
                    roundPow, true, true);
 
+  if (e < 0.25)
+    return;
   const auto col = cfg::colors.title_label.get(1.0);
   const int font = cfg::look.title_font_size;
   const auto label = tab ? m_pixel.subjectLabel(t.subj, t.labelText, col, font,

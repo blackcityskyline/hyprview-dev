@@ -225,8 +225,7 @@ enum class CardContent { Window, Picture, PlateAndTitle };
 
 
 
-// The strip's own alpha: the slide is shorter than the band, so a ramp on the slide left the
-// curtain invisible while it was still half on screen.
+// The strip's own alpha: the slide is shorter than the band, so a ramp on the slide left the curtain invisible while it was still half on screen.
 [[nodiscard]] inline double stripFade(double bandE) {
   return std::clamp(bandE * 2.0, 0.0, 1.0);
 }
@@ -309,8 +308,7 @@ struct CoverUV {
   return uv;
 }
 
-// How a window's own surface maps into the tile it is drawn in: one scale, one
-// translation. Over-cover from the CENTER -- fitting exactly shows the backing as seams.
+// How a window's own surface maps into the tile it is drawn in: one scale, one translation. Over-cover from the CENTER -- fitting exactly shows the backing as seams.
 struct WindowFitInput {
   double destX = 0.0, destY = 0.0, destW = 0.0, destH = 0.0;
   double logicalX = 0.0, logicalY = 0.0, logicalW = 0.0, logicalH = 0.0;
@@ -366,8 +364,7 @@ struct WindowBox {
                    std::max(in.logicalH * fit.scale, 5.0)};
 }
 
-// The run's dim: the focused card is clear, the next one takes the near tone, and
-// every step past it is the far tone tapered.
+// The run's dim: the focused card is clear, the next one takes the near tone, and every step past it is the far tone tapered.
 [[nodiscard]] inline double carouselTone(int depth, double nearTone, double farTone,
                                          double taper) {
   if (depth <= 0)
@@ -453,8 +450,7 @@ struct CoverFit {
 // A wallpaper that changes several times IN A ROW is animation; one re-creation of a static wallpaper is not.
 inline constexpr int kSourceAnimatedStreak = 4;
 
-// The pulse ring: the tile's box, grown by the pulse. k is the pulse's own
-// progress, already scaled.
+// The pulse ring: the tile's box, grown by the pulse. k is the pulse's own progress, already scaled.
 [[nodiscard]] inline LRect pulseRing(const LRect &box, double k) {
   const double cx = box.cx(), cy = box.cy();
   return LRect{cx - box.w * (0.5 + k), cy - box.h * (0.5 + k), box.w * (1.0 + 2.0 * k),
@@ -481,8 +477,7 @@ inline constexpr int kSourceAnimatedStreak = 4;
   return half;
 }
 
-// The ✕ glyph inside its button: it fills the button by `fill` of the tighter side,
-// and it is centred. ONE rule for every surface that draws it.
+// The ✕ glyph inside its button: it fills the button by `fill` of the tighter side, and it is centred. ONE rule for every surface that draws it.
 [[nodiscard]] inline LRect glyphRect(const LRect &button, double glyphW, double glyphH,
                                      double fill) {
   const double scale =
@@ -543,8 +538,7 @@ inline constexpr double kBackdropPush = 0.10;
   return {axis(x, pxW), axis(y, pxH), axis(x + w, pxW), axis(y + h, pxH)};
 }
 
-// The GL layer's own arithmetic, pure: the radii and the pixel conversion. They
-// lived in gl_util.hpp, which pulls GL in, so no test could reach them.
+// The GL layer's own arithmetic, pure: the radii and the pixel conversion. They lived in gl_util.hpp, which pulls GL in, so no test could reach them.
 [[nodiscard]] inline int pxr(double round, double s) { return static_cast<int>(round * s); }
 
 [[nodiscard]] inline int outerRoundPx(double round, double borderSize,
@@ -560,12 +554,10 @@ inline constexpr double kBackdropPush = 0.10;
       std::clamp(static_cast<double>(round), 0.0, std::min(w, h) * 0.5));
 }
 
-// PIXELS, not logical: renderWindowLive over-covers by this much so sub-pixel
-// snapping cannot open a seam.
+// PIXELS, not logical: renderWindowLive over-covers by this much so sub-pixel snapping cannot open a seam.
 inline constexpr float kSeamPadPx = 1.5F;
 
-// The radius a tile's CONTENT carries so its arc lands on the ring's outer edge; +1, Hyprland subtracts one. The radius is the CONTENT's own: a radius past half the
-// content's side turns the shape inside out.
+// The radius a tile's CONTENT carries so its arc lands on the ring's outer edge; +1, Hyprland subtracts one. The radius is the CONTENT's own: a radius past half the content's side turns the shape inside out.
 [[nodiscard]] inline int contentRadiusPx(int round, int width, double scale,
                                          bool overCovers = true) {
   return pxr(round, scale) + static_cast<int>(std::lround(width * scale)) +
@@ -594,15 +586,46 @@ enum class BackdropBase { Blur, OpaqueDim, Source };
   return fitInside(card, windowW / windowH);
 }
 
-[[nodiscard]] inline LRect quickLookCard(double screenW, double screenH, double aspect,
-                                         double maxWFrac, double maxHFrac, double padding) {
-  const double maxW = std::max(1.0, screenW * maxWFrac - 2.0 * padding);
-  const double maxH = std::max(1.0, screenH * maxHFrac - 2.0 * padding);
+// The free area: the screen minus the bands that own an edge (the strip, the launcher panel). A band counts only when it spans the screen across its axis; a centred panel is widened by
+// its caller so it still lands here. A band above the middle keeps what is below it, and vice versa -- the strip and the launcher are read from the live layout, never assumed.
+[[nodiscard]] inline LRect quickLookArea(const LRect &screen, const std::vector<LRect> &bands) {
+  LRect a = screen;
+  for (const auto &b : bands) {
+    if (b.w <= 0.0 || b.h <= 0.0)
+      continue;
+    const bool spansW = b.x <= screen.x + 0.5 && b.x + b.w >= screen.x + screen.w - 0.5;
+    const bool spansH = b.y <= screen.y + 0.5 && b.y + b.h >= screen.y + screen.h - 0.5;
+    if (spansW) {
+      if (b.y + b.h * 0.5 <= a.y + a.h * 0.5) {
+        const double cut = std::clamp(b.y + b.h - a.y, 0.0, a.h);
+        a.y += cut;
+        a.h -= cut;
+      } else {
+        a.h -= std::clamp(a.y + a.h - b.y, 0.0, a.h);
+      }
+    } else if (spansH) {
+      if (b.x + b.w * 0.5 <= a.x + a.w * 0.5) {
+        const double cut = std::clamp(b.x + b.w - a.x, 0.0, a.w);
+        a.x += cut;
+        a.w -= cut;
+      } else {
+        a.w -= std::clamp(a.x + a.w - b.x, 0.0, a.w);
+      }
+    }
+  }
+  return a;
+}
+
+// The preview's card: content keeping the window's aspect inside `area`, `padding` around it.
+[[nodiscard]] inline LRect quickLookTarget(const LRect &area, double aspect, double padding) {
+  const double maxW = std::max(1.0, area.w - 2.0 * padding);
+  const double maxH = std::max(1.0, area.h - 2.0 * padding);
   const double a    = aspect > 0.0 ? aspect : 1.0;
-  const double w    = std::min(maxW, maxH * a);
-  const double h    = w / a;
-  return LRect{(screenW - w) * 0.5 - padding, (screenH - h) * 0.5 - padding,
-               w + 2.0 * padding, h + 2.0 * padding};
+  const double cw   = std::min(maxW, maxH * a);
+  const double ch   = cw / a;
+  return LRect{area.x + (area.w - cw) * 0.5 - padding,
+               area.y + (area.h - ch) * 0.5 - padding, cw + 2.0 * padding,
+               ch + 2.0 * padding};
 }
 
 // The kill zone sits at the screen edge OPPOSITE the strip: the edge the strip is not on, so a dragged window never has to cross the strip to reach it.
@@ -617,8 +640,7 @@ enum class BackdropBase { Blur, OpaqueDim, Source };
   return LRect{0.0, 0.0, screenW, thickness};
 }
 
-// The zone's glow: one line per step from the screen edge inward, fading. A
-// horizontal band glows along rows, a vertical band along columns.
+// The zone's glow: one line per step from the screen edge inward, fading. A horizontal band glows along rows, a vertical band along columns.
 struct KillRampStep {
   LRect line;
   double alpha = 0.0; // before the cursor's own glow multiplies it

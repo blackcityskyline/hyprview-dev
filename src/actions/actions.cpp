@@ -269,7 +269,9 @@ std::string Overview::runCommand(const std::string &args) {
                       "|zone=" + std::to_string(static_cast<int>(killZoneRect().x)) + "," +
                       std::to_string(static_cast<int>(killZoneRect().y)) + "," +
                       std::to_string(static_cast<int>(killZoneRect().w)) + "," +
-                      std::to_string(static_cast<int>(killZoneRect().h));
+                      std::to_string(static_cast<int>(killZoneRect().h)) + "|ql=" +
+                      (!m_view.quickLook() ? "off"
+                                           : m_view.quickLookClosing() ? "closing" : "open");
     for (std::size_t i = 0; i < m_scene.size(); ++i) {
       const auto w = tileWindow(m_scene.tiles()[i]);
       const auto &t = m_scene.tiles()[i];
@@ -406,9 +408,7 @@ std::string Overview::runCommand(const std::string &args) {
     return "overview not open";
 
   if (tok[0] == "quicklook") {
-    m_quickLook = !m_quickLook && m_scene.focused() >= 0;
-    debug::dbg(std::string("QL|") + (m_quickLook ? "open" : "close"));
-    damage();
+    toggleQuickLook();
     return "";
   }
 

@@ -67,7 +67,7 @@ void Overview::toggleLauncher() {
 void Overview::openLauncher() {
   if (m_launcher.active())
     return;
-  m_quickLook = false;
+  m_view.endQuickLook();
 
   if (!openedOrParked()) {
     m_launcherOpenedOverview = true;
@@ -213,9 +213,7 @@ void Overview::buildLauncherItems() {
 }
 
 void Overview::syncLauncherSelection() {
-  // Damage FIRST, unconditionally: an App or an Action row returns below without touching the
-  // scene, and an undamaged typing leaves the panel frozen wherever the last foreign damage
-  // patch did not cover -- one half of the list updating while the other keeps the old hits.
+  // Damage FIRST: App and Action rows return below without touching the scene.
   damage();
   const auto *item = m_launcher.selectedItem();
   if (!item || item->kind == model::LauncherKind::App ||

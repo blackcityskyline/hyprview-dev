@@ -100,6 +100,13 @@ public:
   void closeLauncher();
   void renderLauncher() const;
   void renderQuickLook() const;
+  // The preview grows out of its card; its box is the free area, not a share of the screen.
+  void toggleQuickLook();
+  void openQuickLook();
+  void closeQuickLook();
+  [[nodiscard]] LRect quickLookTarget(const model::Tile &t) const;
+  [[nodiscard]] double quickLookProgress() const;
+  double quickLookDur() const;
 
   void renderStage(eRenderStage stage);
   void paint();
@@ -336,7 +343,6 @@ private:
   LRect m_lastDragBox; // drag box at RELEASE, the `from` for landings
   bool m_altTabbing = false;
   bool m_menuOpen = false;
-  bool m_quickLook = false;
   LRect m_menuAt;
 
   session::Hooks m_hooks;

@@ -788,25 +788,54 @@ static void theContentKeepsItsAspectInsideTheCard() {
   std::puts("the content: its own aspect inside the card, and the rest is the plate");
 }
 
-// The Space preview: a card around the window, no bigger than its share of the screen, centred.
-static void theSpacePreviewFitsTheScreen() {
-  using hyprview::render::quickLookCard;
+// The Space preview: a card around the window, no bigger than the area the chrome leaves
+// free, centred there -- and the chrome is whatever really owns the edges this frame.
+static void theSpacePreviewFitsTheFreeArea() {
+  using hyprview::render::quickLookArea;
+  using hyprview::render::quickLookTarget;
 
   const double W = 1366.0, H = 768.0, pad = 14.0;
-  const auto wide = quickLookCard(W, H, 16.0 / 9.0, 0.84, 0.78, pad);
-  want(wide.w <= W * 0.84 + 0.001, true, "the card stays inside the width share");
-  want(wide.h <= H * 0.78 + 0.001, true, "and inside the height share");
-  near(wide.x + wide.w * 0.5, W * 0.5, "the card is centred across");
-  near(wide.y + wide.h * 0.5, H * 0.5, "and down");
+  const hyprview::LRect screen{0.0, 0.0, W, H};
+
+  // Nothing in the way: the whole screen, minus the padding.
+  const auto bare = quickLookArea(screen, {});
+  want(bare.w == W && bare.h == H, true, "no bands leaves the whole screen");
+
+  // A strip along the top takes its height; the preview sits in the rest, centred THERE.
+  const hyprview::LRect strip{0.0, 0.0, W, 150.0};
+  const auto above = quickLookArea(screen, {strip});
+  want(above.y == 150.0 && above.h == H - 150.0, true, "a top band pushes the area down");
+  const auto wide = quickLookTarget(above, 16.0 / 9.0, pad);
+  want(wide.y >= 150.0, true, "the preview never rides under the strip");
+  near(wide.y + wide.h * 0.5, above.y + above.h * 0.5, "centred in the free area");
+  near(wide.x + wide.w * 0.5, W * 0.5, "centred across");
   near((wide.w - 2.0 * pad) / (wide.h - 2.0 * pad), 16.0 / 9.0, "the content keeps the aspect");
 
-  const auto tall = quickLookCard(W, H, 9.0 / 16.0, 0.84, 0.78, pad);
-  want(tall.h > tall.w, true, "a tall window gets a tall card");
-  want(tall.h <= H * 0.78 + 0.001, true, "the tall card is capped by the height");
+  // The same band at the bottom, and on either side.
+  const auto below = quickLookArea(screen, {hyprview::LRect{0.0, H - 150.0, W, 150.0}});
+  want(below.h == H - 150.0 && below.y == 0.0, true, "a bottom band lifts the area");
+  const auto left = quickLookArea(screen, {hyprview::LRect{0.0, 0.0, 120.0, H}});
+  want(left.x == 120.0 && left.w == W - 120.0, true, "a left band narrows the area");
+  const auto right = quickLookArea(screen, {hyprview::LRect{W - 120.0, 0.0, 120.0, H}});
+  want(right.w == W - 120.0, true, "a right band narrows it from the right");
 
-  const auto degenerate = quickLookCard(W, H, 0.0, 0.84, 0.78, pad);
+  // The launcher: its panel is widened to a band by the caller, so the preview clears it.
+  const hyprview::LRect panel{0.0, 40.0, W, 320.0};
+  const auto withLauncher = quickLookArea(screen, {panel, strip});
+  want(withLauncher.y >= 360.0, true, "the preview clears the launcher as well as the strip");
+
+  // Two bands on the same edge do not double-count.
+  const auto twice = quickLookArea(screen, {strip, strip});
+  want(twice.y == 150.0 && twice.h == H - 150.0, true, "a band counted twice is still one band");
+
+  // A tall window and a window with no size still get a sane card.
+  const auto tall = quickLookTarget(bare, 9.0 / 16.0, pad);
+  want(tall.h > tall.w, true, "a tall window gets a tall card");
+  want(tall.h <= H + 0.001, true, "the tall card is capped by the free height");
+  const auto degenerate = quickLookTarget(bare, 0.0, pad);
   want(degenerate.w > 0.0 && degenerate.h > 0.0, true, "a window with no size still gets a card");
-  std::puts("the Space preview: aspect, screen share, centre, degenerate size");
+
+  std::puts("the Space preview: aspect, the free area, centre, degenerate size");
 }
 
 // The caption's size and its place do not depend on how long the title is: a long
@@ -1286,7 +1315,7 @@ int main() {
   theMenuStaysOnTheMonitor();
   thePulseAndTheDropHintAreDecisions();
   theContentKeepsItsAspectInsideTheCard();
-  theSpacePreviewFitsTheScreen();
+  theSpacePreviewFitsTheFreeArea();
   theCaptionDoesNotShrinkWithTheTitle();
   std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");

@@ -34,11 +34,14 @@ class Clocks {
     Clock dragLift;
     Clock newCard;
     Clock menu;
+    Clock quickLook;
 
     // Snapshotted at the glide's start: a config edit mid-flight must not change a running
     // animation's duration.
     double tileMs = 0.0;
     std::string tileCurve;
+    double quickLookMs = 0.0;
+    std::string quickLookCurve;
 
     [[nodiscard]] bool anyRunning(double rebuildEntryMs, double rebuildGhostMs,
                                   double stripMs) const;

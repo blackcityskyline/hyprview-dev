@@ -198,6 +198,13 @@ void Overview::updateAnimation() {
     m_newCardAnim = false;
     m_newCardId = 0;
   }
+  // The key starts the reverse; the morph clock is the only thing that knows it ended.
+  if (m_view.quickLook() && m_view.quickLookClosing() &&
+      m_place.clocks.quickLook.done(quickLookDur())) {
+    m_view.endQuickLook();
+    m_place.clocks.quickLook.reset();
+    damage();
+  }
     // NEVER zero progress.raw(): a transparent frame before deactivate() flashes.
   if (!opening() && t >= 1.0 && m_place.progress.raw() <= 0.0)
     m_place.progress.firstFrame();
@@ -211,6 +218,7 @@ bool Overview::animBusy() const {
   return active() &&
          (secondaryAnimsActive() || !m_place.clocks.tiles.done(glideDur()) ||
           !m_place.clocks.menu.done(menuDur()) ||
+          (m_view.quickLook() && !m_place.clocks.quickLook.done(quickLookDur())) ||
           m_newCardAnim || m_drag.lifted() || !m_fx.swapfx().empty() ||
           m_life.jumpClosing() || m_life.deactivating() ||
           (opening() && m_place.progress.raw() < 1.0) || (!opening() && m_place.progress.raw() > 0.0));
