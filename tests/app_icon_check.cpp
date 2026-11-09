@@ -15,6 +15,10 @@
 
 namespace fs = std::filesystem;
 using hyprview::pixel::app_icon::appIconFile;
+using hyprview::pixel::app_icon::appKeys;
+using hyprview::pixel::app_icon::launchedSite;
+using hyprview::pixel::app_icon::siteName;
+using hyprview::pixel::app_icon::webAppHost;
 using hyprview::pixel::desktop_entry::loadFromDirs;
 using hyprview::pixel::desktop_entry::parse;
 using hyprview::pixel::desktop_entry::sanitizeExec;
@@ -59,6 +63,47 @@ int main() {
   put(system / "icons/hicolor/scalable/apps/svg-icon.svg", "<svg/>");
   put(system / "applications/themeapp.desktop", "[Desktop Entry]\nName=Theme\nIcon=theme-icon\n");
   put(system / "icons/MacTahoe/256x256/apps/theme-icon.png", "png");
+
+  put(icons / "hey.png", "png");
+  put(system / "applications/hey.desktop",
+      "[Desktop Entry]\nName=Hey\nExec=omarchy-launch-webapp https://app.hey.com/\n"
+      "Icon=" + (icons / "hey.png").string() + "\n");
+  put(icons / "bbc.png", "png");
+  put(system / "applications/bbc.desktop",
+      "[Desktop Entry]\nName=BBC\nExec=brave --app=https://www.bbc.co.uk/news\n"
+      "Icon=" + (icons / "bbc.png").string() + "\n");
+  put(system / "icons/hicolor/32x32/apps/nautilus.png", "png");
+
+  // A browser's web app names its site in the class, and a .desktop entry names the site it
+  // opens: neither side mentions the other's spelling.
+  want(webAppHost("brave-hey.com__default") == "hey.com", "a web app class names its host");
+  want(webAppHost("google-chrome-www.example.com__Default") == "example.com",
+       "the www is not part of the site's name");
+  want(webAppHost("zen").empty(), "an ordinary class is not a web app");
+  want(webAppHost("brave-hey_com__default").empty(), "a host with an underscore is not one");
+  want(launchedSite("omarchy-launch-webapp https://app.hey.com/") == "app.hey.com",
+       "a web app launcher names the site it opens");
+  want(launchedSite("brave --app=https://www.bbc.co.uk/news") == "bbc.co.uk",
+       "a --app= flag names it too");
+  want(launchedSite("brave-browser").empty(), "a browser launched as a browser opens no site");
+  want(siteName("app.hey.com") == "hey", "the site's own label, not the subdomain");
+  want(siteName("bbc.co.uk") == "bbc", "a country second level is not the name");
+  want(siteName("example.com") == "example", "the label before the TLD");
+  want(!appKeys("").size(), "no class means no keys");
+  want(appKeys("ai.opencode.desktop").front() == "ai.opencode.desktop",
+       "the class itself is always the first key");
+  want(appKeys("ai.opencode.desktop").back() == "opencode",
+       "a reverse-DNS class falls back to its app part");
+  want(appKeys("org.gnome.Nautilus.desktop")[1] == "Nautilus",
+       "a generic tail like 'desktop' is looked past");
+
+  want(appIconFile("brave-hey.com__default") == (icons / "hey.png").string(),
+       "a web app resolves through the entry that opens its site");
+  want(appIconFile("chrome-www.bbc.co.uk__Default") == (icons / "bbc.png").string(),
+       "and a --app= entry is a site match too");
+  want(appIconFile("org.gnome.Nautilus") ==
+           (system / "icons/hicolor/32x32/apps/nautilus.png").string(),
+       "a class with no entry falls back to its own name as an icon name");
 
   // A user entry: its own StartupWMClass, an Icon= that is a path into the user's pictures.
   put(data / "applications/ai.opencode.desktop.desktop",

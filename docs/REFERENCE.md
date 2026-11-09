@@ -380,7 +380,11 @@ WebExtensions не существует, `captureVisibleTab` фотографи�
 
 В левом нижнем углу карточки — иконка **браузера**: класс окна (`w->m_class`) → файл
 `/usr/share/applications/<класс>.desktop` → `Icon=` → PNG в hicolor/pixmaps
-(`PixelCache::appIcon`, кэш по классу). В содержимое карточки не подставляется ни одна из них.
+(`PixelCache::appIcon`, кэш по классу). Веб-приложение браузера (`brave-hey.com__default`)
+сопоставляется записи, которая открывает этот сайт через `omarchy-launch-webapp` или
+`--app=` в `Exec`; класс без записи ищется по своему имени как имени иконки, а
+reverse-DNS класс — ещё и по прикладной части (`org.gnome.Nautilus` → `nautilus`).
+В содержимое карточки не подставляется ни одна из них.
 Выключаются порознь: `show_tab_icons` (вкладки) и `show_window_icons` (окна).
 
 ## Режим all-workspaces в браузерном виде

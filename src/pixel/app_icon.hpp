@@ -50,7 +50,7 @@ inline std::vector<std::string> dataDirs() {
 }
 
 struct Entry {
-  std::string icon, wmClass;
+  std::string icon, wmClass, exec;
 };
 
 inline Entry readEntry(const std::filesystem::path &file) {
@@ -71,11 +71,12 @@ inline Entry readEntry(const std::filesystem::path &file) {
       e.icon = line.substr(5);
     else if (line.rfind("StartupWMClass=", 0) == 0)
       e.wmClass = line.substr(15);
+    else if (line.rfind("Exec=", 0) == 0)
+      e.exec = line.substr(5);
   }
   return e;
 }
 
-// Largest first: a badge is up to 60 logical pixels, so a 16px file is the one that looks bad.
 inline int sizeOf(const std::string &dir) {
   int n = 0;
   for (char c : dir) {
@@ -145,17 +146,157 @@ inline std::string iconFile(const std::string &name) {
   return findByRoots(name, ".svg"); // rasterised by the caller; absent librsvg means no icon
 }
 
+inline std::string webAppHost(const std::string &cls) {
+  static const char *const kEngines[] = {"chrome-", "chromium-", "brave-", "msedge-",
+                                         "vivaldi-", "google-chrome-"};
+  const std::string s = lower(cls);
+  for (const char *engine : kEngines) {
+    const std::string pre{engine};
+    if (s.rfind(pre, 0) != 0)
+      continue;
+    const auto rest = s.substr(pre.size());
+    const auto sep = rest.find("__");
+    if (sep == std::string::npos || sep == 0)
+      return {};
+    std::string host = rest.substr(0, sep);
+    if (host.find('_') != std::string::npos)
+      return {};
+    if (host.rfind("www.", 0) == 0)
+      host = host.substr(4);
+    return host;
+  }
+  return {};
+}
+
+inline std::string launchedSite(const std::string &exec) {
+  const auto tokenAfter = [&](std::size_t from) {
+    while (from < exec.size() && std::isspace(static_cast<unsigned char>(exec[from])))
+      ++from;
+    if (from < exec.size() && (exec[from] == '"' || exec[from] == '\''))
+      ++from;
+    std::size_t to = from;
+    while (to < exec.size() && !std::isspace(static_cast<unsigned char>(exec[to])) &&
+           exec[to] != '"' && exec[to] != '\'')
+      ++to;
+    return exec.substr(from, to - from);
+  };
+  std::string target;
+  const std::string webapp = "omarchy-launch-webapp";
+  if (const auto at = exec.find(webapp); at != std::string::npos)
+    target = tokenAfter(at + webapp.size());
+  if (target.empty())
+    if (const auto at = exec.find("--app="); at != std::string::npos)
+      target = tokenAfter(at + 6);
+  const auto scheme = target.find("://");
+  if (scheme == std::string::npos)
+    return {};
+  std::string host = target.substr(scheme + 3);
+  host = host.substr(0, host.find_first_of("/:?#"));
+  if (host.rfind("www.", 0) == 0)
+    host = host.substr(4);
+  return host;
+}
+
+inline std::string siteName(const std::string &host) {
+  std::vector<std::string> labels;
+  std::string cur;
+  for (const char c : host) {
+    if (c == '.') {
+      labels.push_back(cur);
+      cur.clear();
+    } else
+      cur.push_back(c);
+  }
+  labels.push_back(cur);
+  if (!labels.empty())
+    labels.pop_back();
+  static const char *const kSecondLevel[] = {"co", "com", "net", "org", "gov", "edu", "ac"};
+  while (labels.size() > 1) {
+    const auto &back = labels.back();
+    bool second = false;
+    for (const char *s : kSecondLevel)
+      second = second || lower(back) == s;
+    if (!second)
+      break;
+    labels.pop_back();
+  }
+  return labels.empty() ? std::string{} : labels.back();
+}
+
+inline std::vector<std::string> appKeys(const std::string &cls) {
+  std::vector<std::string> keys;
+  if (cls.empty())
+    return keys;
+  const auto add = [&](const std::string &name) {
+    if (!name.empty() && std::find(keys.begin(), keys.end(), name) == keys.end())
+      keys.push_back(name);
+  };
+  keys.push_back(cls);
+  if (const auto host = webAppHost(cls); !host.empty()) {
+    add(siteName(host));
+    return keys;
+  }
+  std::vector<std::string> parts;
+  std::string cur;
+  for (const char c : cls) {
+    if (c == '.') {
+      if (!cur.empty())
+        parts.push_back(cur);
+      cur.clear();
+    } else
+      cur.push_back(c);
+  }
+  if (!cur.empty())
+    parts.push_back(cur);
+  std::string last = cls;
+  if (parts.size() >= 3) {
+    last = parts.back();
+    static const char *const kGeneric[] = {"app", "client", "desktop", "gui", "ui"};
+    for (const char *g : kGeneric)
+      if (lower(last) == g)
+        last = parts[parts.size() - 2];
+    add(last);
+  }
+  static const char *const kSuffixes[] = {"-app", "-client", "-desktop", "-gui", "-bin",
+                                          "_app", "_client", "_desktop", "_gui", "_bin"};
+  for (const char *suffix : kSuffixes) {
+    const std::string s{suffix};
+    if (last.size() > s.size() && lower(last).rfind(s) == last.size() - s.size()) {
+      last = last.substr(0, last.size() - s.size());
+      break;
+    }
+  }
+  add(last);
+  return keys;
+}
+
 // StartupWMClass is the entry's own statement; a file stem is a convention. The statement wins.
 inline std::string appIconFile(const std::string &windowClass) {
   if (windowClass.empty())
     return {};
   const std::string want = lower(windowClass);
+  const auto host = webAppHost(windowClass);
+  const auto keys = appKeys(windowClass);
+  const auto keyedStem = [&](const std::string &id) {
+    for (const auto &k : keys)
+      if (id == lower(k))
+        return true;
+    return false;
+  };
+  const auto keyedClass = [&](const std::string &wmClass) {
+    if (wmClass.empty())
+      return false;
+    for (const auto &k : keys)
+      if (lower(wmClass) == lower(k))
+        return true;
+    return false;
+  };
   std::vector<std::string> dirs{dataHome() + "/applications"};
   for (const auto &d : dataDirs())
     dirs.push_back(d + "/applications");
   for (const auto &dir : dirs) {
     std::error_code ec;
-    std::string byClass, byStem;
+    std::string byClass, bySite, byStem, byKeyed;
     for (auto it = std::filesystem::directory_iterator(dir, ec);
          !ec && it != std::filesystem::directory_iterator(); it.increment(ec)) {
       if (!it->is_regular_file(ec) || it->path().extension() != ".desktop")
@@ -163,18 +304,27 @@ inline std::string appIconFile(const std::string &windowClass) {
       const auto e = readEntry(it->path());
       if (e.icon.empty())
         continue;
-      if (!e.wmClass.empty() && lower(e.wmClass) == want) {
+      if (byClass.empty() && !e.wmClass.empty() && lower(e.wmClass) == want)
         byClass = e.icon;
-        break;
-      }
-      if (byStem.empty() && lower(it->path().stem().string()) == want)
+      if (bySite.empty() && !host.empty() && launchedSite(e.exec) == host)
+        bySite = e.icon;
+      if (byStem.empty() && keyedStem(lower(it->path().stem().string())))
         byStem = e.icon;
+      if (byKeyed.empty() && keyedClass(e.wmClass))
+        byKeyed = e.icon;
     }
     if (!byClass.empty())
       return iconFile(byClass);
+    if (!bySite.empty())
+      return iconFile(bySite);
     if (!byStem.empty())
       return iconFile(byStem);
+    if (!byKeyed.empty())
+      return iconFile(byKeyed);
   }
+  for (const auto &k : keys)
+    if (const auto file = iconFile(lower(k)); !file.empty())
+      return file;
   return {};
 }
 
