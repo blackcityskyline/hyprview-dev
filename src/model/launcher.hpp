@@ -108,6 +108,8 @@ class Launcher {
     [[nodiscard]] bool active() const { return m_open; }
     [[nodiscard]] LauncherMode mode() const { return m_mode; }
     void setMode(LauncherMode m) { m_mode = m; }
+    [[nodiscard]] bool scopeAll() const { return m_scopeAll; }
+    void setScopeAll(bool all) { m_scopeAll = all; }
 
     void setItems(std::vector<LauncherItem> items) {
       m_items = std::move(items);
@@ -208,6 +210,7 @@ class Launcher {
     std::string               m_query;
     int                       m_selection = 0;
     bool                      m_open = false;
+    bool                      m_scopeAll = true;
     bool                      m_menuOpen = false;
     int                       m_menuAt = 0;
     LauncherMode              m_mode = LauncherMode::Overlay;

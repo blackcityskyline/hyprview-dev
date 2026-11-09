@@ -87,6 +87,7 @@ void Overview::openLauncher() {
   }
 
   const bool push = cfg::launcher.mode.get() == "push";
+  m_launcher.setScopeAll(cfg::launcher.scope.get() != "current");
   m_launcher.open(push ? model::LauncherMode::Push : model::LauncherMode::Overlay);
   buildLauncherItems();
   syncLauncherSelection();
@@ -130,15 +131,35 @@ void Overview::closeLauncher() {
   damage();
 }
 
+void Overview::toggleLauncherScope() {
+  if (!m_launcher.active())
+    return;
+  m_launcher.setScopeAll(!m_launcher.scopeAll());
+  buildLauncherItems();
+  syncLauncherSelection();
+  debug::dbg(std::string("LAUNCH|scope|") + (m_launcher.scopeAll() ? "all" : "current") +
+             "|items=" + std::to_string(m_launcher.items().size()));
+  damage();
+}
+
 void Overview::buildLauncherItems() {
   std::vector<model::LauncherItem> items;
   const auto apps = pixel::desktop_entry::load();
   items.reserve(m_scene.size() + apps.size() + 5);
 
+  const auto onScope = [this](const PHLWINDOW &w) {
+    if (m_launcher.scopeAll())
+      return true;
+    const auto ws = m_workspace.lock();
+    return w && ws && w->m_workspace == ws;
+  };
+
   for (const auto &t : m_scene.tiles()) {
     model::LauncherItem item;
     item.subj = t.subj;
     if (cardOf(t).isTab()) {
+      if (!onScope(ownerWindow(t)))
+        continue;
       item.kind = model::LauncherKind::Tab;
       item.tab = static_cast<int>(t.subj.id);
       item.title = m_tabs.label(t.subj);
@@ -148,7 +169,7 @@ void Overview::buildLauncherItems() {
         item.detail = host->m_class;
     } else {
       const auto w = tileWindow(t);
-      if (!w)
+      if (!w || !onScope(w))
         continue;
       item.kind = model::LauncherKind::Window;
       item.title = w->m_title.empty() ? w->m_class : w->m_title;
@@ -347,6 +368,10 @@ bool Overview::launcherKey(const IKeyboard::SKeyEvent &e, int k, uint32_t mods) 
   if (keyMatches(k, mods, cfg::keys.down.get())) {
     m_launcher.stepAny(1);
     syncLauncherSelection();
+    return true;
+  }
+  if (k == KEY_TAB) {
+    toggleLauncherScope();
     return true;
   }
   if (k == KEY_BACKSPACE) {

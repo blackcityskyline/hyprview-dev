@@ -345,6 +345,7 @@ private:
   [[nodiscard]] bool launcherKey(const IKeyboard::SKeyEvent &e, int keycode, uint32_t mods);
   [[nodiscard]] bool launcherMouse(const IPointer::SButtonEvent &e);
   void launcherCommit();
+  void toggleLauncherScope();
   void runLauncherVerb(model::LauncherVerb verb);
   void syncLauncherSelection();
   [[nodiscard]] LRect gridArea() const;

@@ -90,8 +90,9 @@ installed applications, plus the plugin's own view verbs as rows. Typing filters
 `Enter` focuses a window or tab, launches an application, or runs a view verb;
 `key_launcher_menu` opens the selected window's or tab's action menu. The panel searches every
 workspace, so opening it forces the expo view and closing it puts the previous all-workspaces
-setting back. Applications come from `.desktop` entries in XDG order and are launched through
-Hyprland's executor.
+setting back. `Tab` toggles the row scope between every workspace and the one the overview
+stands on; the field shows which is active. Applications come from `.desktop` entries in XDG
+order and are launched through Hyprland's executor.
 
 `hyprview:one` is not a plain close: closed it opens the single-workspace overview
 (whatever `show_all_workspaces` says), open with a card focused it confirms that card
@@ -263,6 +264,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `key_launcher` | key names | `i` | Open/close the search launcher; while it is up every typed key goes to the field, never to the overview's shortcuts |
 | `key_launcher_menu` | key names | `ctrl+b` | Open the selected row's action menu: close/kill the window or tab, focus its workspace |
 | `launcher_mode` | `overlay` \| `push` | `overlay` | `overlay` paints the panel over the grid; `push` adds the panel's height to the grid's top inset so the cards reflow below it |
+| `launcher_scope` | `all` \| `current` | `all` | Which windows and tabs the launcher opens with: `all` every workspace, `current` only the one the overview stands on. `Tab` flips it while the panel is up |
 | `alt_tab_modifier` | `alt` \| `ctrl` \| `shift` \| `super` | `alt` | Which modifier's release commits the Alt-Tab selection (match whatever you bound `hyprview:switcher` with) |
 | `alt_tab_commit_on_release` | bool (0/1) | `1` | Releasing `alt_tab_modifier` focuses the selection & closes, like a normal alt-tab — off: releasing does nothing, confirm with `key_activate`/click instead |
 | `exit_on_click` | bool (0/1) | `1` | Click on empty space dismisses the overview |

@@ -68,18 +68,22 @@ void Overview::renderLauncher() const {
   const auto accent = cfg::colors.select_border.get(a);
   const int font = cfg::launcher.font_size.get();
 
+  const auto scopeTex =
+      m_pixel.menuGlyph(m_launcher.scopeAll() ? "all" : "current", hintCol, std::max(8, font - 2));
+  const double scopeW = scopeTex ? scopeTex->m_size.x : 0.0;
   const auto query = m_launcher.query();
   const auto qTex = m_pixel.fixedLabel(
       pixel::Slot::LauncherQuery,
       query.empty() ? std::string("type to search") : query,
       query.empty() ? hintCol : titleCol, font + 1,
-      static_cast<int>(std::max(20.0, l.field.w - 2.0 * kTextPad)));
+      static_cast<int>(std::max(20.0, l.field.w - 2.0 * kTextPad - scopeW - 8.0)));
   if (qTex && qTex->m_size.x > 0) {
     const LRect at{l.field.x + kTextPad, l.field.y + (l.field.h - qTex->m_size.y) / 2.0,
                    std::min<double>(qTex->m_size.x, l.field.w - 2.0 * kTextPad),
                    qTex->m_size.y};
     g_pHyprOpenGL->renderTexture(qTex, pxb(at, s), {.a = a});
   }
+  drawText(scopeTex, l.field, s, a * 0.8F, true);
 
   const int total = static_cast<int>(m_launcher.hits().size());
   const int visible = static_cast<int>(l.rows.size());
@@ -145,8 +149,8 @@ void Overview::renderLauncher() const {
     }
   }
 
-  const auto footer = m_pixel.menuGlyph("enter open   ctrl+b actions   esc close", hintCol,
-                                        std::max(9, font - 3));
+  const auto footer = m_pixel.menuGlyph("enter open   tab scope   ctrl+b actions   esc close",
+                                        hintCol, std::max(9, font - 3));
   drawText(footer, l.footer, s, a * 0.75F, false);
 }
 

@@ -106,6 +106,10 @@ int main() {
   l.open(LauncherMode::Push);
   want(l.active(), true, "open");
   want(l.mode() == LauncherMode::Push, true, "the mode it was opened with");
+  want(l.scopeAll(), true, "the scope starts wide");
+  l.setScopeAll(false);
+  want(l.scopeAll(), false, "the scope narrows to the current workspace");
+  l.setScopeAll(true);
   wantInt(static_cast<int>(l.hits().size()), 4, "an empty query shows every row");
   wantInt(l.selection(), 0, "the first row starts selected");
 

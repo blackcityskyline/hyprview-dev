@@ -393,6 +393,10 @@ std::string Overview::runCommand(const std::string &args) {
       damage();
       return "";
     }
+    if (what == "scope") {
+      toggleLauncherScope();
+      return "";
+    }
     toggleLauncher();
     return "";
   }

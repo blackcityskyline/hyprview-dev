@@ -251,6 +251,7 @@ struct launcher {
   Int row_height;
   Int font_size;
   Str mode;
+  Str scope;
 };
 
 inline launcher launcher;
