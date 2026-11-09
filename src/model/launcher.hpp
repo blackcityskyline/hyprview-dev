@@ -12,7 +12,7 @@
 
 namespace hyprview::model {
 
-enum class LauncherKind : int { Window, Tab, Action };
+enum class LauncherKind : int { Window, Tab, App, Action };
 enum class LauncherMode : int { Overlay, Push };
 
 enum class LauncherVerb : int {
@@ -21,6 +21,7 @@ enum class LauncherVerb : int {
   KillWindow,
   CloseTab,
   UnloadTab,
+  LaunchApp,
   FocusWorkspace,
   ViewAll,
   ViewOne,
@@ -34,7 +35,7 @@ inline constexpr std::size_t kLauncherVerbCount = static_cast<std::size_t>(Launc
 
 inline constexpr const char *const kLauncherVerbLabels[kLauncherVerbCount] = {
     "focus window", "close window", "kill window", "close tab", "unload tab",
-    "focus workspace", "all workspaces", "one workspace", "carousel",
+    "launch app",   "focus workspace", "all workspaces", "one workspace", "carousel",
     "browser tabs", "desktop"};
 
 [[nodiscard]] inline const char *verbLabel(LauncherVerb v) {
@@ -47,6 +48,8 @@ struct LauncherItem {
   SubjectRef   subj;
   std::string  title;
   std::string  detail;
+  std::string  exec;
+  std::string  icon;
   LauncherVerb verb = LauncherVerb::FocusWindow;
   int          tab = -1;
 };
@@ -78,6 +81,7 @@ struct LauncherHit {
               LauncherVerb::KillWindow, LauncherVerb::FocusWorkspace,
               LauncherVerb::FocusWindow};
     case LauncherKind::Action:
+    case LauncherKind::App:
       return {};
     case LauncherKind::Window:
     default:

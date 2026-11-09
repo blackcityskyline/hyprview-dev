@@ -12,6 +12,24 @@ namespace hyprview::model {
          c == '(' || c == '[' || c == '|';
 }
 
+inline int substringBonus(std::string_view needle, std::string_view hay) {
+  if (needle.size() < 3)
+    return 0;
+  for (std::size_t start = 0; start + needle.size() <= hay.size(); ++start) {
+    bool same = true;
+    for (std::size_t i = 0; i < needle.size(); ++i)
+      if (std::tolower(static_cast<unsigned char>(hay[start + i])) !=
+          std::tolower(static_cast<unsigned char>(needle[i]))) {
+        same = false;
+        break;
+      }
+    if (!same)
+      continue;
+    return 6 + (start == 0 || isWordStart(hay[start - 1]) ? 6 : 0);
+  }
+  return 0;
+}
+
 [[nodiscard]] inline int fuzzyScore(std::string_view needle, std::string_view hay) {
   if (needle.empty())
     return 0;
@@ -42,7 +60,7 @@ namespace hyprview::model {
   }
   if (matched > 0 && lower(hay.front()) == lower(needle.front()))
     score += 8;
-  return score;
+  return score + substringBonus(needle, hay);
 }
 
 [[nodiscard]] inline int fuzzyScoreAny(std::string_view needle,

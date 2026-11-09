@@ -83,6 +83,9 @@ int main() {
        "word starts beat a run inside a word");
   want(fuzzyScore("abc", "abc") > fuzzyScore("abc", "axbxc"), true,
        "a tight run beats a scattered one");
+  want(fuzzyScore("probe", "Hyprview Launch Probe") >
+           fuzzyScore("probe", "plugin that blacks out monitor edges you can't reach, keeps the bar"),
+       true, "an exact word beats scattered letters in a long title");
 
   // The row order is the caller's order on a tie: recency is not the ranker's business.
   const std::vector<LauncherItem> items = {
@@ -169,6 +172,17 @@ int main() {
   l.setItems({act});
   l.toggleMenu();
   want(l.menuOpen(), false, "an action row opens no menu");
+
+  // An app row is already the action: Enter launches it, so it offers no menu.
+  LauncherItem app;
+  app.kind = LauncherKind::App;
+  app.title = "Firefox";
+  app.detail = "firefox";
+  app.exec = "firefox";
+  l.setItems({app});
+  l.toggleMenu();
+  want(l.menuOpen(), false, "an app row opens no menu");
+  want(verbsFor(LauncherKind::App).empty(), true, "an app row has no verbs");
 
   // An empty list is not a selected row and not a menu.
   l.close();

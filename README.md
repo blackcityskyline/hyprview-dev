@@ -86,10 +86,12 @@ for scripting. The hyprctl equivalents are `hyprviewone` / `hyprviewall` /
 `hyprviewclose`; `hyprviewunload` is the unload-safe close.
 
 `hyprview:launcher` opens the search panel — windows and tabs from the view it stands on,
-plus the plugin's own view verbs as rows. Typing filters, arrows move, `Enter` runs the
-row, `key_launcher_menu` opens that row's action menu. The panel searches every workspace,
-so opening it forces the expo view and closing it puts the previous all-workspaces setting
-back.
+installed applications, plus the plugin's own view verbs as rows. Typing filters, arrows move,
+`Enter` focuses a window or tab, launches an application, or runs a view verb;
+`key_launcher_menu` opens the selected window's or tab's action menu. The panel searches every
+workspace, so opening it forces the expo view and closing it puts the previous all-workspaces
+setting back. Applications come from `.desktop` entries in XDG order and are launched through
+Hyprland's executor.
 
 `hyprview:one` is not a plain close: closed it opens the single-workspace overview
 (whatever `show_all_workspaces` says), open with a card focused it confirms that card

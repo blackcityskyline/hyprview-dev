@@ -103,9 +103,8 @@ class PixelCache {
     // A site changes its favicon far less often than its page: icons are cached apart.
     std::unordered_map<model::SubjectRef, SP<Render::ITexture>> m_subjectIcon;
     std::unordered_map<model::SubjectRef, std::int64_t> m_iconStamp;
-    // By window class, not by window: every browser window of one browser wears one icon.
-    // Path and working surface are cached per class: a lookup walks the applications directory
-    // (1.5-3ms) and a 1024px decode costs ~45ms, while the texture key's size moves every frame.
+    // By window class: one icon per browser. The path and work surface are cached because each
+    // lookup walks the applications directory and a decode costs ~45ms.
     std::unordered_map<std::string, SP<Render::ITexture>> m_appIcons;
     std::unordered_map<std::string, std::string> m_appIconPath;
     std::unordered_map<std::string, _cairo_surface *> m_appIconSrc; // owned

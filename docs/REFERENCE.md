@@ -36,6 +36,7 @@
 | `view/state.hpp` | режимы: `run` / `desktop` / `allOverride` / `wsSlideDir` / `expoFlip` | — |
 | `fuzzy.hpp` | subsequence-оценка запроса: жадный проход, стабильные ничьи | `launcher` |
 | `launcher.hpp` | строки, глаголы, меню строки, ранжирование, `stepAny` | `launcher` |
+| `pixel/desktop_entry.hpp` | установленные приложения из `.desktop`: поля, XDG-приоритет, `Exec` | `app_icon` |
 | `render/launcher_layout.hpp` | бокс панели, строка под курсором, скролл, меню строки | `launcher_layout` |
 
 ## Анимации и конфиг

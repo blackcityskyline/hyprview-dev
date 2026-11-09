@@ -1,8 +1,6 @@
 #pragma once
 
-// Where a window class's icon lives on disk; filesystem only, so the lookup has a test.
-// XDG precedence: an entry in ~/.local/share/applications beats the system one, and its Icon=
-// may be an absolute path into the user's own icon set.
+// Where a window class's icon lives on disk; the XDG order applies, absolute Icon= values too.
 
 #include <algorithm>
 #include <cctype>
@@ -147,8 +145,7 @@ inline std::string iconFile(const std::string &name) {
   return findByRoots(name, ".svg"); // rasterised by the caller; absent librsvg means no icon
 }
 
-// StartupWMClass is the entry's own statement about which window it is; a file stem is a
-// convention. Within one directory the statement wins, and the directory order is the answer.
+// StartupWMClass is the entry's own statement; a file stem is a convention. The statement wins.
 inline std::string appIconFile(const std::string &windowClass) {
   if (windowClass.empty())
     return {};

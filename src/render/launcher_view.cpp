@@ -21,12 +21,12 @@ namespace {
 constexpr double kTextPad = 12.0;
 
 void drawText(const SP<Render::ITexture> &tex, const LRect &row, double s, float a,
-              bool right) {
+              bool right, double pad = kTextPad) {
   if (!tex || tex->m_size.x <= 0 || tex->m_size.y <= 0)
     return;
   const double w = tex->m_size.x;
   const double h = tex->m_size.y;
-  const double x = right ? row.x + row.w - kTextPad - w : row.x + kTextPad;
+  const double x = right ? row.x + row.w - kTextPad - w : row.x + pad;
   const double y = row.y + (row.h - h) / 2.0;
   g_pHyprOpenGL->renderTexture(tex, pxb(LRect{x, y, w, h}, s), {.a = a});
 }
@@ -104,13 +104,24 @@ void Overview::renderLauncher() const {
                             ? SP<Render::ITexture>{}
                             : m_pixel.menuGlyph(item->detail, hintCol, std::max(9, font - 2));
     const double detailW = detail ? detail->m_size.x : 0.0;
+    double leftPad = kTextPad;
+    if (item->kind == model::LauncherKind::App && !item->icon.empty()) {
+      const double iconPx = std::min(26.0, row.h - 14.0);
+      const auto icon = m_pixel.appIcon(
+          item->icon, std::max(8, static_cast<int>(std::lround(iconPx * s))));
+      if (icon) {
+        const LRect box{row.x + 10, row.y + (row.h - iconPx) / 2.0, iconPx, iconPx};
+        g_pHyprOpenGL->renderTexture(icon, pxb(box, s), {.a = a});
+        leftPad = 10.0 + iconPx + 10.0;
+      }
+    }
     const int titleMax =
-        static_cast<int>(std::max(30.0, row.w - 2.0 * kTextPad - detailW - 16.0));
+        static_cast<int>(std::max(30.0, row.w - leftPad - kTextPad - detailW - 16.0));
     const auto title =
-        item->kind == model::LauncherKind::Action
+        item->kind == model::LauncherKind::Action || item->kind == model::LauncherKind::App
             ? m_pixel.menuGlyph(item->title, titleCol, font)
             : m_pixel.subjectLabel(item->subj, item->title, titleCol, font, titleMax);
-    drawText(title, row, s, a, false);
+    drawText(title, row, s, a, false, leftPad);
     drawText(detail, row, s, a * 0.9F, true);
   }
 
@@ -134,7 +145,7 @@ void Overview::renderLauncher() const {
     }
   }
 
-  const auto footer = m_pixel.menuGlyph("enter focus   ctrl+b actions   esc close", hintCol,
+  const auto footer = m_pixel.menuGlyph("enter open   ctrl+b actions   esc close", hintCol,
                                         std::max(9, font - 3));
   drawText(footer, l.footer, s, a * 0.75F, false);
 }

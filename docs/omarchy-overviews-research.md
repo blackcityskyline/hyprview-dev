@@ -224,7 +224,7 @@ Stage Control — не столько overview, сколько менеджер 
 
 **1. Строки приложений и запуск. M, риск средний.**
 
-- Новый чистый разбор `.desktop`: `Name`, `Exec`, `Icon`, `Terminal`, `NoDisplay`, `Hidden`, `StartupWMClass`, `OnlyShowIn`. Предпочтительно отдельный заголовок рядом с `src/pixel/app_icon.hpp`, чтобы у парсера был свой тест.
+- Новый чистый разбор `.desktop`: `Name`, `Exec`, `Icon`, `Terminal`, `NoDisplay`, `Hidden`, `StartupWMClass`. Предпочтительно отдельный заголовок рядом с `src/pixel/app_icon.hpp`, чтобы у парсера был свой тест.
 - `LauncherKind::App`, `LauncherVerb::LaunchApp` в `src/model/launcher.hpp`; в `LauncherItem` — `exec` и ключ иконки.
 - Запуск через `Config::Supplementary::executor()->spawn(...)`, а не через `fork/exec` вручную: Hyprland сам применит правила и окружение. `Exec` требует очистки field codes (`%f`, `%u`, `%F`, `%U`, `%i`, `%c`, `%k`), обработки кавычек и `Terminal=true`.
 - Строки приложений должны ранжироваться вместе с окнами, но при пустом запросе — показывать недавние приложения, а не весь `/usr/share/applications`.

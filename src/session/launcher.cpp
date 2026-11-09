@@ -2,6 +2,7 @@
 #include "../debug/log.hpp"
 #include "../input/key_combo.hpp"
 #include "../overview.hpp"
+#include "../pixel/desktop_entry.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -11,6 +12,7 @@
 #include <linux/input-event-codes.h>
 
 #include <hyprland/src/config/shared/actions/ConfigActions.hpp>
+#include <hyprland/src/config/supplementary/executor/Executor.hpp>
 #include <hyprland/src/desktop/Workspace.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
@@ -130,7 +132,8 @@ void Overview::closeLauncher() {
 
 void Overview::buildLauncherItems() {
   std::vector<model::LauncherItem> items;
-  items.reserve(m_scene.size() + 5);
+  const auto apps = pixel::desktop_entry::load();
+  items.reserve(m_scene.size() + apps.size() + 5);
 
   for (const auto &t : m_scene.tiles()) {
     model::LauncherItem item;
@@ -156,6 +159,19 @@ void Overview::buildLauncherItems() {
     items.push_back(std::move(item));
   }
 
+  // Apps follow windows; ponytail: skip Terminal=true until a terminal command is known.
+  for (const auto &app : apps) {
+    if (app.terminal)
+      continue;
+    model::LauncherItem item;
+    item.kind = model::LauncherKind::App;
+    item.title = app.name;
+    item.detail = app.id;
+    item.exec = app.exec;
+    item.icon = app.id;
+    items.push_back(std::move(item));
+  }
+
   constexpr model::LauncherVerb kViews[] = {
       model::LauncherVerb::ViewAll,   model::LauncherVerb::ViewOne,
       model::LauncherVerb::ViewCarousel, model::LauncherVerb::ViewBrowser,
@@ -174,7 +190,8 @@ void Overview::buildLauncherItems() {
 
 void Overview::syncLauncherSelection() {
   const auto *item = m_launcher.selectedItem();
-  if (!item)
+  if (!item || item->kind == model::LauncherKind::App ||
+      item->kind == model::LauncherKind::Action)
     return;
   const int idx = m_scene.tileIndexOf(item->subj);
   if (idx < 0)
@@ -192,15 +209,31 @@ void Overview::launcherCommit() {
   const auto *item = m_launcher.selectedItem();
   if (!item)
     return;
-  runLauncherVerb(item->kind == model::LauncherKind::Action
-                      ? item->verb
-                      : model::LauncherVerb::FocusWindow);
+  if (item->kind == model::LauncherKind::Action)
+    runLauncherVerb(item->verb);
+  else if (item->kind == model::LauncherKind::App)
+    runLauncherVerb(model::LauncherVerb::LaunchApp);
+  else
+    runLauncherVerb(model::LauncherVerb::FocusWindow);
 }
 
 void Overview::runLauncherVerb(model::LauncherVerb verb) {
   const auto *item = m_launcher.selectedItem();
   if (!item || verb == model::LauncherVerb::Count)
     return;
+
+  if (verb == model::LauncherVerb::LaunchApp) {
+    if (item->exec.empty())
+      return;
+    const auto exec = item->exec;
+    debug::dbg("LAUNCH|app|" + item->title);
+    if (!Config::Supplementary::executor()->spawn(exec)) {
+      debug::dbg("LAUNCH|app|spawn failed");
+      return;
+    }
+    closeLauncher();
+    return;
+  }
 
   const auto subj = item->subj;
   const int tab = item->tab;

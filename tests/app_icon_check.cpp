@@ -11,9 +11,13 @@
 #include <string>
 
 #include "../src/pixel/app_icon.hpp"
+#include "../src/pixel/desktop_entry.hpp"
 
 namespace fs = std::filesystem;
 using hyprview::pixel::app_icon::appIconFile;
+using hyprview::pixel::desktop_entry::loadFromDirs;
+using hyprview::pixel::desktop_entry::parse;
+using hyprview::pixel::desktop_entry::sanitizeExec;
 
 static int failures = 0;
 
@@ -68,7 +72,8 @@ int main() {
 
   // The same desktop file id in the user's directory: the user's copy is the one that counts.
   put(data / "applications/brave-browser.desktop",
-      "[Desktop Entry]\nName=Brave\nIcon=" + (icons / "brave.png").string() + "\n");
+      "[Desktop Entry]\nName=Brave\nExec=brave-browser\nIcon=" + (icons / "brave.png").string() +
+          "\n");
   want(appIconFile("brave-browser") == (icons / "brave.png").string(),
        "a user override beats the system entry of the same name");
 
@@ -79,6 +84,68 @@ int main() {
   want(appIconFile("themeapp") == (system / "icons/MacTahoe/256x256/apps/theme-icon.png").string(),
        "an icon outside hicolor is found in its theme");
   want(appIconFile("no-such-app").empty(), "a class with no entry resolves to nothing");
+
+  // .desktop parsing: only the main group counts, hidden entries are not applications, and Exec
+  // field codes are not arguments.
+  put(data / "applications/editor.desktop",
+      "[Desktop Entry]\nName=Editor\nGenericName=Text Editor\nExec=editor %U\nIcon=editor\n"
+      "StartupWMClass=Editor\nTerminal=true\n");
+  put(system / "applications/hidden.desktop",
+      "[Desktop Entry]\nName=Hidden\nExec=hidden\nNoDisplay=true\n");
+  put(system / "applications/terminal.desktop",
+      "[Desktop Entry]\nName=Terminal\nExec=term\nTerminal=true\n");
+  put(system / "applications/section.desktop",
+      "[Desktop Entry]\nName=Section\nExec=section\n[Desktop Action new]\nName=Wrong\nExec=wrong\n");
+  put(system / "applications/locale.desktop",
+      "[Desktop Entry]\nName=Locale\nName[ru]=Локаль\nExec=locale\n");
+
+  const auto editor = parse("[Desktop Entry]\nName=Editor\nGenericName=Text Editor\n"
+                            "Exec=editor %U\nIcon=editor\nStartupWMClass=Editor\nTerminal=true\n",
+                            "editor");
+  want(editor.has_value(), "a main group with Name and Exec is an application");
+  want(editor->name == "Editor", "Name is read");
+  want(editor->genericName == "Text Editor", "GenericName is read");
+  want(editor->exec == "editor", "the Exec field code is dropped");
+  want(editor->terminal, "Terminal=true is read");
+  want(editor->wmClass == "Editor", "StartupWMClass is read");
+
+  want(!parse("[Desktop Entry]\nName=Hidden\nExec=hidden\nNoDisplay=true\n", "hidden"),
+       "NoDisplay=true is not an application");
+  want(!parse("[Desktop Entry]\nName=Hidden\nExec=hidden\nHidden=true\n", "hidden"),
+       "Hidden=true is not an application");
+  want(!parse("[Desktop Entry]\nName=NoExec\n", "noexec"), "an entry without Exec is rejected");
+  want(!parse("[Desktop Entry]\nExec=no-name\n", "noname"), "an entry without Name is rejected");
+  want(!parse("[Other]\nName=Other\nExec=other\n", "other"),
+       "only [Desktop Entry] is the application");
+  want(sanitizeExec("app=%f%U%%") == "app=%", "all field codes are dropped and %% is a percent");
+  want(sanitizeExec("app %U") == "app", "a trailing field code leaves no argument");
+
+  const auto entries = loadFromDirs({(data / "applications").string(),
+                                     (system / "applications").string()});
+  const auto find = [&](const std::string &id) -> const hyprview::pixel::desktop_entry::Entry * {
+    for (const auto &entry : entries)
+      if (entry.id == id)
+        return &entry;
+    return nullptr;
+  };
+  want(find("editor") != nullptr, "the parser finds an installed application");
+  want(find("editor")->exec == "editor", "with its Exec field already cleaned");
+  want(find("hidden") == nullptr, "NoDisplay entries stay out of the launcher list");
+  want(find("terminal") != nullptr, "a terminal application is parsed");
+  want(find("terminal")->terminal, "and keeps its Terminal flag for the caller");
+  const auto *section = find("section");
+  want(section != nullptr, "the main group survives a later action group");
+  if (section)
+    want(section->name == "Section", "a later group cannot overwrite the main group");
+  const auto *locale = find("locale");
+  want(locale != nullptr, "a translated entry is parsed");
+  if (locale)
+    want(locale->name == "Locale", "a translated name does not replace the base name");
+  const auto *brave = find("brave-browser");
+  want(brave != nullptr, "the user override is present");
+  if (brave)
+    want(brave->icon == (icons / "brave.png").string(),
+         "a user entry overrides the system entry with the same id");
 
   fs::remove_all(root);
   if (failures) {
