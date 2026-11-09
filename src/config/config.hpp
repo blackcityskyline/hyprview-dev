@@ -278,6 +278,7 @@ struct behavior {
   Int switch_on_new_workspace;
   Int show_all_workspaces;
   Int show_special;
+  Str monitor_scope;
   Str tile_mode;
   Int show_discarded_tabs;
   Int switcher_advances;

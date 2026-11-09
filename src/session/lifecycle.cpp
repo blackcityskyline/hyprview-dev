@@ -483,7 +483,7 @@ bool Overview::tileBelongs(const PHLWINDOW &w, const PHLMONITOR &m,
     if (wws->m_isSpecialWorkspace &&
         cfg::behavior.show_special == 0)
       return false;
-    return wws->m_monitor.lock() == m;
+    return cfg::behavior.monitor_scope.get() == "all" || wws->m_monitor.lock() == m;
   }
   return wws == ws;
 }

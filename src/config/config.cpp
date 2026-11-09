@@ -235,6 +235,7 @@ constexpr StrSpec kStrs[] = {
     {&keys.alt_tab_modifier, "plugin:hyprview:alt_tab_modifier", "alt"},
     {&behavior.preview_mode, "plugin:hyprview:preview_mode", "live"},
     {&behavior.tile_layout,  "plugin:hyprview:tile_layout",  "none"},
+    {&behavior.monitor_scope, "plugin:hyprview:monitor_scope", "current"},
     {&behavior.cursor_mode, "plugin:hyprview:cursor_mode", "auto"},
     {&behavior.workspace_key_mode, "plugin:hyprview:key_workspace_mode", "switch"},
     {&behavior.new_workspace_mode, "plugin:hyprview:new_workspace_mode", "fill"},
