@@ -87,6 +87,8 @@ public:
   void toggleCarousel();
   void switchDomain(model::Domain d);
   void toggleBrowserView();
+  void toggleAppExpose();
+  [[nodiscard]] std::string focusedClass() const;
   void altTabInvoke(bool reverse);
   void toggleMenu(double x, double y);
   [[nodiscard]] render::MenuLayout menuBoxes() const;

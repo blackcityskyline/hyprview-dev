@@ -240,6 +240,7 @@ struct keys {
   Str launcher;
   Str launcher_menu;
   Str quick_look;
+  Str app_expose;
   Str alt_tab_modifier;
   Int alt_tab_commit_on_release;
 };

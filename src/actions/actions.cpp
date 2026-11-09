@@ -258,7 +258,8 @@ std::string Overview::runCommand(const std::string &args) {
                       std::to_string(carouselMode()) + "|run=" +
                       std::to_string(m_view.run() ? m_view.carousel().cards.size() : 0) +
                       "|pos=" + std::to_string(runPosition()) + "|menu=" +
-                      std::to_string(m_menuOpen ? 1 : 0) + "|disc=" +
+                      std::to_string(m_menuOpen ? 1 : 0) + "|expose=" + m_view.exposeClass() +
+                      "|disc=" +
                       std::to_string(m_showDiscarded >= 0 ? m_showDiscarded
                                                           : cfg::behavior.show_discarded_tabs != 0 ? 1 : 0) +
                       "|ccx=" +
@@ -408,6 +409,11 @@ std::string Overview::runCommand(const std::string &args) {
     m_quickLook = !m_quickLook && m_scene.focused() >= 0;
     debug::dbg(std::string("QL|") + (m_quickLook ? "open" : "close"));
     damage();
+    return "";
+  }
+
+  if (tok[0] == "appexpose") {
+    toggleAppExpose();
     return "";
   }
 

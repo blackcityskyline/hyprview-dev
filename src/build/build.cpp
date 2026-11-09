@@ -82,6 +82,7 @@ void Overview::buildTiles() {
 
   // enumerate() puts windows on the source's alive list; an identity minted outside resolves to nobody.
   const auto mode = m_view.domain();
+  const auto tileMode = m_view.exposeClass().empty() ? mode : model::Domain::Windows;
   const bool showDiscarded = discardedShown();
   const auto subjects = m_windows.enumerate();
 
@@ -113,6 +114,8 @@ void Overview::buildTiles() {
     const auto w = m_windows.windowOf(subj);
     if (!w || subj == m_pendingKill)
       continue;
+    if (!m_view.exposeClass().empty() && w->m_class != m_view.exposeClass())
+      continue;
 
     // goal(), not value(): value() carries the slide offset.
     const auto p = w->positionAnimation()->goal();
@@ -126,7 +129,7 @@ void Overview::buildTiles() {
     // A browser whose every tab is filtered out must still be a window, not nothing.
     const bool tabsShown = m_tabs.knownFor(bw) && !ids.empty();
 
-    for (const auto &entry : model::entriesFor(w.get(), mode, tabsShown, ids, bw != 0)) {
+    for (const auto &entry : model::entriesFor(w.get(), tileMode, tabsShown, ids, bw != 0)) {
       model::Tile t;
       // tabId < 0 is the window itself; a tab id is scoped to the connection that issued it.
       t.subj = entry.tabId < 0 ? subj

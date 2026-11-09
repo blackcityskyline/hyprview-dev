@@ -228,6 +228,7 @@ constexpr StrSpec kStrs[] = {
     {&keys.launcher, "plugin:hyprview:key_launcher", "i"},
     {&keys.launcher_menu, "plugin:hyprview:key_launcher_menu", "ctrl+b"},
     {&keys.quick_look, "plugin:hyprview:key_quick_look", "space"},
+    {&keys.app_expose, "plugin:hyprview:key_app_expose", "shift+a"},
     {&launcher.mode, "plugin:hyprview:launcher_mode", "overlay"},
     {&launcher.scope, "plugin:hyprview:launcher_scope", "all"},
     {&keys.workspace, "plugin:hyprview:key_workspace", "1,2,3,4,5,6,7,8,9,0"},

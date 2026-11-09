@@ -130,6 +130,33 @@ void Overview::switchDomain(model::Domain d) {
   debug::dbg("DOMAIN-SWITCH to=" + std::string(model::domainName(m_view.domain())));
 }
 
+std::string Overview::focusedClass() const {
+  const int i = m_scene.focused();
+  if (i < 0)
+    return {};
+  const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
+  const auto w = cardOf(t).isTab() ? ownerWindow(t) : tileWindow(t);
+  return w ? w->m_class : std::string{};
+}
+
+void Overview::toggleAppExpose() {
+  const std::string next = m_view.exposeClass().empty() ? focusedClass() : std::string{};
+  if (m_view.exposeClass().empty() && next.empty())
+    return;
+  m_view.setExposeClass(next);
+  if (!m_view.exposeClass().empty() && !showAllWorkspaces()) {
+    m_view.setExposePrevAll(m_view.allOverride());
+    m_view.setAllOverride(1);
+  } else if (m_view.exposeClass().empty() && m_view.exposePrevAll() >= -1) {
+    m_view.setAllOverride(m_view.exposePrevAll());
+    m_view.setExposePrevAll(-2);
+  }
+  auto oldBoxes = captureCurrentBoxes();
+  replayReflow(oldBoxes);
+  debug::dbg(std::string("EXPOSE|") + (m_view.exposeClass().empty() ? "clear" : "set") +
+             "|class=" + m_view.exposeClass() + "|tiles=" + std::to_string(m_scene.size()));
+}
+
 void Overview::toggleBrowserView() {
   switchDomain(m_view.domain() == model::Domain::Tabs ? model::Domain::Windows
                                                       : model::Domain::Tabs);
@@ -267,6 +294,8 @@ void Overview::open(bool keepDomain) {
   m_altTabbing = false;
   m_menuOpen = false;
   m_quickLook = false;
+  m_view.setExposeClass({});
+  m_view.setExposePrevAll(-2);
   m_view.setDesktop( false);
   m_newCardAnim = false;
   m_newCardId = 0;
@@ -415,6 +444,8 @@ void Overview::hardClose() {
   m_view.setDesktop( false);
   m_menuOpen = false;
   m_quickLook = false;
+  m_view.setExposeClass({});
+  m_view.setExposePrevAll(-2);
   m_place.clocks.menu.reset();
   m_newCardAnim = false;
   m_newCardId = 0;

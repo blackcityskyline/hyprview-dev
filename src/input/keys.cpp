@@ -119,6 +119,8 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
     moveSelection(0, 1);
   else if (keyMatches(k, mods, cfg::keys.desktop.get()))
     setDesktopMode(!m_view.desktop());
+  else if (keyMatches(k, mods, cfg::keys.app_expose.get()))
+    toggleAppExpose();
   else if (keyMatches(k, mods, cfg::keys.all_workspaces.get()))
     toggleAllWorkspaces();
   else if (keyMatches(k, mods, cfg::keys.carousel.get()))

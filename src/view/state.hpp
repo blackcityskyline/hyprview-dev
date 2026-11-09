@@ -4,6 +4,7 @@
 #include "../model/subject.hpp"
 
 #include <cstddef>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -35,6 +36,11 @@ class State {
     // Resolved once when the run opens: a live change lands on the NEXT run.
     [[nodiscard]] model::Domain domain() const { return m_domain; }
     void setDomain(model::Domain d) { m_domain = d; }
+
+    [[nodiscard]] const std::string &exposeClass() const { return m_exposeClass; }
+    void setExposeClass(std::string c) { m_exposeClass = std::move(c); }
+    [[nodiscard]] int exposePrevAll() const { return m_exposePrevAll; }
+    void setExposePrevAll(int v) { m_exposePrevAll = v; }
 
     [[nodiscard]] int wsSlideDir() const { return m_wsSlideDir; }
     void setWsSlideDir(int d) { m_wsSlideDir = d; }
@@ -120,6 +126,8 @@ class State {
     int  m_wsSlideDir = 0;
     int  m_expoFlip = 0;
     bool m_jumpMode = false;
+    std::string m_exposeClass;
+    int  m_exposePrevAll = -2;
 
     double m_s = 1.0, m_ox = 0.0, m_oy = 0.0;
 

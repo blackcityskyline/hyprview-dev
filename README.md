@@ -109,6 +109,10 @@ so it follows the same easing and duration as the cards.
 window's own aspect with the caption under it. Arrows take the preview to the next card;
 the same key, `Escape`, or a click closes the preview and leaves the overview open.
 
+`key_app_expose` (`shift+a`) hides every card whose window is not the selected card's
+application, across every workspace; pressing it again restores the full grid. A browser
+shows its windows, not its tabs, while the filter is on.
+
 A card's caption is the window title — or, for a tab, the page title — cut at 50
 characters with `...` at the end, the dots included. The limit counts characters, so a
 Cyrillic title is cut between letters and not through one.
@@ -269,6 +273,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `key_launcher` | key names | `i` | Open/close the search launcher; while it is up every typed key goes to the field, never to the overview's shortcuts |
 | `key_launcher_menu` | key names | `ctrl+b` | Open the selected row's action menu: close/kill the window or tab, focus its workspace |
 | `key_quick_look` | key names | `space` | Show the selected card full size; the same key or `Escape` closes the preview without closing the overview |
+| `key_app_expose` | key names | `shift+a` | Show only the selected card's application, on every workspace; the same key restores the full grid |
 | `launcher_mode` | `overlay` \| `push` | `overlay` | `overlay` paints the panel over the grid; `push` adds the panel's height to the grid's top inset so the cards reflow below it |
 | `launcher_scope` | `all` \| `current` | `all` | Which windows and tabs the launcher opens with: `all` every workspace, `current` only the one the overview stands on. `Tab` flips it while the panel is up |
 | `alt_tab_modifier` | `alt` \| `ctrl` \| `shift` \| `super` | `alt` | Which modifier's release commits the Alt-Tab selection (match whatever you bound `hyprview:switcher` with) |
