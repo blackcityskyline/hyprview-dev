@@ -119,7 +119,7 @@ Overview                     единственный владелец сост�
 ### paint()
 
 ```
-backdrop → tiles/carousel → ghosts → pulses → strip → strip windows
+backdrop → tiles/carousel → ghosts → pulses → quicklook → strip → strip windows
         → strip buttons → pulses → swapfx → drag → aboveLayers → menu → cursor
 ```
 

@@ -64,10 +64,10 @@ std::string docBlock(const std::string &md) {
 }
 
 const char *kPasses[] = {
-    "renderBackdrop",  "renderCarousel", "renderTiles",   "renderGhosts",
-    "renderPulses",    "renderStrip",    "renderStripWindows", "renderStripButtons",
-    "renderSwapFX",    "renderKillZone", "renderDragTile", "renderDragWindow",
-    "renderAboveLayers", "renderMenu", "renderCursorOnTop",
+    "renderBackdrop", "renderCarousel", "renderTiles", "renderGhosts",
+    "renderPulses", "renderQuickLook", "renderStrip", "renderStripWindows",
+    "renderStripButtons", "renderSwapFX", "renderKillZone", "renderDragTile",
+    "renderDragWindow", "renderAboveLayers", "renderMenu", "renderCursorOnTop",
 };
 
 // Every pass call in the order the code makes them.
@@ -121,6 +121,7 @@ std::vector<std::vector<std::string>> docSlots(const std::string &block) {
     else if (slot == "tiles/carousel") slots.push_back({"renderTiles", "renderCarousel"});
     else if (slot == "ghosts") slots.push_back({"renderGhosts"});
     else if (slot == "pulses") slots.push_back({"renderPulses"});
+    else if (slot == "quicklook") slots.push_back({"renderQuickLook"});
     else if (slot == "strip") slots.push_back({"renderStrip"});
     else if (slot == "stripwindows") slots.push_back({"renderStripWindows"});
     else if (slot == "stripbuttons") slots.push_back({"renderStripButtons"});

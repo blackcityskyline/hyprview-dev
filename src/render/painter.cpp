@@ -225,6 +225,7 @@ void Overview::paint() {
   renderGhosts();
   if (!carouselMode())
     renderPulses(false);
+  renderQuickLook();
 
   renderStrip();
   renderStripWindows();
