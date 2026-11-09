@@ -74,6 +74,7 @@
 | `session/geometry.cpp` | геометрия стрипа, blur-акцессоры, forced-visibility |
 | `session/lifecycle.cpp` | `open`/`close`/`hardClose`/`toggle`/`deactivate` |
 | `session/launcher.cpp` | живая половина лаунчера: строки из плиток, клавиши, глаголы |
+| `session/quick_look.cpp` | превью Space: морф из бокса карточки, свободная зона, его часы |
 
 ## Прочее
 
