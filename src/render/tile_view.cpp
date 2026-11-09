@@ -482,4 +482,65 @@ void Overview::renderGhosts() const {
   }
 }
 
+void Overview::renderQuickLook() const {
+  if (!m_quickLook)
+    return;
+  const auto m = m_monitor.lock();
+  const int idx = m_scene.focused();
+  if (!m || idx < 0)
+    return;
+  const auto &t = m_scene.tiles()[static_cast<std::size_t>(idx)];
+  const bool tab = cardOf(t).isTab();
+  const auto w = tab ? ownerWindow(t) : tileWindow(t);
+  if (!w || !w->m_isMapped || w->isHidden())
+    return;
+
+  const double s = m->m_scale;
+  const double e = eased();
+  if (e <= 0.01)
+    return;
+  const auto size = w->sizeAnimation()->goal();
+  constexpr double kPad = 14.0;
+  const LRect card = render::quickLookCard(m->m_size.x, m->m_size.y,
+                                           size.x / std::max(1.0, size.y), 0.84, 0.78, kPad);
+  const LRect content{card.x + kPad, card.y + kPad, card.w - 2.0 * kPad,
+                      card.h - 2.0 * kPad};
+  const int round = cfg::look.preview_round;
+  const float roundPow = cfg::look.preview_round_power;
+  const float a = static_cast<float>(e);
+  dropShadow(card, s, cfg::colors.shadow.get(1.0), cfg::look.shadow_radius,
+             anim::param(anim::Param::ShadowOffset),
+             static_cast<float>(e * cfg::look.shadow_alpha), round, roundPow);
+  safeRenderRect("quick_look", pxb(card, s), cfg::colors.surface.get(a),
+                 {.round = pxr(round, s), .roundingPower = roundPow});
+  renderWindowLive(w, m, pxb(content, s), pxb(content, s), a, Time::steadyNow(),
+                   render::contentRadiusFor(round, content, cfg::look.border_size, s, false),
+                   roundPow, true, true);
+
+  const auto col = cfg::colors.title_label.get(1.0);
+  const int font = cfg::look.title_font_size;
+  const auto label = tab ? m_pixel.subjectLabel(t.subj, t.labelText, col, font,
+                                                static_cast<int>(content.w))
+                         : m_pixel.windowLabel(w, t.labelText, col, font,
+                                               static_cast<int>(content.w));
+  if (!label || label->m_size.x <= 0)
+    return;
+  const double pillW = label->m_size.x + 2.0 * cfg::look.title_pad_x;
+  const double pillH = label->m_size.y + 2.0 * cfg::look.title_pad_y;
+  const bool below = cfg::look.title_position.get() != "top";
+  const LRect pill{
+      render::insetWithin(card.x + (card.w - pillW) * 0.5, pillW, m->m_size.x,
+                          cfg::look.title_margin),
+      render::captionPillY(card.y, card.h, pillH, cfg::look.title_gap, below,
+                           m->m_size.y, cfg::look.title_margin),
+      pillW, pillH};
+  safeRenderRect("quick_look", pxb(pill, s), cfg::colors.title_pill.get(a),
+                 {.round = pxr(render::pillRadius(cfg::look.title_round, pill.w, pill.h), s),
+                  .roundingPower = roundPow});
+  g_pHyprOpenGL->renderTexture(
+      label, pxb(LRect{pill.x + cfg::look.title_pad_x, pill.y + cfg::look.title_pad_y,
+                       label->m_size.x, label->m_size.y}, s),
+      {.a = a});
+}
+
 }

@@ -266,6 +266,7 @@ void Overview::open(bool keepDomain) {
   cancelPendingClick();
   m_altTabbing = false;
   m_menuOpen = false;
+  m_quickLook = false;
   m_view.setDesktop( false);
   m_newCardAnim = false;
   m_newCardId = 0;
@@ -342,6 +343,7 @@ void Overview::close() {
   m_life.endEntry();
   m_life.consumeJumpClosing();
   m_menuOpen = false;
+  m_quickLook = false;
   m_place.clocks.menu.pinEnd(menuDur());
   m_launcher.close();
   m_launcherOpenedOverview = false;
@@ -412,6 +414,7 @@ void Overview::hardClose() {
   debug::trace::life("close", m_life.describe());
   m_view.setDesktop( false);
   m_menuOpen = false;
+  m_quickLook = false;
   m_place.clocks.menu.reset();
   m_newCardAnim = false;
   m_newCardId = 0;

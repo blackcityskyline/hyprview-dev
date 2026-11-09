@@ -105,6 +105,10 @@ the browser-tab view, the carousel button toggles the carousel. A button stays l
 its mode is on, and any other press dismisses the panel. It appears on the card animation,
 so it follows the same easing and duration as the cards.
 
+`key_quick_look` (`space`) opens the selected card full size: one centred card at the
+window's own aspect with the caption under it. Arrows take the preview to the next card;
+the same key, `Escape`, or a click closes the preview and leaves the overview open.
+
 A card's caption is the window title — or, for a tab, the page title — cut at 50
 characters with `...` at the end, the dots included. The limit counts characters, so a
 Cyrillic title is cut between letters and not through one.
@@ -264,6 +268,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `key_workspace_mode` | `switch` \| `jump` | `switch` | `switch`: a digit changes the displayed workspace and the overview stays open — `jump`: a digit switches AND immediately closes the overview; `Ctrl+digit` keeps the overview open in both modes |
 | `key_launcher` | key names | `i` | Open/close the search launcher; while it is up every typed key goes to the field, never to the overview's shortcuts |
 | `key_launcher_menu` | key names | `ctrl+b` | Open the selected row's action menu: close/kill the window or tab, focus its workspace |
+| `key_quick_look` | key names | `space` | Show the selected card full size; the same key or `Escape` closes the preview without closing the overview |
 | `launcher_mode` | `overlay` \| `push` | `overlay` | `overlay` paints the panel over the grid; `push` adds the panel's height to the grid's top inset so the cards reflow below it |
 | `launcher_scope` | `all` \| `current` | `all` | Which windows and tabs the launcher opens with: `all` every workspace, `current` only the one the overview stands on. `Tab` flips it while the panel is up |
 | `alt_tab_modifier` | `alt` \| `ctrl` \| `shift` \| `super` | `alt` | Which modifier's release commits the Alt-Tab selection (match whatever you bound `hyprview:switcher` with) |

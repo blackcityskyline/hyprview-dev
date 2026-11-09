@@ -404,6 +404,13 @@ std::string Overview::runCommand(const std::string &args) {
   if (!openedOrParked())
     return "overview not open";
 
+  if (tok[0] == "quicklook") {
+    m_quickLook = !m_quickLook && m_scene.focused() >= 0;
+    debug::dbg(std::string("QL|") + (m_quickLook ? "open" : "close"));
+    damage();
+    return "";
+  }
+
   if (tok[0] == "sel") {
     const int n = num(1);
     if (n < 0 || n >= static_cast<int>(m_scene.size()))

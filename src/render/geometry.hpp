@@ -594,6 +594,17 @@ enum class BackdropBase { Blur, OpaqueDim, Source };
   return fitInside(card, windowW / windowH);
 }
 
+[[nodiscard]] inline LRect quickLookCard(double screenW, double screenH, double aspect,
+                                         double maxWFrac, double maxHFrac, double padding) {
+  const double maxW = std::max(1.0, screenW * maxWFrac - 2.0 * padding);
+  const double maxH = std::max(1.0, screenH * maxHFrac - 2.0 * padding);
+  const double a    = aspect > 0.0 ? aspect : 1.0;
+  const double w    = std::min(maxW, maxH * a);
+  const double h    = w / a;
+  return LRect{(screenW - w) * 0.5 - padding, (screenH - h) * 0.5 - padding,
+               w + 2.0 * padding, h + 2.0 * padding};
+}
+
 // The kill zone sits at the screen edge OPPOSITE the strip: the edge the strip is not on, so a dragged window never has to cross the strip to reach it.
 [[nodiscard]] inline LRect killZoneRect(Anchor strip, double screenW, double screenH,
                                         double thickness) {

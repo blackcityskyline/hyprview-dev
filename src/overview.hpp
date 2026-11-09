@@ -97,6 +97,7 @@ public:
   void openLauncher();
   void closeLauncher();
   void renderLauncher() const;
+  void renderQuickLook() const;
 
   void renderStage(eRenderStage stage);
   void paint();
@@ -333,6 +334,7 @@ private:
   LRect m_lastDragBox; // drag box at RELEASE, the `from` for landings
   bool m_altTabbing = false;
   bool m_menuOpen = false;
+  bool m_quickLook = false;
   LRect m_menuAt;
 
   session::Hooks m_hooks;

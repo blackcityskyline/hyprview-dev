@@ -90,7 +90,15 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   }
 
   bool handled = true;
-  if (keyMatches(k, mods, cfg::keys.close.get()))
+  if (m_quickLook && keyMatches(k, mods, cfg::keys.close.get())) {
+    m_quickLook = false;
+    debug::dbg("QL|close");
+    damage();
+  } else if (keyMatches(k, mods, cfg::keys.quick_look.get())) {
+    m_quickLook = !m_quickLook && m_scene.focused() >= 0;
+    debug::dbg(std::string("QL|") + (m_quickLook ? "open" : "close"));
+    damage();
+  } else if (keyMatches(k, mods, cfg::keys.close.get()))
     close();
   else if (keyMatches(k, mods, cfg::keys.next_workspace.get()))
     stepWorkspace(

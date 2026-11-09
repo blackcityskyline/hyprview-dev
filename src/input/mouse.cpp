@@ -272,6 +272,12 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
     return false;
   if (launcherMouse(e))
     return true;
+  if (m_quickLook && e.state == WL_POINTER_BUTTON_STATE_PRESSED) {
+    m_quickLook = false;
+    debug::dbg("QL|close");
+    damage();
+    return true;
+  }
 
   const auto m = m_monitor.lock();
   if (!m) {

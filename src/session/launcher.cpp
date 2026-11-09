@@ -67,6 +67,7 @@ void Overview::toggleLauncher() {
 void Overview::openLauncher() {
   if (m_launcher.active())
     return;
+  m_quickLook = false;
 
   if (!openedOrParked()) {
     m_launcherOpenedOverview = true;

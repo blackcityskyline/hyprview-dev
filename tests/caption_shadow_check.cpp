@@ -29,11 +29,14 @@ int main(int argc, char **argv) {
   if (tile.empty())
     return fail("src/render/tile_view.cpp not found");
 
-  // The favicon's shadow, in the caption.
-  const auto caption = tile.find("drawTileCaption");
+  // The favicon's shadow, in the caption. Scope the scan to that function: later code in the
+  // file may draw its own shadow for its own reason, and the hazard is the caption's icon.
+  const auto caption = tile.find("void Overview::drawTileCaption");
   if (caption == std::string::npos)
     return fail("the caption is gone from tile_view.cpp");
-  const auto body = tile.substr(caption, tile.size() - caption);
+  const auto next = tile.find("\nvoid Overview::", caption + 1);
+  const auto body = tile.substr(caption, next == std::string::npos ? tile.size() - caption
+                                                                  : next - caption);
   if (body.find("dropShadow(") != std::string::npos)
     return fail("the caption's icon shadow is Hyprland's again -- a popping caption hands the "
                 "shader a shape of nothing, and the compositor dies");
