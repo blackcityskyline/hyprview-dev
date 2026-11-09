@@ -91,8 +91,9 @@ installed applications, plus the plugin's own view verbs as rows. Typing filters
 `key_launcher_menu` opens the selected window's or tab's action menu. The panel searches every
 workspace, so opening it forces the expo view and closing it puts the previous all-workspaces
 setting back. `Tab` toggles the row scope between every workspace and the one the overview
-stands on; the field shows which is active. Applications come from `.desktop` entries in XDG
-order and are launched through Hyprland's executor.
+stands on; the field shows which is active, and the selected row follows its window across the
+flip. Applications come from `.desktop` entries in XDG order and are launched through
+Hyprland's executor.
 
 `hyprview:one` is not a plain close: closed it opens the single-workspace overview
 (whatever `show_all_workspaces` says), open with a card focused it confirms that card

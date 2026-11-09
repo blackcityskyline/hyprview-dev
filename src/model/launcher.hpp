@@ -59,6 +59,21 @@ struct LauncherHit {
   int         score = 0;
 };
 
+[[nodiscard]] inline bool sameIdentity(const LauncherItem &a, const LauncherItem &b) {
+  if (a.kind != b.kind)
+    return false;
+  switch (a.kind) {
+    case LauncherKind::Window:
+    case LauncherKind::Tab:
+      return a.subj == b.subj;
+    case LauncherKind::App:
+      return a.exec == b.exec;
+    case LauncherKind::Action:
+      return a.verb == b.verb;
+  }
+  return false;
+}
+
 [[nodiscard]] inline std::vector<LauncherHit> rank(const std::vector<LauncherItem> &items,
                                                    std::string_view query) {
   std::vector<LauncherHit> out;
@@ -99,7 +114,7 @@ class Launcher {
       m_selection = 0;
       m_menuOpen = false;
       m_menuAt = 0;
-      rebuild();
+      rebuild(nullptr);
     }
     void close() {
       m_open = false;
@@ -112,8 +127,14 @@ class Launcher {
     void setScopeAll(bool all) { m_scopeAll = all; }
 
     void setItems(std::vector<LauncherItem> items) {
+      LauncherItem prev;
+      bool havePrev = false;
+      if (const auto *s = selectedItem()) {
+        prev = *s;
+        havePrev = true;
+      }
       m_items = std::move(items);
-      rebuild();
+      rebuild(havePrev ? &prev : nullptr);
     }
     [[nodiscard]] const std::vector<LauncherItem> &items() const { return m_items; }
 
@@ -122,7 +143,7 @@ class Launcher {
       if (q == m_query)
         return;
       m_query = std::move(q);
-      rebuild();
+      rebuild(nullptr);
     }
     void appendChar(char c) { setQuery(m_query + c); }
     void backspace() {
@@ -198,9 +219,15 @@ class Launcher {
     }
 
   private:
-    void rebuild() {
+    void rebuild(const LauncherItem *keep) {
       m_hits = rank(m_items, m_query);
       m_selection = 0;
+      if (keep)
+        for (std::size_t i = 0; i < m_hits.size(); ++i)
+          if (const auto *item = itemAt(i); item && sameIdentity(*item, *keep)) {
+            m_selection = static_cast<int>(i);
+            break;
+          }
       m_menuOpen = false;
       m_menuAt = 0;
     }

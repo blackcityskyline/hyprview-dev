@@ -131,6 +131,28 @@ int main() {
   l.step(-1);
   wantInt(l.selection(), 3, "and wraps back");
 
+  // Identity, not index: rebuilding the rows keeps the ring on the same row, while a new query
+  // still starts at the best hit.
+  {
+    std::vector<LauncherItem> rows = {row("Alpha", "a"), row("Bravo", "b"), row("Charlie", "c")};
+    for (std::size_t i = 0; i < rows.size(); ++i)
+      rows[i].subj.id = i + 1;
+    Launcher k;
+    k.setItems(rows);
+    k.setSelection(1);
+    k.setItems({rows[2], rows[0], rows[1]});
+    want(k.selectedItem() && k.selectedItem()->title == "Bravo", true,
+         "a rebuilt list keeps the same row selected");
+    k.setItems({rows[0], rows[2]});
+    want(k.selectedItem() && k.selectedItem()->title == "Alpha", true,
+         "a row that left the list falls back to the first hit");
+    k.setItems(rows);
+    k.setSelection(2);
+    k.setQuery("a");
+    want(k.selectedItem() && k.selectedItem()->title == "Alpha", true,
+         "a new query starts at the best hit, not at the old row");
+  }
+
   // A new query re-ranks and reselects: keeping index 3 over a different list is a lie.
   l.setSelection(3);
   l.setQuery("fire");

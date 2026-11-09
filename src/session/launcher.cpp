@@ -137,8 +137,10 @@ void Overview::toggleLauncherScope() {
   m_launcher.setScopeAll(!m_launcher.scopeAll());
   buildLauncherItems();
   syncLauncherSelection();
+  const auto *sel = m_launcher.selectedItem();
   debug::dbg(std::string("LAUNCH|scope|") + (m_launcher.scopeAll() ? "all" : "current") +
-             "|items=" + std::to_string(m_launcher.items().size()));
+             "|items=" + std::to_string(m_launcher.items().size()) + "|sel=" +
+             (sel ? sel->title : "-"));
   damage();
 }
 
