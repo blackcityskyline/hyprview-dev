@@ -114,8 +114,6 @@ void Overview::buildTiles() {
     const auto w = m_windows.windowOf(subj);
     if (!w || subj == m_pendingKill)
       continue;
-    if (!m_view.exposeClass().empty() && w->m_class != m_view.exposeClass())
-      continue;
 
     // goal(), not value(): value() carries the slide offset.
     const auto p = w->positionAnimation()->goal();

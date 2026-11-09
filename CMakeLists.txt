@@ -357,6 +357,11 @@ add_test(NAME scan_depth_glide
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/depth_glide_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/depth_glide_check && ${CMAKE_CURRENT_BINARY_DIR}/depth_glide_check ${CMAKE_SOURCE_DIR}")
 
+# The expose class filter lives in the one predicate buildTiles() and syncTiles() share.
+add_test(NAME scan_expose_filter
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/expose_filter_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/expose_filter_check && ${CMAKE_CURRENT_BINARY_DIR}/expose_filter_check ${CMAKE_SOURCE_DIR}")
+
 # The run's reflow staggers outward from the focused slot, by slot distance.
 add_test(NAME scan_reflow_stagger
          COMMAND ${CMAKE_COMMAND} -E env sh -c

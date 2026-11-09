@@ -479,6 +479,10 @@ bool Overview::tileBelongs(const PHLWINDOW &w, const PHLMONITOR &m,
   const auto wws = w->m_workspace;
   if (!wws)
     return false;
+  // The expose filter lives HERE, not in buildTiles(): syncTiles() counts with this same
+  // predicate, and a rule only one side knows rebuilds the deck on every frame.
+  if (!m_view.exposeClass().empty() && w->m_class != m_view.exposeClass())
+    return false;
   if (showAllWorkspaces()) {
     if (wws->m_isSpecialWorkspace &&
         cfg::behavior.show_special == 0)
