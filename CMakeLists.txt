@@ -222,6 +222,13 @@ add_test(NAME scan_comment_weight
 add_test(NAME scan_deactivate_offframe
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/deactivate_offframe_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/deactivate_offframe_check && ${CMAKE_CURRENT_BINARY_DIR}/deactivate_offframe_check ${CMAKE_SOURCE_DIR}")
 
+# A card must repaint when its window commits pixels, and only then: the workspace gate in
+# CWindow::commitWindow (Window.cpp:2750) drops off-screen windows, clients commit the
+# subsurface, and Chromium's frame-acknowledging commits carry no damage -- three holes, one
+# rule. The rule lives in hooks.cpp, so the source is what the check reads.
+add_test(NAME scan_preview_damage
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/preview_damage_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/preview_damage_check && ${CMAKE_CURRENT_BINARY_DIR}/preview_damage_check ${CMAKE_SOURCE_DIR}")
+
 add_test(NAME origin
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/origin_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/origin_check && ${CMAKE_CURRENT_BINARY_DIR}/origin_check")

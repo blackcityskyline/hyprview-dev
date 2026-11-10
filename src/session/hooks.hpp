@@ -22,6 +22,7 @@ class Hooks {
     // The originals, valid only after install() returned true.
     [[nodiscard]] void *shouldRenderOrig() const { return m_shouldRenderOrig; }
     [[nodiscard]] void *damageSurfaceOrig() const { return m_damageSurfaceOrig; }
+    [[nodiscard]] void *commitWindowOrig() const { return m_commitWindowOrig; }
     [[nodiscard]] void *setPointerFocusOrig() const { return m_setPointerFocusOrig; }
     [[nodiscard]] void *setKeyboardFocusOrig() const {
       return m_setKeyboardFocusOrig;
@@ -31,6 +32,7 @@ class Hooks {
     HANDLE m_handle = nullptr;
     CFunctionHook *m_shouldRenderHook = nullptr;
     CFunctionHook *m_damageSurfaceHook = nullptr;
+    CFunctionHook *m_commitWindowHook = nullptr;
     CFunctionHook *m_setPointerFocusHook = nullptr;
     CFunctionHook *m_setKeyboardFocusHook = nullptr;
     CHyprSignalListener m_renderStageL;
@@ -40,6 +42,7 @@ class Hooks {
     CHyprSignalListener m_keyL;
     void *m_shouldRenderOrig = nullptr;
     void *m_damageSurfaceOrig = nullptr;
+    void *m_commitWindowOrig = nullptr;
     void *m_setPointerFocusOrig = nullptr;
     void *m_setKeyboardFocusOrig = nullptr;
 };

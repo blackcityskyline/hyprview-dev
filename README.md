@@ -9,7 +9,8 @@ A better macOS Mission Control-style overview plugin for Hyprland
 src/
 ├── main.cpp              plugin entry: registers the config schema, actions, Lua API
 ├── overview.hpp          Session: owns the three stores (Model / Clocks / Pixels)
-├── session/              lifecycle: open/close/deactivate, shouldRenderWindow + damageSurface hooks, animation pump
+├── session/              lifecycle: open/close/deactivate, shouldRenderWindow + damageSurface +
+│                         commitWindow hooks (a card repaints on its window's pixels), animation pump
 ├── build/                Model construction: windows -> tiles/strip, reflow, sync
 ├── input/                pointer events -> Model (drag FSM), keyboard, alt-tab
 ├── actions/              commands: drop/swap/workspace/focus (dispatcher + hyprctl + Lua from one table)

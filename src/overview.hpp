@@ -150,7 +150,9 @@ public:
 
   bool shouldHideWindow(const PHLWINDOW &w, const PHLMONITOR &m) const;
   [[nodiscard]] bool isTileWindow(const PHLWINDOW &w) const;
-  // Where this window's preview actually is: the tile box and the strip cards that show it.
+  // Every window this overview paints, wherever it paints it: hiding and damage both ask this.
+  [[nodiscard]] bool showsAsCard(const PHLWINDOW &w) const;
+  // A hidden window is drawn at its preview's box, not at its own place: here is that box.
   void damageWindowPreview(const PHLWINDOW &w) const;
 
   // Three axes, not refinements of one another (AGENTS.md 3.3).

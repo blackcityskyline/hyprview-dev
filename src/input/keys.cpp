@@ -140,7 +140,6 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
       ws = State::workspaceState()->create(id, m->m_id, "", false);
     if (ws) {
       if (justCreated) {
-        // Persistent, or a new empty workspace is reaped within a frame.
         ws->setPersistent(true);
         m_newWs.push_back(ws);
         m_newCardId =

@@ -70,7 +70,7 @@
 | `input/keys.cpp` | клавиатура, alt-tab, digit-jump |
 | `actions/actions.cpp` | `swapWindows`, `landAfterSwap`, `switchToWorkspace`, реестр команд `cmd()` |
 | `build/build.cpp` | `buildTiles` / `buildStrip` / `layoutTiles` / `replayReflow` / `startTileGlide` / `captureCurrentBoxes` |
-| `session/hooks.cpp` | демонтаж и `initialize()`. Правится на смене ABI Hyprland |
+| `session/hooks.cpp` | демонтаж и `initialize()`, `shouldRenderWindow` / `damageSurface` / `commitWindow`. Правится на смене ABI Hyprland |
 | `session/geometry.cpp` | геометрия стрипа, blur-акцессоры, forced-visibility |
 | `session/lifecycle.cpp` | `open`/`close`/`hardClose`/`toggle`/`deactivate` |
 | `session/launcher.cpp` | живая половина лаунчера: строки из плиток, клавиши, глаголы |

@@ -473,7 +473,6 @@ bool Overview::belongs(const PHLWINDOW &w) const {
   return tileBelongs(w, m_monitor.lock(), m_workspace.lock());
 }
 
-// buildTiles() and syncTiles() MUST share this
 bool Overview::tileBelongs(const PHLWINDOW &w, const PHLMONITOR &m,
                            const PHLWORKSPACE &ws) const {
   if (!w || !w->m_isMapped || w->isHidden())
@@ -481,7 +480,6 @@ bool Overview::tileBelongs(const PHLWINDOW &w, const PHLMONITOR &m,
   const auto wws = w->m_workspace;
   if (!wws)
     return false;
-  // Here, not in buildTiles(): syncTiles() counts with this same predicate.
   if (!m_view.exposeClass().empty() && w->m_class != m_view.exposeClass())
     return false;
   if (showAllWorkspaces()) {
@@ -510,11 +508,24 @@ bool Overview::shouldHideWindow(const PHLWINDOW &w,
   // fullscreen hidden: a transition force-render leaks it
   if (Fullscreen::controller()->isFullscreen(w))
     return true;
+  // Left "shown", a card of another workspace gets its commits drawn into its own invisible box.
+  if (showsAsCard(w))
+    return true;
+  if (const auto aw = m->m_activeWorkspace; aw && w->m_workspace == aw)
+    return true;
+  return false;
+}
+
+bool Overview::showsAsCard(const PHLWINDOW &w) const {
+  if (!w)
+    return false;
   for (const auto &t : m_scene.tiles())
     if (tileWindow(t) == w)
       return true;
-  if (const auto aw = m->m_activeWorkspace; aw && w->m_workspace == aw)
-    return true;
+  for (std::size_t i = 0; i < m_strip.size(); ++i)
+    for (const auto &sw : m_strip[i].wins)
+      if (m_windows.windowOf(sw.subj) == w)
+        return true;
   return false;
 }
 
@@ -527,7 +538,6 @@ bool Overview::isTileWindow(const PHLWINDOW &w) const {
     return false;
 }
 
-// A hidden window is drawn at its preview's box, not at its own place.
 void Overview::damageWindowPreview(const PHLWINDOW &w) const {
   const auto m = m_monitor.lock();
   if (!m || !g_pHyprRenderer || !w)

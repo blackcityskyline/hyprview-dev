@@ -1,6 +1,7 @@
 #include "hooks.hpp"
 
 #include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/protocols/core/Subcompositor.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 
@@ -15,7 +16,6 @@ namespace {
 Hooks *g_hooks = nullptr;
 
 using PSHOULDRENDER = bool (*)(void *, PHLWINDOW, PHLMONITOR);
-
 
 // shouldRenderWindow hides windows from the RENDERER only: CSeatManager still hands them focus.
 
@@ -49,14 +49,6 @@ void hkSetPointerFocus(void *thisptr, SP<CWLSurfaceResource> surf,
 
 bool hkShouldRenderWindow(void *thisptr, PHLWINDOW window, PHLMONITOR monitor) {
   const bool hide = g_overview && g_overview->shouldHideWindow(window, monitor);
-  if (g_overview && g_overview->opening()) {
-    debug::dbg("SRW tick=" + std::to_string(g_overview->frameTick()) +
-               " win=" +
-               std::to_string(reinterpret_cast<std::uintptr_t>(window.get())) +
-               " class=" + (window ? window->m_class : "?") +
-               " active=" + std::to_string(g_overview->active()) +
-               " hide=" + std::to_string(hide));
-  }
   if (hide)
     return false;
   const auto orig = reinterpret_cast<PSHOULDRENDER>(
@@ -64,34 +56,85 @@ bool hkShouldRenderWindow(void *thisptr, PHLWINDOW window, PHLMONITOR monitor) {
   return orig ? orig(thisptr, window, monitor) : true;
 }
 
-// commitWindow's "visible" is !isHidden, NOT shouldRenderWindow: a hidden window would still pin the compositor
 using PDAMAGESURFACE =
     void (*)(void *, SP<CWLSurfaceResource>, double, double, double);
 
+// A subsurface has no view of its own; the window that owns the toplevel surface is the card.
+PHLWINDOW windowOfSurface(const SP<CWLSurfaceResource> &surface) {
+  auto root = surface;
+  for (int depth = 0; root && root->m_role &&
+                      root->m_role->role() == SURFACE_ROLE_SUBSURFACE && depth < 8;
+       ++depth) {
+    const auto *role = static_cast<CSubsurfaceRole *>(root->m_role.get());
+    const auto sub = role ? role->m_subsurface.lock() : nullptr;
+    const auto parent = sub ? sub->m_parent.lock() : nullptr;
+    if (!parent || parent == root)
+      break;
+    root = parent;
+  }
+  if (!root)
+    return nullptr;
+  const auto HL = Desktop::View::CWLSurface::fromResource(root);
+  if (!HL)
+    return nullptr;
+  const auto view = HL->view();
+  if (!view)
+    return nullptr;
+  if (const auto w = Desktop::View::CWindow::fromView(view))
+    return w;
+  return nullptr;
+}
+
+// The union of hidden windows IS the output: their previews are the only place a commit can show.
 void hkDamageSurface(void *thisptr, SP<CWLSurfaceResource> pSurface, double x,
                      double y, double scale) {
   if (g_overview && g_overview->active() && pSurface) {
-    const auto WLSURF = Desktop::View::CWLSurface::fromResource(pSurface);
-    if (WLSURF) {
-      const auto view = WLSURF->view();
-      if (view) {
-        const auto w = Desktop::View::CWindow::fromView(view);
-        if (w) {
-          const auto mon = g_overview->monitor();
-          if (g_overview->shouldHideWindow(w, mon)) {
-            // The union of hidden windows IS the output: damage the previews, not the windows.
-            if (!g_overview->snapshotMode())
-              g_overview->damageWindowPreview(w);
-            return;
-          }
-        }
-      }
+    const auto w = windowOfSurface(pSurface);
+    if (w && g_overview->shouldHideWindow(w, g_overview->monitor())) {
+      // An empty commit is not a repaint: fed back, card and client drive each other forever.
+      const auto WLSURF = Desktop::View::CWLSurface::fromResource(pSurface);
+      if (WLSURF && WLSURF->computeDamage().empty())
+        return;
+      if (!g_overview->snapshotMode())
+        g_overview->damageWindowPreview(w);
+      return;
     }
   }
   const auto orig = reinterpret_cast<PDAMAGESURFACE>(
       g_hooks ? g_hooks->damageSurfaceOrig() : nullptr);
   if (orig)
     orig(thisptr, pSurface, x, y, scale);
+}
+
+using PCOMMITWINDOW = void (*)(void *);
+
+// commitWindow's "visible" is !isHidden, so a hidden window still commits, and its off-screen
+// workspace drops the damage (Window.cpp:2750): only here can the card hear about it.
+void hkCommitWindow(void *thisptr) {
+  const auto orig = reinterpret_cast<PCOMMITWINDOW>(
+      g_hooks ? g_hooks->commitWindowOrig() : nullptr);
+  if (orig)
+    orig(thisptr);
+
+  if (!g_overview || !g_overview->active() || !thisptr)
+    return;
+  const auto *win = static_cast<Desktop::View::CWindow *>(thisptr);
+  if (!win->m_workspace || win->m_workspace->m_visible)
+    return; // on screen: damageSurface already routed it to the preview
+  const auto w = win->m_self.lock();
+  if (!w || !g_overview->shouldHideWindow(w, g_overview->monitor()))
+    return;
+  bool changed = false;
+  w->wlSurface()->resource()->breadthfirst(
+      [&changed](SP<CWLSurfaceResource> s, const Vector2D &, void *) {
+        if (changed || !s)
+          return;
+        const auto HL = Desktop::View::CWLSurface::fromResource(s);
+        changed = HL && !HL->computeDamage().empty();
+      },
+      nullptr);
+  if (changed)
+    g_overview->damageWindowPreview(w);
 }
 
 }
@@ -105,10 +148,12 @@ Hooks::~Hooks() {
   };
   drop(m_shouldRenderHook);
   drop(m_damageSurfaceHook);
+  drop(m_commitWindowHook);
   drop(m_setPointerFocusHook);
   drop(m_setKeyboardFocusHook);
   m_shouldRenderOrig     = nullptr;
   m_damageSurfaceOrig    = nullptr;
+  m_commitWindowOrig     = nullptr;
   m_setPointerFocusOrig  = nullptr;
   m_setKeyboardFocusOrig = nullptr;
   if (g_hooks == this)
@@ -191,6 +236,25 @@ bool Hooks::install(HANDLE handle, void *self) {
   } else {
     HyprlandAPI::addNotification(
         m_handle, "[hyprview] could not find damageSurface to hook",
+        CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
+  }
+
+  const auto *addrCommit =
+      findBySignature("commitWindow", "CWindow::commitWindow()");
+  if (addrCommit) {
+    m_commitWindowHook = HyprlandAPI::createFunctionHook(
+        m_handle, addrCommit, reinterpret_cast<void *>(&hkCommitWindow));
+    if (m_commitWindowHook && m_commitWindowHook->hook())
+      m_commitWindowOrig = m_commitWindowHook->m_original;
+    else {
+      HyprlandAPI::addNotification(
+          m_handle, "[hyprview] failed to hook commitWindow",
+          CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
+      m_commitWindowHook = nullptr;
+    }
+  } else {
+    HyprlandAPI::addNotification(
+        m_handle, "[hyprview] could not find commitWindow to hook",
         CHyprColor(1.0, 0.2, 0.2, 1.0), 6000);
   }
 
