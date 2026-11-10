@@ -201,7 +201,7 @@ PixelCache::ShadowTex PixelCache::shadow(const render::ShadowSpec &spec, double 
     tex = g_pHyprRenderer->createTexture(surface);
     cairo_surface_destroy(surface);
   }
-  m_shadows[key] = tex; // a miss is cached too
+  m_shadows[key] = tex;
   return {tex, pad};
 }
 
@@ -219,7 +219,7 @@ _cairo_surface *PixelCache::appSurface(const std::string &windowClass) {
       surface = scaledCopy(full, kAppIconWork, kWorkFilter);
       cairo_surface_destroy(full);
     }
-  m_appIconSrc[windowClass] = surface; // a miss is cached too
+  m_appIconSrc[windowClass] = surface;
   return surface;
 }
 

@@ -656,13 +656,23 @@ void Overview::releaseNewWorkspaces() {
 }
 
 
-// EXECUTION tail: m_scene.tiles() must survive the frame
+// EXECUTION tail: m_scene.tiles() must survive the frame. BETWEEN frames, never in the pass:
+// deactivate() can redraw the hardware cursor buffer (PointerManager.cpp:398,439), a full fake
+// render that clears the pass and nulls pMonitor (GLRenderer.cpp:100) -- SIGSEGV 2026-11-10.
 void Overview::finishPendingDeactivate() {
   if (!m_life.consumeDeactivate())
     return;
   debug::trace::life("deactivate", m_life.describe());
-  debug::dbg("handoff: final overlay frame painted, deactivating");
-  deactivate();
+  debug::dbg("handoff: final overlay frame painted, deactivating between frames");
+  if (!g_pEventLoopManager) {
+    deactivate();
+    return;
+  }
+  g_pEventLoopManager->doLater([this] {
+    debug::dbg(std::string("deactivate: pass monitor ") +
+               (g_pHyprRenderer && g_pHyprRenderer->m_renderData.pMonitor ? "set" : "none"));
+    deactivate();
+  });
 }
 
 
