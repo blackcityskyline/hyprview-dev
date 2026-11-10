@@ -363,6 +363,11 @@ add_test(NAME scan_expose_filter
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/expose_filter_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/expose_filter_check && ${CMAKE_CURRENT_BINARY_DIR}/expose_filter_check ${CMAKE_SOURCE_DIR}")
 
+# A canvas drop returns the card to its cell instead of free-placing it for good.
+add_test(NAME scan_desktop_drop
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/desktop_drop_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/desktop_drop_check && ${CMAKE_CURRENT_BINARY_DIR}/desktop_drop_check ${CMAKE_SOURCE_DIR}")
+
 # A launcher query edit repaints the monitor, even when the top hit is an app.
 add_test(NAME scan_launcher_damage
          COMMAND ${CMAKE_COMMAND} -E env sh -c

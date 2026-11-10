@@ -69,11 +69,6 @@ void Overview::loadTabs() {
 }
 
 void Overview::buildTiles() {
-  // parked boxes survive the rebuild
-  std::unordered_map<model::SubjectRef, std::pair<LRect, bool>> priorTargets;
-  for (const auto &t : m_scene.tiles())
-    if (t.parked)
-      priorTargets.emplace(t.subj, std::pair{t.target, true});
   m_scene.clear();
   const auto m = m_monitor.lock();
   const auto ws = m_workspace.lock();
@@ -139,10 +134,6 @@ void Overview::buildTiles() {
       t.natural = box;
       t.home = box;
       t.workspace = w->m_workspace ? w->m_workspace->m_id : 0;  // the desktop view groups by it
-      if (const auto it = priorTargets.find(t.subj); it != priorTargets.end()) {
-        t.target = it->second.first;
-        t.parked = true;
-      }
       m_scene.add(std::move(t));
     }
   }
@@ -524,12 +515,8 @@ void Overview::layoutTiles() {
     natCfg.cellScale = cfg::grid.desktop_tile_scale.get();
     const auto boxes =
         computeLayout(nat, LRect{0, 0, m->m_size.x, m->m_size.y}, natCfg, groups);
-    for (size_t i = 0; i < m_scene.size(); ++i) {
-      auto &t = m_scene.tileAt(i);
-      if (t.parked)
-        continue;
-      t.target = boxes[i];
-    }
+    for (size_t i = 0; i < m_scene.size(); ++i)
+      m_scene.tileAt(i).target = boxes[i];
     double maxBottom = 0.0;
     for (const auto &b : boxes)
       maxBottom = std::max(maxBottom, b.y + b.h);
@@ -862,8 +849,6 @@ void Overview::syncTiles() {
   pruneRecency();
 
   auto oldBoxes = captureCurrentBoxes(m_pendingKill);
-
-  // no parking here: only the drop path sets `parked`; parking every survivor froze free-arrange.
   replayReflow(oldBoxes);
 }
 

@@ -422,7 +422,6 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
     }
     m_killGlow = 0.0;
     const auto w = tileWindow(m_scene.tiles()[press]);
-    const double grabDX = m_drag.grabX(), grabDY = m_drag.grabY();
     debug::trace::drag("release", m_drag.describe() + "|rmb=" +
                        std::to_string(m_drag.button() == BTN_RIGHT) + "|win=" +
                        (w ? "valid" : "expired"));
@@ -522,16 +521,6 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           swapTiles(press, best, m_lastDragBox);
           return true;
         }
-      }
-      if (m_view.desktop()) {
-        debug::trace::dragBranch("Tile->desktopPark");
-        const LRect cur =
-            m_scene.tiles()[press].target;
-        const LRect parked{lx - grabDX, ly - grabDY, cur.w, cur.h};
-        m_scene.park(static_cast<size_t>(press), parked);
-        m_scene.hover(-1, m_scene.hoveredStrip());
-        damage();
-        return true;
       }
       debug::trace::dragBranch("Tile->flyback");
       // Own glide source: captureCurrentBoxes excludes the dragged card; startTileGlide would fade it in as a newcomer.

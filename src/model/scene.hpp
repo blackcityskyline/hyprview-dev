@@ -33,13 +33,6 @@ class Scene {
       for (auto &t : m_tiles)
         t.landed = 1.0;
     }
-    void park(size_t i, const LRect &at) {
-      if (i >= m_tiles.size())
-        return;
-      m_tiles[i].target = at;
-      m_tiles[i].natural = at;
-      m_tiles[i].parked = true;
-    }
     // Hyprland cannot express this swap; the overlay lays cards out by INDEX.
 void swapTiles(size_t a, size_t b) {
   if (a >= m_tiles.size() || b >= m_tiles.size() || a == b)
