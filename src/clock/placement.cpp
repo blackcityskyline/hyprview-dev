@@ -80,7 +80,7 @@ double Placement::entryNow(const model::Tile &t, int i,
 
 double Placement::entryFade(const model::Tile &t, int i, const Frame &f) const {
   // Only on a close that is NOT committing: fading a window about to become real double-images.
-  if (!f.opening && anim::tileExit(f.goesHome(t)) == anim::TileExit::InPlace)
+  if (!f.opening && !f.lands(t))
     return m_eased;
   if (t.landed >= 1.0 || recipes.enterStyle.travel != anim::Travel::Fade)
     return 1.0;
@@ -94,8 +94,9 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   const double p = tileProgress(i, f.view, f.opening, f.scene);
   const double e = f.opening ? curves::eval(curve, p)
                              : 1.0 - curves::eval(curve, 1.0 - p);
-  // The closed end of the flight: the place the card belongs to.
-  const auto &a = f.opening ? t.natural : t.home;
+  // The closed end of the flight: the card's home, unless the screen shows nothing there.
+  const bool canLand = f.opening || f.lands(t);
+  const auto &a = f.opening ? t.natural : (canLand ? t.home : t.target);
   const auto &b = t.target;
   LRect r{lerp(a.x, b.x, e), lerp(a.y, b.y, e), lerp(a.w, b.w, e),
           lerp(a.h, b.h, e)};
@@ -107,9 +108,9 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   // An empty natural grows out of the corner if interpolated.
   if (a.w < 1.0 && b.w >= 1.0)
     r = b;
-  // The deck's hide motion, in the grid as well as the run: close() pins a card that cannot land.
+  // The deck's hide motion, in the grid as well as the run: a card that cannot land shrinks where it is.
   if (!f.opening && anim::cardHides(f.view.carouselDepth(static_cast<std::size_t>(i)),
-                                    f.goesHome(t))) {
+                                    f.lands(t))) {
     const double k = anim::hideShrink(exit(f.opening), anim::param(anim::Param::Collapse));
     const double cx = r.cx(), cy = r.cy();
     r = LRect{cx - r.w * k * 0.5, cy - r.h * k * 0.5, r.w * k, r.h * k};

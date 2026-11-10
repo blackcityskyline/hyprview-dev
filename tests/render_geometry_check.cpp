@@ -581,6 +581,34 @@ static void theWallpaperCoversTheMonitor() {
   std::puts("the wallpaper: cover-fit, the black check, and what counts as animation");
 }
 
+// The exit lands on a box the screen shows, or nowhere: a tape scrolled past a window leaves
+// its box off the monitor, and flying a card into a window nobody can see reads as the card
+// vanishing sideways. Dwindle and master always land; scrolling must behave like them.
+static void aCardLandsOnlyWhereTheScreenShowsIt() {
+  using hyprview::render::landsOnScreen;
+
+  want(landsOnScreen(LRect{10, 10, 100, 100}, 1366, 768), true, "a box on the screen lands");
+  want(landsOnScreen(LRect{-200, 10, 100, 100}, 1366, 768), false,
+       "a box wholly left of the screen lands nowhere");
+  want(landsOnScreen(LRect{1366, 10, 100, 100}, 1366, 768), false,
+       "a box starting at the right edge shows nothing");
+  // The tape's own boxes: scrolled past, each leaves two pixels at the edge. That sliver is not
+  // a landing -- this is the report that started the rule.
+  want(landsOnScreen(LRect{-1348, 6, 1350, 756}, 1366, 768), false,
+       "a scrolled-past window's sliver is not a landing");
+  want(landsOnScreen(LRect{1364, 6, 1350, 756}, 1366, 768), false,
+       "nor is the sliver on the other side");
+  want(landsOnScreen(LRect{-40, 10, 100, 100}, 1366, 768), true,
+       "a box more than half on the screen still lands");
+  want(landsOnScreen(LRect{10, -5, 100, 100}, 1366, 768), true,
+       "and one grazing the top");
+  want(landsOnScreen(LRect{10, 768, 100, 100}, 1366, 768), false,
+       "a box placed below the screen shows nothing");
+  want(landsOnScreen(LRect{10, 10, 0, 100}, 1366, 768), false,
+       "a zero-width box is not a window");
+  std::puts("landsOnScreen: on-screen, off every edge, grazes, and a zero box");
+}
+
 // What the backdrop puts under the tiles. With the blur on, the sharp source is not
 // an answer: a transparent window shows whatever is behind it, and a sharp copy of
 // the desktop under the tiles is the one-frame flash of the desktop.
@@ -1308,6 +1336,7 @@ int main() {
   theRunPaintsFarBeforeNear();
   aClickOnTheRunLandsOnTheFront();
   theWallpaperCoversTheMonitor();
+  aCardLandsOnlyWhereTheScreenShowsIt();
   theBackdropNeverShowsTheSharpDesktopUnderBlur();
   theGlArithmeticIsReachable();
   theTileDecidesItsRingAndItsFrost();

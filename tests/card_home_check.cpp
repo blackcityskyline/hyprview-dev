@@ -52,10 +52,28 @@ int main(int argc, char **argv) {
     return fail("the exit eases a falling progress -- the card stands still and then snaps home "
                 "while the glass and the strip are already gone");
 
-  // The landing group belongs to ONE pick: left over, it hides the workspace fallback.
+  // A window the layout scrolled past has its box off the monitor. Flying the card into that
+  // box reads as the card vanishing sideways; it must shrink where it is instead, exactly as a
+  // cross-workspace card does. Dwindle and master are unaffected because their boxes are visible.
+  if (placement.find("canLand ? t.home : t.target") == std::string::npos)
+    return fail("the exit always flies to the home -- an off-screen window takes the card with it");
+  if (placement.find("f.lands(t)") == std::string::npos)
+    return fail("the exit does not ask whether the home is visible -- the close is not per-layout");
+  const std::string frame = slurp(root + "/src/clock/placement.hpp");
+  if (frame.find("render::landsOnScreen(t.home, monW, monH)") == std::string::npos)
+    return fail("Frame::lands no longer tests the landing box against the monitor");
+
+  // close() writes the landing box; a second writer left the home at a stale slot.
   const std::string lifecycle = slurp(root + "/src/session/lifecycle.cpp");
   if (lifecycle.empty())
     return fail("src/session/lifecycle.cpp not found");
+  if (lifecycle.find("t.natural = t.target;") != std::string::npos)
+    return fail("close() still writes the natural -- box() reads home, so the write is dead and "
+                "the scrolled card keeps a stale landing");
+  if (lifecycle.find("t.home = t.target;") == std::string::npos)
+    return fail("close() no longer marks a card with no landing as dissolving in place");
+
+  // The landing group belongs to ONE pick: left over, it hides the workspace fallback.
   const auto openAt = lifecycle.find("void Overview::open(");
   const auto groupAt = lifecycle.find("m_landingGroup = model::GroupRef{};");
   if (openAt == std::string::npos || groupAt == std::string::npos || groupAt < openAt ||

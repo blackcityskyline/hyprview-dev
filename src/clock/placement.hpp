@@ -3,6 +3,7 @@
 #include "../anim_recipes.hpp"
 #include "../model/content_source.hpp"
 #include "../model/scene.hpp"
+#include "../render/geometry.hpp"
 #include "../view/state.hpp"
 #include "clock.hpp"
 
@@ -61,6 +62,11 @@ class Placement {
 
       [[nodiscard]] bool goesHome(const model::Tile &t) const {
         return model::goesHome(groupOf(t), landing, landingGroup);
+      }
+
+      // Only a box the screen shows may be flown into; otherwise the card shrinks in place.
+      [[nodiscard]] bool lands(const model::Tile &t) const {
+        return goesHome(t) && render::landsOnScreen(t.home, monW, monH);
       }
     };
 

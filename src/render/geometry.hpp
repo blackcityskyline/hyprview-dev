@@ -364,6 +364,16 @@ struct WindowBox {
                    std::max(in.logicalH * fit.scale, 5.0)};
 }
 
+// A card may only fly into a window you can SEE: a scrolled-past tape leaves its box off the
+// screen or a sliver of it, and the card then reads as vanishing sideways (centre rule).
+[[nodiscard]] inline bool landsOnScreen(const LRect &box, double monW, double monH) {
+  if (box.w < 1.0 || box.h < 1.0)
+    return false;
+  const double cx = box.x + box.w * 0.5;
+  const double cy = box.y + box.h * 0.5;
+  return cx >= 0.0 && cx < monW && cy >= 0.0 && cy < monH;
+}
+
 // The run's dim: the focused card is clear, the next one takes the near tone, and every step past it is the far tone tapered.
 [[nodiscard]] inline double carouselTone(int depth, double nearTone, double farTone,
                                          double taper) {

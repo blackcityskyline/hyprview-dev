@@ -399,25 +399,24 @@ void Overview::close() {
     for (size_t i = 0; i < m_scene.size(); ++i) {
       auto &t = m_scene.tileAt(i);
       t.target = currentBox(t, static_cast<int>(i));
-      // The natural box is where the tile RETURNS TO; otherwise the card dissolves instead (entryFade).
+      // home is where the tile RETURNS TO; Frame::lands decides whether anything is visible there.
       if (const auto w = ownerWindow(t)) {
         const auto wws = w->m_workspace;
-        if ((wws && wws != m_workspace.lock()) ||
-            anim::tileExit(frame().goesHome(t)) == anim::TileExit::InPlace) {
-          t.natural = t.target;
+        if (wws && wws != m_workspace.lock()) {
+          t.home = t.target;
           continue;
         }
         const auto p = w->positionAnimation()->goal();
         const auto s = w->sizeAnimation()->goal();
-        t.natural = LRect{p.x - m->m_position.x, p.y - m->m_position.y,
-                          std::max(1.0, s.x), std::max(1.0, s.y)};
+        t.home = LRect{p.x - m->m_position.x, p.y - m->m_position.y,
+                       std::max(1.0, s.x), std::max(1.0, s.y)};
         if (carouselMode() && static_cast<int>(i) != m_scene.focused() &&
             selNat.w >= 1.0 &&
-            std::abs(t.natural.x - selNat.x) < 1.0 &&
-            std::abs(t.natural.y - selNat.y) < 1.0 &&
-            std::abs(t.natural.w - selNat.w) < 1.0 &&
-            std::abs(t.natural.h - selNat.h) < 1.0)
-          t.natural = t.target;
+            std::abs(t.home.x - selNat.x) < 1.0 &&
+            std::abs(t.home.y - selNat.y) < 1.0 &&
+            std::abs(t.home.w - selNat.w) < 1.0 &&
+            std::abs(t.home.h - selNat.h) < 1.0)
+          t.home = t.target;
       }
     }
   }
