@@ -132,10 +132,15 @@ def main():
         png = "data:image/png;base64," + __import__("base64").b64encode(
             b"\x89PNG\r\n\x1a\npayload"
         ).decode()
-        send(proc, {"name": "report", "tabs": TABS, "active": [41], "screenshot": png})
+        # The picture names its own tab: one message carries one picture, and it belongs to the
+        # tab the extension photographed, not to whichever tab happens to be active.
+        send(proc, {"name": "report", "tabs": TABS, "active": [41], "screenshot": png,
+                    "screenshotTab": 42})
         want(recv(proc).get("ok") is True, "a report with a screenshot is accepted")
-        shot = os.path.join(root, "previews", "41.png")
-        want(os.path.exists(shot), "the screenshot lands under the active tab id")
+        shot = os.path.join(root, "previews", "42.png")
+        want(os.path.exists(shot), "the screenshot lands under the tab it names")
+        want(not os.path.exists(os.path.join(root, "previews", "41.png")),
+             "and not under the active tab's id")
         if os.path.exists(shot):
             want(open(shot, "rb").read().startswith(b"\x89PNG"), "and it is the PNG")
 
@@ -146,7 +151,7 @@ def main():
         want(os.path.exists(shot), "and leaves the picture it already has alone")
 
         # A page that navigated puts another page under the same id. The extension names it.
-        send(proc, {"name": "report", "tabs": TABS, "active": [41], "drop": [41]})
+        send(proc, {"name": "report", "tabs": TABS, "active": [41], "drop": [42]})
         want(recv(proc).get("ok") is True, "a report naming a stale picture is accepted")
         want(not os.path.exists(shot), "and the named picture is dropped")
 

@@ -90,14 +90,43 @@ let repicturePending = false;
 // flash on every load and every switch. An event report carries the tab list and nothing else.
 let shotPending = false;
 
+// Every tab is photographed, not only the one on screen. `tabs.captureTab` renders the tab's own
+// document wherever that tab is, which Zen and Firefox have; Chromium has only the window's
+// visible tab, so there the queue is the one tab the window can show.
+const canCaptureTab = typeof api.tabs.captureTab === 'function';
+
+// One picture per message, tab by tab. A native message tops out near a megabyte and a 960px
+// PNG is a third of that once base64 has had it, so the queue is drained one shot per report.
+let shotQueue = [];
+
+// A tab is photographed again only once its picture has had time to go stale. The overview opens
+// and closes all day, and a dozen snapshots per open for pages that have not changed is work
+// nobody asked for. A navigation drops the tab's entry, so the next open photographs it.
+const SHOT_TTL_MS = 30000;
+const shotAt = new Map();
+
+function queueShots(tabs, active) {
+  const now = Date.now();
+  // The pages the browser draws itself come back as the quarter-scale thumbnail it stores, and
+  // a field of blocks is worse than the icon the card falls back to.
+  const shootable = (t) => !PRIVILEGED_URL.test(t.url || '') &&
+    (shotAt.get(t.id) === undefined || now - shotAt.get(t.id) >= SHOT_TTL_MS);
+  const wanted = canCaptureTab
+    ? tabs.filter((t) => typeof t.id === 'number' && !t.discarded && shootable(t))
+    : tabs.filter((t) => typeof t.id === 'number' && active.includes(t.id) && shootable(t));
+  shotQueue = wanted.map((t) => ({ id: t.id, windowId: t.windowId }));
+}
+
 // A tab that navigated shows another page now, so the picture on disk is of a page this tab no
 // longer holds. Ids are named here and dropped by the mediator; the overview's own shot takes a
 // fresh one the next time the tab is on screen.
 const navigated = new Set();
 
 function noteNavigation(tabId, change) {
-  if (typeof tabId === 'number' && (change.url || change.status === 'loading'))
+  if (typeof tabId === 'number' && (change.url || change.status === 'loading')) {
     navigated.add(tabId);
+    shotAt.delete(tabId);
+  }
   schedule();
 }
 
@@ -147,9 +176,12 @@ async function reportOnce() {
   }
   const wantShot = shotPending;
   shotPending = false;
+  if (wantShot)
+    queueShots(tabs, active);
   const drop = Array.from(navigated);
   navigated.clear();
-  if (active.length === 0) {
+  const next = shotQueue.shift();
+  if (active.length === 0 && next === undefined) {
     // No focused tab means nothing is being shown, so there is nothing to photograph. Sending
     // an empty active list is correct and is not a failure state worth retrying.
     try {
@@ -159,11 +191,15 @@ async function reportOnce() {
     }
     return;
   }
-  const screenshot = wantShot ? await capture(focused.id) : null;
-  // Asked for a picture and got none: the page is one the browser will not let an extension
-  // shoot. Whatever is under that id is some other page, and it must not be shown as this one.
-  if (wantShot && !screenshot)
-    for (const id of active) drop.push(id);
+  // A picture of THE TAB, not of the window: a tab that is not on screen is photographed from
+  // its own document, so a card no longer has to wait for its tab to be shown once.
+  const screenshot = next ? await capture(next, tabs) : null;
+  if (next) {
+    if (screenshot) shotAt.set(next.id, Date.now());
+    // Asked for a picture and got none: the page is one the browser will not let an extension
+    // shoot. Whatever is under that id is some other page, and it must not be shown as this one.
+    else drop.push(next.id);
+  }
   const favicons = await iconMap(tabs);
   try {
     port.postMessage({
@@ -173,6 +209,9 @@ async function reportOnce() {
       icons: Object.keys(favicons).length ? favicons : undefined,
       drop: drop.length ? drop : undefined,
       screenshot: screenshot || undefined,
+      // Which tab the picture is of. One picture per message, so the tab cannot be guessed
+      // from `active`: the two are different tabs as soon as the queue is behind.
+      screenshotTab: screenshot && next ? next.id : undefined,
     });
   } catch (e) {
     console.error('hyprview: postMessage failed:', e && e.message ? e.message : e);
@@ -318,21 +357,27 @@ const PRIVILEGED_URL = /^(about|chrome|moz-extension|resource|view-source):/;
 // The browser's snapshot draws the document but not the stylesheets an extension added at user
 // origin -- Dark Reader's background is one of those -- so such a page comes back with its
 // default canvas: measured on google.com, dark controls on a white sheet. getComputedStyle does
-// see those sheets, so the colour the page really shows is copied onto the root as an inline
-// style for the duration of the shot: same colour on screen, and now part of the document.
+// see those sheets, so the background the page really shows is copied onto a fixed layer for the
+// duration of the shot: same look on screen, and now part of the document. The IMAGE comes with
+// the colour: a canvas that is a gradient or a photograph is the same omission, and copying only
+// the colour turned those pages into a flat sheet of the wrong shade.
 function paintCanvas() {
   const root = document.documentElement;
   if (!root) return false;
   const clear = (c) => !c || c === 'transparent' || c === 'rgba(0, 0, 0, 0)';
-  const own = getComputedStyle(root).backgroundColor;
-  const body = document.body ? getComputedStyle(document.body).backgroundColor : '';
-  let color = !clear(own) ? own : !clear(body) ? body : '';
-  if (!color) {
+  // The canvas is the root's background, or the body's when the root leaves it transparent --
+  // the browser's own rule.
+  const supplies = (el) => {
+    const s = getComputedStyle(el);
+    return s.backgroundImage !== 'none' || !clear(s.backgroundColor) ? s.background : '';
+  };
+  let background = supplies(root) || (document.body ? supplies(document.body) : '');
+  if (!background) {
     const probe = document.createElement('div');
     probe.style.cssText =
       'position:fixed;left:-1px;top:-1px;width:1px;height:1px;background-color:Canvas';
     root.appendChild(probe);
-    color = getComputedStyle(probe).backgroundColor;
+    background = getComputedStyle(probe).backgroundColor;
     probe.remove();
   }
   // The root's own background IS the canvas, and the snapshot does not paint the canvas: a
@@ -340,7 +385,7 @@ function paintCanvas() {
   const layer = document.createElement('div');
   layer.id = '__hyprview_bg';
   layer.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:-1;' +
-    'pointer-events:none;background:' + color;
+    'pointer-events:none;background:' + (background || 'Canvas');
   (document.body || root).appendChild(layer);
   return true;
 }
@@ -361,19 +406,21 @@ async function inPage(tabId, fn) {
   return result;
 }
 
-async function capture(windowId) {
-  if (typeof api.tabs.captureVisibleTab !== 'function') return null;
-  const here = await api.tabs.query({ active: true, windowId });
-  const tab = here[0];
-  if (PRIVILEGED_URL.test((tab && tab.url) || '')) return null;
+async function capture(entry, tabs) {
+  const tab = tabs.find((t) => t.id === entry.id);
+  if (!tab) return null;
   let painted = false;
   try {
     try {
-      painted = !!(await inPage(tab.id, paintCanvas));
+      painted = !!(await inPage(entry.id, paintCanvas));
     } catch (e) {
       painted = false; // no host permission for this tab: shoot it as it is
     }
-    const url = await api.tabs.captureVisibleTab(windowId, { format: 'png' });
+    // The tab's own frame, not the window's: a background tab is rendered for this shot, so its
+    // picture is of the page as it looks now and not of the last time the tab was on screen.
+    const url = canCaptureTab
+      ? await api.tabs.captureTab(entry.id, { format: 'png' })
+      : await api.tabs.captureVisibleTab(entry.windowId, { format: 'png' });
     if (typeof url !== 'string' || !url.startsWith('data:image/png')) return null;
     return await shrink(url);
   } catch (e) {
@@ -381,7 +428,7 @@ async function capture(windowId) {
   } finally {
     if (painted) {
       try {
-        await inPage(tab.id, unpaintCanvas);
+        await inPage(entry.id, unpaintCanvas);
       } catch (e) {
         // the tab is gone; its inline style went with it
       }

@@ -307,12 +307,15 @@ def handle(command, root, own_pid):
             if isinstance(ident, int):
                 drop(os.path.join(root, "previews", "%d.png" % ident))
         shot = command.get("screenshot")
-        if isinstance(shot, str) and shot.startswith("data:image/png"):
+        ident = command.get("screenshotTab")
+        if (isinstance(shot, str) and shot.startswith("data:image/png")
+                and isinstance(ident, int) and not isinstance(ident, bool)):
+            # One picture per message and it names its tab. Writing it under the active ids put
+            # one tab's page on every other tab's card: the queue is always behind the focus.
             import base64
 
             raw = base64.b64decode(shot.split(",", 1)[1])
-            for ident in active:
-                atomic_write(os.path.join(root, "previews", "%d.png" % ident), raw)
+            atomic_write(os.path.join(root, "previews", "%d.png" % ident), raw)
         return {"ok": True, "browserPid": browser_pid, "windows": len(active)}
 
     if name == "activate_tab":

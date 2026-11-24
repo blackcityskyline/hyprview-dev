@@ -182,26 +182,30 @@ browser but not in memory, so it is listed only when asked for
 Activating a tab card — Enter or a click — makes that tab the browser's active
 one, which also reloads it if it was discarded, and focuses the browser window.
 
-A tab card shows the page that tab was showing when the overview last opened on
-it: the picture is taken when the compositor asks for one, and the mediator
-keeps it under that tab's id. Shooting on every tab event would mean painting a
-layer over the page each time, which reads as a flash on every load and switch;
-an event report carries the tab list only.
+A tab card shows the page that tab is showing: the picture is taken when the compositor asks
+for one, from the tab's own document, and the mediator keeps it under that tab's id. A tab
+that is not on screen is photographed all the same (`tabs.captureTab`, which Zen and Firefox
+have; Chromium has only the visible tab, so there each window contributes its one tab).
+Shooting on every tab event would mean painting a layer over the page each time, which reads
+as a flash on every load and switch; an event report carries the tab list only, and the
+pictures go out one per message, tab by tab.
 
 The screenshot needs `<all_urls>`: Gecko grants `activeTab` only to an extension
 the user clicked, and this one has no button.
 
-Opening the overview asks for a fresh picture of the tab on screen, because the
-one on disk is from the last time that tab changed and a page restyled after
-that (dark mode, a theme add-on) would otherwise keep its first look. A page the
+Opening the overview asks for a fresh picture of every tab whose picture is older than half a
+minute, because the one on disk is from the last time that tab changed and a page restyled
+after that (dark mode, a theme add-on) would otherwise keep its first look. A page the
 browser draws itself — `about:addons`, `about:config` — cannot be photographed:
 the capture comes back as the quarter-scale stored thumbnail, so it is refused
 and the card keeps no picture. A page whose root background is transparent is shot with a
-fixed layer of the `Canvas` system colour under its content, for the duration of the capture:
-the browser's snapshot draws the document but not the canvas, and without it a dark page came
-back as dark controls on a white sheet. A tab that navigated, and a tab the extension may not
-photograph, is named in the report's `drop` list: the picture under that id is of another page,
-so it is deleted and the card keeps no picture. A tab without one shows its title. The site's favicon sits in the title pill: the
+fixed layer under its content, for the duration of the capture, carrying the background the
+page really shows — colour and image alike: the browser's snapshot draws the document but not
+the canvas, and without it a dark page came back as dark controls on a white sheet, and a
+canvas that is a gradient or a photograph came back flat. A tab that navigated, and a tab the
+extension may not photograph, is named in the report's `drop` list: the picture under that id
+is of another page, so it is deleted and the card keeps no picture. A tab without one shows
+its title. The site's favicon sits in the title pill: the
 extension fetches it, normalises it to a 32px PNG and the mediator writes `icons/<tabId>.png`.
 The corner of the card carries the browser's own icon, looked up from the window class's
 desktop entry. A browser's web app (`brave-hey.com__default`) is matched to the entry that

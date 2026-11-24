@@ -53,8 +53,11 @@ permission is asked for on both so one manifest description is true everywhere.
 
 ## What it sends
 
-One message: the tab list, which tabs are active in the focused window, and at
-most one screenshot. The mediator writes:
+One message: the tab list, which tabs are active in the focused window, and at most one
+screenshot with the id of the tab it is of (`screenshotTab`). Every tab is photographed, not
+only the one on screen: `tabs.captureTab` renders a tab's own document wherever that tab is.
+A Chromium build has only `captureVisibleTab`, so there the queue is the window's visible tab.
+The mediator writes:
 
     tabs                   g <generation> / p <pid> <window> / t <window> <tab> <flags> <title>
     previews/<tabId>.png
@@ -68,19 +71,25 @@ correlation.
 
 ## What it does
 
-- Reports the tab list, the active tabs of the focused window, at most one screenshot, and a
-  32px favicon per tab. The favicon is fetched here and normalised to PNG because the compositor
-  cannot fetch a URL and the URL a tab reports (`page-icon:`) is not one a page may load.
-- **Takes the picture again on request.** The compositor writes `shot.<pid>` when the overview
-  opens; the message is `{"name": "shot"}` and the answer is an ordinary report. A page restyled
-  after it was loaded would otherwise be pictured as it looked before the restyle.
+- Reports the tab list, the active tabs of the focused window, one screenshot and a 32px favicon
+  per tab. The favicon is fetched here and normalised to PNG because the compositor cannot
+  fetch a URL and the URL a tab reports (`page-icon:`) is not one a page may load.
+- **Photographs every tab, one per message.** A native message tops out near a megabyte, so a
+  picture is sent on its own, naming the tab it is of, and the next one follows on the next
+  report. A tab whose picture is younger than half a minute is left alone until the compositor
+  asks again.
+- **Takes the pictures again on request.** The compositor writes `shot.<pid>` when the overview
+  opens; the message is `{"name": "shot"}` and the answer is an ordinary report per tab. A page
+  restyled after it was loaded would otherwise be pictured as it looked before the restyle.
 - Refuses `about:`, `chrome:`, `moz-extension:`, `resource:` and `view-source:` pages: the
   capture of those comes back as the quarter-scale thumbnail the browser stores, and the card
   shows no picture instead of blocks.
-- Puts a fixed layer of the `Canvas` system colour under the page content before the shot when
-  the root background is transparent, and removes it right after. The browser's snapshot draws
-  the document but not the canvas, so a page in dark mode came back as dark controls on a white
-  sheet. A layer, not the root background: the root background is the canvas.
+- Puts a fixed layer of the page's real background under the page content before the shot and
+  removes it right after. The browser's snapshot draws the document but not the canvas, so a
+  page in dark mode came back as dark controls on a white sheet, and a canvas that is a
+  gradient or a photograph came back flat. Colour and image are copied from the element the
+  page takes its canvas from; a page that has neither gets the `Canvas` system colour. A layer,
+  not the root background: the root background is the canvas.
 - **Opens a tab on request.** The compositor writes `a <pid> <window> <tab>` under
   `$XDG_RUNTIME_DIR/hyprview`; the mediator whose parent is that pid forwards it, and the
   extension makes the tab active (reloading it if it was discarded) and focuses its window.
