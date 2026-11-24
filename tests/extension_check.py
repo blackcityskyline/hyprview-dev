@@ -106,6 +106,11 @@ def main():
     want("screenshotTab" in report,
          "the report does not name the tab its picture belongs to")
 
+    # A shot that failed must not delete the picture on disk: it is this tab's own page (a
+    # navigation names the id in `drop`), and a transient failure left the card a bare plate.
+    want("drop.push(next.id)" not in report,
+         "a failed shot deletes the picture it already had -- the card falls back to a plate")
+
     # (5) the close verb: the compositor asks the browser to close a tab, because a tab is
     # not a window the compositor owns. Without it the card's x does nothing at all.
     want("api.tabs.remove(" in js, "background.js has no close verb -- a tab card's x does nothing")

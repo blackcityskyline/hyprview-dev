@@ -202,10 +202,11 @@ and the card keeps no picture. A page whose root background is transparent is sh
 fixed layer under its content, for the duration of the capture, carrying the background the
 page really shows — colour and image alike: the browser's snapshot draws the document but not
 the canvas, and without it a dark page came back as dark controls on a white sheet, and a
-canvas that is a gradient or a photograph came back flat. A tab that navigated, and a tab the
-extension may not photograph, is named in the report's `drop` list: the picture under that id
-is of another page, so it is deleted and the card keeps no picture. A tab without one shows
-its title. The site's favicon sits in the title pill: the
+canvas that is a gradient or a photograph came back flat. A tab that navigated is named in the
+report's `drop` list: the picture under that id is of another page, so it is deleted. A shot
+that fails leaves the picture already on disk alone — it is that tab's own page, and a
+transient failure used to blank a card that had a good picture a moment before. A tab without
+one shows its title. The site's favicon sits in the title pill: the
 extension fetches it, normalises it to a 32px PNG and the mediator writes `icons/<tabId>.png`.
 The corner of the card carries the browser's own icon, looked up from the window class's
 desktop entry. A browser's web app (`brave-hey.com__default`) is matched to the entry that

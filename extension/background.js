@@ -198,12 +198,12 @@ async function reportOnce() {
   // A picture of THE TAB, not of the window: a tab that is not on screen is photographed from
   // its own document, so a card no longer has to wait for its tab to be shown once.
   const screenshot = next ? await capture(next, tabs) : null;
-  if (next) {
-    if (screenshot) shotAt.set(next.id, Date.now());
-    // Asked for a picture and got none: the page is one the browser will not let an extension
-    // shoot. Whatever is under that id is some other page, and it must not be shown as this one.
-    else drop.push(next.id);
-  }
+  // A shot that failed leaves the picture already on disk alone. It is of this tab's page --
+  // a navigation names the id in `drop` before this runs -- and a transient failure (a video
+  // page, a challenge page mid-redirect) used to delete a good picture and leave the card as a
+  // title on a plate.
+  if (next && screenshot)
+    shotAt.set(next.id, Date.now());
   const favicons = await iconMap(tabs);
   try {
     port.postMessage({
@@ -428,6 +428,10 @@ async function capture(entry, tabs) {
     if (typeof url !== 'string' || !url.startsWith('data:image/png')) return null;
     return await shrink(url);
   } catch (e) {
+    // Worth a line in the browser console: a tab that cannot be shot keeps its old picture, so
+    // the card is right and nothing else in the log would say why its page froze.
+    console.error('hyprview: capture of tab ' + entry.id + ' failed:',
+                  e && e.message ? e.message : e);
     return null;
   } finally {
     if (painted) {
