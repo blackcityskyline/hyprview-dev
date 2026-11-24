@@ -27,27 +27,15 @@
 #include "../src/render/geometry.hpp"
 
 using hyprview::LRect;
-using hyprview::render::badgeK;
-using hyprview::render::badgeBox;
-using hyprview::render::badgePx;
-using hyprview::render::badgeSide;
-using hyprview::render::cardContent;
-using hyprview::render::CardContent;
-using hyprview::render::CardKind;
-using hyprview::render::badgePose;
 using hyprview::render::closeButtonRect;
 using hyprview::render::cardScale;
-using hyprview::render::captionRemains;
-using hyprview::render::escapeFrom;
 using hyprview::render::scaledAboutCentre;
-using hyprview::render::pillScale;
 using hyprview::render::Corner;
 using hyprview::render::dragVisualBox;
-using hyprview::render::insetWithin;
 using hyprview::render::killZoneGlow;
 using hyprview::render::pillRadius;
-using hyprview::render::captionPills;
-using hyprview::render::captionPillY;
+using hyprview::render::escapeFrom;
+using hyprview::render::captionRemains;
 
 namespace {
 
@@ -82,11 +70,67 @@ void sameRect(const LRect& got, const LRect& want, const char* what) {
 
 } // namespace
 
-// The caption pill must fit the card it labels. The run's cards shrink in rounding steps with
-// distance and the label is rasterised once at full width, so a pill sized off the texture
-// alone is the same width on every card -- wider than the thing it labels on a shrunken one,
-// which is what a hover over a secondary card showed. Each case below turns red if its half
-// of pillScale() is replaced by a constant.
+// Which way the outside pill gets out from under a card that reached it. This rule went wrong
+// twice in a day and both times it was found by eye: once the pill was lifted further and
+// further above its own card until it reached the strip, and once the fix for that stopped it
+// being pushed at all. Both are this one choice of axis, so the choice is the test.
+static void chromeTakesTheAxisThatKeepsItWithItsCard() {
+  const LRect card{400, 300, 300, 200};    // the covering card
+  const LRect capAbove{360, 240, 380, 40}; // the counter above it, wider than the card
+
+  {
+    // ox > oy on purpose: that is the input that REACHES the vertical branch at all, which is
+    // the branch the pill-above case lives in. With ox < oy the horizontal branch returns first
+    // and this test would pass whatever the vertical branch did.
+    const auto e = escapeFrom(capAbove, card, 200, 40);
+    want(e.dy == 0.0, true, "a pill above the card is never lifted");
+    want(e.dx != 0.0, true, "it slides sideways instead -- it is still pushed");
+    want(e.depth == 200.0, true, "with the depth of the axis it took");
+  }
+  {
+    const LRect capBelow{360, 520, 380, 40};
+    const auto e = escapeFrom(capBelow, card, 200, 40);
+    want(e.dy > 0.0, true, "a pill below the card is pushed down");
+    want(e.depth == 40.0, true, "by the vertical overlap");
+  }
+  {
+    const LRect wide{380, 280, 340, 240};
+    const auto e = escapeFrom(wide, card, 40, 200);
+    want(e.dx != 0.0 && e.dy == 0.0, true, "the cheaper axis still wins");
+    want(e.depth == 40.0, true, "by the horizontal overlap");
+  }
+  {
+    want(escapeFrom(LRect{100, 200, 100, 40}, card, 20, 50).dx < 0.0, true,
+         "left of the card means left");
+    want(escapeFrom(LRect{600, 200, 100, 40}, card, 20, 50).dx > 0.0, true,
+         "right of the card means right");
+  }
+  {
+    const LRect straddle{360, 290, 380, 40};
+    want(escapeFrom(straddle, card, 200, 50).dy != 0.0, true,
+         "a pill overlapping the card's top edge is pushed normally");
+  }
+  std::puts("escapeFrom: a pill above its card slides, one below is pushed down, cheaper axis");
+}
+
+// How much of the counter is left. Two reasons it leaves -- being shoved, and its card leaving
+// -- and every version of this has been inline arithmetic in drawTile, adjusted by eye and by
+// screenshot.
+static void aCaptionIsGoneWhenItsCardIs() {
+  near(captionRemains(0.0, 300.0, 27.0, 1.0, /*opening=*/true), 1.0,
+       "a counter that nothing covers is whole, even mid-open");
+  near(captionRemains(75.0, 300.0, 27.0, 0.0, true), 0.0, "gone over a quarter of its width");
+  want(captionRemains(10.0, 300.0, 27.0, 0.0, true) > 0.8, true,
+       "barely covered leaves it nearly whole");
+  near(captionRemains(0.0, 300.0, 27.0, 1.0, false), 0.0, "gone when the card is gone");
+  want(captionRemains(0.0, 300.0, 27.0, 0.5, false) < 0.6, true,
+       "half out with a half-gone card");
+  want(captionRemains(300.0, 300.0, 27.0, 0.1, false) <=
+           captionRemains(0.0, 300.0, 27.0, 0.1, false),
+       true, "the stronger reason wins, never the weaker");
+  std::puts("captionRemains: whole at rest, gone over a quarter width, gone with its card");
+}
+
 // A caption is labelled at its OWN card's size. The run's cards shrink in steps with distance,
 // so a card two or three slots out was carrying the CENTRED card's caption size: the same pill
 // on a card half the width, and worst on the outermost cards of a five-card run.
@@ -102,82 +146,6 @@ static void captionFollowsItsCard() {
   std::puts("cardScale: reference, neighbours, the outermost ring, no reference, and the floor");
 }
 
-// Which way a chrome element gets out from under a card that reached it. This rule went
-// wrong twice in a day and both times it was found by eye: once the caption was lifted
-// further and further above its own card until it reached the strip, and once the fix for
-// that stopped the caption being pushed at all. Both are this one choice of axis, so the
-// choice is the test.
-static void chromeTakesTheAxisThatKeepsItWithItsCard() {
-  const LRect card{400, 300, 300, 200};   // the covering card
-  const LRect capAbove{360, 240, 380, 40}; // a caption above it, wider than the card
-
-  // The regression this exists for: the caption is wholly above the card, the vertical escape
-  // is up, and up is the one direction that takes it away from the card it labels.
-  {
-    // ox > oy on purpose: that is the input that REACHES the vertical branch at all, which is
-    // the branch the caption-above case lives in. With ox < oy the horizontal branch returns
-    // first and this test would pass whatever the vertical branch did -- which is how it
-    // passed with the guard deleted.
-    const auto e = escapeFrom(capAbove, card, 200, 40);
-    want(e.dy == 0.0, true, "a caption above the card is never lifted");
-    want(e.dx != 0.0, true, "it slides sideways instead -- it is still pushed");
-    want(e.depth == 200.0, true, "with the depth of the axis it took");
-  }
-  // A caption BELOW the card: down is beside the card, so the vertical push stands.
-  {
-    const LRect capBelow{360, 520, 380, 40};
-    const auto e = escapeFrom(capBelow, card, 200, 40);
-    want(e.dy > 0.0, true, "a caption below the card is pushed down");
-    want(e.depth == 40.0, true, "by the vertical overlap");
-  }
-  // Room on the horizontal axis alone: that axis was always chosen and must stay.
-  {
-    const LRect wide{380, 280, 340, 240};
-    const auto e = escapeFrom(wide, card, 40, 200);
-    want(e.dx != 0.0 && e.dy == 0.0, true, "the cheaper axis still wins");
-    want(e.depth == 40.0, true, "by the horizontal overlap");
-  }
-  // Direction is away from the covering card on both axes, or the element moves deeper in.
-  {
-    want(escapeFrom(LRect{100, 200, 100, 40}, card, 20, 50).dx < 0.0, true,
-         "left of the card means left");
-    want(escapeFrom(LRect{600, 200, 100, 40}, card, 20, 50).dx > 0.0, true,
-         "right of the card means right");
-  }
-  // A caption that STRADDLES the card's top edge is not wholly above it, so the push is the
-  // ordinary one -- the cover is what it straddles, not a card below it.
-  {
-    const LRect straddle{360, 290, 380, 40};
-    want(escapeFrom(straddle, card, 200, 50).dy != 0.0, true,
-         "a caption overlapping the card's top edge is pushed normally");
-  }
-  std::puts("escapeFrom: a caption above its card slides, one below is pushed down, cheaper axis, direction");
-}
-
-// How much of a caption is left. Two reasons it leaves -- being shoved, and its card leaving
-// -- and every version of this has been inline arithmetic in drawTile, adjusted by eye and by
-// screenshot. It is the one decision in the caption that had no pure form, which is why its
-// rate was the thing I could not measure.
-static void aCaptionIsGoneWhenItsCardIs() {
-  // Nothing wrong with it: it stays whole, whatever the exit fraction says while opening.
-  near(captionRemains(0.0, 300.0, 27.0, 1.0, /*opening=*/true), 1.0,
-       "a caption that nothing covers is whole, even mid-open");
-  // Covered a quarter of its own width: gone. A tenth of it: nearly whole. The rate is the
-  // point -- at its full width it was still shrinking when it arrived at the strip.
-  near(captionRemains(75.0, 300.0, 27.0, 0.0, true), 0.0, "gone over a quarter of its width");
-  want(captionRemains(10.0, 300.0, 27.0, 0.0, true) > 0.8, true,
-       "barely covered leaves it nearly whole");
-  // Its card leaving: it leaves with the card, and never outlives it.
-  near(captionRemains(0.0, 300.0, 27.0, 1.0, false), 0.0, "gone when the card is gone");
-  want(captionRemains(0.0, 300.0, 27.0, 0.5, false) < 0.6, true, "half out with a half-gone card");
-  // Either reason is enough, and together they do not fight: a caption on a card that is
-  // leaving AND being shoved is the smaller of the two, never the larger.
-  want(captionRemains(300.0, 300.0, 27.0, 0.1, false) <=
-       captionRemains(0.0, 300.0, 27.0, 0.1, false), true,
-       "the stronger reason wins, never the weaker");
-  std::puts("captionRemains: whole at rest, gone over a quarter width, gone with its card");
-}
-
 // Both pills, one factor, one rule. The counter was left out once on the grounds that it
 // counts the run rather than labelling a card, and the screen showed two different rules on
 // one caption: the title gone, the number standing under it.
@@ -191,22 +159,6 @@ static void bothPillsShareOneRect() {
   near(scaledAboutCentre(r, 0.0).w, 0.0, "gone is gone, not negative");
   near(scaledAboutCentre(r, 1.0).w, r.w, "whole is whole");
   std::puts("scaledAboutCentre: both axes, about the centre, and the two ends");
-}
-
-static void pillFitsCard() {
-  // A pill that already fits is untouched, or the foreground card's title would shrink for no
-  // reason and every caption would come out smaller than its text needs to be.
-  want(pillScale(692.0, 12.0, 305.0) == 1.0, true, "a pill that already fits is not shrunk");
-  // A step-shrunk card brings its pill down with it, and it ENDS UP fitting -- which is the
-  // point, since 1.0 sails past a card of every size on the run.
-  const double k = pillScale(180.0, 12.0, 305.0);
-  want(k < 1.0, true, "a pill wider than its card is scaled down");
-  want(305.0 * k <= 180.0 - 12.0, true, "the scaled pill fits the card");
-  // A card narrower than the inset still gets a drawable pill rather than a negative size,
-  // which is what an unguarded max() hands to a rect.
-  want(pillScale(4.0, 12.0, 305.0) > 0.0, true, "a card narrower than the inset still scales");
-  // No pill is not a division by zero.
-  want(pillScale(692.0, 12.0, 0.0) == 1.0, true, "no pill is not a division by zero");
 }
 
 // The strip's own decisions: the band's alpha, the label's box, the two glyphs and
@@ -866,119 +818,7 @@ static void theSpacePreviewFitsTheFreeArea() {
   std::puts("the Space preview: aspect, the free area, centre, degenerate size");
 }
 
-// The caption's size and its place do not depend on how long the title is: a long
-// title is a long one, not a small one, and it runs under the cards beside it.
-static void theCaptionDoesNotShrinkWithTheTitle() {
-  using hyprview::render::CaptionSizes;
-  using hyprview::render::CaptionStyle;
-  using hyprview::render::captionLayout;
-
-  const LRect card{100.0, 200.0, 400.0, 300.0};
-  const CaptionStyle style{11.0, 5.0, 11.0, 5.0, 10.0, 8.0, 6.0, 6.0, 400.0, 34.0, true, true};
-  const auto shortTitle = captionLayout(card, LRect{}, 1920.0, 1080.0,
-                                       CaptionSizes{120.0, 24.0, 0.0, 0.0, true, false}, style);
-  const auto longTitle = captionLayout(card, LRect{}, 1920.0, 1080.0,
-                                       CaptionSizes{900.0, 24.0, 0.0, 0.0, true, false}, style);
-
-  near(longTitle.pill.h, shortTitle.pill.h, "the pill is as tall for a long title");
-  near(longTitle.pill.y, shortTitle.pill.y, "and it sits at the same place");
-  want(longTitle.pill.w > shortTitle.pill.w, true, "a long title is a wider pill");
-  near(longTitle.kFit, shortTitle.kFit, "and neither is scaled down to fit");
-  std::puts("the caption: the same size and place, whatever the title's length");
-}
-
-// The badge leaves and arrives on one schedule, so the open is the close played backwards.
-// Constant pop or constant alpha both redden here: the peak is the point, and a badge that is
-// simply there on frame one is what this replaced.
-static void theBadgeIsPlayedInBothDirections() {
-  const auto gone = badgePose(0.0);
-  near(gone.pop, 0.65, "k=0 is small, not zero: the shape stays readable while it goes");
-  near(gone.alpha, 0.0, "and invisible");
-  const auto rest = badgePose(1.0);
-  near(rest.pop, 1.0, "at rest the badge is its own size");
-  near(rest.alpha, 1.0, "and opaque");
-
-  double peak = 0.0;
-  double previousAlpha = 0.0;
-  double previousPop = 0.0;
-  for (int i = 0; i <= 100; ++i) {
-    const auto p = badgePose(i / 100.0);
-    peak = std::max(peak, p.pop);
-    want(p.alpha >= previousAlpha, true, "alpha rises with k");
-    if (i <= 77)
-      want(p.pop >= previousPop, true, "the pop rises up to the peak");
-    previousAlpha = p.alpha;
-    previousPop = p.pop;
-  }
-  near(peak, 1.2, "the overshoot is a fifth");
-  // Past the peak the shape shrinks back: that half is what the close reads.
-  want(badgePose(0.9).pop < badgePose(0.77).pop, true, "the pop settles after the peak");
-}
-
-// The badge's own window of the run: it arrives with the run, not after it, and it leaves
-// inside the last stretch of the close. The span is a number, so the schedule is a number too.
-static void theBadgeHasItsOwnWindow() {
-  constexpr double span = 0.28;
-  near(badgeK(0.0, 0.0, true, span), 0.0, "on the way in the badge starts out gone");
-  near(badgeK(span, 0.0, true, span), 1.0, "and is at rest after its own span");
-  near(badgeK(span * 0.5, 0.0, true, span), 0.5, "half of the span is half of the badge");
-  near(badgeK(0.0, 0.0, false, span), 1.0, "on the way out it starts at rest");
-  near(badgeK(0.0, span, false, span), 0.0, "and is gone after its own span");
-  near(badgeK(0.0, 0.0, true, 0.0), 1.0, "a span of zero leaves the badge alone");
-  want(badgeK(0.0, 0.0, true, span) < badgeK(span, 0.0, true, span), true,
-       "the icon arrives with the run, not at the end of it");
-}
-
-// The badge's texture size: steps of eight. A card that grows during a glide asks for a size
-// every frame, and a size it does not have is a decode of the icon -- a hitch per frame.
-static void theBadgeSizeIsQuantised() {
-  near(badgePx(30.0, 1.0), 32, "30px is drawn at 32");
-  near(badgePx(33.0, 1.0), 40, "33px is drawn at 40");
-  near(badgePx(5.0, 1.0), 16, "a tiny icon is still 16");
-  near(badgePx(30.0, 2.0), 64, "at scale 2 the same icon is 64");
-  for (double side = 1.0; side < 60.0; side += 0.37) {
-    const int px = badgePx(side, 1.0);
-    want(px % 8 == 0, true, "every badge size is a multiple of eight");
-    want(px >= 16, true, "and never smaller than 16");
-  }
-}
-
-// What a card shows in its frame. A tab with no picture shows the plate and the dim title,
-// never the picture of another page and never a bare frost.
-static void theCardSaysWhatItShows() {
-  want(cardContent(CardKind::Window, false) == CardContent::Window, true,
-       "a window card is the window");
-  want(cardContent(CardKind::Window, true) == CardContent::Window, true, "and never a picture");
-  want(cardContent(CardKind::Tab, true) == CardContent::Picture, true,
-       "a tab with a picture shows it");
-  want(cardContent(CardKind::Tab, false) == CardContent::PlateAndTitle, true,
-       "a tab without one shows the plate and the title");
-}
-
-// The badge's square: in the corner of the card that the caption does not reach, and inside
-// the card at any size.
-static void theBadgeSitsInTheCorner() {
-  const LRect card{100.0, 100.0, 400.0, 300.0};
-  const double side = badgeSide(card.h);
-  const auto badge = badgeBox(card, side, 1.0);
-  want(badge.x >= card.x && badge.x + badge.w <= card.x + card.w, true,
-       "the badge is inside the card, horizontally");
-  want(badge.y >= card.y && badge.y + badge.h <= card.y + card.h, true,
-       "and vertically");
-  want(badge.x + badge.w / 2.0 < card.x + card.w / 2.0, true, "the badge is in the left half");
-  want(badge.y + badge.h / 2.0 > card.y + card.h / 2.0, true, "and in the lower half");
-
-  const auto small = badgeBox(card, side, 0.65);
-  want(small.w < badge.w, true, "a badge that shrinks gets smaller");
-  want(small.x + small.w / 2.0 == badge.x + badge.w / 2.0, true, "about its centre");
-}
-
 int main() {
-  theCardSaysWhatItShows();
-  theBadgeSitsInTheCorner();
-  theBadgeIsPlayedInBothDirections();
-  theBadgeHasItsOwnWindow();
-  theBadgeSizeIsQuantised();
 
   // --- the kill zone is a distance, not a bool ----------------------------------------
   {
@@ -1095,63 +935,6 @@ int main() {
     std::puts("closeButtonRect: square, inside the card, all four corners distinct");
   }
 
-
-  // --- where the caption's two pills land ----------------------------------------------
-  //
-  // Both knobs name a card EDGE. On one edge the counter is the outer pill either way --
-  // above the card it leads, below the card it trails -- so the pair reads the same way
-  // whichever way round the card is. That is the invariant; a counter between the card and
-  // the title reads as part of the card's own furniture.
-  {
-    // The card gap and the title-to-counter gap are DIFFERENT knobs, and they are
-    // deliberately different numbers here. Passing one value for both is what put the
-    // caption flush against the card -- no gap at all whenever there was no counter to
-    // measure against -- and no assertion written over a single gap would have seen it.
-    const double tH = 30.0, cH = 24.0, gap = 8.0, cardGap = 10.0;
-    const double cardY = 200.0, cardH = 300.0, screenH = 756.0, margin = 6.0;
-
-    const auto low = captionPills(cardY, cardH, tH, cH, cardGap, gap, true, screenH, margin);
-    near(low.titleY, cardY + cardH + cardGap,
-         "below the card: the title sits the CARD gap off the edge");
-    near(low.counterY - low.titleY, tH + gap, "and the counter trails it by the STACK gap");
-
-    const auto high = captionPills(cardY, cardH, tH, cH, cardGap, gap, false, screenH, margin);
-    near(high.titleY + tH, cardY - cardGap,
-         "above the card: the title sits the CARD gap off the edge");
-    near(high.titleY - high.counterY, cH + gap, "and the counter leads it, one gap further out");
-
-    // The invariant, stated against the CARD rather than against the title: the counter is
-    // further from the card on both edges. A counter between the card and the title reads as
-    // part of the card's furniture rather than as a number about the run.
-    assert(low.counterY - (cardY + cardH) > low.titleY - (cardY + cardH));
-    assert(cardY - high.counterY > cardY - high.titleY);
-
-    // Clamped as ONE block: the counter on the bottom edge is what would walk off, and
-    // clamping the title alone let it go past the screen edge while the title sat on the
-    // margin.
-    const auto tight = captionPills(700.0, 100.0, tH, cH, cardGap, gap, true, screenH, margin);
-    near(tight.counterY + cH, screenH - margin, "a caption too tall for the screen is capped");
-
-    const auto tightTop = captionPills(40.0, 100.0, tH, cH, cardGap, gap, false, screenH, margin);
-    near(tightTop.counterY, margin, "and floored, outer pill first");
-
-    std::puts("captionPills: the counter is the outer pill on either edge, clamped as a block");
-  }
-
-  // --- one pill's own edge --------------------------------------------------------------
-  //
-  // The split case: title and counter on opposite edges, so there is no order between them
-  // and each hangs off the card alone.
-  {
-    const double screenH = 756.0, margin = 6.0;
-    near(captionPillY(300.0, 400.0, 30.0, 10.0, true, screenH, margin), 710.0,
-         "below: the card's lower edge plus the gap");
-    near(captionPillY(300.0, 400.0, 30.0, 10.0, false, screenH, margin), 260.0,
-         "above: the card's upper edge minus the gap, less the pill");
-    assert(captionPillY(740.0, 100.0, 30.0, 10.0, true, screenH, margin) + 30.0 <= screenH);
-    assert(captionPillY(20.0, 100.0, 30.0, 10.0, false, screenH, margin) >= 0.0);
-    std::puts("captionPillY: either edge, either clamp direction");
-  }
 
   // --- a configured corner radius ------------------------------------------------------
   //
@@ -1324,10 +1107,9 @@ int main() {
     std::puts("firstHit: hits, misses, seams, an empty row, and overlap order");
   }
 
+  bothPillsShareOneRect();
   chromeTakesTheAxisThatKeepsItWithItsCard();
   aCaptionIsGoneWhenItsCardIs();
-  bothPillsShareOneRect();
-  pillFitsCard();
   captionFollowsItsCard();
   theStripDecidesItsOwnShapes();
   theFlightHasFourKinds();
@@ -1345,8 +1127,6 @@ int main() {
   thePulseAndTheDropHintAreDecisions();
   theContentKeepsItsAspectInsideTheCard();
   theSpacePreviewFitsTheFreeArea();
-  theCaptionDoesNotShrinkWithTheTitle();
-  std::puts("pillScale: fits, shrinks, degenerate cards, and no division by zero");
   std::puts("render geometry ok");
   return 0;
 }

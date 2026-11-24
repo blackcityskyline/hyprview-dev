@@ -461,36 +461,19 @@ void Overview::layoutTiles() {
       cfg.padTop += l.panel.h + cfg::launcher.row_height;
   }
 
-  // Caption room per pill: it is not clamped and would draw over the band, which paints AFTER the tiles.
-  double titleCapH = 0.0;
-  for (const auto &t : m_scene.tiles()) {
-    if (t.label && t.label->m_size.y > 0) {
-      titleCapH = t.label->m_size.y + 2 * cfg::look.title_pad_y;
-      break;
-    }
-  }
-  double countCapH = 0.0;
+  // The counter is the one caption outside a card: its pill needs its own strip of padding,
+  // or it draws over the band, which paints AFTER the tiles.
   if (m_view.run() && m_scene.size() > 1) {
     const auto tex = m_pixel.fixedLabel(
         pixel::Slot::CarouselCount,
         std::to_string(runPosition() + 1) + " / " + std::to_string(m_scene.size()),
         cfg::colors.counter_label.get(1.0), cfg::look.counter_font_size.get());
-    if (tex && tex->m_size.y > 0)
-      countCapH = tex->m_size.y + 2 * cfg::look.counter_pad_y;
-  }
-  {
-    const std::string cpos = cfg::look.counter_position.get();
-    const bool titleBelow = cfg::look.title_position.get() != "top";
-    const bool counterBelow = cpos.empty() ? titleBelow : cpos != "top";
-    const bool sameEdge = countCapH <= 0.0 || counterBelow == titleBelow;
-    const double gap = cfg::look.title_gap;
-    if (titleCapH > 0.0) {
-      if (titleBelow) cfg.padBottom += gap + titleCapH;
-      else cfg.padTop += gap + titleCapH;
-    }
-    if (countCapH > 0.0) {
-      // On the title's edge the counter stacks behind it, so it adds its own gap on top of the card gap.
-      const double room = gap + countCapH + (sameEdge ? cfg::look.counter_gap : 0.0);
+    if (tex && tex->m_size.y > 0) {
+      const std::string cpos = cfg::look.counter_position.get();
+      const bool counterBelow =
+          cpos.empty() ? cfg::look.title_position.get() != "top" : cpos != "top";
+      const double room = cfg::look.counter_gap + tex->m_size.y +
+                          2 * cfg::look.counter_pad_y;
       if (counterBelow) cfg.padBottom += room;
       else cfg.padTop += room;
     }

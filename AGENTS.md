@@ -48,6 +48,7 @@
 - Рискованные правки (хуки, порядок проходов, teardown, private GL) — только в nested Hyprland.
 - Хуки ставятся по demangled-signature substring: `shouldRenderWindow`, `damageSurface`, `CSeatManager::setPointerFocus/setKeyboardFocus`. После обновления Hyprland: `ctest -R hook_signatures`.
 - Hot-reload — только целью `reload`. Ручной `plugin load` рядом с hyprpm-копией даёт два инстанса.
+- `hyprctl plugin unload` без `hyprviewunload` при открытом overview — сессия падает: SIGSEGV в `IHyprRenderer::beginRender`, `hyprview.so` в core уже не значится (24.11.2026, coredump 923). Сначала `hyprviewunload`, он делает `hardClose`.
 - `-fno-gnu-unique` в `CMakeLists.txt` не удалять.
 - Перед `git checkout` проверять файлы вне git: tracked на одной ветке + gitignored на другой.
 - Запрещено: `hyprctl --verify-config`, `rm -rf /run/user/$(id -u)/hypr/*`.
@@ -88,7 +89,7 @@
 32. Карточка за краем окна карусели имеет бокс.
 33. Превью окна рисуется по своему боксу: `SRenderData.pos/w/h`, без `renderModif` и `pWindow`. Правит `render::previewBox()`.
 34. Карточка, перешедшая шов кольца, стартует со своего нового бокса. Правило в `startBoxes(…, seamRunW)`.
-35. Пиля заголовка живёт в `render/caption.hpp`. Карточка, накрывшая пилю целиком, убирает её; задевшая краем — позволяет уйти под себя целой.
+35. Заголовок живёт в `render/caption.hpp` и только ВНУТРИ карточки: иконка и текст на одной плашке у её НИЖНЕГО края, `title_position` её не двигает. У плашки нет ни ухода из-под соседней карточки, ни экранного клампа — только ужатие в ширину карточки (`kFit`). Снаружи карточки висит ровно одно — плашка счётчика `n / total`: `placeCaption`/`pushOut` сдвигают её от наехавшей карточки, `captionRemains` гасит её вместе с карточкой.
 36. Выбранная карточка садится по своей группе: у вкладки — окно браузера, у окна — воркспейс. «Некуда лететь» = карточка не выбрана. Правило в `model::goesHome()`.
 
 ## 6. Архитектура

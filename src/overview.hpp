@@ -322,14 +322,6 @@ private:
   SP<Render::ITexture> windowIcon(const PHLWINDOW &w, int px) const {
     return w ? m_pixel.appIcon(w->m_class, px) : nullptr;
   }
-  SP<Render::ITexture> browserIcon(const model::Tile &t, int px) const {
-    if (!cardOf(t).isTab())
-      return nullptr;
-    const auto group = m_tabs.groupOf(t.subj);
-    const auto hostId = group.id ? m_links.hostOf(group.id) : 0;
-    const auto host = hostId ? m_windows.windowOf(model::SubjectRef{hostId, 0}) : PHLWINDOW{};
-    return host ? m_pixel.appIcon(host->m_class, px) : nullptr;
-  }
   SP<Render::ITexture> tabIcon(const model::Tile &t) const {
     if (!cardOf(t).isTab())
       return nullptr;
@@ -382,7 +374,6 @@ private:
   Vector2D stripPush(const LRect &band) const;
   // THE strip displacement: band, cards, their window previews and the hit-test all go through this.
   Vector2D stripOffset(double e) const;
-  std::vector<LRect> coveringCards() const;
   Vector2D stripScroll() const;
   LRect stripCardAt(size_t i) const;
   int stripItemAt(double lx, double ly) const;
@@ -414,6 +405,7 @@ private:
   void dropLiftIfNotMoved();
   void drawTile(size_t i, const TileLook &look, bool withCaption = true) const;
   void drawTileCaption(int i, const TileLook &look) const;
+  std::vector<LRect> coveringCards() const;
   void drawTabContent(const model::SubjectRef &subj, const LRect &box,
                      SP<Render::ITexture> label, float contentAlpha, float plateAlpha) const;
   LRect tileBox(size_t i, const LRect &slot) const;

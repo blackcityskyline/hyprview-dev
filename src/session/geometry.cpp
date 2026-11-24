@@ -95,7 +95,7 @@ Vector2D Overview::stripPush(const LRect &band) const {
   return Vector2D{v.x, v.y};
 }
 
-// The cards that can cover chrome: the rule that uses them lives in render::caption.
+// The cards that can cover the counter: the rule that uses them lives in render::caption.
 std::vector<LRect> Overview::coveringCards() const {
   std::vector<LRect> covers;
   const auto &tiles = m_scene.tiles();

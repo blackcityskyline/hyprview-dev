@@ -116,9 +116,16 @@ leaves the overview open. `quick_look_ms` / `_speed` / `_curve` tune the morph.
 application, across every workspace; pressing it again restores the full grid. A browser
 shows its windows, not its tabs, while the filter is on.
 
-A card's caption is the window title — or, for a tab, the page title — cut at 50
-characters with `...` at the end, the dots included. The limit counts characters, so a
-Cyrillic title is cut between letters and not through one.
+A card carries its name inside it: a rounded plate on the card's own **bottom** edge, with
+the app's icon (the page's favicon for a tab) and the title on it. The plate never leaves the
+card — it is the bottom edge on every card, whatever the counter does — and a plate wider
+than its card shrinks to stay inside it. The title is cut at 50 characters with `...` at the
+end, the dots included — the limit counts characters, so a Cyrillic title is cut between
+letters and not through one.
+
+The carousel's `n / total` counter is the one caption still outside a card: a pill of its
+own hanging off the centred card's edge (`counter_position`, `counter_gap`), with its own
+padding and colour. A card that reaches it shoves it clear, and it fades with its card.
 
 On entry the desktop recedes by 10% over the whole entry. The ring that opens around it
 is the frame's own edge pixels stretched outward, so the seam is a colour match and there
@@ -208,9 +215,9 @@ the light default, which was the white sheet. A tab that navigated is named in t
 report's `drop` list: the picture under that id is of another page, so it is deleted. A shot
 that fails leaves the picture already on disk alone — it is that tab's own page, and a
 transient failure used to blank a card that had a good picture a moment before. A tab without
-one shows its title. The site's favicon sits in the title pill: the
+one shows the plate alone. The site's favicon rides on the title plate: the
 extension fetches it, normalises it to a 32px PNG and the mediator writes `icons/<tabId>.png`.
-The corner of the card carries the browser's own icon, looked up from the window class's
+A window card's plate carries the app's icon instead, looked up from the window class's
 desktop entry. A browser's web app (`brave-hey.com__default`) is matched to the entry that
 opens that site — by `omarchy-launch-webapp` or `--app=` in its Exec — and a class with no
 entry falls back to its own name as an icon name.
@@ -265,8 +272,8 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `hover_border_size` | int (px) | `3` | Hovered/focused preview outline thickness — `0` disables it entirely |
 | `show_focus_border` | bool (0/1) | `1` | Whether hover/selection draw `hover_border`/`select_border` at all — see "Border modes" below |
 | `show_border` | bool (0/1) | `0` | An always-on base ring on every tile, independent of hover/selection — see "Border modes" below |
-| `show_tab_icons` | bool (0/1) | `1` | Site favicon in the tab's title pill and the browser's icon in the card's corner |
-| `show_window_icons` | bool (0/1) | `1` | The window's app icon in the card's corner |
+| `show_tab_icons` | bool (0/1) | `1` | The page's favicon on the tab card's title plate |
+| `show_window_icons` | bool (0/1) | `1` | The app's icon on the window card's title plate |
 | `border_color` | color/role | `"0x50ffffff"` | `show_border`'s ring color |
 | `border_size` | int (px) | `2` | `show_border`'s ring thickness — `0` disables it |
 | `focus_follows_mouse` | bool (0/1) | `1` | Keyboard selection tracks the hovered preview |
@@ -313,24 +320,22 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `close_button_color` | color/role | `"0xe6e23b3b"` | `✕` close-button fill — per-window, and per-workspace (closes every window on it) |
 | `close_glyph_color` | color | `"0xffffffff"` | the `✕` glyph itself, drawn on top of `close_button_color` |
 | `label_color` | color | `"0xf2ffffff"` | window/workspace name text under tiles and strip cards |
-| `title_pill_color` | color | `"0xcc11151c"` | the caption pill behind a tile's title label in desktop/canvas mode |
+| `title_pill_color` | color | `"0xcc11151c"` | the plate inside a card that carries its icon and title |
 | `title_font_size` | int | `12` | font size of a tile's title label |
 | `launcher_width` | int (px) | `620` | Launcher panel width before the grid's side margins cap it |
 | `launcher_rows` | int | `7` | Visible launcher rows; the list scrolls past this |
 | `launcher_row_height` | int (px) | `44` | Launcher row height, and the action menu's |
 | `launcher_font_size` | int | `15` | Launcher row and search-field font size |
 | `title_label_color` | color | `"0xf2ffffff"` | the title's text colour (both layouts) |
-| `title_position` | string | `"bottom"` | `"top"` or `"bottom"`: which edge of the card the whole caption hangs off |
-| `title_round` | float | `-1.0` | caption pill corner radius in px; negative = capsule (half the height), `0` = square |
-| `counter_pill_color` | color | `"0xcc11151c"` | the `n / total` pill under the caption in carousel view |
-| `counter_font_size` | int | `12` | font size of the `n / total` counter |
+| `title_position` | string | `"bottom"` | kept for compatibility, and only as the counter pill's fallback edge: the title plate itself is always inside the card's bottom edge |
+| `title_round` | float | `-1.0` | title plate corner radius in px; negative = capsule (half the height), `0` = square |
+| `counter_font_size` | int | `12` | font size of the `n / total` counter in its pill |
 | `counter_label_color` | color | `"0xf2ffffff"` | the counter's text colour |
-| `counter_round` | float | `-1.0` | counter pill corner radius in px, same convention as `title_round` |
-| `counter_position` | string | `""` | `"top"` or `"bottom"`: which card EDGE the counter hangs off; on the title's edge it always sits further out than the title. Empty follows `title_position` |
-| `counter_pad_x` | float | `11.0` | horizontal padding inside the counter pill |
-| `counter_pad_y` | float | `5.0` | vertical padding inside the counter pill |
-| `counter_gap` | float | `8.0` | vertical gap between the caption pill and the counter pill |
-| `counter_margin` | float | `6.0` | screen-edge margin kept for the counter pill |
+| `counter_pill_color` | color | `"0xcc11151c"` | the counter pill's fill |
+| `counter_position` | string | `""` | `"top"` or `"bottom"`: the card edge the counter pill hangs off, outside the card; empty = follow `title_position` |
+| `counter_gap` | float | `8` | the card edge to the counter pill, px |
+| `counter_margin` | float | `6` | the counter pill's inset from the screen edge |
+| `counter_round` | float | `-1.0` | counter pill corner radius, same convention as `title_round` |
 | `kill_zone` | int | `1` | closing a window by dragging it to the screen edge OPPOSITE the strip; `0` makes the edge a no-op |
 | `kill_zone_size` | float | `40` | thickness of that edge zone, px |
 | `kill_zone_falloff` | float | `150` | how far from the zone its glow reaches, px |
@@ -346,13 +351,14 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `desktop_grid_cols` | int | `4` | The desktop view's grid: columns of workspaces across |
 | `desktop_tile_scale` | float | `1.125` | How much taller than its fit the desktop grid may be. Above 1 the tiles grow; the width fit always binds, so a wider grid keeps the tiles smaller |
 | `desktop_grid_rows` | int | `3` | The desktop view's grid: rows down. The groups past the grid hang below the screen |
-| `icon_shadow_offset` | float | `0.045` | card icon shadow drop, as a share of the icon's side (colour is `shadow_color`) |
-| `icon_shadow_blur` | float | `0.1` | card icon shadow falloff, as a share of the icon's side |
-| `icon_shadow_alpha` | float | `0.55` | card icon shadow opacity |
-| `title_pad_x` | float | `11` | horizontal padding inside the title pill |
-| `title_pad_y` | float | `5` | vertical padding inside the title pill |
-| `title_gap` | float | `10` | gap between a tile and its title pill |
-| `title_margin` | float | `6` | screen margin kept around the title pill |
+| `icon_shadow_offset` | float | `0.045` | plate icon shadow drop, as a share of the icon's side (colour is `shadow_color`) |
+| `icon_shadow_blur` | float | `0.1` | plate icon shadow falloff, as a share of the icon's side |
+| `icon_shadow_alpha` | float | `0.55` | plate icon shadow opacity |
+| `title_pad_x` | float | `11` | horizontal padding inside the title plate |
+| `title_pad_y` | float | `5` | vertical padding inside the title plate |
+| `counter_pad_x` | float | `11` | horizontal padding inside the counter pill |
+| `counter_pad_y` | float | `5` | vertical padding inside the counter pill |
+| `title_margin` | float | `6` | inset of the title plate from the card's edge; a plate too wide for the card shrinks to keep it |
 | `close_glyph_fill` | float | `0.62` | fraction of the close button the glyph fills |
 | `drop_hint_color` | color | `"0x38ffffff"` | drop-zone highlight flash on a workspace card while dragging |
 | `close_button` | bool (0/1) | `1` | The global switch on every x: `0` removes close buttons everywhere, strip band included, whatever `close_button_visibility` says |
@@ -493,7 +499,8 @@ state when the view is opened from outside; the key ignores it.
 - Preview windows are always opaque; depth comes from size, overlap and
   `carousel_tone_*`.
 - The chrome is the ordinary tile chrome. A title wider than its card is
-  shortened with `...`; the `n / total` counter hangs off the centred card's pill.
+  shortened with `...`; the `n / total` counter is the outside pill under the
+  centred card.
 - Cards paint far -> centred, so the focused card and its ring sit on top. Only
   the centred card carries a ring.
 - Windows beyond `carousel_cards` are not drawn; the run scales down to fit

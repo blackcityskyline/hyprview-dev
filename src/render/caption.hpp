@@ -1,7 +1,8 @@
 #pragma once
 
-// THE CAPTION. One module, one rule (AGENTS.md 2.35): a card that HAS the caption takes it
-// away; a card that grazes it only lets it run under, whole.
+// THE CAPTION, two owners with two rules: the card's NAME is a plate inside its own BOTTOM edge
+// (nothing to dodge, only the fit that keeps a long title inside it), and the run's COUNTER is
+// the outside pill it always was -- shoved clear of a card that reaches it, fading with its card.
 
 #include "../layout.hpp"
 
@@ -18,20 +19,11 @@ namespace hyprview::render {
                  : std::max(margin, cardY - gap - pillH);
 }
 
-// Both pills on ONE card edge; the counter is the OUTER pill either way.
-struct CaptionPills {
-    double titleY;
-    double counterY;
-};
-
-[[nodiscard]] inline CaptionPills captionPills(double cardY, double cardH, double titleH,
-                                               double counterH, double cardGap,
-                                               double stackGap, bool below, double screenH,
-                                               double margin) {
-    const double top = captionPillY(cardY, cardH, titleH + stackGap + counterH, cardGap,
-                                    below, screenH, margin);
-    return below ? CaptionPills{top, top + titleH + stackGap}      // card, title, counter
-                 : CaptionPills{top + counterH + stackGap, top};   // counter, title, card
+// a caption sized off a window title can be wider than the screen minus both insets.
+[[nodiscard]] inline double insetWithin(double x, double size, double screenW,
+                                        double inset) {
+    const double hi = screenW - size - inset;
+    return hi < inset ? screenW * 0.5 : std::clamp(x, inset, hi);
 }
 
 // Negative configured = a capsule; capped at half the shorter side, or the shape turns inside out.
@@ -41,18 +33,11 @@ struct CaptionPills {
     return static_cast<int>(std::max(0.0, want));
 }
 
-// a caption sized off a window title can be wider than the screen minus both insets.
-[[nodiscard]] inline double insetWithin(double x, double size, double screenW,
-                                        double inset) {
-    const double hi = screenW - size - inset;
-    return hi < inset ? screenW * 0.5 : std::clamp(x, inset, hi);
-}
-
 // How far a caption comes down with its card. refW is the CENTRED card, the one scale 1.0 belongs to.
 [[nodiscard]] inline double cardScale(double cardW, double refW) {
-    if (refW <= 0.0 || cardW <= 0.0)
-        return 1.0;
-    return std::clamp(cardW / refW, 0.45, 1.0);
+  if (refW <= 0.0 || cardW <= 0.0)
+    return 1.0;
+  return std::clamp(cardW / refW, 0.45, 1.0);
 }
 
 struct CaptionSizes {
@@ -60,82 +45,74 @@ struct CaptionSizes {
   double countW = 0.0, countH = 0.0;
   bool hasLabel = false;
   bool hasCounter = false;
-  double iconW = 0.0; // the site's favicon, inside the pill before the text
+  double iconW = 0.0; // the site's favicon, on the plate before the text
   bool hasIcon = false;
 };
 
 struct CaptionStyle {
   double padX = 0.0, padY = 0.0;
-  double cPadX = 0.0, cPadY = 0.0;
-  double cardGap = 0.0;
-  double stackGap = 0.0;
-  double margin = 0.0;
-  double cMargin = 0.0;
-  double cardRefW = 0.0; // the centred card, the one scale 1.0 belongs to
-  double gridGapMin = 1.0;
-  bool below = true;        // title hangs off the card's bottom edge
-  bool counterBelow = true; // counter hangs off the card's bottom edge
-  double iconGap = 6.0;     // between the favicon and the first glyph
+  double cPadX = 0.0, cPadY = 0.0; // the counter pill's own padding
+  double edgeGap = 0.0;            // card edge to the counter pill
+  double margin = 0.0;             // the plate's inset from the card's own edge
+  double cMargin = 0.0;            // screen margin kept for the counter pill
+  double cardRefW = 0.0;           // the centred card, the one scale 1.0 belongs to
+  bool counterBelow = true;        // the counter hangs off the card's bottom edge
+  double iconGap = 6.0;            // between the icon and the text
 };
 
 struct CaptionLayout {
-  LRect pill;     // pre-push, pre-collapse
-  LRect counter;  // pre-push, pre-collapse; h == 0 when there is no counter
+  LRect pill;    // the plate, inside the card's bottom edge
+  LRect counter; // the counter's own pill, outside the card; h == 0 when there is none
   double kFit = 1.0;
 };
 
-[[nodiscard]] inline CaptionLayout captionLayout(const LRect &box, const LRect &band,
+[[nodiscard]] inline CaptionLayout captionLayout(const LRect &card, const LRect &band,
                                                  double screenW, double screenH,
                                                  const CaptionSizes &s,
                                                  const CaptionStyle &st) {
-  // Nothing to label: nothing to draw, not an empty pill with padding around it.
+  // Nothing to label: nothing to draw, not an empty plate with padding around it.
   if (!s.hasLabel && !s.hasCounter)
     return CaptionLayout{};
-  const double textW = s.hasLabel ? s.textW : s.countW;
-  const double textH = s.hasLabel ? s.textH : s.countH;
-  const double padX  = s.hasLabel ? st.padX  : st.cPadX;
-  const double padY  = s.hasLabel ? st.padY  : st.cPadY;
-  const double counterH = s.hasLabel && s.hasCounter ? s.countH + 2 * st.cPadY : 0.0;
 
-  const double kCard = cardScale(box.w, st.cardRefW);
-  // The caption's scale is the CARD's scale: a long title is not a smaller title.
-  const double kFit = kCard;
-  const double iconW = s.hasIcon ? s.iconW + st.iconGap : 0.0;
-  const double innerH = s.hasIcon ? std::max(textH, s.iconW) : textH;
-  const double pw = (textW + iconW + 2 * padX) * kFit;
-  const double ph = (innerH + 2 * padY) * kFit;
+  // No label: the plate IS the counter, inside the card, in the place the title would take.
+  const bool label = s.hasLabel;
+  const double textW = label ? s.textW : s.countW;
+  const double textH = label ? s.textH : s.countH;
+  const double padX = label ? st.padX : st.cPadX;
+  const double padY = label ? st.padY : st.cPadY;
+  const bool icon = label && s.hasIcon && s.iconW > 0.0;
+  const double iconW = icon ? s.iconW + st.iconGap : 0.0;
+  const double innerH = icon ? std::max(textH, s.iconW) : textH;
+  const double contentW = textW + iconW + 2.0 * padX;
 
-  const double stackGap = counterH > 0.0 ? st.stackGap : 0.0;
-  const double margin   = s.hasLabel ? st.margin : st.cMargin;
+  // The plate lives ON the card, so a title wider than the card shrinks instead of running off.
+  const double kCard = cardScale(card.w, st.cardRefW);
+  const double naturalW = contentW * kCard;
+  const double room = std::max(card.w - 2.0 * st.margin, 1.0);
+  const double kFit = naturalW > 0.0 ? kCard * std::min(1.0, room / naturalW) : kCard;
 
-  // The band is part of the edge margin: on its edge it thickens it, elsewhere not.
-  const bool bandOnTop = band.y < screenH * 0.5;
-  const double marginTop    = margin + (bandOnTop ? band.h : 0.0);
-  const double marginBottom = margin + (bandOnTop ? 0.0 : band.h);
-  const bool sameEdge = counterH <= 0.0 || st.counterBelow == st.below;
+  const double pw = contentW * kFit;
+  const double ph = (innerH + 2.0 * padY) * kFit;
+  const double lo = card.x + st.margin;
+  const double hi = std::max(lo, card.x + card.w - st.margin - pw);
 
-  const double cW = s.countW + 2 * st.cPadX;
   CaptionLayout lay;
   lay.kFit = kFit;
-  lay.pill = LRect{insetWithin(box.cx() - pw / 2.0, pw, screenW, 6.0), 0.0, pw, ph};
-  lay.counter = LRect{insetWithin(screenW / 2.0 - cW / 2.0, cW, screenW, 6.0), 0.0, cW, counterH};
-  if (counterH <= 0.0) {
-    lay.pill.y = captionPillY(box.y, box.h, ph, st.cardGap, st.below, screenH,
-                              st.below ? marginBottom : marginTop);
+  lay.pill = LRect{std::clamp(card.cx() - pw * 0.5, lo, hi),
+                   card.y + card.h - st.margin - ph, pw, ph};
+  if (!label || !s.hasCounter)
     return lay;
-  }
-  if (sameEdge) {
-    const CaptionPills pos =
-        captionPills(box.y, box.h, ph, counterH, st.cardGap, stackGap, st.below, screenH,
-                     st.below ? marginBottom : marginTop);
-    lay.pill.y = pos.titleY;
-    lay.counter.y = pos.counterY;
-  } else {
-    lay.pill.y = captionPillY(box.y, box.h, ph, st.cardGap, st.below, screenH,
-                              st.below ? marginBottom : marginTop);
-    lay.counter.y = captionPillY(box.y, box.h, counterH, st.cardGap, st.counterBelow, screenH,
-                                 st.cMargin);
-  }
+
+  const double cW = s.countW + 2.0 * st.cPadX;
+  const double cH = s.countH + 2.0 * st.cPadY;
+  // The strip band thickens the margin of ITS edge; the counter keeps off it there.
+  const bool bandOnTop = band.y < screenH * 0.5;
+  const bool bandHere = bandOnTop != st.counterBelow;
+  const double margin = st.cMargin + (bandHere ? band.h : 0.0);
+  lay.counter = LRect{insetWithin(screenW * 0.5 - cW * 0.5, cW, screenW, 6.0),
+                      captionPillY(card.y, card.h, cH, st.edgeGap, st.counterBelow, screenH,
+                                   margin),
+                      cW, cH};
   return lay;
 }
 
@@ -208,7 +185,6 @@ struct Escape {
   return LVec2{dir.x * best, dir.y * best};
 }
 
-// The caption's fate: how much of it is left.
 [[nodiscard]] inline double captionRemains(double covered, double pillW, double pillH,
                                           double exitFrac, bool opening) {
   constexpr double kGoneOver = 0.25; // of its own width
@@ -220,9 +196,9 @@ struct Escape {
 }
 
 struct CaptionInput {
-  LRect home;                        // where the caption sits when nothing covers it
+  LRect home;                        // where the counter sits when nothing covers it
   std::span<const LRect> covers;     // the cards that can cover it
-  bool slides = true;                // the caption steps aside from a card that grazes it
+  bool slides = true;                // the counter steps aside from a card that grazes it
   double exitFrac = 0.0;             // 0..1 on the way out
   bool opening = true;
 };

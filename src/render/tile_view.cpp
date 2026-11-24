@@ -118,7 +118,7 @@ void Overview::drawTabContent(const model::SubjectRef &subj, const LRect &box,
   }
 }
 
-// THE tile: shadow, ring, focus ring, frost, content, pill, ✕ — each under the next.
+// THE tile: shadow, ring, focus ring, frost, content, plate, ✕ — each under the next.
 void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const {
   const auto m = m_monitor.lock();
   if (!m || i >= m_scene.tiles().size())
@@ -215,9 +215,12 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   const LRect content = w ? render::contentInside(box, w->sizeAnimation()->goal().x,
                                                    w->sizeAnimation()->goal().y)
                            : box;
-  const auto tabTex = tab ? tabArt(t) : SP<Render::ITexture>{};
   if (tab) {
-    drawTabContent(t.subj, box, t.label, f, static_cast<float>(e * f));
+    // Loads the tab's picture into the pixel cache; drawTabContent reads it back out.
+    (void)tabArt(t);
+    // The title is the plate's now: a card without a picture is a bare plate, not a dim
+    // duplicate of the same title in the middle of it.
+    drawTabContent(t.subj, box, nullptr, f, static_cast<float>(e * f));
   } else {
     if (look.surface)
       safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
@@ -226,34 +229,6 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                      render::contentRadiusFor(round, content, ringW, s, !look.contain),
                      roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
   }
-  // The card's own icon in the corner the caption does not reach: the browser for a tab, the app for a window.
-  const double iconSide = render::badgeSide(box.h);
-  const int badgePx = render::badgePx(iconSide, s);
-  const auto badgeIcon = tab ? browserIcon(t, badgePx) : windowIcon(w, badgePx);
-  // The badge pops a fifth and shrinks away; the open plays the same schedule backwards.
-  constexpr double kBadgeSpan = 0.28;
-  const double badgeK = render::badgeK(openT(), exitT(), opening(), kBadgeSpan);
-  const auto pose = render::badgePose(badgeK);
-  const double iconPop = pose.pop;
-  const double iconFade = pose.alpha;
-  const float badgeA = static_cast<float>(f * iconFade);
-  const double badgeSide = badgePx / s; // the icon's own quantum, so the shadow caches with it
-  if (badgeIcon && badgeA > 0.0F &&
-      (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0) {
-    const LRect badge = render::badgeBox(box, iconSide, iconPop);
-    auto spec = render::iconShadowSpec(badgeSide, cfg::look.icon_shadow_offset,
-                                        cfg::look.icon_shadow_blur);
-    spec.r = shadowCol.r;
-    spec.g = shadowCol.g;
-    spec.b = shadowCol.b;
-    if (const auto sh = m_pixel.shadow(spec, badgeSide, badgeSide, badgeSide * 0.24, s); sh.tex)
-      g_pHyprOpenGL->renderTexture(
-          sh.tex, pxb(LRect{badge.x - sh.pad, badge.y - sh.pad, badge.w + 2 * sh.pad,
-                            badge.h + 2 * sh.pad}, s),
-          {.a = static_cast<float>(cfg::look.icon_shadow_alpha * badgeA)});
-    g_pHyprOpenGL->renderTexture(badgeIcon, pxb(badge, s), {.a = badgeA});
-  }
-
   if (look.tone > 0.0)
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
                               {.round = pxr(round, s), .roundingPower = roundPow});
@@ -274,125 +249,111 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   }
 }
 
-// The caption: the title pill and the counter, in a pass of its own.
+// THE CAPTION, two owners: the card's name is ON the card -- a plate inside its bottom edge,
+// with the icon -- and the run's counter is the outside pill it has always been.
 void Overview::drawTileCaption(int i, const TileLook &look) const {
   const auto m = m_monitor.lock();
   if (!m)
     return;
   const auto &t = m_scene.tiles()[i];
   const bool tab = cardOf(t).isTab();
-  const bool framed = static_cast<int>(i) == m_scene.hoveredTile() || look.lift;
-  const bool selected = static_cast<int>(i) == m_scene.focused() && !look.lift;
   const double s = m->m_scale;
   const double e = eased();
   const float f = static_cast<float>(entryFade(i));
   const float roundPow = cfg::look.preview_round_power;
   const LRect box = look.box;
-  // A tab's title IS the card: an uncaptioned tab card is invisible.
-  if ((framed || selected || tab) && !look.lift) {
-    const bool hasLabel = t.label && t.label->m_size.x > 0;
-    const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
-    auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
-    const bool hasCounter = countTex && countTex->m_size.x > 0;
-    // The site's icon belongs beside the title; a tab with no title has nothing to sit next to.
-    const auto favicon = tab && cfg::look.show_tab_icons != 0 ? tabIcon(t)
-                                                              : SP<Render::ITexture>{};
-    const bool hasIcon = hasLabel && favicon && favicon->m_size.x > 0;
-    const double iconSide = hasIcon ? t.label->m_size.y * 1.5 : 0.0;
-    const render::CaptionSizes sizes{
-        hasLabel ? t.label->m_size.x : 0.0, hasLabel ? t.label->m_size.y : 0.0,
-        hasCounter ? countTex->m_size.x : 0.0, hasCounter ? countTex->m_size.y : 0.0,
-        hasLabel, hasCounter, iconSide, hasIcon};
-    const bool titleBelow = cfg::look.title_position.get() != "top";
-    const std::string cpos = cfg::look.counter_position.get();
-    const render::CaptionStyle style{
-        cfg::look.title_pad_x, cfg::look.title_pad_y,
-        cfg::look.counter_pad_x, cfg::look.counter_pad_y,
-        cfg::look.title_gap, cfg::look.counter_gap,
-        cfg::look.title_margin, cfg::look.counter_margin,
-        m_view.cardRefW(), std::max<double>(cfg::grid.gap, 1.0),
-        titleBelow, cpos.empty() ? titleBelow : cpos != "top"};
-    const auto lay = render::captionLayout(box, stripBand(), m->m_size.x, m->m_size.y, sizes,
-                                           style);
-    if (lay.pill.w > 0.0) {
-      const LRect pill = lay.pill;
-      // One owner for the caption; the view only says whether it may slide aside.
-      const auto covers = coveringCards();
-      const auto title = render::placeCaption(
-          {pill, covers, look.push, exitT(), opening()});
-      const auto count = lay.counter.h > 0.0
-                             ? render::placeCaption({lay.counter, covers, look.push, exitT(),
-                                                     opening()})
-                             : render::Caption{};
-      const double pop = title.scale;
-      const double cf = e * f;
-      LRect drawn = render::scaledAboutCentre(title.box, pop);
-      Vector2D cPush{};
-      LRect cAt{};
-      if (lay.counter.h > 0.0) {
-        cPush = Vector2D{count.shove.x, count.shove.y};
-        cAt = render::scaledAboutCentre(count.box, count.scale);
-      }
-      debug::trace::ring("title_pill", pill,
-                         pxr(render::pillRadius(cfg::look.title_round, pill.w, pill.h), s), cf);
-      debug::trace::ring("counter_pill", lay.counter, 0, cf);
-      debug::trace::ring("caption_push", LRect{title.shove.x, title.shove.y, cPush.x, cPush.y},
-                         0, cf);
-      debug::trace::ring("title_pill_drawn", drawn,
-                         pxr(render::pillRadius(cfg::look.title_round, drawn.w, drawn.h), s), cf);
-      if (cAt.h > 0.0) {
-        safeRenderRect("tile", pxb(CBox(cAt.x, cAt.y, cAt.w, cAt.h), s),
-                               cfg::colors.counter_pill.get(cf),
-                               {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
-                                .roundingPower = roundPow});
-        const double cPop = count.scale;
+
+  const bool hasLabel = t.label && t.label->m_size.x > 0;
+  const bool wantCounter = look.counter && m_scene.tiles().size() > 1;
+  const auto countTex = wantCounter ? t.countLabel : SP<Render::ITexture>{};
+  const bool hasCounter = countTex && countTex->m_size.x > 0;
+  if (!hasLabel && !hasCounter)
+    return;
+
+  // The plate's icon: the page's favicon for a tab, the app's own for a window.
+  const double iconSide = hasLabel ? t.label->m_size.y * 1.5 : 0.0;
+  const auto w = tileWindow(t);
+  const bool showIcon =
+      hasLabel && (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0;
+  const auto icon = !showIcon ? SP<Render::ITexture>{}
+                              : tab ? tabIcon(t) : windowIcon(w, render::iconPx(iconSide, s));
+  const bool hasIcon = icon && icon->m_size.x > 0;
+
+  const render::CaptionSizes sizes{
+      hasLabel ? t.label->m_size.x : 0.0, hasLabel ? t.label->m_size.y : 0.0,
+      hasCounter ? countTex->m_size.x : 0.0, hasCounter ? countTex->m_size.y : 0.0,
+      hasLabel, hasCounter, iconSide, hasIcon};
+  const std::string cpos = cfg::look.counter_position.get();
+  const render::CaptionStyle style{
+      cfg::look.title_pad_x, cfg::look.title_pad_y,
+      cfg::look.counter_pad_x, cfg::look.counter_pad_y,
+      cfg::look.counter_gap,
+      cfg::look.title_margin, cfg::look.counter_margin,
+      m_view.cardRefW(),
+      cpos.empty() ? cfg::look.title_position.get() != "top" : cpos != "top", 6.0};
+  const auto lay = render::captionLayout(box, stripBand(), m->m_size.x, m->m_size.y, sizes,
+                                         style);
+  const float a = static_cast<float>(e * f);
+
+  if (lay.pill.w > 0.0) {
+    const LRect plate = lay.pill;
+    const double k = lay.kFit;
+    const int round = render::pillRadius(cfg::look.title_round, plate.w, plate.h);
+    debug::trace::ring("title_pill", plate, pxr(round, s), a);
+    safeRenderRect("tile", pxb(CBox(plate.x, plate.y, plate.w, plate.h), s),
+                   cfg::colors.title_pill.get(a),
+                   {.round = pxr(round, s), .roundingPower = roundPow});
+    if (hasIcon) {
+      const LRect at{plate.x + style.padX * k, plate.y + (plate.h - iconSide * k) * 0.5,
+                     iconSide * k, iconSide * k};
+      // The icon's shadow is the plugin's own: Hyprland's shader divides by the shape.
+      auto spec = render::iconShadowSpec(iconSide, cfg::look.icon_shadow_offset,
+                                         cfg::look.icon_shadow_blur);
+      const auto shadowCol = cfg::colors.shadow.get(1.0);
+      spec.r = shadowCol.r;
+      spec.g = shadowCol.g;
+      spec.b = shadowCol.b;
+      if (const auto sh = m_pixel.shadow(spec, at.w, at.h, at.w * 0.2, s); sh.tex)
         g_pHyprOpenGL->renderTexture(
-            countTex,
-            pxb(LRect{cAt.x + (cAt.w - sizes.countW * cPop) / 2.0,
-                      cAt.y + (cAt.h - sizes.countH * cPop) / 2.0,
-                      sizes.countW * cPop, sizes.countH * cPop}, s),
-            {.a = static_cast<float>(cf)});
-      }
-      safeRenderRect("tile", pxb(CBox(drawn.x, drawn.y, drawn.w, drawn.h), s),
-                               cfg::colors.title_pill.get(cf),
-                               {.round = pxr(render::pillRadius(cfg::look.title_round, drawn.w,
-                                                                 drawn.h), s),
-                                .roundingPower = roundPow});
-      if (hasIcon) {
-        const LRect at{drawn.x + style.padX * lay.kFit * pop,
-                       drawn.y + (drawn.h - iconSide * lay.kFit * pop) / 2.0,
-                       iconSide * lay.kFit * pop, iconSide * lay.kFit * pop};
-        // The icon's shadow is the plugin's own: Hyprland's shader divides by the shape.
-        auto spec = render::iconShadowSpec(iconSide, cfg::look.icon_shadow_offset,
-                                            cfg::look.icon_shadow_blur);
-        const auto shadowCol = cfg::colors.shadow.get(1.0);
-        spec.r = shadowCol.r;
-        spec.g = shadowCol.g;
-        spec.b = shadowCol.b;
-        if (const auto sh = m_pixel.shadow(spec, at.w, at.h, at.w * 0.2, s); sh.tex)
-          g_pHyprOpenGL->renderTexture(
-              sh.tex,
-              pxb(LRect{at.x - sh.pad, at.y - sh.pad, at.w + 2 * sh.pad, at.h + 2 * sh.pad}, s),
-              {.a = static_cast<float>(cfg::look.icon_shadow_alpha * cf)});
-        g_pHyprOpenGL->renderTexture(favicon, pxb(at, s),
-                                     {.a = static_cast<float>(cf)});
-      }
-      if (hasLabel)
-        g_pHyprOpenGL->renderTexture(
-            t.label,
-            pxb(CBox(drawn.x + (style.padX + (hasIcon ? iconSide + style.iconGap : 0.0)) *
-                                    lay.kFit * pop,
-                     drawn.y + (drawn.h - sizes.textH * lay.kFit * pop) / 2.0,
-                     sizes.textW * lay.kFit * pop, sizes.textH * lay.kFit * pop), s),
-            {.a = static_cast<float>(cf)});
-      else
-        // The counter rides INSIDE the pill, so it pops with it.
-        g_pHyprOpenGL->renderTexture(
-            countTex,
-            pxb(LRect{drawn.x + style.cPadX * lay.kFit * pop,
-                      drawn.y + (drawn.h - sizes.countH * lay.kFit * pop) / 2.0,
-                      sizes.countW * lay.kFit * pop, sizes.countH * lay.kFit * pop}, s),
-            {.a = static_cast<float>(cf)});
+            sh.tex,
+            pxb(LRect{at.x - sh.pad, at.y - sh.pad, at.w + 2 * sh.pad, at.h + 2 * sh.pad}, s),
+            {.a = static_cast<float>(cfg::look.icon_shadow_alpha * a)});
+      g_pHyprOpenGL->renderTexture(icon, pxb(at, s), {.a = a});
+    }
+    if (hasLabel)
+      g_pHyprOpenGL->renderTexture(
+          t.label,
+          pxb(CBox(plate.x + (style.padX + (hasIcon ? iconSide + style.iconGap : 0.0)) * k,
+                   plate.y + (plate.h - sizes.textH * k) * 0.5, sizes.textW * k,
+                   sizes.textH * k), s),
+          {.a = a});
+    else
+      // Nothing to name: the counter is the plate's own text, not a second plate.
+      g_pHyprOpenGL->renderTexture(
+          countTex,
+          pxb(LRect{plate.x + style.cPadX * k, plate.y + (plate.h - sizes.countH * k) * 0.5,
+                    sizes.countW * k, sizes.countH * k}, s),
+          {.a = a});
+  }
+
+  // The counter: the outside pill, pushed clear of a card that reaches it, fading with its card.
+  if (lay.counter.h > 0.0) {
+    const auto count = render::placeCaption(
+        {lay.counter, coveringCards(), look.push, exitT(), opening()});
+    const LRect cAt = render::scaledAboutCentre(count.box, count.scale);
+    debug::trace::ring("counter_pill", lay.counter, 0, a);
+    if (cAt.h > 0.0) {
+      safeRenderRect("tile", pxb(CBox(cAt.x, cAt.y, cAt.w, cAt.h), s),
+                     cfg::colors.counter_pill.get(a),
+                     {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
+                      .roundingPower = roundPow});
+      const double cPop = count.scale;
+      g_pHyprOpenGL->renderTexture(
+          countTex,
+          pxb(LRect{cAt.x + (cAt.w - sizes.countW * cPop) / 2.0,
+                    cAt.y + (cAt.h - sizes.countH * cPop) / 2.0,
+                    sizes.countW * cPop, sizes.countH * cPop}, s),
+          {.a = a});
     }
   }
 }
@@ -525,21 +486,23 @@ void Overview::renderQuickLook() const {
                                                static_cast<int>(content.w));
   if (!label || label->m_size.x <= 0)
     return;
-  const double pillW = label->m_size.x + 2.0 * cfg::look.title_pad_x;
-  const double pillH = label->m_size.y + 2.0 * cfg::look.title_pad_y;
-  const bool below = cfg::look.title_position.get() != "top";
-  const LRect pill{
-      render::insetWithin(card.x + (card.w - pillW) * 0.5, pillW, m->m_size.x,
-                          cfg::look.title_margin),
-      render::captionPillY(card.y, card.h, pillH, cfg::look.title_gap, below,
-                           m->m_size.y, cfg::look.title_margin),
-      pillW, pillH};
-  safeRenderRect("quick_look", pxb(pill, s), cfg::colors.title_pill.get(a),
-                 {.round = pxr(render::pillRadius(cfg::look.title_round, pill.w, pill.h), s),
+  // The same plate as a card's, inside the preview's own bottom edge.
+  const render::CaptionStyle style{cfg::look.title_pad_x, cfg::look.title_pad_y, 0.0, 0.0,
+                                   0.0, cfg::look.title_margin, 0.0, card.w, true, 6.0};
+  const auto lay = render::captionLayout(
+      card, LRect{}, m->m_size.x, m->m_size.y,
+      render::CaptionSizes{label->m_size.x, label->m_size.y, 0.0, 0.0, true, false, 0.0, false},
+      style);
+  const LRect plate = lay.pill;
+  if (plate.w <= 0.0)
+    return;
+  safeRenderRect("quick_look", pxb(plate, s), cfg::colors.title_pill.get(a),
+                 {.round = pxr(render::pillRadius(cfg::look.title_round, plate.w, plate.h), s),
                   .roundingPower = roundPow});
   g_pHyprOpenGL->renderTexture(
-      label, pxb(LRect{pill.x + cfg::look.title_pad_x, pill.y + cfg::look.title_pad_y,
-                       label->m_size.x, label->m_size.y}, s),
+      label, pxb(LRect{plate.x + cfg::look.title_pad_x * lay.kFit,
+                       plate.y + (plate.h - label->m_size.y * lay.kFit) * 0.5,
+                       label->m_size.x * lay.kFit, label->m_size.y * lay.kFit}, s),
       {.a = a});
 }
 

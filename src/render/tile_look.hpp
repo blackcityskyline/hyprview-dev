@@ -16,7 +16,7 @@ struct TileLook {
   bool   counter = false;
   bool   button = false; // the ✕; caller owns the GL_BLEND guard
   bool   surface = false; // the plate under the card
-  bool   push = true;      // the caption gives way to a card
+  bool   push = true;      // the counter gives way to a card
   double tone = 0.0;
 };
 
@@ -42,7 +42,7 @@ struct TileLook {
   l.button = button;
   l.counter = depth == 0;
   l.surface = true; // the run's cards are frames, and the frame has a plate
-  l.push = false;    // a long title runs under the cards, it is not pushed away
+  l.push = false;    // a counter on the centred card stays where the run put it
   return l;
 }
 

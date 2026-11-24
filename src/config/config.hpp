@@ -155,7 +155,7 @@ struct look {
   Float shadow_radius;
   Float shadow_radius_lift;
   Float shadow_alpha;
-  // Shares of the badge's side, not px: the badge itself is 26..57px depending on the card.
+  // Shares of the icon's side, not px: the icon is sized off the title's height.
   Float icon_shadow_offset;
   Float icon_shadow_blur;
   Float icon_shadow_alpha;
@@ -165,13 +165,14 @@ struct look {
   Str title_position;
   // Corner radius in px. Negative = a capsule, 0 = square; capped at half the shorter side.
   Float title_round;
-  Float title_gap;
   Float title_margin;
+  Int counter_font_size;
   Float counter_pad_x;
   Float counter_pad_y;
-  Int counter_font_size;
+  // Corner radius in px for the counter pill, same convention as title_round.
   Float counter_round;
   Str counter_position;
+  // Card edge to the counter pill, and the screen margin it keeps.
   Float counter_gap;
   Float counter_margin;
   Float close_glyph_fill;

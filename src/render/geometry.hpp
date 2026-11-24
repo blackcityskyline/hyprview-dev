@@ -154,54 +154,8 @@ enum class Anchor {
     return LRect{cx - r, cy - r, 2 * r, 2 * r};
 }
 
-[[nodiscard]] inline double pillScale(double cardW, double inset, double pillW) {
-    if (pillW <= 0.0)
-        return 1.0;
-    return std::min(1.0, std::max(cardW - inset, 1.0) / pillW);
-}
-
-
-
-
-
-
-// The badge has one schedule, played in both directions: k == 0 is gone, k == 1 is at rest.
-struct BadgePose {
-  double pop = 1.0;
-  double alpha = 1.0;
-};
-
-[[nodiscard]] inline BadgePose badgePose(double k) {
-  constexpr double kPopPeak = 0.77; // where the overshoot sits, as a share of k
-  constexpr double kFadeIn = 0.81;  // alpha reaches 1 a touch after the peak
-  const double t = std::clamp(k, 0.0, 1.0);
-  BadgePose out;
-  out.pop = t >= kPopPeak ? 1.0 + 0.2 * (1.0 - t) / (1.0 - kPopPeak)
-                          : 0.65 + 0.55 * t / kPopPeak;
-  out.alpha = std::min(1.0, t / kFadeIn);
-  return out;
-}
-
-// The badge's own window of the run: in at the front of the open, out at the end of the close.
-[[nodiscard]] inline double badgeK(double openT, double exitT, bool opening, double span) {
-  if (span <= 0.0)
-    return 1.0;
-  return opening ? std::clamp(openT / span, 0.0, 1.0)
-                 : std::clamp(1.0 - exitT / span, 0.0, 1.0);
-}
-
-// What a card shows in its frame: a tab with no picture shows the plate and the dim title.
-enum class CardKind { Window, Tab };
-enum class CardContent { Window, Picture, PlateAndTitle };
-
-[[nodiscard]] inline CardContent cardContent(CardKind kind, bool hasPicture) {
-  if (kind == CardKind::Window)
-    return CardContent::Window;
-  return hasPicture ? CardContent::Picture : CardContent::PlateAndTitle;
-}
-
-// The badge's texture size: steps of eight, so a growing card reuses the icon it has.
-[[nodiscard]] inline int badgePx(double side, double scale) {
+// An icon's texture size: steps of eight, so a growing card reuses the icon it has.
+[[nodiscard]] inline int iconPx(double side, double scale) {
   const int px = static_cast<int>(std::lround(side * scale));
   return std::max(16, (px + 7) / 8 * 8);
 }
@@ -211,19 +165,6 @@ enum class CardContent { Window, Picture, PlateAndTitle };
   const double w = r.w * k, h = r.h * k;
   return LRect{cx - w / 2.0, cy - h / 2.0, w, h};
 }
-
-[[nodiscard]] inline double badgeSide(double cardH) {
-  return std::clamp(cardH * 0.12825, 25.65, 57.0);
-}
-
-// The badge's own square: the corner the caption does not reach.
-[[nodiscard]] inline LRect badgeBox(const LRect &card, double side, double pop) {
-  return scaledAboutCentre(
-      LRect{card.x + side * 0.6, card.y + card.h - side * 1.6, side, side}, pop);
-}
-
-
-
 
 // The strip's own alpha: the slide is shorter than the band, so a ramp on the slide left the curtain invisible while it was still half on screen.
 [[nodiscard]] inline double stripFade(double bandE) {

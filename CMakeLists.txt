@@ -524,10 +524,10 @@ add_test(NAME shadow_mask
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/shadow_check.cpp ${CMAKE_SOURCE_DIR}/src/render/shadow.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/shadow_check $(pkg-config --cflags --libs cairo) && ${CMAKE_CURRENT_BINARY_DIR}/shadow_check")
 
-# The caption's own decision: where the pills land, which edge the band thickens,
-# how far the caption leaves a card that reached it. Six fixes landed inline in
-# drawTile, where the only observer was the screen; here the same header decides
-# it, with no GL and no Hyprland.
+# The caption's own decision: the plate lands inside its card, a long title shrinks to
+# fit it, and the counter rides on it. These rules used to live inline in drawTile,
+# where the only observer was the screen; here the same header decides them, with no
+# GL and no Hyprland.
 add_test(NAME caption_geometry
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra -I ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests/caption_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/caption_check && ${CMAKE_CURRENT_BINARY_DIR}/caption_check")
@@ -545,10 +545,10 @@ add_test(NAME scan_start_boxes
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/start_boxes_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/start_boxes_check && ${CMAKE_CURRENT_BINARY_DIR}/start_boxes_check ${CMAKE_SOURCE_DIR}")
 
-# The badge's schedule and the icon's shadow: one rule each, and the call site must use it.
-add_test(NAME scan_badge_icon
+# The plate's icon and its shadow: one rule each, and the call site must use it.
+add_test(NAME scan_plate_icon
          COMMAND ${CMAKE_COMMAND} -E env sh -c
-                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/badge_icon_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/badge_icon_check && ${CMAKE_CURRENT_BINARY_DIR}/badge_icon_check ${CMAKE_SOURCE_DIR}")
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/plate_icon_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/plate_icon_check && ${CMAKE_CURRENT_BINARY_DIR}/plate_icon_check ${CMAKE_SOURCE_DIR}")
 
 # The strip band fades on the cards' own number, never on the exit progress.
 add_test(NAME scan_strip_band

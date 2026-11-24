@@ -93,11 +93,10 @@ void Overview::renderCarousel() const {
     looks.emplace_back(i, look);
   }
 
-  // The captions first, the cards after: the cards cover a long title.
+  // Near cards paint last, over the far ones: a caption lives inside its own card, so it is
+  // covered by the card in front exactly like the rest of that card.
   for (const auto &[i, look] : looks)
-    drawTileCaption(i, look);
-  for (const auto &[i, look] : looks)
-    drawTile(static_cast<size_t>(i), look, /*withCaption=*/false);
+    drawTile(static_cast<size_t>(i), look, /*withCaption=*/true);
 }
 
 }

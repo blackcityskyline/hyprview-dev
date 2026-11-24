@@ -1,18 +1,11 @@
-// Where a caption's pills land, and how far they leave.
-//
-// Six fixes in a row landed inline in drawTile -- shove fade, one factor for both
-// pills, the band margin, the counter on the opposite edge, the screen clamp, the
-// swallowed escape -- each a branch added at the draw site, where the only
-// observer was the screen. This file pins those decisions as geometry: same
-// header the plugin compiles, no GL, no Hyprland, no config.
+// Where the caption's two pieces land.
 //
 // The rules worth pinning:
-//   - the band is part of the edge margin, on its own edge only;
-//   - the counter is the outer pill on the edge it shares with the title;
-//   - a caption on a shrunk card is scaled with that card;
-//   - a caption shoved out from under a card leaves along the cheaper axis, and a
-//     swallowed one leaves through the nearest edge;
-//   - the strip leaves its band along the anchor axis, by the deepest penetration.
+//   - the plate is inside the card, on the bottom edge, whatever the counter does;
+//   - a title wider than the card shrinks instead of running off the card;
+//   - the counter is OUTSIDE the card: its own pill, its own edge, its own margin;
+//   - the strip band thickens the margin of its own edge, and the counter keeps off it;
+//   - a caption with nothing to say draws nothing at all.
 
 #include <cassert>
 #include <cmath>
@@ -24,14 +17,16 @@
 #include "../src/render/geometry.hpp"
 
 using hyprview::LRect;
-using hyprview::LVec2;
 using hyprview::render::Anchor;
+using hyprview::render::Caption;
+using hyprview::render::CaptionInput;
 using hyprview::render::CaptionLayout;
 using hyprview::render::CaptionSizes;
 using hyprview::render::CaptionStyle;
 using hyprview::render::captionLayout;
+using hyprview::render::cardScale;
+using hyprview::render::pillRadius;
 using hyprview::render::placeCaption;
-using hyprview::render::pushOut;
 using hyprview::render::stripPush;
 
 namespace {
@@ -66,215 +61,204 @@ void sameRect(const LRect &got, const LRect &want, const char *what) {
   }
 }
 
-// One card, one label, one counter: the common case, so the other cases can state
-// only what they change.
-CaptionSizes sizes(bool label = true, bool counter = true) {
-  return CaptionSizes{label ? 200.0 : 0.0, label ? 24.0 : 0.0,
-                      counter ? 90.0 : 0.0, counter ? 20.0 : 0.0, label, counter};
+// One card, one label, no counter: the common case, so the other cases state only what they change.
+CaptionSizes sizes(bool label = true, bool counter = false, double textW = 200.0) {
+  return CaptionSizes{textW, label ? 24.0 : 0.0, counter ? 90.0 : 0.0, counter ? 20.0 : 0.0,
+                      label, counter};
 }
 
-CaptionStyle style(bool below = true, bool counterBelow = true) {
-  return CaptionStyle{11.0, 5.0, 11.0, 5.0, 10.0, 8.0, 6.0, 6.0, 400.0, 34.0, below,
-                      counterBelow};
+CaptionStyle style(bool counterBelow = true) {
+  return CaptionStyle{11.0, 5.0, 11.0, 5.0, 8.0, 6.0, 6.0, 0.0, counterBelow, 6.0};
+}
+
+bool inside(const LRect &r, const LRect &card, double margin) {
+  return r.x >= card.x + margin - kEps && r.y >= card.y + margin - kEps &&
+         r.x + r.w <= card.x + card.w - margin + kEps &&
+         r.y + r.h <= card.y + card.h - margin + kEps;
 }
 
 } // namespace
 
-// The band is part of the edge margin, and only on the edge it is drawn on.
-// THE RULE: a card that has the caption OUTRIGHT takes it away -- the caption pops, in every
-// view. A card that only grazes it lets it run under, whole. The slide aside is a policy of
-// the view, not of the rule.
-static void theCaptionIsTakenOrLeft() {
-  const LRect home{600.0, 200.0, 120.0, 30.0};
+// THE RULE the plate exists for: the name is ON the card, at its bottom edge -- the old caption
+// hung the pill off whichever edge title_position named, which is what put it on top.
+static void thePlateIsInsideItsCard() {
+  const LRect card{100.0, 200.0, 400.0, 300.0};
+  const auto lay = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(), style());
 
-  {
-    const LRect covers[1]{};
-    const auto cap = placeCaption({home, covers, true, 0.0, true});
-    want(cap.scale == 1.0, true, "an uncovered caption is whole");
-    want(cap.box.x == home.x && cap.box.y == home.y, true, "and where it was");
-    want(cap.covered, false, "and not covered");
-  }
+  sameRect(lay.pill, LRect{189.0, 460.0, 222.0, 34.0}, "the plate on the card's bottom edge");
+  near(lay.pill.y + lay.pill.h, card.y + card.h - 6.0,
+       "the plate's bottom is the card's bottom, less the margin");
+  want(inside(lay.pill, card, 6.0), true, "and it is a plate, not a label hanging off the card");
 
-  {
-    const LRect covers[1]{LRect{0.0, 0.0, 1366.0, 768.0}};
-    const auto cap = placeCaption({home, covers, true, 0.0, true});
-    want(cap.covered, true, "a card with the caption inside it has covered it");
-    want(cap.scale == 0.0, true, "and the caption is gone, not shrunk to a sliver");
-  }
-
-  {
-    const LRect covers[1]{LRect{0.0, 0.0, 1366.0, 768.0}};
-    const auto cap = placeCaption({home, covers, false, 0.0, true});
-    want(cap.scale == 0.0, true, "a caption that may not slide still pops");
-    want(cap.box.x == home.x && cap.box.y == home.y, true, "and it does not move");
-  }
-
-  // A caption at the card's very edge: it shrinks, it does not vanish.
-  {
-    const LRect covers[1]{LRect{560.0, 180.0, 400.0, 400.0}};
-    const auto cap = placeCaption({home, covers, true, 0.0, true});
-    want(cap.covered, true, "the card has the caption inside it");
-    want(cap.scale > 0.0 && cap.scale < 1.0, true, "and the caption is half gone, not whole");
-  }
-
-  {
-    const LRect covers[1]{LRect{600.0, 225.0, 400.0, 400.0}};
-    const auto cap = placeCaption({home, covers, false, 0.0, true});
-    want(cap.covered, false, "a card that only grazes the caption has not covered it");
-    want(cap.scale == 1.0, true, "and the caption is whole -- a long title does not shrink");
-    want(cap.box.y == home.y, true, "and it does not move");
-  }
-
-  {
-    const LRect covers[1]{LRect{600.0, 225.0, 400.0, 400.0}};
-    const auto cap = placeCaption({home, covers, true, 0.0, true});
-    want(cap.shove.y != 0.0, true, "a caption that may slide steps aside");
-    want(cap.scale == 1.0, true, "and stays whole while it steps");
-  }
-
-  {
-    const LRect covers[1]{};
-    const auto cap = placeCaption({home, covers, true, 0.5, false});
-    want(cap.scale <= 0.5, true, "half out is half left");
-  }
-  std::puts("the caption: taken by a card that has it, left by a card that grazes it");
+  // The counter's edge is the counter's business: the plate does not move with it.
+  const auto topCounter = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, true),
+                                        style(/*counterBelow=*/false));
+  near(topCounter.pill.y, 460.0, "a counter on the top edge leaves the plate at the bottom");
+  near(topCounter.counter.y + topCounter.counter.h, card.y - 8.0,
+       "and the counter is the thing outside, above the card");
+  std::puts("the plate: inside the card, on the bottom edge, whatever the counter does");
 }
 
-static void theBandIsPartOfTheMargin() {
-  // A card near the top edge: its caption above it is held off the edge by the
-  // margin, and the band on that edge thickens the margin.
-  const LRect high{100.0, 20.0, 400.0, 300.0};
-  const auto top = captionLayout(high, LRect{0.0, 0.0, 1920.0, 60.0}, 1920.0, 540.0, sizes(),
-                                  style(false, false));
-  near(top.pill.y, 104.0, "a band at the top pushes a caption above the card down to its margin");
-  const auto noBand = captionLayout(high, LRect{}, 1920.0, 540.0, sizes(), style(false, false));
-  near(noBand.pill.y, 44.0, "without the band it sits on the plain margin");
+// A plate that lives on the card has nowhere to hang, so a long title fits by getting smaller.
+static void aLongTitleFitsInsideItsCard() {
+  const LRect card{100.0, 200.0, 400.0, 300.0};
 
-  // A band at the bottom thickens the bottom margin: the caption under the card
-  // is lifted off the band's edge by exactly the band's thickness.
-  const LRect box{100.0, 200.0, 400.0, 300.0};
-  const auto bottom = captionLayout(box, LRect{0.0, 480.0, 1920.0, 60.0}, 1920.0, 540.0,
-                                     sizes(), style(true, true));
-  const auto bare = captionLayout(box, LRect{}, 1920.0, 540.0, sizes(), style(true, true));
-  near(bare.pill.y - bottom.pill.y, 60.0, "the band eats its own thickness off the margin");
-  near(bottom.pill.y, 402.0, "and the caption is clamped to what is left");
+  const auto shortTitle = captionLayout(card, LRect{}, 1920.0, 1080.0,
+                                        sizes(true, false, 120.0), style());
+  near(shortTitle.pill.cx(), card.cx(), "a short title is centred on the card");
+  near(shortTitle.kFit, 1.0, "and is not shrunk");
 
-  // A band on the far edge does not touch this one.
-  const auto other = captionLayout(box, LRect{0.0, 0.0, 1920.0, 60.0}, 1920.0, 540.0, sizes(),
-                                    style(true, true));
-  near(other.pill.y, bare.pill.y, "a band on the other edge leaves this margin alone");
-  std::puts("the band: its own edge only, and by its own thickness");
+  const auto longTitle = captionLayout(card, LRect{}, 1920.0, 1080.0,
+                                       sizes(true, false, 900.0), style());
+  want(longTitle.kFit < 1.0, true, "a long title is scaled down to fit");
+  want(inside(longTitle.pill, card, 6.0), true, "and the plate stays inside the card");
+  near(longTitle.pill.w, card.w - 2.0 * 6.0, "the widest plate is the card less its margins");
+  near(longTitle.pill.h, 34.0 * longTitle.kFit, "the plate's height follows the same factor");
+  std::puts("the plate: a long title shrinks to fit, it does not run off the card");
 }
 
-// One card, two pills: the counter is the outer one on the edge they share.
-static void theCounterIsTheOuterPill() {
-  const LRect box{100.0, 200.0, 400.0, 300.0};
-  const auto lay = captionLayout(box, LRect{}, 1920.0, 1080.0, sizes(), style());
+// The site's favicon rides on the plate before the text.
+static void theIconWidensThePlate() {
+  const LRect card{100.0, 200.0, 400.0, 300.0};
+  const auto plain = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, false, 100.0),
+                                   style());
 
-  sameRect(lay.pill, LRect{189.0, 510.0, 222.0, 34.0}, "the title pill");
-  sameRect(lay.counter, LRect{904.0, 552.0, 112.0, 30.0}, "the counter pill");
-  // The counter is further from the card than the title: a counter between the card
-  // and the title reads as part of the card's own furniture.
-  want(lay.counter.y - (box.y + box.h) > lay.pill.y - (box.y + box.h), true,
-       "the counter is the outer pill");
+  auto icon = sizes(true, false, 100.0);
+  icon.iconW = 24.0;
+  icon.hasIcon = true;
+  const auto withIcon = captionLayout(card, LRect{}, 1920.0, 1080.0, icon, style());
+  near(withIcon.pill.w - plain.pill.w, (24.0 + 6.0) * withIcon.kFit,
+       "the plate grows by the icon and the gap");
+  near(withIcon.pill.h, plain.pill.h, "an icon no taller than the text leaves the height alone");
 
-  // On the opposite edge there is no order between them: each hangs off the card
-  // alone, and each is clamped by its own margin.
-  const auto split = captionLayout(box, LRect{}, 1920.0, 1080.0, sizes(), style(true, false));
-  near(split.pill.y, 510.0, "the title stays under the card");
-  near(split.counter.y, 160.0, "the counter goes over it");
-  std::puts("the counter: outer on the shared edge, alone on the other one");
-}
-
-// A caption belongs to the card it labels, so it is scaled with that card.
-static void aCaptionIsSizedWithItsCard() {
-  const LRect big{100.0, 200.0, 400.0, 300.0};
-  const LRect small{100.0, 200.0, 200.0, 300.0};
-
-  const auto full = captionLayout(big, LRect{}, 1920.0, 1080.0, sizes(), style());
-  near(full.pill.w, 222.0, "the label at the card's own size");
-
-  // A neighbour on the run is smaller than the centred card, and its caption
-  // shrinks with it: the same pill on a half-width card is a pill that does not fit.
-  const auto shrunk = captionLayout(small, LRect{}, 1920.0, 1080.0, sizes(), style());
-  near(shrunk.pill.w, 111.0, "the neighbour's caption is scaled with its card");
-  near(shrunk.kFit, 0.5, "and the factor is the card's own");
-
-  // A card wider than the screen still gets a caption that fits: the clamp centres
-  // it rather than hanging it off the edge.
-  const LRect wide{0.0, 0.0, 2500.0, 300.0};
-  const auto over = captionLayout(wide, LRect{}, 1920.0, 1080.0,
-                                  CaptionSizes{1900.0, 24.0, 90.0, 20.0, true, true}, style());
-  near(over.pill.x, 960.0, "a pill wider than the screen is centred on it");
-  std::puts("the caption: sized with its card, and clamped to the screen");
-}
-
-// The site's favicon rides inside the title's pill, so the pill grows by the icon and the
-// gap between them; the text keeps its size, and the pill stays centred on the card.
-static void theIconWidensTheTitlePill() {
-  const LRect card{100.0, 100.0, 400.0, 300.0};
-  const auto plain = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, false), style());
-  auto withIcon = sizes(true, false);
-  withIcon.iconW = 24.0;
-  withIcon.hasIcon = true;
-  const auto icon = captionLayout(card, LRect{}, 1920.0, 1080.0, withIcon, style());
-  near(icon.pill.w - plain.pill.w, (24.0 + 6.0) * icon.kFit,
-       "the pill grows by the icon and the gap, at the card's scale");
-  near(icon.pill.x, plain.pill.x - (24.0 + 6.0) * icon.kFit / 2.0,
-       "and stays centred on the card");
-  near(icon.pill.h, plain.pill.h, "an icon no taller than the text leaves the pill's height alone");
-
-  // An icon taller than the text sets the pill's height, and the text stays centred in it.
-  withIcon.iconW = 36.0;
-  const auto tall = captionLayout(card, LRect{}, 1920.0, 1080.0, withIcon, style());
+  icon.iconW = 36.0;
+  const auto tall = captionLayout(card, LRect{}, 1920.0, 1080.0, icon, style());
   near(tall.pill.h - plain.pill.h, (36.0 - 24.0) * tall.kFit,
-       "a taller icon grows the pill by the difference");
+       "a taller icon grows the plate by the difference");
+  std::puts("the plate's icon: widens by the icon and the gap, sets the height when it is tall");
 }
 
-// A caption with no label shows the counter instead, and one with neither shows
-// nothing at all -- a zero-width pill is the signal, not a special case.
-static void aCaptionWithoutALabel() {
-  const LRect box{100.0, 200.0, 400.0, 300.0};
+// The counter is a NUMBER about the run, and it stays outside the card, on its own edge: its
+// own padding, its own gap from the card, its own screen margin.
+static void theCounterIsTheOutsidePill() {
+  const LRect card{100.0, 200.0, 400.0, 300.0};
+  const auto lay = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, true), style());
 
-  const auto counterOnly = captionLayout(box, LRect{}, 1920.0, 1080.0, sizes(false, true), style());
-  near(counterOnly.pill.w, 112.0, "the counter takes the pill's place");
-  near(counterOnly.counter.h, 0.0, "and there is no second pill");
-  near(counterOnly.pill.y, 510.0, "the counter hangs off the card by the title gap");
+  near(lay.counter.w, 112.0, "the counter pill is its text plus its own padding");
+  near(lay.counter.h, 30.0, "and its height too");
+  near(lay.counter.cx(), 960.0, "centred on the screen");
+  near(lay.counter.y, card.y + card.h + 8.0, "the gap below the card is counter_gap");
+  want(lay.counter.y >= card.y + card.h, true, "it is outside the card, not on it");
+  want(lay.counter.y < lay.pill.y, false, "and never inside the plate");
 
-  const auto none = captionLayout(box, LRect{}, 1920.0, 1080.0, sizes(false, false), style());
-  near(none.pill.w, 0.0, "nothing to label means nothing to draw");
-  std::puts("the caption: counter only, and nothing at all");
+  // The counter's edge is its own: the title plate does not follow it.
+  const auto up = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, true),
+                                style(/*counterBelow=*/false));
+  near(up.counter.y + up.counter.h, card.y - 8.0, "on the top edge it hangs off the top");
+  near(up.pill.y, lay.pill.y, "and the plate stays where it was");
+
+  // A counter wider than the screen is centred rather than clamped to a negative inset.
+  const auto huge = captionLayout(LRect{0.0, 0.0, 400.0, 300.0}, LRect{}, 100.0, 1080.0,
+                                  CaptionSizes{10.0, 10.0, 90.0, 20.0, true, true},
+                                  style());
+  near(huge.counter.x, 50.0,
+       "a counter wider than the screen keeps the screen's mid as its left edge, not a negative");
+  std::puts("the counter: outside the card, its own padding, gap and edge");
 }
 
-// Out from under a card: the cheaper axis, and the nearest edge when there is none.
-static void aCaptionLeavesACardThatReachedIt() {
-  const LRect card{400.0, 300.0, 300.0, 200.0};
+// The strip band is part of the edge margin -- on its own edge only, which is why the bundled
+// counter ended above the screen on the other edge in an earlier version.
+static void theCounterKeepsOffTheBand() {
+  const LRect band{0.0, 0.0, 1920.0, 100.0};
+  const LRect card{100.0, 50.0, 400.0, 300.0};
+  const auto up = captionLayout(card, band, 1920.0, 1080.0, sizes(true, true),
+                                style(/*counterBelow=*/false));
+  near(up.counter.y, 106.0, "a top band pushes the counter down by the band, plus its margin");
 
-  // Nothing covers it: no push.
-  const LRect free{380.0, 480.0, 340.0, 40.0};
-  const auto none = pushOut(free, std::vector<LRect>{});
-  near(none.x, 0.0, "no cover, no push");
-  near(none.y, 0.0, "no cover, no push");
+  const LRect bottomBand{0.0, 980.0, 1920.0, 100.0};
+  const LRect low{100.0, 700.0, 400.0, 300.0};
+  const auto down = captionLayout(low, bottomBand, 1920.0, 1080.0, sizes(true, true),
+                                  style(/*counterBelow=*/true));
+  near(down.counter.y + down.counter.h, 980.0 - 6.0,
+       "a bottom band stops the counter its own margin short of itself");
+  std::puts("the counter: the band's margin on the band's edge, and nowhere else");
+}
 
-  // Covered from below: the caption goes down, by the vertical overlap.
-  const auto down = pushOut(free, std::vector<LRect>{card});
-  near(down.x, 0.0, "it leaves vertically");
-  near(down.y, 20.0, "by the vertical overlap");
+// Nothing to say, nothing drawn: a zero-width plate is the signal, not a special case at the
+// draw site. A card with no name at all is the counter, in the plate's place.
+static void nothingToLabel() {
+  const LRect card{100.0, 200.0, 400.0, 300.0};
 
-  // The deepest cover wins, whatever order they arrive in: the first one here is
-  // the shallower of the two.
-  const LRect shallow{370.0, 450.0, 360.0, 100.0};
-  const auto deepest = pushOut(free, std::vector<LRect>{shallow, card});
-  near(deepest.y, 20.0, "the deeper cover decides the push");
-  near(deepest.x, 0.0, "and it is the deeper cover's axis");
+  const auto none = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(false, false), style());
+  near(none.pill.w, 0.0, "no label and no counter means nothing to draw");
+  near(none.counter.w, 0.0, "and no counter either");
 
-  // Swallowed: the cover is bigger than the caption on both axes, so there is no
-  // cheaper way out and the nearest edge is the way.
-  const LRect small{450.0, 330.0, 100.0, 60.0};
-  const auto out = pushOut(small, std::vector<LRect>{card});
-  near(out.x, 0.0, "a swallowed caption leaves through the nearest edge");
-  near(out.y, -30.0, "and that edge is the cover's nearest one");
-  std::puts("the push: cheaper axis, deepest cover, nearest edge when swallowed");
+  const auto counterOnly = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(false, true),
+                                         style());
+  want(counterOnly.pill.w > 0.0, true, "a counter with no title is the plate itself");
+  near(counterOnly.pill.w, 90.0 + 22.0, "sized with the counter's own padding");
+  near(counterOnly.counter.w, 0.0, "and there is no second pill for it");
+  want(inside(counterOnly.pill, card, 6.0), true, "and that plate is inside the card");
+  near(counterOnly.pill.y + counterOnly.pill.h, card.y + card.h - 6.0,
+       "on the card's own bottom edge");
+  std::puts("the plate: counter only, and nothing at all");
+}
+
+// The outside pill steps aside from a card that reaches it and is swallowed by one covering it whole.
+static void theCounterStepsAsideAndLeaves() {
+  const LRect home{600.0, 510.0, 112.0, 30.0};
+
+  {
+    // A card whose bottom edge crosses the counter's top: it steps DOWN and stays whole.
+    const std::vector<LRect> covers{{520.0, 350.0, 300.0, 180.0}};
+    const auto moved = placeCaption(CaptionInput{home, covers, true, 0.0, true});
+    want(moved.box.y > home.y, true, "a counter under an overlapping card steps down");
+    near(moved.scale, 1.0, "and is whole: it left the cover instead of being swallowed");
+    want(moved.shove.y > 0.0, true, "and the shove it took is reported");
+  }
+  {
+    // Held still (the run's centred card): no shove, whatever reaches it.
+    const std::vector<LRect> covers{{520.0, 350.0, 300.0, 180.0}};
+    const auto still = placeCaption(CaptionInput{home, covers, false, 0.0, true});
+    sameRect(still.box, home, "a counter that may not slide stays where it was put");
+  }
+  {
+    // Covered whole: gone. This is the state the old caption reached at its own width.
+    const std::vector<LRect> covers{{500.0, 400.0, 400.0, 400.0}};
+    const auto gone = placeCaption(CaptionInput{home, covers, true, 0.0, true});
+    near(gone.scale, 0.0, "a counter a card has covered outright is gone");
+  }
+  {
+    // Its card leaving takes it along, and never leaves it outliving the card.
+    const std::vector<LRect> none{};
+    near(placeCaption(CaptionInput{home, none, true, 0.5, false}).scale, 0.5,
+         "half out with a half-gone card");
+    near(placeCaption(CaptionInput{home, none, true, 1.0, false}).scale, 0.0,
+         "gone when the card is gone");
+  }
+  std::puts("the counter: steps aside, holds still, swallowed, and leaves with its card");
+}
+
+// The run's cards shrink with distance, and the plate goes with its card.
+static void thePlateIsSizedWithItsCard() {
+  near(cardScale(692.0, 692.0), 1.0, "the centred card labels at full size");
+  near(cardScale(526.0, 692.0), 526.0 / 692.0, "a neighbour scales with its card");
+  near(cardScale(692.0, 0.0), 1.0, "no reference set means no scaling, not a division by zero");
+  near(cardScale(0.0, 692.0), 1.0, "a zero-width card is not scaled");
+  want(cardScale(40.0, 692.0) >= 0.45, true,
+       "the scale is floored: a plate scaled to nothing is an absent plate");
+
+  const LRect card{100.0, 200.0, 346.0, 300.0};
+  CaptionStyle ref;
+  ref.cardRefW = 692.0;
+  ref.padX = 11.0;
+  ref.padY = 5.0;
+  ref.margin = 6.0;
+  const auto lay = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, false), ref);
+  near(lay.kFit, 0.5, "a card half the centred card's width carries a half-size plate");
+  near(lay.pill.w, 111.0, "and the plate is the card's, not the centred card's");
+  want(inside(lay.pill, card, 6.0), true, "and it still fits the card it is on");
+  std::puts("cardScale: reference, neighbours, no reference, and the floor");
 }
 
 // The strip leaves its band along the anchor axis, by the deepest penetration.
@@ -303,15 +287,27 @@ static void theStripLeavesItsBand() {
   std::puts("the strip push: four edges, by the deepest penetration");
 }
 
+// A configured corner radius: negative is a capsule, and the cap is the load-bearing half.
+static void theRadiusIsCapped() {
+  near(pillRadius(-1.0, 200.0, 30.0), 15.0, "negative is a capsule on the short side");
+  near(pillRadius(0.0, 200.0, 30.0), 0.0, "zero is square");
+  near(pillRadius(8.0, 200.0, 30.0), 8.0, "a radius in range passes through");
+  near(pillRadius(99.0, 200.0, 30.0), 15.0, "past the cap it clamps, it does not invert");
+  near(pillRadius(-1.0, 0.0, 0.0), 0.0, "a degenerate box gets nothing, not a negative");
+  std::puts("pillRadius: capsule, square, in-range, and clamped at half the short side");
+}
+
 int main() {
-  theCaptionIsTakenOrLeft();
-  theBandIsPartOfTheMargin();
-  theCounterIsTheOuterPill();
-  aCaptionIsSizedWithItsCard();
-  aCaptionWithoutALabel();
-  theIconWidensTheTitlePill();
-  aCaptionLeavesACardThatReachedIt();
+  thePlateIsInsideItsCard();
+  aLongTitleFitsInsideItsCard();
+  theIconWidensThePlate();
+  theCounterIsTheOutsidePill();
+  theCounterKeepsOffTheBand();
+  nothingToLabel();
+  theCounterStepsAsideAndLeaves();
+  thePlateIsSizedWithItsCard();
   theStripLeavesItsBand();
+  theRadiusIsCapped();
   std::puts("caption geometry ok");
   return 0;
 }
