@@ -1,11 +1,12 @@
 #include "hooks.hpp"
 
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/protocols/core/Subcompositor.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 
 #include "../debug/log.hpp"
+#include "../compat.hpp"
 #include "../overview.hpp"
 
 namespace hyprview::session {
@@ -93,7 +94,7 @@ void hkDamageSurface(void *thisptr, SP<CWLSurfaceResource> pSurface, double x,
     if (w && g_overview->shouldHideWindow(w, g_overview->monitor())) {
       // An empty commit is not a repaint: fed back, card and client drive each other forever.
       const auto WLSURF = Desktop::View::CWLSurface::fromResource(pSurface);
-      if (WLSURF && WLSURF->computeDamage().empty())
+      if (WLSURF && WLSURF->computeDamage(std::nullopt).empty())
         return;
       if (!g_overview->snapshotMode())
         g_overview->damageWindowPreview(w);
@@ -119,7 +120,7 @@ void hkCommitWindow(void *thisptr) {
   if (!g_overview || !g_overview->active() || !thisptr)
     return;
   const auto *win = static_cast<Desktop::View::CWindow *>(thisptr);
-  if (!win->m_workspace || win->m_workspace->m_visible)
+  if (!win->m_workspace || win->m_workspace->visible())
     return; // on screen: damageSurface already routed it to the preview
   const auto w = win->m_self.lock();
   if (!w || !g_overview->shouldHideWindow(w, g_overview->monitor()))
@@ -130,7 +131,7 @@ void hkCommitWindow(void *thisptr) {
         if (changed || !s)
           return;
         const auto HL = Desktop::View::CWLSurface::fromResource(s);
-        changed = HL && !HL->computeDamage().empty();
+        changed = HL && !HL->computeDamage(std::nullopt).empty();
       },
       nullptr);
   if (changed)
@@ -167,7 +168,7 @@ bool Hooks::install(HANDLE handle, void *self) {
   auto &events = Event::bus()->m_events;
 
   m_renderStageL =
-      events.render.stage.listen([o](eRenderStage stage) { o->renderStage(stage); });
+      events.render.stage.listen([o](const Event::SRenderStageEvent &event) { o->renderStage(event.stage); });
   m_mouseButtonL = events.input.mouse.button.listen(
       [o](const IPointer::SButtonEvent &event, Event::SCallbackInfo &info) {
         const auto copied = event;

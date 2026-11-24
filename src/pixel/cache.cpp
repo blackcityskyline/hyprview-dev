@@ -272,7 +272,7 @@ SP<Render::ITexture> PixelCache::workspaceLabel(const PHLWORKSPACE &ws,
   return labelIn(m_wsLabels, PHLWORKSPACEREF{ws}, text, col, size, maxW);
 }
 
-SP<Render::ITexture> PixelCache::virtualLabel(WORKSPACEID id,
+SP<Render::ITexture> PixelCache::virtualLabel(int id,
                                                const std::string &text,
                                                const CHyprColor &col, int size,
                                                int maxW) {

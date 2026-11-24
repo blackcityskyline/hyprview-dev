@@ -1,7 +1,7 @@
 #pragma once
 
 #include <hyprland/src/output/Monitor.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 
 namespace hyprview::model {
 

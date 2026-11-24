@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
   // Backwards is a modifier on the key the run already uses, not a separate binding.
   if (keys.find("m_altTabbing && k == KEY_TAB") == std::string::npos)
     return fail("Tab no longer steps the run -- Shift+Tab has nowhere to land");
-  if (keys.find("mods & HL_MODIFIER_SHIFT") == std::string::npos)
+  if (keys.find("mods & input::kModShift") == std::string::npos)
     return fail("Shift+Tab does not step backwards");
 
   // "one" is the single-workspace view whatever the config says, and it must put the override

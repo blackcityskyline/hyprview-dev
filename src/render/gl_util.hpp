@@ -10,6 +10,8 @@
 #include <hyprland/src/helpers/math/Math.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
+#include <hyprland/src/render/Renderer.hpp>
+#include <hyprland/src/render/WindowRenderPresentation.hpp>
 
 #include "../debug/log.hpp"
 #include "../layout.hpp"
@@ -108,20 +110,20 @@ inline void safeRenderRect(const char *tag, const CBox &b, const CHyprColor &col
                std::to_string(b.y));
     return;
   }
-  Render::GL::g_pHyprOpenGL->renderRect(b, col, opts);
+  Render::GL::g_pHyprOpenGL->renderRect(g_pHyprRenderer->context(), b, col, opts);
 }
 
 // renderBorder scissors to each region and NEVER clears it (OpenGL.cpp:2233-2239), so a ring
 // leaves its own scissor behind. Restore through the API: raw GL desyncs the cap cache (:2620).
 inline void restoreScissorAfterBorder() {
-  Render::GL::g_pHyprOpenGL->scissor(nullptr);
+  Render::GL::g_pHyprOpenGL->scissor(g_pHyprRenderer->context(), nullptr);
 }
 
 inline void strokeRing(const LRect &lb, double s, const CHyprColor &col,
                        int size, int round, float roundPow) {
   if (size < 1 || !drawable(lb, s))
     return;
-  Render::GL::g_pHyprOpenGL->renderBorder(
+  Render::GL::g_pHyprOpenGL->renderBorder(g_pHyprRenderer->context(), 
       pxb(lb, s), Config::CGradientValueData(col),
       {.round = pxr(round, s),
        .roundingPower = roundPow,
@@ -135,7 +137,7 @@ inline void strokeRingPx(const CBox &b, const CHyprColor &col, float alpha,
                          int round, float roundPow) {
   if (!drawable(b))
     return;
-  Render::GL::g_pHyprOpenGL->renderBorder(
+  Render::GL::g_pHyprOpenGL->renderBorder(g_pHyprRenderer->context(), 
       b, Config::CGradientValueData(col),
       {.round = round,
        .roundingPower = roundPow,
@@ -158,9 +160,9 @@ inline void dropShadow(const LRect &lb, double s, const CHyprColor &col,
   const int rangePx = static_cast<int>(range * s);
   if (rangePx <= 0)
     return;
-  Render::GL::g_pHyprOpenGL->renderRoundedShadow(
+  Render::GL::g_pHyprOpenGL->renderRoundedShadow(g_pHyprRenderer->context(), 
       pxb(LRect{lb.x, lb.y + dy, lb.w, lb.h}, s), pxr(round, s), roundPow,
-      rangePx, Config::CGradientValueData(col), alpha);
+      rangePx, Config::CGradientValueData(col), alpha, {});
 }
 
 }

@@ -2,9 +2,9 @@
 
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/config/ConfigValue.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
 #include <hyprland/src/desktop/view/LayerSurface.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
@@ -49,7 +49,7 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   for (const int li : {0, 1})
     for (const auto &lr : m->m_layerSurfaceLayers[li]) {
       const auto layer = lr.lock();
-      if (!layer || !layer->m_mapped || !layer->visible() ||
+      if (!layer || !layer->mapped() ||
           !layer->wlSurface() || !layer->wlSurface()->resource())
         continue;
       const auto surf = layer->wlSurface()->resource();
@@ -79,20 +79,20 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   if (!fit(m_scratchFB))
     return m_drawn ? m_srcFB->getTexture() : nullptr;
 
-  const auto oldFB = g_pHyprRenderer->m_renderData.currentFB;
+  const auto oldFB = g_pHyprRenderer->context().m_data.currentFB;
   GLint oldVp[4];
   glGetIntegerv(GL_VIEWPORT, oldVp);
-  const auto oldTransformDmg = g_pHyprRenderer->m_renderData.transformDamage;
-  const auto oldModif        = g_pHyprRenderer->m_renderData.renderModif;
-  g_pHyprRenderer->m_renderData.transformDamage = false;
-  g_pHyprRenderer->m_renderData.renderModif     = Render::SRenderModifData{};
+  const auto oldTransformDmg = g_pHyprRenderer->context().m_data.transformDamage;
+  const auto oldModif        = g_pHyprRenderer->context().m_data.renderModif;
+  g_pHyprRenderer->context().m_data.transformDamage = false;
+  g_pHyprRenderer->context().m_data.renderModif     = Render::SRenderModifData{};
   m_scratchFB->bind();
-  g_pHyprRenderer->m_renderData.currentFB = m_scratchFB;
+  g_pHyprRenderer->context().m_data.currentFB = m_scratchFB;
   g_pHyprOpenGL->setViewport(0, 0, W, H);
   Hyprutils::Utils::CScopeGuard guard([&] {
-    g_pHyprRenderer->m_renderData.transformDamage = oldTransformDmg;
-    g_pHyprRenderer->m_renderData.renderModif     = oldModif;
-    g_pHyprRenderer->m_renderData.currentFB = oldFB;
+    g_pHyprRenderer->context().m_data.transformDamage = oldTransformDmg;
+    g_pHyprRenderer->context().m_data.renderModif     = oldModif;
+    g_pHyprRenderer->context().m_data.currentFB = oldFB;
     if (oldFB)
       oldFB->bind();
     g_pHyprOpenGL->setViewport(oldVp[0], oldVp[1], oldVp[2], oldVp[3]);
@@ -105,7 +105,7 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   if (m->m_background && m->m_background->ok()) {
     const auto fit = render::coverFit(W, H, m->m_background->m_size.x,
                                        m->m_background->m_size.y);
-    g_pHyprOpenGL->renderTexture(m->m_background,
+    g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), m->m_background,
                                  CBox{fit.x, fit.y,
                                       m->m_background->m_size.x * fit.scale,
                                       m->m_background->m_size.y * fit.scale},
@@ -117,7 +117,7 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
   for (const int li : {0, 1}) { // LAYER_BACKGROUND, LAYER_BOTTOM
     for (const auto &lr : m->m_layerSurfaceLayers[li]) {
       const auto layer = lr.lock();
-      if (!layer || !layer->m_mapped || !layer->visible() ||
+      if (!layer || !layer->mapped() ||
           !layer->wlSurface() || !layer->wlSurface()->resource())
         continue;
       const auto surf = layer->wlSurface()->resource();
@@ -129,7 +129,7 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
       if (sz.x < 1.0 || sz.y < 1.0)
         continue;
       const float a = layer->alpha()[Desktop::View::LS_ALPHA_FADE]->value();
-      g_pHyprOpenGL->renderTexture(
+      g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), 
           surf->m_current.texture,
           pxb(CBox{pos.x - m->m_position.x, pos.y - m->m_position.y, sz.x, sz.y}, s),
           {.a = a});
@@ -158,13 +158,13 @@ SP<Render::ITexture> Backdrop::frameSource(const BackdropFrame &f) const {
   if (!f.mon || !g_pHyprRenderer || !g_pHyprOpenGL)
     return nullptr;
   const int W = f.mon->m_pixelSize.x, H = f.mon->m_pixelSize.y;
-  const auto oldProj = g_pHyprRenderer->m_renderData.projectionType;
-  const auto oldFbSz = g_pHyprRenderer->m_renderData.fbSize;
-  g_pHyprRenderer->m_renderData.fbSize = Vector2D(W, H);
-  g_pHyprRenderer->setProjectionType(Render::RPT_EXPORT);
+  const auto oldProj = g_pHyprRenderer->context().m_data.projectionType;
+  const auto oldFbSz = g_pHyprRenderer->context().m_data.fbSize;
+  g_pHyprRenderer->context().m_data.fbSize = Vector2D(W, H);
+  g_pHyprRenderer->setProjectionType(g_pHyprRenderer->context(), Render::RPT_EXPORT);
   const auto tex = source(f.mon, W, H);
-  g_pHyprRenderer->m_renderData.fbSize = oldFbSz;
-  g_pHyprRenderer->setProjectionType(oldProj);
+  g_pHyprRenderer->context().m_data.fbSize = oldFbSz;
+  g_pHyprRenderer->setProjectionType(g_pHyprRenderer->context(), oldProj);
   return tex;
 }
 
@@ -192,17 +192,17 @@ bool Backdrop::computeBlur(const BackdropFrame &f, const SP<Render::ITexture> &s
       m_blurDrawn = false;
     }
 
-    const auto oldProjType = g_pHyprRenderer->m_renderData.projectionType;
-    const auto oldFbSize   = g_pHyprRenderer->m_renderData.fbSize;
-    g_pHyprRenderer->m_renderData.fbSize = Vector2D(W, H);
-    g_pHyprRenderer->setProjectionType(Render::RPT_EXPORT);
+    const auto oldProjType = g_pHyprRenderer->context().m_data.projectionType;
+    const auto oldFbSize   = g_pHyprRenderer->context().m_data.fbSize;
+    g_pHyprRenderer->context().m_data.fbSize = Vector2D(W, H);
+    g_pHyprRenderer->setProjectionType(g_pHyprRenderer->context(), Render::RPT_EXPORT);
 
     m_blurFilter.prepare(cPasses, static_cast<float>(cSize), cRes, cStrength);
     const bool ok = src && m_blurFilter.render(src, m_blur.fb, W, H);
 
-    g_pHyprRenderer->m_renderData.fbSize = oldFbSize;
-    g_pHyprRenderer->setProjectionType(oldProjType);
-    const auto PMON = g_pHyprRenderer->m_renderData.pMonitor;
+    g_pHyprRenderer->context().m_data.fbSize = oldFbSize;
+    g_pHyprRenderer->setProjectionType(g_pHyprRenderer->context(), oldProjType);
+    const auto PMON = g_pHyprRenderer->context().m_data.pMonitor;
     g_pHyprOpenGL->setViewport(0, 0, PMON ? (int)PMON->m_pixelSize.x : W,
                                PMON ? (int)PMON->m_pixelSize.y : H);
 
@@ -265,7 +265,7 @@ void Backdrop::render(const BackdropFrame &f) const {
     glGetIntegerv(GL_BLEND_DST_ALPHA, &dstA);
     g_pHyprOpenGL->blend(true);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    g_pHyprOpenGL->renderTexture(tex, fullPx, baseData(a));
+    g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), tex, fullPx, baseData(a));
     glBlendFuncSeparate(srcRGB, dstRGB, srcA, dstA);
     if (!blendBefore)
       g_pHyprOpenGL->blend(false);

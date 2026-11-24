@@ -8,8 +8,8 @@
 #include <unordered_map>
 #include <string>
 
-#include <hyprland/src/desktop/view/Window.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
@@ -63,7 +63,7 @@ class PixelCache {
                                         const std::string &text,
                                         const CHyprColor &col, int size,
                                         int maxW = 0);
-    SP<Render::ITexture> virtualLabel(WORKSPACEID id, const std::string &text,
+    SP<Render::ITexture> virtualLabel(int id, const std::string &text,
                                       const CHyprColor &col, int size,
                                       int maxW = 0);
     SP<Render::ITexture> fixedLabel(Slot slot, const std::string &text,
@@ -151,10 +151,10 @@ class PixelCache {
     };
 
     std::unordered_map<Desktop::View::CWindow *, WinLabel> m_winLabels;
-    std::unordered_map<CWorkspace *, WsLabel> m_wsLabels;
+    std::unordered_map<Workspace::CHLWorkspace *, WsLabel> m_wsLabels;
         // Kept apart: a negative special workspace id would otherwise land on a Slot key.
     std::unordered_map<Slot, LabelEntry> m_slotLabels;
-    std::unordered_map<WORKSPACEID, LabelEntry> m_virtualLabels;
+    std::unordered_map<int, LabelEntry> m_virtualLabels;
     std::unordered_map<Desktop::View::CWindow *, WinSnapshot> m_snapshots;
     SubjectCache<LabelEntry> m_subjectLabels;
     SubjectCache<SP<Render::ITexture>> m_subjectArt;

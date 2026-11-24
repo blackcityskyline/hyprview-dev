@@ -73,8 +73,7 @@ std::unordered_map<std::string, int> g_lua;
 std::unordered_set<std::string> g_warned;
 void warnOnce(const std::string &id, const std::string &what) {
   if (g_warned.insert(id).second)
-    Log::logger->log(Log::WARN, "[hyprview] curve '{}' {}: falling back to easeout",
-                     id, what);
+    Log::logger->log(Log::WARN, "", "[hyprview] curve '{}' {}: falling back to easeout", id, what);
 }
 
 }

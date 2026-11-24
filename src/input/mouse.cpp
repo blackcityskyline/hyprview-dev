@@ -11,7 +11,7 @@
 #include <vector>
 
 #include <hyprland/src/desktop/state/FocusState.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/layout/target/Target.hpp>
 #include <hyprland/src/pointer/PointerManager.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
@@ -366,7 +366,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
         bool hitSlot = false;
         for (size_t j = 0; j < it.wins.size(); ++j) {
           const auto w = m_windows.windowOf(it.wins[j].subj);
-          if (!w || !w->m_isMapped || w->isHidden())
+          if (!w || !w->mapped() || w->isHidden())
             continue;
           const LRect wb = stripWinSlotRect(it, c, j);
           if (wb.contains(lx, ly)) {
@@ -450,7 +450,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           const auto &sit = m_strip[cardIdx];
           for (size_t j = 0; j < sit.wins.size(); ++j) {
             const auto v = m_windows.windowOf(sit.wins[j].subj);
-            if (!v || v == w || !v->m_isMapped || v->isHidden())
+            if (!v || v == w || !v->mapped() || v->isHidden())
               continue;
             if (stripWinSlotRect(sit, stripCardAt(cardIdx), j).contains(lx, ly)) {
               vj = v;
@@ -576,7 +576,7 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
             continue;
           for (size_t j = 0; j < it.wins.size(); ++j) {
             const auto v = m_windows.windowOf(it.wins[j].subj);
-            if (!v || v == w || !v->m_isMapped || v->isHidden())
+            if (!v || v == w || !v->mapped() || v->isHidden())
               continue;
             if (!stripWinSlotRect(it, stripCardAt(i), j).contains(lx, ly))
               continue;
@@ -621,7 +621,8 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
           }
           beginSwapFX(w, fromBox,
                       anim::parseMove(anim::stripSwapStyle()),
-                      anim::cfg(anim::Id::SwapFly).ms, anim::cfg(anim::Id::SwapFly).curve);
+                      anim::cfg(anim::Id::SwapFly).ms, anim::cfg(anim::Id::SwapFly).curve,
+                      hasStripThumb(w));
           // beginSwapFX may reuse a slot: force `from` on the entry it just pushed.
           m_fx.retargetLastSwap(fromBox);
           kickPulse(subjectOf(w));

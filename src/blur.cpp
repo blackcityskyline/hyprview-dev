@@ -115,7 +115,7 @@ GLuint compileShader(GLenum type, const char* src) {
     if (!ok) {
         char log[1024] = {0};
         glGetShaderInfoLog(sh, sizeof(log) - 1, nullptr, log);
-        Log::logger->log(Log::ERR, "hyprview blur: shader compile failed: {}", log);
+        Log::logger->log(Log::ERR, "", "hyprview blur: shader compile failed: {}", log);
         glDeleteShader(sh);
         return 0;
     }
@@ -141,7 +141,7 @@ GLuint linkProgram(const char* vsSrc, const char* fsSrc) {
     if (!ok) {
         char log[1024] = {0};
         glGetProgramInfoLog(prog, sizeof(log) - 1, nullptr, log);
-        Log::logger->log(Log::ERR, "hyprview blur: program link failed: {}", log);
+        Log::logger->log(Log::ERR, "", "hyprview blur: program link failed: {}", log);
         glDeleteProgram(prog);
         return 0;
     }
@@ -364,9 +364,9 @@ bool CBlurFilter::render(const SP<Render::ITexture>& src, const SP<Render::IFram
     glGetIntegerv(GL_BLEND_DST_ALPHA, &blendDstAlpha);
         // Scissor and caller FBO/viewport too; restore through the API, never raw GL (OpenGL.cpp:2620).
     const bool scissorBefore = glIsEnabled(GL_SCISSOR_TEST) == GL_TRUE;
-    const CBox  dmgExtents   = g_pHyprRenderer->m_renderData.damage.getExtents();
-    g_pHyprOpenGL->scissor(nullptr);
-    const auto callerFB = g_pHyprRenderer->m_renderData.currentFB;
+    const CBox  dmgExtents   = g_pHyprRenderer->context().m_data.damage.getExtents();
+    g_pHyprOpenGL->scissor(g_pHyprRenderer->context(), nullptr);
+    const auto callerFB = g_pHyprRenderer->context().m_data.currentFB;
     GLint      callerVp[4];
     glGetIntegerv(GL_VIEWPORT, callerVp);
 
@@ -420,7 +420,7 @@ bool CBlurFilter::render(const SP<Render::ITexture>& src, const SP<Render::IFram
       g_pHyprOpenGL->blend(true);  // through the API: see blitTex
     glBlendFuncSeparate(blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha);
     if (scissorBefore)
-        g_pHyprOpenGL->scissor(dmgExtents);
+        g_pHyprOpenGL->scissor(g_pHyprRenderer->context(), dmgExtents);
     if (callerFB) {
         callerFB->bind();
         g_pHyprOpenGL->setViewport(callerVp[0], callerVp[1], callerVp[2], callerVp[3]);

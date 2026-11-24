@@ -1,4 +1,5 @@
 #include "../config/config.hpp"
+#include "../compat.hpp"
 #include "../debug/log.hpp"
 #include "../overview.hpp"
 #include "../model/entries.hpp"
@@ -20,7 +21,7 @@
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/desktop/view/LayerSurface.hpp>
 #include <hyprland/src/desktop/view/WLSurface.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/layout/target/Target.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
@@ -89,8 +90,8 @@ void Overview::buildTiles() {
     if (w && subj != m_pendingKill) {
   // PID, not title: a browser appends its own name to the window title (AGENTS.md 2.26).
       hosts.push_back(model::HostWindow{reinterpret_cast<std::uintptr_t>(w.get()),
-                                        static_cast<std::uint64_t>(w->getPID())});
-      hostTitles += "[" + w->m_title + "] ";
+                                        static_cast<std::uint64_t>(w->backend().pid())});
+      hostTitles += "[" + w->metadata().title() + "] ";
       for (auto &c : hostTitles)
         if (c == '|' || c == '\n' || c == '\r')
           c = '_';
@@ -133,7 +134,7 @@ void Overview::buildTiles() {
       // A tab's natural is its host's box: the layout needs an aspect, and its preview is of that window.
       t.natural = box;
       t.home = box;
-      t.workspace = w->m_workspace ? w->m_workspace->m_id : 0;  // the desktop view groups by it
+      t.workspace = w->m_workspace ? compat::wsId(w->m_workspace) : 0;  // the desktop view groups by it
       m_scene.add(std::move(t));
     }
   }
@@ -154,10 +155,10 @@ void Overview::buildTiles() {
           continue;
         // Cold decode here costs the open a few ms; in paint it costs the entry a few dropped frames.
         if (cfg::look.show_window_icons != 0)
-          m_pixel.warmAppIcon(w->m_class);
-        text = w->m_title;
+          m_pixel.warmAppIcon(w->metadata().appID());
+        text = w->metadata().title();
         if (text.empty())
-          text = w->m_class;
+          text = w->metadata().appID();
         text = model::truncateTitle(text);
         tex = m_pixel.windowLabel(w, text, lblCol, cfg::look.title_font_size.get());
       }
@@ -184,34 +185,34 @@ void Overview::buildStrip() {
   const auto countMappedOn = [](const PHLWORKSPACE &w) {
     int n = 0;
     for (const auto &win : Desktop::windowState()->windows())
-      if (win && win->m_isMapped && !win->isHidden() && win->m_workspace == w)
+      if (win && win->mapped() && !win->isHidden() && win->m_workspace == w)
         ++n;
     return n;
   };
   const auto wsHasWindows = [](const PHLWORKSPACE &w) {
     for (const auto &win : Desktop::windowState()->windows())
-      if (win && win->m_isMapped && !win->isHidden() && win->m_workspace == w)
+      if (win && win->mapped() && !win->isHidden() && win->m_workspace == w)
         return true;
     return false;
   };
 
   std::unordered_map<int, PHLWORKSPACE>
       real;
-  const int curId = (cur && !cur->m_isSpecialWorkspace) ? cur->m_id : -1;
+  const int curId = (cur && !compat::wsSpecial(cur)) ? compat::wsId(cur) : -1;
   int highestId = 0;
   for (const auto &wref : State::workspaceState()->workspaces()) {
     const auto ws = wref.lock();
     if (!ws || ws->m_monitor.lock() != m)
       continue;
-    if (ws->m_isSpecialWorkspace) {
+    if (compat::wsSpecial(ws)) {
       if (showSpecial && wsHasWindows(ws)) {
         model::StripItem it;
         it.ws = ws;
-        it.id = ws->m_id;
+        it.id = compat::wsId(ws);
         it.active = (ws == cur);
         // rel: on-screen position a stashed window keeps from the last time it was shown.
         for (const auto &w : Desktop::windowState()->windows()) {
-          if (!w || !w->m_isMapped || w->isHidden() || w->m_workspace != ws)
+          if (!w || !w->mapped() || w->isHidden() || w->m_workspace != ws)
             continue;
           const auto p = w->positionAnimation()->goal();
           const auto sz = w->sizeAnimation()->goal();
@@ -222,17 +223,17 @@ void Overview::buildStrip() {
                          sz.x / m->m_size.x, sz.y / m->m_size.y};
           it.wins.push_back(sw);
         }
-        debug::dbg("strip special: ws=" + std::to_string(it.id) + " name=" + ws->m_name +
+        debug::dbg("strip special: ws=" + std::to_string(it.id) + " name=" + ws->displayName() +
                    " wins=" + std::to_string(it.wins.size()) +
                    " mapped=" + std::to_string(countMappedOn(ws)));
         m_strip.add(std::move(it));
       }
       continue;
     }
-    if (ws->m_id <= 0)
+    if (compat::wsId(ws) <= 0)
       continue;
-    real[ws->m_id] = ws;
-    highestId = std::max(highestId, static_cast<int>(ws->m_id));
+    real[compat::wsId(ws)] = ws;
+    highestId = std::max(highestId, static_cast<int>(compat::wsId(ws)));
   }
   // special cards bypass the numeric ordering
   std::vector<model::StripItem> specialCards = m_strip.takeAll();
@@ -284,7 +285,7 @@ void Overview::buildStrip() {
     it.ws = ws;
     it.active = (ws == cur);
     for (const auto &w : Desktop::windowState()->windows()) {
-      if (!w || !w->m_isMapped || w->isHidden() || w->m_workspace != ws)
+      if (!w || !w->mapped() || w->isHidden() || w->m_workspace != ws)
         continue;
       const auto p = w->positionAnimation()->goal();
       const auto s = w->sizeAnimation()->goal();
@@ -315,7 +316,7 @@ void Overview::buildStrip() {
         continue;
       }
       const auto ws = it.ws.lock();
-      std::string nm = ws ? ws->m_name : std::to_string(it.id);
+      std::string nm = ws ? ws->displayName() : std::to_string(it.id);
       const bool numeric =
           !nm.empty() && std::all_of(nm.begin(), nm.end(), [](char c) {
             return std::isdigit(static_cast<unsigned char>(c));

@@ -60,9 +60,9 @@ std::string WindowsContentSource::label(SubjectRef s) const {
     const auto w = windowOf(s);
     if (!w)
         return {};
-    auto text = w->m_title;
+    auto text = w->metadata().title();
     if (text.empty())
-        text = classBase(w->m_class);
+        text = classBase(w->metadata().appID());
     return truncateTitle(text);
 }
 
@@ -91,7 +91,7 @@ bool WindowsContentSource::moveTo(SubjectRef s, GroupRef target) {
         return false;
     if (target.epoch != 0)
         return false; // a browser window's group is not a Hyprland workspace
-    const auto ws = PHLWORKSPACE{reinterpret_cast<CWorkspace *>(target.id)};
+    const auto ws = PHLWORKSPACE{reinterpret_cast<Workspace::CHLWorkspace *>(target.id)};
     if (!ws)
         return false;
     Desktop::globalWindowController()->moveWindowToWorkspace(w, ws);

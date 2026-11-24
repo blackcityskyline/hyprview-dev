@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 
 #include "gl_util.hpp"

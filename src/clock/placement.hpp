@@ -7,8 +7,8 @@
 #include "../view/state.hpp"
 #include "clock.hpp"
 
-#include <hyprland/src/desktop/Workspace.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include "../layout.hpp"
 #include "progress.hpp"
 

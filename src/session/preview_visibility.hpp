@@ -1,7 +1,7 @@
 #pragma once
 
-#include <hyprland/src/desktop/Workspace.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/desktop/view/WLSurface.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
@@ -26,10 +26,6 @@ class PreviewVisibility {
     }
 
   private:
-    struct ForcedWsAlpha {
-      PHLWORKSPACEREF ws;
-      float val;
-    };
     struct ForcedWinVis {
       PHLWINDOWREF w;
       float alphaVal;
@@ -39,7 +35,7 @@ class PreviewVisibility {
       CRegion region;
     };
 
-    std::vector<ForcedWsAlpha> m_ws;
+    std::vector<PHLWORKSPACEREF> m_ws;
     std::vector<ForcedWinVis>  m_wins;
     std::vector<ForcedRegion>  m_regions;
 };

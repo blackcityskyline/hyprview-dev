@@ -1,4 +1,5 @@
 #include "../config/config.hpp"
+#include "../compat.hpp"
 #include "../overview.hpp"
 #include "../model/origin.hpp"
 #include "key_combo.hpp"
@@ -13,7 +14,7 @@
 #include <linux/input-event-codes.h>
 
 #include <hyprland/src/desktop/state/FocusState.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/state/WorkspaceState.hpp>
@@ -27,16 +28,16 @@ uint32_t modBitForKeycode(int kc) {
   switch (kc) {
   case 42:
   case 54:
-    return HL_MODIFIER_SHIFT;
+    return static_cast<uint32_t>(Input::HL_MODIFIER_SHIFT);
   case 29:
   case 97:
-    return HL_MODIFIER_CTRL;
+    return static_cast<uint32_t>(Input::HL_MODIFIER_CTRL);
   case 56:
   case 100:
-    return HL_MODIFIER_ALT;
+    return static_cast<uint32_t>(Input::HL_MODIFIER_ALT);
   case 125:
   case 126:
-    return HL_MODIFIER_META;
+    return static_cast<uint32_t>(Input::HL_MODIFIER_META);
   default:
     return 0;
   }
@@ -46,12 +47,12 @@ uint32_t modBitForKeycode(int kc) {
 uint32_t Overview::altTabModBit() const {
   const std::string modName = cfg::keys.alt_tab_modifier.get();
   if (modName == "super" || modName == "meta" || modName == "win")
-    return HL_MODIFIER_META;
+    return static_cast<uint32_t>(Input::HL_MODIFIER_META);
   if (modName == "ctrl" || modName == "control")
-    return HL_MODIFIER_CTRL;
+    return static_cast<uint32_t>(Input::HL_MODIFIER_CTRL);
   if (modName == "shift")
-    return HL_MODIFIER_SHIFT;
-  return HL_MODIFIER_ALT;
+    return static_cast<uint32_t>(Input::HL_MODIFIER_SHIFT);
+  return static_cast<uint32_t>(Input::HL_MODIFIER_ALT);
 }
 
 void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
@@ -74,7 +75,7 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
 
   const int k = e.keycode;
   // Held mods minus the pressed key's own bit, or a bare modifier name never matches.
-  uint32_t mods = g_pInputManager ? g_pInputManager->getModsFromAllKBs() : 0;
+  uint32_t mods = g_pInputManager ? static_cast<uint32_t>(g_pInputManager->getModsFromAllKBs().value()) : 0u;
   mods &= ~modBitForKeycode(k);
 
   if (launcherKey(e, k, mods)) {
@@ -84,7 +85,7 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
 
   // The run steps itself once open -- Tab forward, Shift+Tab back -- so no second verb is needed.
   if (m_altTabbing && k == KEY_TAB) {
-    stepAltTab((mods & HL_MODIFIER_SHIFT) != 0 ? -1 : 1);
+    stepAltTab((mods & input::kModShift) != 0 ? -1 : 1);
     cancel = true;
     return;
   }
@@ -130,17 +131,17 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
     setDiscardedShown(!discardedShown());
   // Ctrl masked out: bare digit and Ctrl+digit both land here.
   else if (const int idx =
-               keyIndex(k, mods & ~HL_MODIFIER_CTRL, cfg::keys.workspace.get());
+               keyIndex(k, mods & static_cast<uint32_t>(~Input::HL_MODIFIER_CTRL), cfg::keys.workspace.get());
            idx >= 0) {
     const int id = idx + 1;
     const auto m = m_monitor.lock();
-    auto ws = State::workspaceState()->query().id(id).run();
+    auto ws = compat::wsById(id);
     const bool justCreated = !ws && m;
     if (justCreated)
-      ws = State::workspaceState()->create(id, m->m_id, "", false);
+      ws = compat::wsCreate(id, m, false);
     if (ws) {
       if (justCreated) {
-        ws->setPersistent(true);
+        compat::wsSetPersistent(ws, true);
         m_newWs.push_back(ws);
         m_newCardId =
             id;
@@ -151,7 +152,7 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
       model::StripItem it;
       it.ws = ws;
       const bool jumpMode = cfg::behavior.workspace_key_mode.get() == "jump";
-      const bool ctrlHeld = (mods & HL_MODIFIER_CTRL) != 0;
+      const bool ctrlHeld = (mods & static_cast<uint32_t>(Input::HL_MODIFIER_CTRL)) != 0;
       const bool doJump   = jumpMode && !ctrlHeld;
       const bool instant  = doJump && anim::jumpStyle() == "instant";
       switchToWorkspace(it, instant);
@@ -185,10 +186,10 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   cancel = handled || !passthrough;
 }
 
-static_assert(hyprview::input::kModShift == HL_MODIFIER_SHIFT);
-static_assert(hyprview::input::kModCtrl == HL_MODIFIER_CTRL);
-static_assert(hyprview::input::kModAlt == HL_MODIFIER_ALT);
-static_assert(hyprview::input::kModMeta == HL_MODIFIER_META);
+static_assert(hyprview::input::kModShift == static_cast<uint32_t>(Input::HL_MODIFIER_SHIFT));
+static_assert(hyprview::input::kModCtrl == static_cast<uint32_t>(Input::HL_MODIFIER_CTRL));
+static_assert(hyprview::input::kModAlt == static_cast<uint32_t>(Input::HL_MODIFIER_ALT));
+static_assert(hyprview::input::kModMeta == static_cast<uint32_t>(Input::HL_MODIFIER_META));
 
 
 bool Overview::keyMatches(int keycode, uint32_t mods,

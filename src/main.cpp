@@ -115,12 +115,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         ((kActions[Is].hyprctl &&
           HyprlandAPI::registerHyprCtlCommand(
               handle,
-              SHyprCtlCommand{
-                  .name  = kActions[Is].hyprctl,
-                  .exact = true,
-                  .fn    = [fn = kActions[Is].invoke](eHyprCtlOutputFormat, std::string) -> std::string {
+              IPC::Socket1::SCommand{
+                  .name    = kActions[Is].hyprctl,
+                  .match   = IPC::Socket1::COMMAND_MATCH_EXACT,
+                  .handler = [fn = kActions[Is].invoke](const IPC::Socket1::SRequest &) -> IPC::Socket1::SResponse {
                       fn();
-                      return "ok\n";
+                      return IPC::Socket1::SResponse{"ok\n"};
                   }})),
          ...);
 

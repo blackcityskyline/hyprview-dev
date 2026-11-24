@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
 
   // Empty commit is not a repaint. Without this the preview and its client drive each other.
   const auto SURF = bodyOf(HOOKS, "void hkDamageSurface(");
-  if (!has(SURF, "computeDamage().empty()",
+  if (!has(SURF, "computeDamage(std::nullopt).empty()",
            "hkDamageSurface damages the card on every commit, including the empty ones clients "
            "send to acknowledge a frame"))
     failed = 1;

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <hyprland/src/desktop/Workspace.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 
 #include "content_source.hpp"
 #include "window_host.hpp"

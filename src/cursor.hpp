@@ -21,8 +21,8 @@ public:
     void onOpen(PHLMONITOR monitor);
     void onClose();
 
-    // opaque erase, renderBackdrop()'s color
-    void renderOnTop(PHLMONITOR monitor, const CHyprColor& backdropColor) const;
+    // software copy, drawn after every pass
+    void renderOnTop(PHLMONITOR monitor) const;
 
     CBox moveDamage(PHLMONITOR monitor) const;
 

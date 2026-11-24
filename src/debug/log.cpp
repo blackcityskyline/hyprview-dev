@@ -101,7 +101,7 @@ void dbg(const std::string &msg) {
   else if (bootstrap <= 0 || --bootstrap < 0)
     return;
   if (Log::logger)
-    Log::logger->log(Log::INFO, "[hyprview] {}", msg);
+    Log::logger->log(Log::INFO, "", "[hyprview] {}", msg);
   // The same handle emit() uses: two append handles on one path would interleave.
   static bool banner = false;
   FILE *f = sink();

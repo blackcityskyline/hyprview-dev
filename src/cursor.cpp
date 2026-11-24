@@ -11,6 +11,8 @@ namespace hyprview {
 
 void CCursorModule::onOpen(PHLMONITOR monitor) {
     resetCursorBox();
+    if (g_pHyprRenderer)
+        g_pHyprRenderer->setCursorFromName("left_ptr", true);
     (void)monitor;
 }
 
@@ -48,7 +50,7 @@ CBox CCursorModule::moveDamage(PHLMONITOR monitor) const {
     return u;
 }
 
-void CCursorModule::renderOnTop(PHLMONITOR monitor, const CHyprColor& backdropColor) const {
+void CCursorModule::renderOnTop(PHLMONITOR monitor) const {
     // Every exit below NAMED, per frame: CURSOR|mode=hw|no_monitor|no_tex|empty_box|draw|... .
     // mode=hw means we drew nothing on the compositor's claim of a hardware cursor above us.
     const auto bail = [&](const char* why) {
@@ -83,30 +85,13 @@ void CCursorModule::renderOnTop(PHLMONITOR monitor, const CHyprColor& backdropCo
     const CBox curPx = CBox{std::round(gpl.x), std::round(gpl.y),
                             std::round(gpl.w), std::round(gpl.h)};
 
-    // erase with an OPAQUE backdrop copy: the backdrop only blends
-    const bool erasing = m_haveLastBox && m_lastBox != g;
-    if (erasing) {
-        const CBox lastPl{
-            (m_lastBox.x - monitor->m_position.x) * monitor->m_scale,
-            (m_lastBox.y - monitor->m_position.y) * monitor->m_scale,
-            m_lastBox.w * monitor->m_scale,
-            m_lastBox.h * monitor->m_scale,
-        };
-        const CBox lastPx = CBox{std::round(lastPl.x), std::round(lastPl.y),
-                                 std::round(lastPl.w), std::round(lastPl.h)};
-        safeRenderRect("cursor", lastPx,
-                                  CHyprColor(backdropColor.r, backdropColor.g,
-                                             backdropColor.b, 1.0),
-                                  {});
-    }
-
-    g_pHyprOpenGL->renderTexture(tex, curPx, {.a = 1.0F});
+    g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), tex, curPx, {.a = 1.0F});
 
     debug::trace::emitState("CURSOR|mode=draw|x=" + std::to_string(curPx.x) +
                             ",y=" + std::to_string(curPx.y) +
                             ",w=" + std::to_string(curPx.w) +
                             ",h=" + std::to_string(curPx.h) +
-                            "|erase=" + (erasing ? "1" : "0"));
+                            "|erase=0");
 
     m_lastBox     = g;
     m_haveLastBox = true;

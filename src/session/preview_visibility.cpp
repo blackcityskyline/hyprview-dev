@@ -1,5 +1,6 @@
 #include "../config/config.hpp"
 #include "../debug/log.hpp"
+#include "../compat.hpp"
 #include "../overview.hpp"
 #include "preview_visibility.hpp"
 #include <algorithm>
@@ -10,17 +11,18 @@
 #include <numeric>
 #include <utility>
 #include <hyprland/src/debug/log/Logger.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/desktop/view/WLSurface.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopTimer.hpp>
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
+#include <hyprland/src/output/Monitor.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/state/WorkspaceState.hpp>
 #include <hyprland/src/render/Renderer.hpp>
@@ -40,19 +42,14 @@ void PreviewVisibility::force(const std::vector<model::Tile> &tiles,
                               WinFor &&winFor) {
   for (const auto &wsref : State::workspaceState()->workspaces()) {
     const auto ws = wsref.lock();
-    if (!ws || !ws->m_alpha)
+    if (!ws)
       continue;
     bool seen = false;
     for (const auto &e : m_ws)
-      if (e.ws.get() == ws.get()) { seen = true; break; }
-    if (!seen) {
-      ForcedWsAlpha e;
-      e.ws  = ws;
-      e.val = ws->m_alpha->value();
-      m_ws.push_back(e);
-    }
-    ws->m_alpha->setValueAndWarp(1.F);
-    *ws->m_alpha = 1.F;
+      if (e.get() == ws.get()) { seen = true; break; }
+    if (!seen)
+      m_ws.push_back(ws);
+    ws->setVisible(true);
   }
 
   const auto forceWindow = [this](const PHLWINDOW &w) {
@@ -65,10 +62,10 @@ void PreviewVisibility::force(const std::vector<model::Tile> &tiles,
     if (!wseen) {
       ForcedWinVis e;
       e.w        = w;
-      e.alphaVal = w->alpha(FS_ALPHA)->value();
+      e.alphaVal = w->alpha()[FS_ALPHA]->value();
       m_wins.push_back(e);
     }
-    if (const auto &a = w->alpha(FS_ALPHA))
+    if (const auto &a = w->alpha()[FS_ALPHA])
       a->setValueAndWarp(1.F);
     if (!w->wlSurface() || !w->wlSurface()->resource())
       return;
@@ -101,16 +98,21 @@ void PreviewVisibility::force(const std::vector<model::Tile> &tiles,
 }
 
 void PreviewVisibility::restore() {
-  for (const auto &[ws, val] : m_ws)
-    if (ws && ws->m_alpha)
-      ws->m_alpha->setValueAndWarp(val);
+  for (const auto &e : m_ws) {
+    const auto ws = e.lock();
+    if (!ws)
+      continue;
+    const auto mon = ws->m_monitor.lock();
+    ws->setVisible(mon && (mon->m_activeWorkspace == ws ||
+                           mon->m_activeSpecialWorkspace == ws));
+  }
   m_ws.clear();
 
   for (const auto &[w, aVal] : m_wins) {
     if (!w)
       continue;
     constexpr auto FS_ALPHA = Desktop::View::WINDOW_ALPHA_FULLSCREEN;
-    if (const auto &a = w->alpha(FS_ALPHA))
+    if (const auto &a = w->alpha()[FS_ALPHA])
       *a = aVal;
   }
   m_wins.clear();

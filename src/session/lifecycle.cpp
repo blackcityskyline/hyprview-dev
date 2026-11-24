@@ -1,5 +1,6 @@
 #include "../config/config.hpp"
 #include "../debug/log.hpp"
+#include "../compat.hpp"
 #include "../overview.hpp"
 #include <algorithm>
 #include <cctype>
@@ -9,11 +10,11 @@
 #include <numeric>
 #include <utility>
 #include <hyprland/src/debug/log/Logger.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/desktop/view/WLSurface.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
@@ -136,7 +137,7 @@ std::string Overview::focusedClass() const {
     return {};
   const auto &t = m_scene.tiles()[static_cast<std::size_t>(i)];
   const auto w = cardOf(t).isTab() ? ownerWindow(t) : tileWindow(t);
-  return w ? w->m_class : std::string{};
+  return w ? w->metadata().appID() : std::string{};
 }
 
 void Overview::toggleAppExpose() {
@@ -343,7 +344,7 @@ void Overview::open(bool keepDomain) {
   // Parked already counts as owned (see inputRoutedAway): the real windows lose focus on the first parked frame.
   dropFocusFromWindows();
   m_landingEmpty = !workspaceHasWindows(m_liveWsAtOpen.lock());
-  debug::dbg("open: ws=" + std::to_string(m_liveWsAtOpen.lock() ? m_liveWsAtOpen.lock()->m_id : -1) +
+  debug::dbg("open: ws=" + std::to_string(compat::wsId(m_liveWsAtOpen.lock())) +
              " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
   m_place.clocks.master.begin();
   debug::trace::animStart("master", "master", "", m_place.recipes.glide.ms, m_place.recipes.glide.curve.c_str());
@@ -368,7 +369,7 @@ void Overview::close() {
   // Keep the overlay up until Hyprland's own blur rebuilds, or releasing early uncovers a sharp desktop.
   if (const auto m = m_monitor.lock())
     m->m_forceFullFrames = std::max(m->m_forceFullFrames, 8);
-  debug::dbg("close: ws=" + std::to_string(m_workspace.lock() ? m_workspace.lock()->m_id : -1) +
+  debug::dbg("close: ws=" + std::to_string(compat::wsId(m_workspace.lock())) +
              " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
   m_life.endEntry();
   m_life.consumeJumpClosing();
@@ -475,15 +476,15 @@ bool Overview::belongs(const PHLWINDOW &w) const {
 
 bool Overview::tileBelongs(const PHLWINDOW &w, const PHLMONITOR &m,
                            const PHLWORKSPACE &ws) const {
-  if (!w || !w->m_isMapped || w->isHidden())
+  if (!w || !w->mapped() || w->isHidden())
     return false;
   const auto wws = w->m_workspace;
   if (!wws)
     return false;
-  if (!m_view.exposeClass().empty() && w->m_class != m_view.exposeClass())
+  if (!m_view.exposeClass().empty() && w->metadata().appID() != m_view.exposeClass())
     return false;
   if (showAllWorkspaces()) {
-    if (wws->m_isSpecialWorkspace &&
+    if (compat::wsSpecial(wws) &&
         cfg::behavior.show_special == 0)
       return false;
     return cfg::behavior.monitor_scope.get() == "all" || wws->m_monitor.lock() == m;
@@ -495,7 +496,7 @@ bool Overview::workspaceHasWindows(const PHLWORKSPACE &ws) {
   if (!ws)
     return false;
   for (const auto &w : Desktop::windowState()->windows())
-    if (w && w->m_isMapped && !w->isHidden() && w->m_workspace == ws)
+    if (w && w->mapped() && !w->isHidden() && w->m_workspace == ws)
       return true;
   return false;
 }
@@ -631,7 +632,7 @@ void Overview::deactivate() {
     }
   }
 
-  if (const auto pw = m_pendingWindow.lock(); pw && pw->m_isMapped && !pw->isHidden())
+  if (const auto pw = m_pendingWindow.lock(); pw && pw->mapped() && !pw->isHidden())
     Desktop::focusState()->fullWindowFocus(pw, Desktop::FOCUS_REASON_KEYBIND);
   m_pendingWindow.reset();
 
@@ -661,7 +662,7 @@ void Overview::deactivate() {
 void Overview::releaseNewWorkspaces() {
   for (const auto &wref : m_newWs)
     if (const auto ws = wref.lock())
-      ws->setPersistent(false);
+      compat::wsSetPersistent(ws, false);
   m_newWs.clear();
 }
 
@@ -680,7 +681,7 @@ void Overview::finishPendingDeactivate() {
   }
   g_pEventLoopManager->doLater([this] {
     debug::dbg(std::string("deactivate: pass monitor ") +
-               (g_pHyprRenderer && g_pHyprRenderer->m_renderData.pMonitor ? "set" : "none"));
+               (g_pHyprRenderer && g_pHyprRenderer->context().m_data.pMonitor ? "set" : "none"));
     deactivate();
   });
 }
@@ -712,31 +713,30 @@ void Overview::updateSnapshots() {
       return;
     fb->alloc(W, H);
 
-    auto       guard = g_pHyprRenderer->bindTempFB(fb);
-    const auto oldProjType     = g_pHyprRenderer->m_renderData.projectionType;
-    const auto oldFbSize       = g_pHyprRenderer->m_renderData.fbSize;
-    const auto oldTransformDmg = g_pHyprRenderer->m_renderData.transformDamage;
-    const auto oldModif        = g_pHyprRenderer->m_renderData.renderModif;
+    auto      &ctx   = g_pHyprRenderer->context();
+    auto       guard = g_pHyprRenderer->bindTempFB(ctx, fb);
+    const auto oldProjType     = g_pHyprRenderer->context().m_data.projectionType;
+    const auto oldFbSize       = g_pHyprRenderer->context().m_data.fbSize;
+    const auto oldTransformDmg = g_pHyprRenderer->context().m_data.transformDamage;
+    const auto oldModif        = g_pHyprRenderer->context().m_data.renderModif;
 
-    g_pHyprRenderer->m_renderData.fbSize = Vector2D{W, H};
-    g_pHyprRenderer->setProjectionType(Render::RPT_EXPORT);
-    g_pHyprRenderer->m_renderData.transformDamage = false;
-    g_pHyprRenderer->m_renderData.renderModif     = Render::SRenderModifData{};
+    g_pHyprRenderer->context().m_data.fbSize = Vector2D{W, H};
+    g_pHyprRenderer->setProjectionType(ctx, Render::RPT_EXPORT);
+    g_pHyprRenderer->context().m_data.transformDamage = false;
+    g_pHyprRenderer->context().m_data.renderModif     = Render::SRenderModifData{};
     g_pHyprOpenGL->setViewport(0, 0, W, H);
 
     CRegion fullDamage = {0, 0, (double)W, (double)H};
-    g_pHyprRenderer->draw(CClearPassElement::SClearData{{0.F, 0.F, 0.F, 0.F}});
-    g_pHyprRenderer->draw(CTexPassElement::SRenderData{.tex = tex, .box = CBox{0, 0, (double)W, (double)H}, .damage = fullDamage},
+    g_pHyprRenderer->draw(ctx, CClearPassElement::SClearData{{0.F, 0.F, 0.F, 0.F}});
+    g_pHyprRenderer->draw(ctx, CTexPassElement::SRenderData{.tex = tex, .box = CBox{0, 0, (double)W, (double)H}, .damage = fullDamage},
                           fullDamage);
 
-    g_pHyprRenderer->m_renderData.fbSize          = oldFbSize;
-    g_pHyprRenderer->m_renderData.transformDamage = oldTransformDmg;
-    g_pHyprRenderer->m_renderData.renderModif     = oldModif;
-    g_pHyprRenderer->setProjectionType(oldProjType);
-    const auto PMON = g_pHyprRenderer->m_renderData.pMonitor;
+    g_pHyprRenderer->context().m_data.fbSize          = oldFbSize;
+    g_pHyprRenderer->context().m_data.transformDamage = oldTransformDmg;
+    g_pHyprRenderer->context().m_data.renderModif     = oldModif;
+    g_pHyprRenderer->setProjectionType(ctx, oldProjType);
+    const auto PMON = g_pHyprRenderer->context().m_data.pMonitor;
     g_pHyprOpenGL->setViewport(0, 0, PMON ? (int)PMON->m_pixelSize.x : W, PMON ? (int)PMON->m_pixelSize.y : H);
-    guard.reset();
-
     m_pixel.putSnapshot(w, fb->getTexture());
   };
   for (const auto &t : m_scene.tiles())

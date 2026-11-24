@@ -6,7 +6,7 @@
 #include <string>
 
 #include <hyprland/src/desktop/state/FocusState.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
@@ -103,7 +103,7 @@ void Overview::drawTabContent(const model::SubjectRef &subj, const LRect &box,
   const auto tex = m_pixel.picture(subj);
   if (tex) {
     const LRect pic = render::contentInside(box, tex->m_size.x, tex->m_size.y);
-    g_pHyprOpenGL->renderTexture(tex, pxb(pic, s),
+    g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), tex, pxb(pic, s),
                                  {.a = contentAlpha, .round = pxr(round, s),
                                   .roundingPower = roundPow});
     return;
@@ -112,7 +112,7 @@ void Overview::drawTabContent(const model::SubjectRef &subj, const LRect &box,
                             {.round = pxr(round, s), .roundingPower = roundPow});
   if (label && label->m_size.x > 0) {
     const LRect room{box.x + box.w * 0.1, box.y + box.h * 0.35, box.w * 0.8, box.h * 0.3};
-    g_pHyprOpenGL->renderTexture(
+    g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), 
         label, pxb(render::contentInside(room, label->m_size.x, label->m_size.y), s),
         {.a = 0.45F * contentAlpha});
   }
@@ -128,7 +128,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   const auto w = tileWindow(t);
   const auto card = cardOf(t);
   const bool tab = card.isTab();
-  if (!tab && (!w || !w->m_isMapped || w->isHidden()))
+  if (!tab && (!w || !w->mapped() || w->isHidden()))
     return;
 
   const LRect box = look.box;
@@ -192,10 +192,10 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
         td.round         = pxr(round, s);
         td.roundingPower = roundPow;
         td.allowCustomUV = true;
-        g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
+        g_pHyprRenderer->draw(g_pHyprRenderer->context(), td, g_pHyprRenderer->context().m_data.damage);
       };
-      auto &uvTL = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
-      auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
+      auto &uvTL = g_pHyprRenderer->context().m_data.primarySurfaceUVTopLeft;
+      auto &uvBR = g_pHyprRenderer->context().m_data.primarySurfaceUVBottomRight;
       uvTL = Vector2D{uv.u0, uv.v0};
       uvBR = Vector2D{uv.u1, uv.v1};
       const bool   blurOk = btex && btex->ok();
@@ -245,7 +245,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                               {.round = pxr(br.h / 2.0, s)});
     const auto glyph = render::glyphRect(br, closeGlyph->m_size.x, closeGlyph->m_size.y,
                                          cfg::look.close_glyph_fill);
-    g_pHyprOpenGL->renderTexture(closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});
+    g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});
   }
 }
 
@@ -301,7 +301,7 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
     debug::trace::ring("title_pill", plate, pxr(round, s), a);
     // The bar IS the card's edge: the card's own rounded rect, scissored to the bar (two rects
     // double the alpha at the seam; a bar with its own corners shows the content through).
-    auto &rd = g_pHyprRenderer->m_renderData;
+    auto &rd = g_pHyprRenderer->context().m_data;
     const CBox savedClip = rd.clipBox;
     rd.clipBox = pxb(plate, s);
     safeRenderRect("tile", pxb(box, s), cfg::colors.title_pill.get(a),
@@ -319,14 +319,14 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
       spec.g = shadowCol.g;
       spec.b = shadowCol.b;
       if (const auto sh = m_pixel.shadow(spec, at.w, at.h, at.w * 0.2, s); sh.tex)
-        g_pHyprOpenGL->renderTexture(
+        g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), 
             sh.tex,
             pxb(LRect{at.x - sh.pad, at.y - sh.pad, at.w + 2 * sh.pad, at.h + 2 * sh.pad}, s),
             {.a = static_cast<float>(cfg::look.icon_shadow_alpha * a)});
-      g_pHyprOpenGL->renderTexture(icon, pxb(at, s), {.a = a});
+      g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), icon, pxb(at, s), {.a = a});
     }
     if (hasLabel)
-      g_pHyprOpenGL->renderTexture(
+      g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), 
           t.label,
           pxb(CBox(lay.contentX + iconSpan,
                    plate.y + (plate.h - sizes.textH * k) * 0.5, sizes.textW * k,
@@ -334,7 +334,7 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
           {.a = a});
     else
       // Nothing to name: the counter is the bar's own text, not a second plate.
-      g_pHyprOpenGL->renderTexture(
+      g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), 
           countTex,
           pxb(CBox(lay.contentX, plate.y + (plate.h - sizes.countH * k) * 0.5,
                    sizes.countW * k, sizes.countH * k), s),
@@ -353,7 +353,7 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
                      {.round = pxr(render::pillRadius(cfg::look.counter_round, cAt.w, cAt.h), s),
                       .roundingPower = roundPow});
       const double cPop = count.scale;
-      g_pHyprOpenGL->renderTexture(
+      g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), 
           countTex,
           pxb(LRect{cAt.x + (cAt.w - sizes.countW * cPop) / 2.0,
                     cAt.y + (cAt.h - sizes.countH * cPop) / 2.0,
@@ -391,7 +391,7 @@ void Overview::renderTiles() const {
         continue;
     } else {
       const auto w = tileWindow(t);
-      if (!w || !w->m_isMapped || w->isHidden() || swapfxActive(w, false))
+      if (!w || !w->mapped() || w->isHidden() || swapfxActive(w, false))
         continue; // flying via a landing: its slot is painted by renderSwapFX
     }
     drawTile(i, gridLook(tileRect(i), cfg::look.preview_round, wantButtons));
@@ -427,7 +427,7 @@ void Overview::renderGhosts() const {
       drawTabContent(g.subj, box, label, gAlpha, gAlpha);
       continue;
     }
-    if (!w->m_isMapped || w->isHidden())
+    if (!w->mapped() || w->isHidden())
       continue;
     const double k  = 1.0 - 0.3 * eOut;
     const LRect box = render::scaledAboutCentre(g.box, k);
@@ -458,7 +458,7 @@ void Overview::renderQuickLook() const {
   const auto &t = m_scene.tiles()[static_cast<std::size_t>(idx)];
   const bool tab = cardOf(t).isTab();
   const auto w = tab ? ownerWindow(t) : tileWindow(t);
-  if (!w || !w->m_isMapped || w->isHidden())
+  if (!w || !w->mapped() || w->isHidden())
     return;
 
   const double s = m->m_scale;
@@ -501,13 +501,13 @@ void Overview::renderQuickLook() const {
   const LRect plate = lay.plate;
   if (plate.w <= 0.0 || !drawable(plate, s))
     return;
-  auto &rd = g_pHyprRenderer->m_renderData;
+  auto &rd = g_pHyprRenderer->context().m_data;
   const CBox savedClip = rd.clipBox;
   rd.clipBox = pxb(plate, s);
   safeRenderRect("quick_look", pxb(card, s), cfg::colors.title_pill.get(a),
                  {.round = pxr(round, s), .roundingPower = roundPow});
   rd.clipBox = savedClip;
-  g_pHyprOpenGL->renderTexture(
+  g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), 
       label, pxb(LRect{lay.contentX, plate.y + (plate.h - label->m_size.y * lay.kFit) * 0.5,
                        label->m_size.x * lay.kFit, label->m_size.y * lay.kFit}, s),
       {.a = a});

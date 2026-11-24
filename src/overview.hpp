@@ -320,7 +320,7 @@ private:
     return m_pixel.putPicture(t.subj, browserSideFile("/previews/" + id + ".png"), {});
   }
   SP<Render::ITexture> windowIcon(const PHLWINDOW &w, int px) const {
-    return w ? m_pixel.appIcon(w->m_class, px) : nullptr;
+    return w ? m_pixel.appIcon(w->metadata().appID(), px) : nullptr;
   }
   SP<Render::ITexture> tabIcon(const model::Tile &t) const {
     if (!cardOf(t).isTab())

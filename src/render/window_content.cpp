@@ -7,7 +7,8 @@
 #include <hyprland/src/config/ConfigValue.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/WLSurface.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
+#include <hyprland/src/desktop/view/window/WindowPresentation.hpp>
 #include <hyprland/src/helpers/time/Time.hpp>
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
@@ -58,8 +59,8 @@ float windowRealAlpha(const PHLWINDOW &w, const PHLMONITOR &mon) {
     if (w->m_ruleApplicator->opaque().valueOrDefault())
       active = 1.0F;
   }
-  const float fade = w->alphaValue(Desktop::View::WINDOW_ALPHA_FULLSCREEN) *
-                     w->alphaValue(Desktop::View::WINDOW_ALPHA_LAYOUT);
+  const float fade = w->alpha()[Desktop::View::WINDOW_ALPHA_FULLSCREEN]->value() *
+                     w->alpha()[Desktop::View::WINDOW_ALPHA_LAYOUT]->value();
   return std::clamp(active * fade, 0.0F, 1.0F);
 }
 
@@ -70,7 +71,7 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
                       const CBox &destPx, const CBox &clipPx, float alpha,
                       const Time::steady_tp &when, int roundPx,
                       float roundingPower, bool settled, bool contain) {
-  if (!w || !mon || !w->m_isMapped || !w->wlSurface() ||
+  if (!w || !mon || !w->mapped() || !w->wlSurface() ||
       !w->wlSurface()->resource())
     return;
   if (!(destPx.w > 0 && destPx.h > 0))
@@ -81,7 +82,7 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
   // goal(), not value(): value() mid-resize scales only part of destPx.
   const auto pos  = w->positionAnimation()->goal();
   const auto size = w->sizeAnimation()->goal();
-  const Vector2D logicalTL = pos + w->m_floatingOffset;
+  const Vector2D logicalTL = pos + w->presentation().floatingOffset();
 
   const render::WindowFitInput fitIn{
       destPx.x, destPx.y, destPx.w, destPx.h,
@@ -123,7 +124,7 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
       sdata.texture   = snap;
       sdata.localPos  = Vector2D{};
       sdata.mainSurface = true;
-      g_pHyprRenderer->draw(sdata, g_pHyprRenderer->m_renderData.damage);
+      g_pHyprRenderer->draw(g_pHyprRenderer->context(), sdata, g_pHyprRenderer->context().m_data.damage);
       return;
     }
   }
@@ -139,7 +140,7 @@ void renderWindowLive(const PHLWINDOW &w, const PHLMONITOR &mon,
         data.texture     = s->m_current.texture;
         data.surface     = s;
         data.mainSurface = s == w->wlSurface()->resource();
-        g_pHyprRenderer->draw(data, g_pHyprRenderer->m_renderData.damage);
+        g_pHyprRenderer->draw(g_pHyprRenderer->context(), data, g_pHyprRenderer->context().m_data.damage);
         data.surfaceCounter++;
       },
       nullptr);

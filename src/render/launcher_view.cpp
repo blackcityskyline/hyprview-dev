@@ -28,7 +28,7 @@ void drawText(const SP<Render::ITexture> &tex, const LRect &row, double s, float
   const double h = tex->m_size.y;
   const double x = right ? row.x + row.w - kTextPad - w : row.x + pad;
   const double y = row.y + (row.h - h) / 2.0;
-  g_pHyprOpenGL->renderTexture(tex, pxb(LRect{x, y, w, h}, s), {.a = a});
+  g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), tex, pxb(LRect{x, y, w, h}, s), {.a = a});
 }
 
 }
@@ -81,7 +81,7 @@ void Overview::renderLauncher() const {
     const LRect at{l.field.x + kTextPad, l.field.y + (l.field.h - qTex->m_size.y) / 2.0,
                    std::min<double>(qTex->m_size.x, l.field.w - 2.0 * kTextPad),
                    qTex->m_size.y};
-    g_pHyprOpenGL->renderTexture(qTex, pxb(at, s), {.a = a});
+    g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), qTex, pxb(at, s), {.a = a});
   }
   drawText(scopeTex, l.field, s, a * 0.8F, true);
 
@@ -115,7 +115,7 @@ void Overview::renderLauncher() const {
           item->icon, std::max(8, static_cast<int>(std::lround(iconPx * s))));
       if (icon) {
         const LRect box{row.x + 10, row.y + (row.h - iconPx) / 2.0, iconPx, iconPx};
-        g_pHyprOpenGL->renderTexture(icon, pxb(box, s), {.a = a});
+        g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), icon, pxb(box, s), {.a = a});
         leftPad = 10.0 + iconPx + 10.0;
       }
     }

@@ -1,10 +1,11 @@
 #include <algorithm>
+#include "../compat.hpp"
 #include <chrono>
 #include <cmath>
 
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/render/pass/PassElement.hpp>
 
@@ -24,24 +25,24 @@ class PainterPass final : public IPassElement {
 public:
   explicit PainterPass(Overview *o) : m_owner(o) {}
 
-  std::vector<UP<IPassElement>> draw() override {
+  std::vector<UP<IPassElement>> draw(Render::CRenderContext &ctx) override {
     if (!m_owner)
       return {};
     // stale clipBox clips our geometry
-    g_pHyprRenderer->m_renderData.clipBox = CBox();
+    g_pHyprRenderer->context().m_data.clipBox = CBox();
     m_owner->paint();
     return {};
   }
 
   // false leaves blur residue
-  bool needsLiveBlur() override { return m_owner && m_owner->blurEnabled(); }
-  bool needsPrecomputeBlur() override { return false; }
+  bool needsLiveBlur(Render::CRenderContext &ctx) override { return m_owner && m_owner->blurEnabled(); }
+  bool needsPrecomputeBlur(Render::CRenderContext &ctx) override { return false; }
   // simplify() + preview geometry can empty it
-  bool disableSimplification() override { return true; }
-  bool undiscardable() override { return true; }
+  bool disableSimplification(Render::CRenderContext &ctx) override { return true; }
+  bool undiscardable(Render::CRenderContext &ctx) override { return true; }
   const char *passName() override { return "HyprviewPainter"; }
   ePassElementType type() override { return EK_CUSTOM; }
-  std::optional<CBox> boundingBox() override {
+  std::optional<CBox> boundingBox(Render::CRenderContext &ctx) override {
     const auto m = m_owner ? m_owner->monitor() : nullptr;
     if (!m)
       return std::nullopt;
@@ -64,15 +65,15 @@ void Overview::renderStage(eRenderStage stage) {
   // Parked open: the pass is registered anyway so draw() can run primeBackdrop (private FB, no draw).
   if (m_life.parked() && stage == RENDER_LAST_MOMENT) {
     const auto pm  = m_monitor.lock();
-    const auto prm = g_pHyprRenderer->m_renderData.pMonitor.lock();
+    const auto prm = g_pHyprRenderer->context().m_data.pMonitor.lock();
     if (pm && prm == pm)
-      g_pHyprRenderer->m_renderPass.add(makeUnique<PainterPass>(this));
+      Render::IHyprRenderer::addPassElement(g_pHyprRenderer->context(), makeUnique<PainterPass>(this));
     return;
   }
 
   if (!active())
     return;
-  const auto rm = g_pHyprRenderer->m_renderData.pMonitor.lock();
+  const auto rm = g_pHyprRenderer->context().m_data.pMonitor.lock();
   const auto m = m_monitor.lock();
   if (!rm || !m || rm != m)
     return;
@@ -92,7 +93,7 @@ void Overview::renderStage(eRenderStage stage) {
     // blurOK answers "is the cache good", not "has a texture": the FB holds the stale blur.
     const auto   blurTex = backdropBlurTexture();
     const bool   blurOK = blurTex && blurTex->ok() && !backdropBlurStale();
-    const auto ext = g_pHyprRenderer->m_renderData.damage.copy().getExtents();
+    const auto ext = g_pHyprRenderer->context().m_data.damage.copy().getExtents();
     debug::dbg("F t=+" +
         std::to_string(
             std::chrono::duration<double, std::milli>(
@@ -110,13 +111,13 @@ void Overview::renderStage(eRenderStage stage) {
         " dso=" + std::to_string(rm->m_directScanoutIsActive) +
         " dmg=" + std::to_string(ext.w) + "x" + std::to_string(ext.h) +
         " rects=" +
-        std::to_string(g_pHyprRenderer->m_renderData.damage.copy().getRects().size()) +
+        std::to_string(g_pHyprRenderer->context().m_data.damage.copy().getRects().size()) +
         " tiles=" + std::to_string(m_scene.tiles().size()) +
         " strip=" + std::to_string(m_strip.size()) +
         " ws=" +
-        std::to_string(m_workspace.lock() ? m_workspace.lock()->m_id : -1) +
+        std::to_string(m_workspace.lock() ? compat::wsId(m_workspace.lock()) : -1) +
         " liveWs=" +
-        std::to_string(m->m_activeWorkspace ? m->m_activeWorkspace->m_id : -1) +
+        std::to_string(m->m_activeWorkspace ? compat::wsId(m->m_activeWorkspace) : -1) +
         " drag=" + std::to_string((int)m_drag.press()) + "/" +
         std::to_string(m_drag.lifted()) + "/" + std::to_string(m_drag.idx()) +
         " sfx=" + std::to_string(m_fx.swapfx().size()) +
@@ -127,7 +128,7 @@ void Overview::renderStage(eRenderStage stage) {
 
   updateHover();
   if (m_altTabbing && m_life.openingNow() && g_pInputManager &&
-      !(g_pInputManager->getModsFromAllKBs() & altTabModBit()))
+      !(static_cast<uint32_t>(g_pInputManager->getModsFromAllKBs().value()) & altTabModBit()))
     activateSelection();
   relayoutCarousel();
   syncTiles();
@@ -145,7 +146,7 @@ void Overview::renderStage(eRenderStage stage) {
     } else if (!showAllWorkspaces()) {
       // capture + replay reflow, else stale ghosts survive
       if (const auto prev = m_workspace.lock())
-        m_view.setWsSlideDir( m->m_activeWorkspace->m_id > prev->m_id ? 1 : -1);
+        m_view.setWsSlideDir( compat::wsId(m->m_activeWorkspace) > compat::wsId(prev) ? 1 : -1);
       m_workspace = m->m_activeWorkspace;
       const auto shown = captureCurrentBoxes();
       buildTiles();
@@ -159,14 +160,14 @@ void Overview::renderStage(eRenderStage stage) {
       // Arm the slide AFTER the rebuild clock starts: updateAnimation clears wsSlideDir when
       // both entry clocks read done, which they do on a hop from an empty workspace.
       if (const auto prev = m_workspace.lock())
-        m_view.setWsSlideDir( m->m_activeWorkspace->m_id > prev->m_id ? 1 : -1);
+        m_view.setWsSlideDir( compat::wsId(m->m_activeWorkspace) > compat::wsId(prev) ? 1 : -1);
       ensureAnimPump();
       {
         int appearing = 0;
         for (const auto &t : m_scene.tiles())
           if (t.landed < 1.0)
             ++appearing;
-        debug::dbg("WSFOLLOW ->" + std::to_string(m->m_activeWorkspace->m_id) +
+        debug::dbg("WSFOLLOW ->" + std::to_string(compat::wsId(m->m_activeWorkspace)) +
                    " dir=" + std::to_string(m_view.wsSlideDir()) +
                    " style=[" + anim::moveName(m_place.recipes.enterStyle) + "] tiles=" +
                    std::to_string(m_scene.tiles().size()) + " animating=" +
@@ -183,7 +184,7 @@ void Overview::renderStage(eRenderStage stage) {
     }
   }
 
-  g_pHyprRenderer->m_renderPass.add(makeUnique<PainterPass>(this));
+  Render::IHyprRenderer::addPassElement(g_pHyprRenderer->context(), makeUnique<PainterPass>(this));
 
   {
     const bool busy = secondaryAnimsActive() ||
@@ -297,7 +298,7 @@ void Overview::renderMenu() const {
     }
     const auto tex = m_pixel.menuGlyph(glyph, cfg::colors.label.get(a), 20);
     if (tex && tex->m_size.x > 0)
-      g_pHyprOpenGL->renderTexture(tex,
+      g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), tex,
                                    pxb(render::glyphRect(b, tex->m_size.x, tex->m_size.y, 0.55), s),
                                    {.a = a});
   };
@@ -309,7 +310,7 @@ void Overview::renderCursorOnTop() const {
   const auto m = m_monitor.lock();
   if (!m)
     return;
-  m_cursor.renderOnTop(m, cfg::blur.backdrop.get(1.0));
+  m_cursor.renderOnTop(m);
 }
 
 }

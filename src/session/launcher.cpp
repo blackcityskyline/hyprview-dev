@@ -1,6 +1,7 @@
 #include "../config/config.hpp"
 #include "../debug/log.hpp"
 #include "../input/key_combo.hpp"
+#include "../compat.hpp"
 #include "../overview.hpp"
 #include "../pixel/desktop_entry.hpp"
 
@@ -13,8 +14,8 @@
 
 #include <hyprland/src/config/shared/actions/ConfigActions.hpp>
 #include <hyprland/src/config/supplementary/executor/Executor.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/state/WorkspaceState.hpp>
 
@@ -169,14 +170,14 @@ void Overview::buildLauncherItems() {
       if (item.title.empty())
         item.title = t.labelText;
       if (const auto host = ownerWindow(t))
-        item.detail = host->m_class;
+        item.detail = host->metadata().appID();
     } else {
       const auto w = tileWindow(t);
       if (!w || !onScope(w))
         continue;
       item.kind = model::LauncherKind::Window;
-      item.title = w->m_title.empty() ? w->m_class : w->m_title;
-      item.detail = w->m_class;
+      item.title = w->metadata().title().empty() ? w->metadata().appID() : w->metadata().title();
+      item.detail = w->metadata().appID();
     }
     if (item.title.empty())
       item.title = "untitled";
@@ -284,7 +285,7 @@ void Overview::runLauncherVerb(model::LauncherVerb verb) {
       model::StripItem it;
       it.kind = model::StripItem::Kind::Ws;
       it.id = tile->workspace;
-      it.ws = State::workspaceState()->query().id(it.id).run();
+      it.ws = compat::wsById(it.id);
       if (it.ws)
         switchToWorkspace(it);
     }
@@ -357,7 +358,7 @@ bool Overview::launcherKey(const IKeyboard::SKeyEvent &e, int k, uint32_t mods) 
     return true;
   }
 
-  if ((mods & (HL_MODIFIER_CTRL | HL_MODIFIER_ALT | HL_MODIFIER_META)) != 0)
+  if ((mods & static_cast<uint32_t>(Input::HL_MODIFIER_CTRL | Input::HL_MODIFIER_ALT | Input::HL_MODIFIER_META)) != 0)
     return true;
 
   if (k == KEY_ENTER || k == KEY_KPENTER) {
@@ -388,7 +389,7 @@ bool Overview::launcherKey(const IKeyboard::SKeyEvent &e, int k, uint32_t mods) 
     syncLauncherSelection();
     return true;
   }
-  if (const char c = launcherChar(k, (mods & HL_MODIFIER_SHIFT) != 0)) {
+  if (const char c = launcherChar(k, (mods & static_cast<uint32_t>(Input::HL_MODIFIER_SHIFT)) != 0)) {
     m_launcher.appendChar(c);
     syncLauncherSelection();
     return true;

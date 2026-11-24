@@ -5,7 +5,7 @@
 #include "../model/title_text.hpp"
 
 #include <hyprland/src/desktop/view/LayerSurface.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
@@ -109,7 +109,7 @@ void Overview::renderDragWindow() const {
     return; // drawn whole by renderDragTile
   const auto m = m_monitor.lock();
   const auto w = m_windows.windowOf(m_drag.win());
-  if (!m || !w || !w->m_isMapped || w->isHidden())
+  if (!m || !w || !w->mapped() || w->isHidden())
     return;
   if (m_drag.press() != model::Drag::Press::StripWin)
     return;
@@ -262,7 +262,7 @@ void Overview::renderSwapFX() const {
     if (fx.to.w > 0.0) {
       dests.push_back(fx.to);
     } else {
-      if (!w || !w->m_isMapped || w->isHidden())
+      if (!w || !w->mapped() || w->isHidden())
         continue;
       dests = swapDests(w, fx.toStrip);
     }
@@ -328,7 +328,7 @@ void Overview::renderAboveLayers() const {
   for (int idx : {2, 3}) { // LAYER_TOP, LAYER_OVERLAY
     for (const auto &ref : m->m_layerSurfaceLayers[idx]) {
       const auto ls = ref.lock();
-      if (!ls || !ls->m_mapped || !ls->wlSurface() ||
+      if (!ls || !ls->mapped() || !ls->wlSurface() ||
           !ls->wlSurface()->resource())
         continue;
       if (!isAboveLayer(ls->m_namespace))
@@ -366,7 +366,7 @@ void Overview::renderAboveLayers() const {
             data.texture     = s->m_current.texture;
             data.surface     = s;
             data.mainSurface = s == root;
-            g_pHyprRenderer->draw(data, g_pHyprRenderer->m_renderData.damage);
+            g_pHyprRenderer->draw(g_pHyprRenderer->context(), data, g_pHyprRenderer->context().m_data.damage);
             data.surfaceCounter++;
           },
           nullptr);

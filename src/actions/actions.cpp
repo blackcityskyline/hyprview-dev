@@ -1,5 +1,6 @@
 #include "../config/config.hpp"
 #include "../debug/log.hpp"
+#include "../compat.hpp"
 #include "../overview.hpp"
 
 #include <algorithm>
@@ -13,8 +14,8 @@
 #include <hyprland/src/desktop/history/WindowHistoryTracker.hpp>
 #include <hyprland/src/desktop/state/GlobalWindowController.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/layout/space/Space.hpp>
 #include <hyprland/src/layout/target/Target.hpp>
@@ -68,7 +69,7 @@ bool Overview::dropOnStripCard(const PHLWINDOW &w, double lx, double ly,
   PHLWINDOW vj;
   for (size_t j = 0; j < it.wins.size(); ++j) {
     const auto v = m_windows.windowOf(it.wins[j].subj);
-    if (!v || v == w || !v->m_isMapped || v->isHidden())
+    if (!v || v == w || !v->mapped() || v->isHidden())
       continue;
     if (stripWinSlotRect(it, stripCardAt(idx), j).contains(lx, ly)) {
       vj = v;
@@ -117,19 +118,19 @@ void Overview::dropOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
   PHLWORKSPACE target;
   if (it.kind == model::StripItem::Kind::Plus) {
     int id = 1;
-    while (State::workspaceState()->query().id(id).run())
+    while (compat::wsById(id))
       ++id;
-    target = State::workspaceState()->create(id, m->m_id);
+    target = compat::wsCreate(id, m);
     m_newCardId = id;
     m_place.clocks.newCard.begin();
     debug::trace::animStart("new_card", "card", "", m_place.recipes.entry.ms, m_place.recipes.entry.curve.c_str());
     m_newCardAnim = true;
   } else if (it.virtualWs) {
-    target = State::workspaceState()->query().id(it.id).run();
+    target = compat::wsById(it.id);
     if (!target)
-      target = State::workspaceState()->create(it.id, m->m_id);
+      target = compat::wsCreate(it.id, m);
     if (target) {
-      target->setPersistent(true);
+      compat::wsSetPersistent(target, true);
       m_newWs.push_back(target);
       m_newCardId = it.id;
       m_place.clocks.newCard.begin();
@@ -283,8 +284,8 @@ std::string Overview::runCommand(const std::string &args) {
       }
       const int slot = m_view.slotOf(i);
       out += "\nTILE|" + std::to_string(i) + "|" +
-             (w ? w->m_class : std::string("gone")) + "|" +
-             (w && w->m_workspace ? std::to_string(w->m_workspace->m_id) : std::string("-")) +
+             (w ? w->metadata().appID() : std::string("gone")) + "|" +
+             (w && w->m_workspace ? std::to_string(compat::wsId(w->m_workspace)) : std::string("-")) +
              "|" + std::to_string(static_cast<int>(t.target.x)) +
              "," + std::to_string(static_cast<int>(t.target.y)) +
              "," + std::to_string(static_cast<int>(t.target.w)) +
@@ -570,9 +571,9 @@ std::string Overview::runCommand(const std::string &args) {
     const auto m = m_monitor.lock();
     if (!w || !m)
       return "movews: no window";
-    auto target = State::workspaceState()->query().id(ws).run();
+    auto target = compat::wsById(ws);
     if (!target)
-      target = State::workspaceState()->create(ws, m->m_id);
+      target = compat::wsCreate(ws, m);
     if (!target)
       return "movews: no workspace";
     auto oldBoxes = captureCurrentBoxes(w ? subjectOf(w) : model::SubjectRef{});
@@ -663,7 +664,7 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
                            anim::Move style, double ms,
                            const std::string &curve, bool toStrip,
                            const LRect &to) {
-  if (!w || !w->m_isMapped || w->isHidden())
+  if (!w || !w->mapped() || w->isHidden())
     return;
   // Same surface only: in all-workspaces view a window has two live flights; dropping by window alone lets the second cancel the first.
   m_fx.dropSwap([&w, toStrip](const model::SwapFX &f) {
@@ -689,7 +690,7 @@ void Overview::beginSwapFX(const PHLWINDOW &w, const LRect &from,
     else {
       const std::string mv = anim::moveName(style);
       debug::trace::animBegin(fx.traceSeq, "swap", curve.c_str(), mv.c_str(), ms,
-                              curve.c_str(), w->m_class.c_str(),
+                              curve.c_str(), w->metadata().appID().c_str(),
                               toStrip ? "strip" : "grid", from, dests.front());
     }
   }
@@ -766,12 +767,12 @@ void Overview::swapOnWorkspace(const PHLWINDOW &w, const model::StripItem &it) {
     return;
   }
 
-  PHLWINDOW partner = target->m_lastFocusedWindow.lock();
-  if (!partner || partner->m_workspace != target || !partner->m_isMapped ||
+  PHLWINDOW partner = target->getLastFocusedWindow();
+  if (!partner || partner->m_workspace != target || !partner->mapped() ||
       partner->isHidden()) {
     partner.reset();
     for (const auto &cand : Desktop::windowState()->windows())
-      if (cand && cand->m_isMapped && !cand->isHidden() &&
+      if (cand && cand->mapped() && !cand->isHidden() &&
           cand->m_workspace == target) {
         partner = cand;
         break;
@@ -820,18 +821,18 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
   PHLWORKSPACE ws;
   if (it.kind == model::StripItem::Kind::Plus) {
     int id = 1;
-    while (State::workspaceState()->query().id(id).run())
+    while (compat::wsById(id))
       ++id;
-    ws = State::workspaceState()->create(id, m->m_id, "", false);
+    ws = compat::wsCreate(id, m, false);
     if (!ws)
       return;
   } else if (it.virtualWs) {
-    ws = State::workspaceState()->query().id(it.id).run();
+    ws = compat::wsById(it.id);
     if (!ws)
-      ws = State::workspaceState()->create(it.id, m->m_id, "", false);
+      ws = compat::wsCreate(it.id, m, false);
     if (!ws)
       return;
-    ws->setPersistent(
+    compat::wsSetPersistent(ws, 
         true);
     m_newWs.push_back(ws);
   } else if (const auto target = it.ws.lock()) {
@@ -846,8 +847,8 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
   m_workspace = ws;
 
   m_scene.clearHover();
-  if (oldWs && ws && ws->m_id != oldWs->m_id)
-    m_view.setWsSlideDir( ws->m_id > oldWs->m_id ? 1 : -1);
+  if (oldWs && ws && compat::wsId(ws) != compat::wsId(oldWs))
+    m_view.setWsSlideDir( compat::wsId(ws) > compat::wsId(oldWs) ? 1 : -1);
   // The frozen backdrop belongs to the PREVIOUS ws: do NOT invalidate it.
   const auto oldBoxes = captureCurrentBoxes();
   // buildTiles does not filter by workspace in all-workspaces mode: a window OF the chosen workspace is picked here.
@@ -870,7 +871,7 @@ void Overview::switchToWorkspace(const model::StripItem &it, bool instant) {
   }
   buildStrip();
   layoutTiles();
-  debug::dbg("SWITCH ->" + std::to_string(ws ? ws->m_id : -1) + " tiles=" +
+  debug::dbg("SWITCH ->" + std::to_string(ws ? compat::wsId(ws) : -1) + " tiles=" +
       std::to_string(m_scene.tiles().size()));
   // instant=true (jump mode) skips the ws-slide so close() cannot collide.
   if (instant) {
@@ -947,17 +948,17 @@ void Overview::addWorkspace() {
   int id = 1;
   if (cfg::behavior.new_workspace_mode.get() == "linear") {
     for (const auto &wref : State::workspaceState()->workspaces())
-      if (const auto ws = wref.lock(); ws && !ws->m_isSpecialWorkspace)
-        id = std::max(id, static_cast<int>(ws->m_id) + 1);
+      if (const auto ws = wref.lock(); ws && !compat::wsSpecial(ws))
+        id = std::max(id, compat::wsId(ws) + 1);
   } else {
-    while (State::workspaceState()->query().id(id).run())
+    while (compat::wsById(id))
       ++id;
   }
-  const auto ws = State::workspaceState()->create(id, m->m_id, "", false);
+  const auto ws = compat::wsCreate(id, m, false);
   if (!ws)
     return;
   // Persistent, or a new empty workspace is reaped within a frame.
-  ws->setPersistent(true);
+  compat::wsSetPersistent(ws, true);
   m_newWs.push_back(ws);
   m_newCardId = id;
   m_place.clocks.newCard.begin();
@@ -1012,7 +1013,7 @@ void Overview::closeWorkspaceWindows(const model::StripItem &it) {
     return;
   int n = 0;
   for (const auto &w : Desktop::windowState()->windows())
-    if (w && w->m_isMapped && !w->isHidden() && w->m_workspace == ws) {
+    if (w && w->mapped() && !w->isHidden() && w->m_workspace == ws) {
       w->sendClose();
       ++n;
     }

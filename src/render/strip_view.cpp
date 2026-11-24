@@ -1,9 +1,10 @@
 #include <algorithm>
+#include "../compat.hpp"
 #include <cmath>
 
 #include <linux/input-event-codes.h>
 
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
@@ -122,10 +123,10 @@ void Overview::renderStrip() const {
             td.round         = pxr(cardRound, s);
             td.roundingPower = roundPow;
             td.allowCustomUV = true;
-            g_pHyprRenderer->draw(td, g_pHyprRenderer->m_renderData.damage);
+            g_pHyprRenderer->draw(g_pHyprRenderer->context(), td, g_pHyprRenderer->context().m_data.damage);
           };
-          auto &uvTL = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
-          auto &uvBR = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
+          auto &uvTL = g_pHyprRenderer->context().m_data.primarySurfaceUVTopLeft;
+          auto &uvBR = g_pHyprRenderer->context().m_data.primarySurfaceUVBottomRight;
           uvTL = Vector2D{uv.u0, uv.v0};
           uvBR = Vector2D{uv.u1, uv.v1};
           const bool   blurOk = btex && btex->ok();
@@ -145,7 +146,7 @@ void Overview::renderStrip() const {
         for (size_t j = 0; j < it.wins.size(); ++j) {
           const auto &sw = it.wins[j];
           const auto w = m_windows.windowOf(sw.subj);
-          if (!w || !w->m_isMapped || w->isHidden())
+          if (!w || !w->mapped() || w->isHidden())
             continue;
           const LRect wbL = stripWinSlotRect(it, card, j);
           // NaN slips past stripWinSlotRect's max() clamps and RASSERTs later.
@@ -173,7 +174,7 @@ void Overview::renderStrip() const {
                                               cfg::strip.label_band, cfg::strip.label_extra);
       const float la =
           it.active ? static_cast<float>(fade) : static_cast<float>(fade) * 0.75F;
-      g_pHyprOpenGL->renderTexture(it.label, pxb(box(lb), s), {.a = la});
+      g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), it.label, pxb(box(lb), s), {.a = la});
     }
   }
 }
@@ -208,7 +209,7 @@ void Overview::renderStripWindows() const {
           static_cast<int>(j) == m_drag.winIdx())
         continue;
       const auto w = m_windows.windowOf(it.wins[j].subj);
-      if (!w || !w->m_isMapped || w->isHidden())
+      if (!w || !w->mapped() || w->isHidden())
         continue;
       if (swapfxActive(w, true))
         continue;
@@ -222,7 +223,7 @@ void Overview::renderStripWindows() const {
       const int round = clampRound(cardRound, slot.w, slot.h);
       const CBox slotPx = pxb(slot, scale);
       const CBox cardPx = pxb(card, scale);
-      if (slot.w >= 1.0 && slot.h >= 1.0 && it.ws && it.ws->m_isSpecialWorkspace)
+      if (slot.w >= 1.0 && slot.h >= 1.0 && it.ws && compat::wsSpecial(it.ws.lock()))
         debug::dbg("strip special slot: " + std::to_string(slotPx.w) + "x" +
                    std::to_string(slotPx.h) + "px of " + std::to_string(slot.w) + "x" +
                    std::to_string(slot.h) + " card=" + std::to_string(card.w) + "x" +
@@ -278,7 +279,7 @@ void Overview::renderStripButtons() const {
       if (isRmb) {
         for (size_t j = 0; j < it.wins.size(); ++j) {
           const auto v = m_windows.windowOf(it.wins[j].subj);
-          if (!v || v == dragW || !v->m_isMapped || v->isHidden())
+          if (!v || v == dragW || !v->mapped() || v->isHidden())
             continue;
           const LRect sl = stripWinSlotRect(it, card, j);
           if (!sl.contains(m_drag.x(), m_drag.y()))
@@ -338,7 +339,7 @@ void Overview::renderStripButtons() const {
       if (closeGlyph && closeGlyph->m_size.x > 0) {
         const auto glyph = render::glyphRect(br, closeGlyph->m_size.x, closeGlyph->m_size.y,
                                              cfg::look.close_glyph_fill);
-        g_pHyprOpenGL->renderTexture(closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});
+        g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});
       }
     }
   }
