@@ -116,12 +116,13 @@ leaves the overview open. `quick_look_ms` / `_speed` / `_curve` tune the morph.
 application, across every workspace; pressing it again restores the full grid. A browser
 shows its windows, not its tabs, while the filter is on.
 
-A card carries its name inside it: a rounded plate on the card's own **bottom** edge, with
-the app's icon (the page's favicon for a tab) and the title on it. The plate never leaves the
-card — it is the bottom edge on every card, whatever the counter does — and a plate wider
-than its card shrinks to stay inside it. The title is cut at 50 characters with `...` at the
-end, the dots included — the limit counts characters, so a Cyrillic title is cut between
-letters and not through one.
+A card carries its name on a bar that IS its own bottom edge: the card's full width, the
+card's height, the card's own bottom corners, so the bar reads as part of the frame and not as
+a pill laid on the card. The app's icon (the page's favicon for a tab) sits on the bar before
+the title. The bar is always that edge, whatever the counter does; a title too long for its
+card shrinks inside the bar, and the bar keeps the card's size. The title is cut at 50
+characters with `...` at the end, the dots included — the limit counts characters, so a
+Cyrillic title is cut between letters and not through one.
 
 The carousel's `n / total` counter is the one caption still outside a card: a pill of its
 own hanging off the centred card's edge (`counter_position`, `counter_gap`), with its own
@@ -320,22 +321,21 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `close_button_color` | color/role | `"0xe6e23b3b"` | `✕` close-button fill — per-window, and per-workspace (closes every window on it) |
 | `close_glyph_color` | color | `"0xffffffff"` | the `✕` glyph itself, drawn on top of `close_button_color` |
 | `label_color` | color | `"0xf2ffffff"` | window/workspace name text under tiles and strip cards |
-| `title_pill_color` | color | `"0xcc11151c"` | the plate inside a card that carries its icon and title |
+| `title_pill_color` | color | `"0xcc11151c"` | the bar on a card's bottom edge that carries its icon and title |
 | `title_font_size` | int | `12` | font size of a tile's title label |
 | `launcher_width` | int (px) | `620` | Launcher panel width before the grid's side margins cap it |
 | `launcher_rows` | int | `7` | Visible launcher rows; the list scrolls past this |
 | `launcher_row_height` | int (px) | `44` | Launcher row height, and the action menu's |
 | `launcher_font_size` | int | `15` | Launcher row and search-field font size |
 | `title_label_color` | color | `"0xf2ffffff"` | the title's text colour (both layouts) |
-| `title_position` | string | `"bottom"` | kept for compatibility, and only as the counter pill's fallback edge: the title plate itself is always inside the card's bottom edge |
-| `title_round` | float | `-1.0` | title plate corner radius in px; negative = capsule (half the height), `0` = square |
+| `title_position` | string | `"bottom"` | kept for compatibility, and only as the counter pill's fallback edge: the title's bar is always the card's bottom edge |
 | `counter_font_size` | int | `12` | font size of the `n / total` counter in its pill |
 | `counter_label_color` | color | `"0xf2ffffff"` | the counter's text colour |
 | `counter_pill_color` | color | `"0xcc11151c"` | the counter pill's fill |
 | `counter_position` | string | `""` | `"top"` or `"bottom"`: the card edge the counter pill hangs off, outside the card; empty = follow `title_position` |
 | `counter_gap` | float | `8` | the card edge to the counter pill, px |
 | `counter_margin` | float | `6` | the counter pill's inset from the screen edge |
-| `counter_round` | float | `-1.0` | counter pill corner radius, same convention as `title_round` |
+| `counter_round` | float | `-1.0` | counter pill corner radius in px; negative = capsule (half the height), `0` = square |
 | `kill_zone` | int | `1` | closing a window by dragging it to the screen edge OPPOSITE the strip; `0` makes the edge a no-op |
 | `kill_zone_size` | float | `40` | thickness of that edge zone, px |
 | `kill_zone_falloff` | float | `150` | how far from the zone its glow reaches, px |
@@ -354,11 +354,10 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `icon_shadow_offset` | float | `0.045` | plate icon shadow drop, as a share of the icon's side (colour is `shadow_color`) |
 | `icon_shadow_blur` | float | `0.1` | plate icon shadow falloff, as a share of the icon's side |
 | `icon_shadow_alpha` | float | `0.55` | plate icon shadow opacity |
-| `title_pad_x` | float | `11` | horizontal padding inside the title plate |
-| `title_pad_y` | float | `5` | vertical padding inside the title plate |
+| `title_pad_x` | float | `11` | the title's inset from the bar's ends |
+| `title_pad_y` | float | `5` | padding above and below the title on the bar |
 | `counter_pad_x` | float | `11` | horizontal padding inside the counter pill |
 | `counter_pad_y` | float | `5` | vertical padding inside the counter pill |
-| `title_margin` | float | `6` | inset of the title plate from the card's edge; a plate too wide for the card shrinks to keep it |
 | `close_glyph_fill` | float | `0.62` | fraction of the close button the glyph fills |
 | `drop_hint_color` | color | `"0x38ffffff"` | drop-zone highlight flash on a workspace card while dragging |
 | `close_button` | bool (0/1) | `1` | The global switch on every x: `0` removes close buttons everywhere, strip band included, whatever `close_button_visibility` says |

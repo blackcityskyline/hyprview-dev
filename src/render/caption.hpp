@@ -1,8 +1,7 @@
 #pragma once
 
-// THE CAPTION, two owners with two rules: the card's NAME is a plate inside its own BOTTOM edge
-// (nothing to dodge, only the fit that keeps a long title inside it), and the run's COUNTER is
-// the outside pill it always was -- shoved clear of a card that reaches it, fading with its card.
+// THE CAPTION, two owners: the card's NAME sits on a bar that IS the card's own bottom edge,
+// and the run's COUNTER is the outside pill it always was, shoved clear of a card that reaches it.
 
 #include "../layout.hpp"
 
@@ -53,7 +52,6 @@ struct CaptionStyle {
   double padX = 0.0, padY = 0.0;
   double cPadX = 0.0, cPadY = 0.0; // the counter pill's own padding
   double edgeGap = 0.0;            // card edge to the counter pill
-  double margin = 0.0;             // the plate's inset from the card's own edge
   double cMargin = 0.0;            // screen margin kept for the counter pill
   double cardRefW = 0.0;           // the centred card, the one scale 1.0 belongs to
   bool counterBelow = true;        // the counter hangs off the card's bottom edge
@@ -61,9 +59,10 @@ struct CaptionStyle {
 };
 
 struct CaptionLayout {
-  LRect pill;    // the plate, inside the card's bottom edge
-  LRect counter; // the counter's own pill, outside the card; h == 0 when there is none
-  double kFit = 1.0;
+  LRect plate;           // the card's bottom edge: full width, the card's own corners
+  LRect counter;         // the counter's own pill, outside the card; h == 0 when there is none
+  double contentX = 0.0; // left edge of the icon+text group, centred on the plate
+  double kFit = 1.0;     // the text's scale; the plate is the card's size either way
 };
 
 [[nodiscard]] inline CaptionLayout captionLayout(const LRect &card, const LRect &band,
@@ -83,23 +82,18 @@ struct CaptionLayout {
   const bool icon = label && s.hasIcon && s.iconW > 0.0;
   const double iconW = icon ? s.iconW + st.iconGap : 0.0;
   const double innerH = icon ? std::max(textH, s.iconW) : textH;
-  const double contentW = textW + iconW + 2.0 * padX;
 
-  // The plate lives ON the card, so a title wider than the card shrinks instead of running off.
+  // The plate is the card's own bottom edge, the card's size; only the TEXT shrinks to fit it.
   const double kCard = cardScale(card.w, st.cardRefW);
-  const double naturalW = contentW * kCard;
-  const double room = std::max(card.w - 2.0 * st.margin, 1.0);
-  const double kFit = naturalW > 0.0 ? kCard * std::min(1.0, room / naturalW) : kCard;
-
-  const double pw = contentW * kFit;
-  const double ph = (innerH + 2.0 * padY) * kFit;
-  const double lo = card.x + st.margin;
-  const double hi = std::max(lo, card.x + card.w - st.margin - pw);
+  const double ph = (innerH + 2.0 * padY) * kCard;
+  const double contentW = textW + iconW;
+  const double room = std::max(card.w - 2.0 * padX * kCard, 1.0);
+  const double kFit = contentW > 0.0 ? std::min(kCard, room / contentW) : kCard;
 
   CaptionLayout lay;
   lay.kFit = kFit;
-  lay.pill = LRect{std::clamp(card.cx() - pw * 0.5, lo, hi),
-                   card.y + card.h - st.margin - ph, pw, ph};
+  lay.plate = LRect{card.x, card.y + card.h - ph, card.w, ph};
+  lay.contentX = card.x + (card.w - contentW * kFit) * 0.5;
   if (!label || !s.hasCounter)
     return lay;
 

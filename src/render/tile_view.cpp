@@ -287,25 +287,30 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
   const render::CaptionStyle style{
       cfg::look.title_pad_x, cfg::look.title_pad_y,
       cfg::look.counter_pad_x, cfg::look.counter_pad_y,
-      cfg::look.counter_gap,
-      cfg::look.title_margin, cfg::look.counter_margin,
-      m_view.cardRefW(),
+      cfg::look.counter_gap, cfg::look.counter_margin, m_view.cardRefW(),
       cpos.empty() ? cfg::look.title_position.get() != "top" : cpos != "top", 6.0};
   const auto lay = render::captionLayout(box, stripBand(), m->m_size.x, m->m_size.y, sizes,
                                          style);
   const float a = static_cast<float>(e * f);
 
-  if (lay.pill.w > 0.0) {
-    const LRect plate = lay.pill;
+  const LRect plate = lay.plate;
+  if (plate.w > 0.0 && drawable(plate, s)) {
     const double k = lay.kFit;
-    const int round = render::pillRadius(cfg::look.title_round, plate.w, plate.h);
+    const int round =
+        look.round >= 0.0 ? static_cast<int>(look.round) : cfg::look.preview_round;
     debug::trace::ring("title_pill", plate, pxr(round, s), a);
-    safeRenderRect("tile", pxb(CBox(plate.x, plate.y, plate.w, plate.h), s),
-                   cfg::colors.title_pill.get(a),
+    // The bar IS the card's edge: the card's own rounded rect, scissored to the bar (two rects
+    // double the alpha at the seam; a bar with its own corners shows the content through).
+    auto &rd = g_pHyprRenderer->m_renderData;
+    const CBox savedClip = rd.clipBox;
+    rd.clipBox = pxb(plate, s);
+    safeRenderRect("tile", pxb(box, s), cfg::colors.title_pill.get(a),
                    {.round = pxr(round, s), .roundingPower = roundPow});
+    rd.clipBox = savedClip;
+    const double iconSpan = hasIcon ? (iconSide + style.iconGap) * k : 0.0;
     if (hasIcon) {
-      const LRect at{plate.x + style.padX * k, plate.y + (plate.h - iconSide * k) * 0.5,
-                     iconSide * k, iconSide * k};
+      const LRect at{lay.contentX, plate.y + (plate.h - iconSide * k) * 0.5, iconSide * k,
+                     iconSide * k};
       // The icon's shadow is the plugin's own: Hyprland's shader divides by the shape.
       auto spec = render::iconShadowSpec(iconSide, cfg::look.icon_shadow_offset,
                                          cfg::look.icon_shadow_blur);
@@ -323,16 +328,16 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
     if (hasLabel)
       g_pHyprOpenGL->renderTexture(
           t.label,
-          pxb(CBox(plate.x + (style.padX + (hasIcon ? iconSide + style.iconGap : 0.0)) * k,
+          pxb(CBox(lay.contentX + iconSpan,
                    plate.y + (plate.h - sizes.textH * k) * 0.5, sizes.textW * k,
                    sizes.textH * k), s),
           {.a = a});
     else
-      // Nothing to name: the counter is the plate's own text, not a second plate.
+      // Nothing to name: the counter is the bar's own text, not a second plate.
       g_pHyprOpenGL->renderTexture(
           countTex,
-          pxb(LRect{plate.x + style.cPadX * k, plate.y + (plate.h - sizes.countH * k) * 0.5,
-                    sizes.countW * k, sizes.countH * k}, s),
+          pxb(CBox(lay.contentX, plate.y + (plate.h - sizes.countH * k) * 0.5,
+                   sizes.countW * k, sizes.countH * k), s),
           {.a = a});
   }
 
@@ -486,22 +491,24 @@ void Overview::renderQuickLook() const {
                                                static_cast<int>(content.w));
   if (!label || label->m_size.x <= 0)
     return;
-  // The same plate as a card's, inside the preview's own bottom edge.
+  // The same bar as a card's: the preview's own bottom edge.
   const render::CaptionStyle style{cfg::look.title_pad_x, cfg::look.title_pad_y, 0.0, 0.0,
-                                   0.0, cfg::look.title_margin, 0.0, card.w, true, 6.0};
+                                   0.0, 0.0, card.w, true, 6.0};
   const auto lay = render::captionLayout(
       card, LRect{}, m->m_size.x, m->m_size.y,
       render::CaptionSizes{label->m_size.x, label->m_size.y, 0.0, 0.0, true, false, 0.0, false},
       style);
-  const LRect plate = lay.pill;
-  if (plate.w <= 0.0)
+  const LRect plate = lay.plate;
+  if (plate.w <= 0.0 || !drawable(plate, s))
     return;
-  safeRenderRect("quick_look", pxb(plate, s), cfg::colors.title_pill.get(a),
-                 {.round = pxr(render::pillRadius(cfg::look.title_round, plate.w, plate.h), s),
-                  .roundingPower = roundPow});
+  auto &rd = g_pHyprRenderer->m_renderData;
+  const CBox savedClip = rd.clipBox;
+  rd.clipBox = pxb(plate, s);
+  safeRenderRect("quick_look", pxb(card, s), cfg::colors.title_pill.get(a),
+                 {.round = pxr(round, s), .roundingPower = roundPow});
+  rd.clipBox = savedClip;
   g_pHyprOpenGL->renderTexture(
-      label, pxb(LRect{plate.x + cfg::look.title_pad_x * lay.kFit,
-                       plate.y + (plate.h - label->m_size.y * lay.kFit) * 0.5,
+      label, pxb(LRect{lay.contentX, plate.y + (plate.h - label->m_size.y * lay.kFit) * 0.5,
                        label->m_size.x * lay.kFit, label->m_size.y * lay.kFit}, s),
       {.a = a});
 }

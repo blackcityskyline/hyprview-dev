@@ -163,13 +163,10 @@ struct look {
   Float title_pad_y;
   Int title_font_size;
   Str title_position;
-  // Corner radius in px. Negative = a capsule, 0 = square; capped at half the shorter side.
-  Float title_round;
-  Float title_margin;
   Int counter_font_size;
   Float counter_pad_x;
   Float counter_pad_y;
-  // Corner radius in px for the counter pill, same convention as title_round.
+  // Corner radius in px for the counter pill. Negative = a capsule, 0 = square.
   Float counter_round;
   Str counter_position;
   // Card edge to the counter pill, and the screen margin it keeps.
