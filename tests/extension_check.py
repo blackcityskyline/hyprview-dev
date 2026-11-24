@@ -73,13 +73,29 @@ def main():
     canvas = body_of(js, "function paintCanvas(")
     want("backgroundImage" in canvas,
          "paintCanvas copies only the colour -- a canvas that is an image comes back flat")
+    # A page that paints no background of its own gets the browser's canvas colour, and that
+    # keyword answers LIGHT unless the scheme is forced: measured, YouTube on a dark desktop
+    # came back a white sheet while the page on screen was dark.
+    want("color-scheme:" in canvas and "prefers-color-scheme: dark" in canvas,
+         "the canvas fallback is not scheme-aware -- a dark page with a transparent background "
+         "comes back white")
 
     capture = body_of(js, "async function capture(")
     want(capture != "", "background.js has no capture function")
     if capture:
+        # A page shots white if the shot beats its own theme: wait for the load and let the
+        # restyle land first.
+        wait = body_of(js, "async function settle(")
+        want(wait != "", "background.js has no settle: a page is shot before it is painted")
+        want("status === 'complete'" in wait,
+             "settle does not wait for the load -- a page mid-load is shot white")
+        want("setTimeout" in wait, "settle does not pause: an add-on's restyle lands a tick later")
+        settle_at = capture.find("settle(")
         paint = capture.find("paintCanvas")
         shoot = capture.find("captureTab")
         unpaint = capture.find("unpaintCanvas")
+        want(settle_at >= 0 and settle_at < paint,
+             "the shot is not made to wait for the settled page")
         want(paint >= 0 and shoot >= 0 and paint < shoot,
              "the canvas is not painted before the shot -- the page comes back as a white sheet")
         want(unpaint >= 0 and unpaint > shoot,

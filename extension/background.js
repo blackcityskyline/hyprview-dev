@@ -383,9 +383,17 @@ function paintCanvas() {
   };
   let background = supplies(root) || (document.body ? supplies(document.body) : '');
   if (!background) {
+    // The browser's own colour for a page that paints no background. `Canvas` follows the
+    // element's used colour scheme, and a page that never declares one is LIGHT no matter how
+    // dark the system is -- measured on YouTube: root and body transparent, `Canvas` white,
+    // while the browser paints the viewport with its dark canvas colour (Firefox:
+    // `browser.display.background_color.dark`) and the card came back a white sheet. The
+    // scheme is forced here so the keyword answers the colour the page really shows.
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
     const probe = document.createElement('div');
     probe.style.cssText =
-      'position:fixed;left:-1px;top:-1px;width:1px;height:1px;background-color:Canvas';
+      'position:fixed;left:-1px;top:-1px;width:1px;height:1px;color-scheme:' +
+      (dark ? 'dark' : 'light') + ';background-color:Canvas';
     root.appendChild(probe);
     background = getComputedStyle(probe).backgroundColor;
     probe.remove();
@@ -416,11 +424,36 @@ async function inPage(tabId, fn) {
   return result;
 }
 
+// A page is photographed white if the shot lands before it has been painted in its own theme:
+// switched to, reloaded, or restyled by an add-on a heartbeat later. Measured on YouTube, whose
+// dark theme and the add-ons that repaint it land after the load: the snapshot taken on the
+// event report was 149.7 mean against 65.4 for the same page on screen. Wait for the load to
+// finish, then give the restyle a moment -- the shot paints a layer for the whole wait, so the
+// pause is short.
+const SETTLE_MS = 400;
+const SETTLE_MAX_MS = 10000;
+
+async function settle(tabId) {
+  const end = Date.now() + SETTLE_MAX_MS;
+  while (Date.now() < end) {
+    let tab = null;
+    try {
+      tab = await api.tabs.get(tabId);
+    } catch (e) {
+      return; // gone: capture() has nothing to shoot anyway
+    }
+    if (!tab || tab.status === 'complete') break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  await new Promise((r) => setTimeout(r, SETTLE_MS));
+}
+
 async function capture(entry, tabs) {
   const tab = tabs.find((t) => t.id === entry.id);
   if (!tab) return null;
   let painted = false;
   try {
+    if (canCaptureTab) await settle(entry.id);
     try {
       painted = !!(await inPage(entry.id, paintCanvas));
     } catch (e) {

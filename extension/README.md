@@ -77,7 +77,9 @@ correlation.
 - **Photographs every tab, one per message.** A native message tops out near a megabyte, so a
   picture is sent on its own, naming the tab it is of, and the next one follows on the next
   report. A tab whose picture is younger than half a minute is left alone until the compositor
-  asks again.
+  asks again. A tab still loading is waited for (up to ten seconds) and then given a moment: a
+  shot taken before the page has painted is a white sheet, measured on a page restyled by an
+  add-on a tick after its load.
 - **Takes the pictures again on request.** The compositor writes `shot.<pid>` when the overview
   opens; the message is `{"name": "shot"}` and the answer is an ordinary report per tab. A page
   restyled after it was loaded would otherwise be pictured as it looked before the restyle.
@@ -88,8 +90,10 @@ correlation.
   removes it right after. The browser's snapshot draws the document but not the canvas, so a
   page in dark mode came back as dark controls on a white sheet, and a canvas that is a
   gradient or a photograph came back flat. Colour and image are copied from the element the
-  page takes its canvas from; a page that has neither gets the `Canvas` system colour. A layer,
-  not the root background: the root background is the canvas.
+  page takes its canvas from; a page that has neither gets the `Canvas` system colour for its
+  colour scheme, forced on a probe element — the keyword answers light for a page that declares
+  no scheme, which turned a transparent dark page (YouTube) into a white sheet. A layer, not the
+  root background: the root background is the canvas.
 - **Opens a tab on request.** The compositor writes `a <pid> <window> <tab>` under
   `$XDG_RUNTIME_DIR/hyprview`; the mediator whose parent is that pid forwards it, and the
   extension makes the tab active (reloading it if it was discarded) and focuses its window.
