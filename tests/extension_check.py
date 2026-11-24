@@ -111,6 +111,12 @@ def main():
     want("drop.push(next.id)" not in report,
          "a failed shot deletes the picture it already had -- the card falls back to a plate")
 
+    # A picture of a page that is still loading is stale the moment it lands: it must not be
+    # remembered as fresh, or the card keeps the half-load for the whole TTL.
+    want("next.loading" in report,
+         "a shot of a page that is still loading is remembered as fresh")
+    want("loading" in queue, "the queue does not carry whether the tab is still loading")
+
     # (5) the close verb: the compositor asks the browser to close a tab, because a tab is
     # not a window the compositor owns. Without it the card's x does nothing at all.
     want("api.tabs.remove(" in js, "background.js has no close verb -- a tab card's x does nothing")

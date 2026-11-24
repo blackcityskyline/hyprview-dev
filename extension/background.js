@@ -114,7 +114,13 @@ function queueShots(tabs, active) {
   const wanted = canCaptureTab
     ? tabs.filter((t) => typeof t.id === 'number' && !t.discarded && shootable(t))
     : tabs.filter((t) => typeof t.id === 'number' && active.includes(t.id) && shootable(t));
-  shotQueue = wanted.map((t) => ({ id: t.id, windowId: t.windowId }));
+  shotQueue = wanted.map((t) => ({
+    id: t.id,
+    windowId: t.windowId,
+    // A page still loading is worth shooting (a card with a half page beats a plate) but not
+    // worth remembering: the picture is of a page that no longer exists a second later.
+    loading: t.status === 'loading',
+  }));
 }
 
 // A tab that navigated shows another page now, so the picture on disk is of a page this tab no
@@ -202,7 +208,7 @@ async function reportOnce() {
   // a navigation names the id in `drop` before this runs -- and a transient failure (a video
   // page, a challenge page mid-redirect) used to delete a good picture and leave the card as a
   // title on a plate.
-  if (next && screenshot)
+  if (next && screenshot && !next.loading)
     shotAt.set(next.id, Date.now());
   const favicons = await iconMap(tabs);
   try {
