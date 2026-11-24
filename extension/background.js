@@ -149,6 +149,10 @@ async function report() {
     if (repicturePending) {
       repicturePending = false;
       report();
+    } else if (shotQueue.length) {
+      // One picture per message, so the queue is drained by reporting again: without this only
+      // the first tab of a dozen was photographed and the rest kept a title on a plate.
+      report();
     }
   }
 }

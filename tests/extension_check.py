@@ -94,6 +94,12 @@ def main():
     want("canCaptureTab" in queue and "active.includes" in queue,
          "the queue does not fall back to the visible tab on a browser without captureTab")
 
+    # The queue is one picture per message, so report() must restart itself while it is not
+    # empty: otherwise only the first tab is ever photographed.
+    run = body_of(js, "async function report(")
+    want("shotQueue.length" in run,
+         "report() does not drain the queue -- only the first queued tab is photographed")
+
     # (4) the report NAMES the tab its picture belongs to. Writing it under every active id
     # put one tab's page on another tab's card.
     report = body_of(js, "async function reportOnce(")
