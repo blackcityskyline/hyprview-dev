@@ -4,6 +4,7 @@
 
 #include "../anim.hpp"
 #include "../layout.hpp"
+#include "../model/origin.hpp"
 #include "../debug/log.hpp"
 #include "curves.hpp"
 
@@ -110,8 +111,13 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
           lerp(a.h, b.h, e)};
   if (f.view.desktop())
     r.y -= gridOffset;
-  // A card off the carousel run has a zeroed target: nothing paints it, hold the last box.
-  if (f.view.run() && b.w < 1.0 && a.w >= 1.0)
+  // Off the run: leave from the last drawn box, shrunk on the glide -- never a hole.
+  if (f.view.run() && b.w < 1.0 && t.landed >= 1.0 && model::isPlaced(t.natural)) {
+    const double k = 1.0 - e;
+    const double cx = t.natural.cx(), cy = t.natural.cy();
+    r = LRect{cx - t.natural.w * k * 0.5, cy - t.natural.h * k * 0.5, t.natural.w * k,
+              t.natural.h * k};
+  } else if (f.view.run() && b.w < 1.0 && a.w >= 1.0)
     r = a;
   if (a.w < 1.0 && b.w >= 1.0)
     r = b;
@@ -159,8 +165,9 @@ Placement::capture(const Frame &f, model::SubjectRef exclude) const {
   std::vector<std::pair<model::SubjectRef, LRect>> out;
   const auto &tiles = f.scene.tiles();
   out.reserve(tiles.size());
+  // Only a card the run painted has a start box; a grid box would ghost at the grid spot.
   for (std::size_t i = 0; i < tiles.size(); ++i)
-    if (tiles[i].subj != exclude)
+    if (tiles[i].subj != exclude && (!f.view.run() || f.view.paintedInRun(i)))
       out.emplace_back(tiles[i].subj, box(tiles[i], static_cast<int>(i), f));
   return out;
 }

@@ -108,6 +108,14 @@ class State {
       return m_carousel.cards[static_cast<std::size_t>(k)].depth;
     }
 
+    [[nodiscard]] bool paintedInRun(std::size_t tile) const {
+      if (!m_run)
+        return false;
+      const int k = slotOf(tile);
+      return k >= 0 && static_cast<std::size_t>(k) < m_carousel.cards.size() &&
+             m_carousel.cards[static_cast<std::size_t>(k)].visible;
+    }
+
     // The carousel reads depth as cards[slotOf(tile)].depth, so swapping slots is the geometry.
     void swapSlots(std::size_t a, std::size_t b) {
       const auto pos = [this](std::size_t tile) {

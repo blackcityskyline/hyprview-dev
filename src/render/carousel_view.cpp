@@ -69,12 +69,6 @@ void Overview::renderCarousel() const {
 
   for (const int i : paint) {
     const int k = m_view.slotOf(static_cast<std::size_t>(i));
-    // No slot: this tile is not on the run -- never substitute slot 0, which is the FOCUSED card.
-    if (k < 0)
-      continue;
-    const auto &card = m_view.carousel().cards[static_cast<std::size_t>(k)];
-    if (!card.visible)
-      continue;
     if (i == draggedTile())
       continue;
 
@@ -83,13 +77,19 @@ void Overview::renderCarousel() const {
     if (swapfxActiveSubject(t.subj, false))
       continue;
 
-    // The hide motion is the placement's: one rule for the grid and the run.
+    // A slotless card still paints while it shrinks out; slot 0 is never a stand-in.
+    const bool visible =
+        k >= 0 && static_cast<std::size_t>(k) < m_view.carousel().cards.size() &&
+        m_view.carousel().cards[static_cast<std::size_t>(k)].visible;
     const LRect box = currentBox(t, i);
+    if (!visible && box.w < 1.0)
+      continue;
     const float depth = t.depthFrom + (t.depthTo - t.depthFrom) * tileProgress(i);
-    const auto look = runLook(box, depth < 1e-6,
+    const bool centred = visible && box.w >= 1.0 && depth < 1e-6;
+    const auto look = runLook(box, centred,
                               render::carouselTone(depth, nearTone(), farTone(),
                                                    depthTaper()),
-                              tileCloseButtons(), cfg::look.preview_round);
+                              visible && tileCloseButtons(), cfg::look.preview_round);
     looks.emplace_back(i, look);
   }
 

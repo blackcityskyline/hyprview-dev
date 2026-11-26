@@ -42,6 +42,12 @@ int main(int argc, char **argv) {
   if (carousel.find("anim::cardHides(") != std::string::npos)
     return fail("the run asks whether a card hides on its own -- the placement asks that now");
 
+  if (placement.find("t.landed >= 1.0 && model::isPlaced(t.natural)") == std::string::npos)
+    return fail("a card off the run no longer leaves from the box it was drawn in");
+
+  if (carousel.find("!visible && box.w < 1.0") == std::string::npos)
+    return fail("the run no longer decides a card by its box -- a slotless card vanishes");
+
   std::printf("PASS: the hide motion is written once, in the placement\n");
   return 0;
 }
