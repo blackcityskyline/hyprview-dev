@@ -198,6 +198,7 @@ void Overview::updateHover() {
   const auto mc = g_pInputManager->getMouseCoordsInternal();
   const double lx = mc.x - m->m_position.x;
   const double ly = mc.y - m->m_position.y;
+  m_pointer = Vector2D{lx, ly};
 
   if (m_drag.armed()) {
     if (m_drag.lifted()) {

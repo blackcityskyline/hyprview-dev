@@ -247,6 +247,9 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
     const LRect br = closeButtonRect(box);
     safeRenderRect("tile", pxb(br, s), cfg::colors.close_button.get(e),
                               {.round = pxr(br.h / 2.0, s)});
+    if (br.contains(m_pointer.x, m_pointer.y))
+      strokeRing(br, s, cfg::colors.close_button_hover.get(e * f), 2,
+                 static_cast<int>(br.h / 2.0), roundPow);
     const auto glyph = render::glyphRect(br, closeGlyph->m_size.x, closeGlyph->m_size.y,
                                          cfg::look.close_glyph_fill);
     g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), closeGlyph, pxb(glyph, s), {.a = static_cast<float>(e)});

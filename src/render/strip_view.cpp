@@ -332,6 +332,9 @@ void Overview::renderStripButtons() const {
           pxb(box(br), s),
           cfg::colors.close_button.get(e),
           {.round = pxr(rad, s)});
+      if (br.contains(m_pointer.x, m_pointer.y))
+        strokeRing(br, s, cfg::colors.close_button_hover.get(e), 2,
+                   static_cast<int>(rad), roundPow);
       const auto closeGlyph = m_pixel.closeGlyph();
       if (closeGlyph && closeGlyph->m_size.x > 0) {
         const auto glyph = render::glyphRect(br, closeGlyph->m_size.x, closeGlyph->m_size.y,

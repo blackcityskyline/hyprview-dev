@@ -320,6 +320,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `new_workspace_mode` | `fill` \| `linear` | `fill` | `fill`: `+` takes the lowest free workspace id (backfills a gap left by a closed one) — `linear`: always appends past the highest existing id, never backfills |
 | `close_button_color` | color/role | `"0xe68c1d18"` | `✕` close-button fill — per-window, and per-workspace (closes every window on it) |
 | `close_glyph_color` | color | `"0xfff9dedc"` | the `✕` glyph itself, drawn on top of `close_button_color` |
+| `close_button_hover_color` | color | `"0xf0ffffff"` | ring drawn around the `✕` while the pointer is on the button |
 | `label_color` | color | `"0xf2e6e0e9"` | window/workspace name text under tiles and strip cards |
 | `title_pill_color` | color | `"0xcc2b2930"` | the pill that carries a card's icon and title, inset in its bottom-left |
 | `title_pill_opacity` | float (0.0–1.0) | `0.8` | the pill's own alpha — RGB comes from `title_pill_color`, its alpha is ignored. With `blur` on, the card's pixels under the pill are blurred behind it, so the pill reads as glass |

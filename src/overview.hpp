@@ -240,6 +240,7 @@ private:
   model::Strip m_strip;
   mutable pixel::PixelCache m_pixel;
   double m_scrollAccum = 0.0; // sub-card wheel leftover, so slow paging still moves
+  Vector2D m_pointer{-1.0, -1.0}; // monitor-local, written by updateHover
   session::LayerVisibility m_layers;
   PHLWINDOWREF m_pendingWindow;
 
@@ -260,7 +261,7 @@ private:
     return m_place.clocks.anyRunning(anim::cfg(entryLeaf()).ms, anim::cfg(ghostLeaf()).ms,
                                anim::cfg(anim::Id::StripStep).ms);
   }
-  double glassAlpha() const; // the blur over the desktop: holds while a window is under it
+  double glassAlpha() const;
   // A window that really occupies the desktop; tells an empty workspace from a busy one.
   static bool workspaceHasWindows(const PHLWORKSPACE &ws);
   // Windowed exit is done: tiles landed and Hyprland has spent the forced blur frames.

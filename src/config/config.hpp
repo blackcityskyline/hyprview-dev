@@ -198,6 +198,7 @@ struct colors {
   Color counter_label;
   Color drop_hint;
   Color close_button;
+  Color close_button_hover; // the ring around the ✕ under the pointer
   Color close_glyph;
   Color strip_band;
   Color strip_card;

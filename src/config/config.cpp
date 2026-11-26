@@ -246,6 +246,7 @@ constexpr ColorSpec kColors[] = {
     {&colors.surface, "plugin:hyprview:surface_color", "0x1e1e26"},
     {&colors.border, "plugin:hyprview:border_color", "0x50ffffff"},
     {&colors.close_button, "plugin:hyprview:close_button_color", "0xe6e23b3b"},
+    {&colors.close_button_hover, "plugin:hyprview:close_button_hover_color", "0xf0ffffff"},
     {&colors.close_glyph, "plugin:hyprview:close_glyph_color", "0xffffffff"},
     {&colors.drop_hint, "plugin:hyprview:drop_hint_color", "0x38ffffff"},
     {&colors.hover_border, "plugin:hyprview:hover_border", "0xf0ffffff"},
