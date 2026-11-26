@@ -49,6 +49,13 @@ anim::Id Placement::masterId(const view::State &view, bool opening) const {
   return anim::Id::Close;
 }
 
+double Placement::trackEased(bool opening) const {
+  const double glideMs = (clocks.tileMs > 0) ? clocks.tileMs : recipes.glide.ms;
+  const std::string &curve = clocks.tileCurve.empty() ? recipes.glide.curve : clocks.tileCurve;
+  const double p = opening ? clocks.tiles.raw(glideMs) : progress.raw();
+  return opening ? curves::eval(curve, p) : 1.0 - curves::eval(curve, 1.0 - p);
+}
+
 double Placement::tileProgress(int i, const view::State &view, bool opening,
                                const model::Scene &scene) const {
   // Read clocks.tileMs, not recipes.glide.ms: a glideLeaf() flip jumps progress.

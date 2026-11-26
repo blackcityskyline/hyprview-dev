@@ -393,7 +393,7 @@ LRect Overview::stripCardAt(size_t i) const {
   if (i >= m_strip.size())
     return LRect{0, 0, 0, 0};
   const Vector2D scroll = stripScroll();
-  const Vector2D slide = stripOffset(eased());
+  const Vector2D slide = stripOffset(stripTrack());
   return m_strip.cardAt(i, {slide.x, slide.y}, {scroll.x, scroll.y});
 }
 

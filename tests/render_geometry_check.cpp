@@ -626,8 +626,10 @@ static void theTileDecidesItsRingAndItsFrost() {
 
   // The hover ring wins over the selection ring, and the base ring shows when
   // neither does.
-  near(focusRingWidth(true, true, true, 3, 5, 2), 3.0, "the hover ring is on top");
-  near(focusRingWidth(true, false, true, 3, 5, 2), 5.0, "the selection ring under it");
+  near(focusRingWidth(true, true, true, 3, 5, 2), 5.0,
+       "selection outranks hover on the focused card");
+  near(focusRingWidth(true, true, false, 3, 5, 2), 3.0, "a hovered, unfocused card gets hover");
+  near(focusRingWidth(true, false, true, 3, 5, 2), 5.0, "the selection ring");
   near(focusRingWidth(true, false, false, 3, 5, 2), 2.0, "the base ring under that");
   near(focusRingWidth(false, true, true, 3, 5, 2), 0.0,
        "with the focus border off there is no focus ring");

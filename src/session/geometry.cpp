@@ -79,6 +79,8 @@ Vector2D Overview::stripOffset(double e) const {
   return stripSlide(e) + stripPush(stripBand());
 }
 
+double Overview::stripTrack() const { return m_place.trackEased(opening()); }
+
 Vector2D Overview::stripPush(const LRect &band) const {
   std::vector<LRect> covers;
   const auto &tiles = m_scene.tiles();

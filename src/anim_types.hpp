@@ -153,14 +153,16 @@ enum class MasterLeaf : std::uint8_t { Open, Close, JumpOut };
   return opening ? MasterLeaf::Open : MasterLeaf::Close;
 }
 
-// The glass holds over a window (a sharp desktop under a transparent card is a hole); an empty
-// one's entry rushes in on the master's ease-out, its exit dissolves on the clock.
+// The glass holds over a window on the entry; every exit dissolves on the clock.
 [[nodiscard]] constexpr double glassAlpha(double ease, double clock, bool opening,
                                           bool landingEmpty) {
-  if (!landingEmpty)
+  if (opening && !landingEmpty)
     return 1.0;
   return opening ? ease : clock;
 }
+
+// A double-tap must not skip the exit: at least this share of the close always plays.
+constexpr double kMinExitShare = 0.25;
 
 enum class DismissIntent : std::uint8_t { Open, Cancel, Commit };
 

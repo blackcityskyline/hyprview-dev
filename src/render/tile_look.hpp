@@ -31,16 +31,16 @@ struct TileLook {
 
 // The run: the centred card is framed and carries the counter; the others are
 // contained and dimmed by their depth.
-[[nodiscard]] inline TileLook runLook(const LRect &box, int depth, double tone,
+[[nodiscard]] inline TileLook runLook(const LRect &box, bool centred, double tone,
                                       bool button, int previewRound) {
   TileLook l;
   l.box = box;
   l.round = render::clampRound(previewRound, box.w, box.h);
-  l.frame = depth == 0;
+  l.frame = centred;
   l.contain = true;
   l.tone = tone;
   l.button = button;
-  l.counter = depth == 0;
+  l.counter = centred;
   l.surface = true; // the run's cards are frames, and the frame has a plate
   l.push = false;    // a counter on the centred card stays where the run put it
   return l;

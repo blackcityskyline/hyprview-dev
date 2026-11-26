@@ -86,7 +86,7 @@ void Overview::renderCarousel() const {
     // The hide motion is the placement's: one rule for the grid and the run.
     const LRect box = currentBox(t, i);
     const float depth = t.depthFrom + (t.depthTo - t.depthFrom) * tileProgress(i);
-    const auto look = runLook(box, depth,
+    const auto look = runLook(box, depth < 1e-6,
                               render::carouselTone(depth, nearTone(), farTone(),
                                                    depthTaper()),
                               tileCloseButtons(), cfg::look.preview_round);

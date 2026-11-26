@@ -258,7 +258,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `strip_band_color` | color/role | `"0x24d0bcff"` | Band behind the cards |
 | `strip_band_opacity` | int `0`..`100` | `70` | Strip band opacity, in percent — the band's only alpha source; `strip_band_color` supplies RGB |
 | `strip_card_color` | color/role | `"0x3a1d1b20"` | Inactive workspace card fill |
-| `strip_active_color` | color/role | `"0x4d4f378b"` | Active workspace card fill |
+| `strip_active_color` | color/role | `"0x4d4a4458"` | Active workspace card fill |
 | `strip_active_border` | color/role | `"0xf0d0bcff"` | Active card outline |
 | `strip_hover_border` | color/role | `"0x80938f99"` | Hovered card outline |
 | `strip_plus_color` | color/role | `"0xd0d0bcff"` | The "+" glyph |
@@ -267,10 +267,10 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `launcher_select_color` | color/role | `"0x33d0bcff"` | Selected launcher row and the hovered verb |
 | `launcher_hint_color` | color/role | `"0x8acac4d0"` | Launcher placeholder, row detail and footer hints |
 | `shadow_color` | color/role | `"0x70000000"` | Window preview drop shadow |
-| `hover_border` | color/role | `"0xf0938f99"` | Hovered window preview outline — a real border stroke; the hover itself also washes the card with the state layer, see [Material 3](#material-3) |
-| `select_border` | color/role | `"0xf0d0bcff"` | Keyboard-selected preview outline (Alt-Tab's cursor) — same real-stroke rendering as `hover_border`, and its state layer is the heavier 12% |
+| `hover_border` | color/role | `"0xf0938f99"` | Hovered window preview outline — a real border stroke |
+| `select_border` | color/role | `"0xf0d0bcff"` | Keyboard-selected preview outline (Alt-Tab's cursor); it outranks hover, so pointing at the focused card keeps this ring |
 | `select_border_size` | int (px) | `2` | Keyboard-selected preview outline thickness — `0` disables it entirely |
-| `hover_border_size` | int (px) | `2` | Hovered/focused preview outline thickness — `0` disables it entirely |
+| `hover_border_size` | int (px) | `0` | Hovered/focused preview outline thickness — `0` disables it entirely |
 | `show_focus_border` | bool (0/1) | `1` | Whether hover/selection draw `hover_border`/`select_border` at all — see "Border modes" below |
 | `show_border` | bool (0/1) | `0` | An always-on base ring on every tile, independent of hover/selection — see "Border modes" below |
 | `show_tab_icons` | bool (0/1) | `1` | The page's favicon on the tab card's title plate |
@@ -321,8 +321,8 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `close_button_color` | color/role | `"0xe68c1d18"` | `✕` close-button fill — per-window, and per-workspace (closes every window on it) |
 | `close_glyph_color` | color | `"0xfff9dedc"` | the `✕` glyph itself, drawn on top of `close_button_color` |
 | `label_color` | color | `"0xf2e6e0e9"` | window/workspace name text under tiles and strip cards |
-| `title_pill_color` | color | `"0xcc2b2930"` | the bar on a card's bottom edge that carries its icon and title |
-| `title_pill_opacity` | float (0.0–1.0) | `0.8` | the bar's own alpha — RGB comes from `title_pill_color`, its alpha is ignored. With `blur` on, the card's pixels under the bar are blurred behind it, so the bar reads as glass |
+| `title_pill_color` | color | `"0xcc2b2930"` | the pill that carries a card's icon and title, inset in its bottom-left |
+| `title_pill_opacity` | float (0.0–1.0) | `0.8` | the pill's own alpha — RGB comes from `title_pill_color`, its alpha is ignored. With `blur` on, the card's pixels under the pill are blurred behind it, so the pill reads as glass |
 | `title_font_size` | int | `11` | font size of a tile's title label |
 | `title_icon_scale` | float | `2.0` | the plate icon's side as a multiple of the label's height — above 1 the icon leads the bar and the smaller text follows it |
 | `launcher_width` | int (px) | `620` | Launcher panel width before the grid's side margins cap it |
@@ -330,13 +330,13 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `launcher_row_height` | int (px) | `44` | Launcher row height, and the action menu's |
 | `launcher_font_size` | int | `15` | Launcher row and search-field font size |
 | `title_label_color` | color | `"0xf2e6e0e9"` | the title's text colour (both layouts) |
-| `title_position` | string | `"bottom"` | kept for compatibility, and only as the counter pill's fallback edge: the title's bar is always the card's bottom edge |
+| `title_position` | string | `"bottom"` | kept for compatibility, and only as the counter pill's fallback edge: the title's pill is always inset in the card's bottom-left |
 | `counter_font_size` | int | `12` | font size of the `n / total` counter in its pill |
 | `counter_label_color` | color | `"0xf2e6e0e9"` | the counter's text colour |
 | `counter_pill_color` | color | `"0xcc2b2930"` | the counter pill's fill |
 | `counter_position` | string | `""` | `"top"` or `"bottom"`: the card edge the counter pill hangs off, outside the card; empty = follow `title_position` |
 | `counter_gap` | float | `8` | the card edge to the counter pill, px |
-| `counter_margin` | float | `6` | the counter pill's inset from the screen edge |
+| `counter_margin` | float | `8` | the counter pill's inset from the screen edge |
 | `counter_round` | float | `-1.0` | counter pill corner radius in px; negative = capsule (half the height), `0` = square |
 | `kill_zone` | int | `1` | closing a window by dragging it to the screen edge OPPOSITE the strip; `0` makes the edge a no-op |
 | `kill_zone_size` | float | `40` | thickness of that edge zone, px |
@@ -356,10 +356,10 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `icon_shadow_offset` | float | `0.045` | plate icon shadow drop, as a share of the icon's side (colour is `shadow_color`) |
 | `icon_shadow_blur` | float | `0.1` | plate icon shadow falloff, as a share of the icon's side |
 | `icon_shadow_alpha` | float | `0.55` | plate icon shadow opacity |
-| `title_pad_x` | float | `11` | the title's inset from the bar's ends |
-| `title_pad_y` | float | `5` | padding above and below the title on the bar |
-| `counter_pad_x` | float | `11` | horizontal padding inside the counter pill |
-| `counter_pad_y` | float | `5` | vertical padding inside the counter pill |
+| `title_pad_x` | float | `12` | the title's inset from the bar's ends |
+| `title_pad_y` | float | `4` | padding above and below the title on the bar |
+| `counter_pad_x` | float | `16` | horizontal padding inside the counter pill |
+| `counter_pad_y` | float | `8` | vertical padding inside the counter pill |
 | `close_glyph_fill` | float | `0.62` | fraction of the close button the glyph fills |
 | `drop_hint_color` | color | `"0x38d0bcff"` | drop-zone highlight flash on a workspace card while dragging |
 | `close_button` | bool (0/1) | `1` | The global switch on every x: `0` removes close buttons everywhere, strip band included, whatever `close_button_visibility` says |
@@ -582,26 +582,23 @@ so a missing module or a typo degrades gracefully instead of going black. If
 your module rewrites itself on a theme change, re-evaluating `hl.config{}`
 applies the new colors live.
 
-### Material 3
+### Material 3 components
 
-The defaults are the Material 3 baseline dark scheme, and the overview follows the M3
-role-to-part mapping, so a scheme export (matugen, dch) maps straight onto keys:
+The palette is yours (`colors`) — the plugin does not impose a scheme, so a matugen/dch
+export lands on the keys above. What follows M3 is the component anatomy:
 
-| M3 role | keys |
-|---|---|
-| `surface_container_highest` | `surface_color` — the plate a carousel card is a frame around |
-| `surface_container_high` | `title_pill_color`, `counter_pill_color` |
-| `surface_container_low` | `strip_card_color` |
-| `primary_container` | `strip_active_color` |
-| `primary` | `select_border`, `strip_active_border`, `strip_band_color`, `strip_plus_color`, `strip_all_color` |
-| `outline` / `outline_variant` | `hover_border` / `border_color` |
-| `error_container` / `on_error_container` | `close_button_color` / `close_glyph_color` |
-| `on_surface` | `label_color`, `title_label_color`, `counter_label_color` |
+- **Caption pill** — the pill repeats its content instead of spanning the card: a leading
+  icon about twice the text's height (`title_icon_scale`), a gap, then the smaller name
+  (`title_font_size`), side padding, inset from the card's left and bottom edges. Its
+  contour is the icon and the text, with the card's radius. Closing, it slides down under
+  the card's bottom edge at full strength, no fade.
+- **Counter** — a chip: capsule (`counter_round = -1`), its own padding, one screen-margin
+  off the card (`counter_margin`).
+- **Hover / focus** — both are outline strokes on the card's own rect; selection outranks
+  hover, so the focused card keeps its bright ring while the pointer is on it.
 
-Hover and focus draw an M3 **state layer** over the card's own pixels, not only a ring:
-8% of `on_surface` on the hovered tile or strip card, 12% on the focused tile. Shape
-follows the M3 scale: 12 px cards (`preview_round`, `strip_card_round`), capsule pills
-(`counter_round = -1`), circular close buttons.
+Shape: 12 px cards (`preview_round`, `strip_card_round`), capsule counter, the close
+button as it was (its size, corner and colours are config, none of them touched by M3).
 
 ### Lua
 

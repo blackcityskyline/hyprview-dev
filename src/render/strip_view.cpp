@@ -44,7 +44,7 @@ void Overview::renderStrip() const {
   bandCol.a = render::stripBandAlpha(cfg::strip.band_opacity.get(), fade);
 
   const LRect bandR  = stripBand();
-  const Vector2D slide = stripOffset(e);
+  const Vector2D slide = stripOffset(stripTrack());
   // STRIPBAND: offset, alpha and the rect they came from -- two causes of a blink look alike.
   debug::trace::ring("strip_band", LRect{slide.x, slide.y, bandCol.a, e}, 0, e);
   debug::trace::ring("strip_band_rect", stripBand(), 0, e);
@@ -79,10 +79,9 @@ void Overview::renderStrip() const {
         it.active || (allWs && allCardShown && it.kind == model::StripItem::Kind::All);
     const bool expoRing =
         allWs && !allCardShown && it.kind != model::StripItem::Kind::Plus;
-    const bool ring = actLike || expoRing;
-    if (ring || hover) {
-      const auto &lc = ring ? activeLine : hoverLine;
-      strokeRing(card, s, lc, actLike ? 3 : 2, cardRound, roundPow);
+    // M3 active indicator: the active card is a tonal fill; expo keeps a ring, hover a hairline.
+    if (expoRing || (hover && !actLike)) {
+      strokeRing(card, s, expoRing ? activeLine : hoverLine, 2, cardRound, roundPow);
       debug::trace::ring("strip_card", card, cardRound, 1.0);
     }
 
@@ -271,10 +270,6 @@ void Overview::renderStripButtons() const {
     if (it.kind == model::StripItem::Kind::Plus || it.kind == model::StripItem::Kind::All)
       continue;
     const LRect card = stripCardAt(i);
-
-    if (!dropping && static_cast<int>(i) == m_scene.hoveredStrip())
-      safeRenderRect("stripwash", pxb(card, s), argb(cfg::colors.label.get(1.0F), 0.08 * e),
-                     {.round = pxr(cardRound, s), .roundingPower = roundPow});
 
     if (dropping) {
       const auto hoverCol = argb(cfg::colors.hover_border.get(e));

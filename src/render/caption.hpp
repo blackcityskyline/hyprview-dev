@@ -1,7 +1,6 @@
 #pragma once
 
-// THE CAPTION, two owners: the card's NAME sits on a bar that IS the card's own bottom edge,
-// and the run's COUNTER is the outside pill it always was, shoved clear of a card that reaches it.
+// THE CAPTION, two owners: the NAME is a pill on the card's bottom-left, the COUNTER outside.
 
 #include "../layout.hpp"
 
@@ -44,7 +43,7 @@ struct CaptionSizes {
   double countW = 0.0, countH = 0.0;
   bool hasLabel = false;
   bool hasCounter = false;
-  double iconW = 0.0; // the site's favicon, on the plate before the text
+  double iconW = 0.0;
   bool hasIcon = false;
 };
 
@@ -56,13 +55,15 @@ struct CaptionStyle {
   double cardRefW = 0.0;           // the centred card, the one scale 1.0 belongs to
   bool counterBelow = true;        // the counter hangs off the card's bottom edge
   double iconGap = 6.0;            // between the icon and the text
+  double pillInset = 8.0;          // the pill's own margin from the card's edges
 };
 
 struct CaptionLayout {
-  LRect plate;           // the card's bottom edge: full width, the card's own corners
+  LRect plate;           // the pill: icon and text plus padding, inset in the card's bottom-left
   LRect counter;         // the counter's own pill, outside the card; h == 0 when there is none
-  double contentX = 0.0; // left edge of the icon+text group, centred on the plate
-  double kFit = 1.0;     // the text's scale; the plate is the card's size either way
+  double contentX = 0.0; // left edge of the icon+text group inside the pill
+  double kFit = 1.0;     // the text's scale, shrunk so the pill still fits the card
+  double inset = 0.0;
 };
 
 [[nodiscard]] inline CaptionLayout captionLayout(const LRect &card, const LRect &band,
@@ -87,13 +88,15 @@ struct CaptionLayout {
   const double kCard = cardScale(card.w, st.cardRefW);
   const double ph = (innerH + 2.0 * padY) * kCard;
   const double contentW = textW + iconW;
-  const double room = std::max(card.w - 2.0 * padX * kCard, 1.0);
+  const double room = std::max(card.w - 2.0 * (st.pillInset + padX * kCard), 1.0);
   const double kFit = contentW > 0.0 ? std::min(kCard, room / contentW) : kCard;
 
   CaptionLayout lay;
   lay.kFit = kFit;
-  lay.plate = LRect{card.x, card.y + card.h - ph, card.w, ph};
-  lay.contentX = card.x + (card.w - contentW * kFit) * 0.5;
+  lay.plate = LRect{card.x + st.pillInset, card.y + card.h - ph - st.pillInset,
+                    contentW * kFit + 2.0 * padX * kCard, ph};
+  lay.contentX = lay.plate.x + padX * kCard;
+  lay.inset = st.pillInset;
   if (!label || !s.hasCounter)
     return lay;
 

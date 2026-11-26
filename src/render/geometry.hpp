@@ -463,10 +463,11 @@ struct MenuLayout {
                                         int hoverWidth, int selectWidth, int baseWidth) {
   if (!showFocusBorder)
     return 0;
-  if (framed)
-    return hoverWidth;
+  // Selection outranks hover: pointing at the focused card must not thin or dim its ring.
   if (selected)
     return selectWidth;
+  if (framed)
+    return hoverWidth;
   return baseWidth;
 }
 

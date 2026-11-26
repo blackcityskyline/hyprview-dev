@@ -40,7 +40,9 @@ int main() {
   assert(glassAlpha(0.4, 0.9, true, true) == 0.4);
   assert(glassAlpha(0.9, 0.4, false, true) == 0.4);
   assert(glassAlpha(0.0, 0.0, false, true) == 0.0);
-  std::puts("the glass holds over a window; an empty one enters on the ease and leaves on the clock");
+  // The exit dissolves on the clock over a window too: holding it popped the backdrop sharp.
+  assert(glassAlpha(0.9, 0.4, false, false) == 0.4);
+  std::puts("the glass holds over a window on entry; every exit leaves on the clock");
 
   std::puts("OK");
   return 0;

@@ -168,8 +168,8 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
     }
     if (focused)
       strokeRing(box, s,
-                 framed ? cfg::colors.hover_border.get(e * f)
-                        : cfg::colors.select_border.get(e * f),
+                 selected ? cfg::colors.select_border.get(e * f)
+                          : cfg::colors.hover_border.get(e * f),
                  ringW, round, roundPow);
   }
 
@@ -232,12 +232,6 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
                               {.round = pxr(round, s), .roundingPower = roundPow});
 
-  // M3 state layer: hover and focus wash the whole card with 8%/12% of on-surface.
-  const float wash = look.lift ? 0.0F : selected ? 0.12F : framed ? 0.08F : 0.0F;
-  if (wash > 0.0F)
-    safeRenderRect("tile", pxb(box, s), argb(cfg::colors.label.get(1.0F), wash * e * f),
-                   {.round = pxr(round, s), .roundingPower = roundPow});
-
   if (withCaption)
     drawTileCaption(i, look);
 
@@ -254,8 +248,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   }
 }
 
-// THE CAPTION, two owners: the card's name is ON the card -- a plate inside its bottom edge,
-// with the icon -- and the run's counter is the outside pill it has always been.
+// THE CAPTION, two owners: the name is a pill on the card's bottom-left, the counter outside.
 void Overview::drawTileCaption(int i, const TileLook &look) const {
   const auto m = m_monitor.lock();
   if (!m)
@@ -299,24 +292,26 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
                                          style);
   const float a = static_cast<float>(e * f);
 
-  const LRect plate = lay.plate;
+  // Closing, the pill leaves under the card's bottom edge on raw time, no fade: last frame out.
+  const double exit = opening() ? 0.0 : 1.0 - std::clamp(m_place.progress.raw(), 0.0, 1.0);
+  const double slide = exit * (lay.plate.h + 2.0 * lay.inset);
+  const LRect plate{lay.plate.x, lay.plate.y + slide, lay.plate.w, lay.plate.h};
   if (plate.w > 0.0 && drawable(plate, s)) {
     const double k = lay.kFit;
+    // The pill repeats its content, so the card's shape, not a capsule.
     const int round =
         look.round >= 0.0 ? static_cast<int>(look.round) : cfg::look.preview_round;
     debug::trace::ring("title_pill", plate, pxr(round, s), a);
-    // The bar is the card's own rect, scissored to the plate: two rects double the seam alpha,
-    // and a bar with its own corners shows the content through them.
     auto &rd = g_pHyprRenderer->context().m_data;
     const CBox savedClip = rd.clipBox;
-    rd.clipBox = pxb(plate, s);
-    // The bar is glass: blur what lies under it before the tint; the plate box bounds the work.
+    rd.clipBox = pxb(box, s);
     if (blurEnabled())
       safeRenderRect("tile", pxb(plate, s), CHyprColor(0.0, 0.0, 0.0, 0.0),
                      {.round = pxr(round, s), .roundingPower = roundPow, .blur = true});
     auto pillCol = cfg::colors.title_pill.get(1.0F);
-    pillCol.a = static_cast<float>(std::clamp(cfg::look.title_pill_opacity.get(), 0.0F, 1.0F) * a);
-    safeRenderRect("tile", pxb(box, s), pillCol,
+    const float pillA = opening() ? a : 1.0F;
+    pillCol.a = static_cast<float>(std::clamp(cfg::look.title_pill_opacity.get(), 0.0F, 1.0F) * pillA);
+    safeRenderRect("tile", pxb(plate, s), pillCol,
                    {.round = pxr(round, s), .roundingPower = roundPow});
     rd.clipBox = savedClip;
     const double iconSpan = hasIcon ? (iconSide + style.iconGap) * k : 0.0;
@@ -503,7 +498,6 @@ void Overview::renderQuickLook() const {
                                                static_cast<int>(content.w));
   if (!label || label->m_size.x <= 0)
     return;
-  // The same bar as a card's: the preview's own bottom edge.
   const render::CaptionStyle style{cfg::look.title_pad_x, cfg::look.title_pad_y, 0.0, 0.0,
                                    0.0, 0.0, card.w, true, 6.0};
   const auto lay = render::captionLayout(
@@ -513,17 +507,14 @@ void Overview::renderQuickLook() const {
   const LRect plate = lay.plate;
   if (plate.w <= 0.0 || !drawable(plate, s))
     return;
-  auto &rd = g_pHyprRenderer->context().m_data;
-  const CBox savedClip = rd.clipBox;
-  rd.clipBox = pxb(plate, s);
+  const int pillRound = round;
   if (blurEnabled())
     safeRenderRect("quick_look", pxb(plate, s), CHyprColor(0.0, 0.0, 0.0, 0.0),
-                   {.round = pxr(round, s), .roundingPower = roundPow, .blur = true});
+                   {.round = pxr(pillRound, s), .roundingPower = roundPow, .blur = true});
   auto pillCol = cfg::colors.title_pill.get(1.0F);
   pillCol.a = static_cast<float>(std::clamp(cfg::look.title_pill_opacity.get(), 0.0F, 1.0F) * a);
-  safeRenderRect("quick_look", pxb(card, s), pillCol,
-                 {.round = pxr(round, s), .roundingPower = roundPow});
-  rd.clipBox = savedClip;
+  safeRenderRect("quick_look", pxb(plate, s), pillCol,
+                 {.round = pxr(pillRound, s), .roundingPower = roundPow});
   g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), 
       label, pxb(LRect{lay.contentX, plate.y + (plate.h - label->m_size.y * lay.kFit) * 0.5,
                        label->m_size.x * lay.kFit, label->m_size.y * lay.kFit}, s),

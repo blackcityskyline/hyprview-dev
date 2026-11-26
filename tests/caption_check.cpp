@@ -1,8 +1,8 @@
 // Where the caption's two pieces land.
 //
 // The rules worth pinning:
-//   - the plate IS the card's bottom edge: full width, the card's height, whatever the
-//     counter does;
+//   - the pill repeats the icon and the text it carries, inset in the card's bottom-left,
+//     whatever the counter does;
 //   - a title wider than the card shrinks; the bar does not;
 //   - the counter is OUTSIDE the card: its own pill, its own edge, its own margin;
 //   - the strip band thickens the margin of its own edge, and the counter keeps off it;
@@ -74,70 +74,69 @@ CaptionStyle style(bool counterBelow = true) {
 
 } // namespace
 
-// THE RULE the bar exists for: the name is the card's own bottom edge -- as wide as the card,
-// the card's height -- so it reads as part of the frame. The old caption hung a pill off
-// whichever edge title_position named, which is what put the name above the card.
-static void thePlateIsTheCardsBottomEdge() {
+// THE RULE the pill exists for: it repeats the icon and the text it carries -- their size,
+// their inset from the card -- instead of spanning the card as a band.
+static void thePillRepeatsItsContent() {
   const LRect card{100.0, 200.0, 400.0, 300.0};
   const auto lay = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(), style());
 
-  sameRect(lay.plate, LRect{100.0, 466.0, 400.0, 34.0}, "the bar on the card's bottom edge");
-  near(lay.plate.x, card.x, "it starts at the card's left edge");
-  near(lay.plate.w, card.w, "and ends at its right edge");
-  near(lay.plate.y + lay.plate.h, card.y + card.h, "its bottom is the card's bottom");
-  near(lay.plate.h, 24.0 + 2.0 * 5.0, "its height is the text plus its padding");
+  // 200 of text + 2 * 11 of padding, 24 of text height + 2 * 5, inset 8.
+  sameRect(lay.plate, LRect{108.0, 458.0, 222.0, 34.0}, "the pill wraps its content");
+  near(lay.plate.x, card.x + 8.0, "it sits the inset in from the card's left edge");
+  near(lay.plate.y + lay.plate.h, card.y + card.h - 8.0, "and the inset up from its bottom");
+  near(lay.contentX, lay.plate.x + 11.0, "the text starts at the pill's own padding");
 
-  // The counter's edge is the counter's business: the bar does not move with it.
+  // The counter's edge is the counter's business: the pill does not move with it.
   const auto topCounter = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, true),
                                         style(/*counterBelow=*/false));
-  near(topCounter.plate.y, lay.plate.y, "a counter on the top edge leaves the bar at the bottom");
+  sameRect(topCounter.plate, lay.plate, "a counter on the top edge leaves the pill alone");
   near(topCounter.counter.y + topCounter.counter.h, card.y - 8.0,
        "and the counter is the thing outside, above the card");
-  std::puts("the bar: the card's own bottom edge, full width, whatever the counter does");
+  std::puts("the pill: icon and text plus padding, inset in the card's bottom-left");
 }
 
-// A bar cannot run off its card, so a long title shrinks inside it -- and the bar keeps the
-// card's size while the text does the giving.
-static void aLongTitleShrinksOnTheBar() {
+// The pill cannot run off its card, so a long title shrinks inside it -- the pill grows with
+// the text until it meets the inset, then the text does the giving.
+static void aLongTitleShrinksInThePill() {
   const LRect card{100.0, 200.0, 400.0, 300.0};
 
   const auto shortTitle = captionLayout(card, LRect{}, 1920.0, 1080.0,
                                         sizes(true, false, 120.0), style());
   near(shortTitle.kFit, 1.0, "a short title is drawn at full size");
-  near(shortTitle.contentX + 120.0 * 0.5, card.cx(), "and sits centred on the card");
+  near(shortTitle.plate.w, 120.0 + 2.0 * 11.0, "and the pill is its width plus the padding");
 
   const auto longTitle = captionLayout(card, LRect{}, 1920.0, 1080.0,
                                        sizes(true, false, 900.0), style());
   want(longTitle.kFit < 1.0, true, "a long title is scaled down to fit");
-  sameRect(longTitle.plate, shortTitle.plate, "and the bar keeps the card's own size");
-  near(900.0 * longTitle.kFit, card.w - 2.0 * 11.0,
-       "the text takes the card less its padding, no more");
-  near(longTitle.contentX + 900.0 * longTitle.kFit * 0.5, card.cx(), "and stays centred");
-  std::puts("the bar: a long title shrinks inside it, the bar stays the card's size");
+  near(longTitle.plate.x + longTitle.plate.w, card.x + card.w - 8.0,
+       "the pill stops at the card's inset, not past it");
+  near(900.0 * longTitle.kFit, card.w - 2.0 * 8.0 - 2.0 * 11.0,
+       "the text takes the card less the inset and the padding, no more");
+  std::puts("the pill: a long title shrinks inside it, the pill stops at the inset");
 }
 
-// The icon rides on the bar before the text: it takes room from the title, not width from the
-// card, and it sets the bar's height only when it is taller than the text.
-static void theIconSharesTheBar() {
+// The icon leads the pill: it widens the pill by its own span, and it sets the pill's height
+// when it is taller than the text.
+static void theIconLeadsThePill() {
   const LRect card{100.0, 200.0, 400.0, 300.0};
-  const auto plain = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, false, 360.0),
+  const auto plain = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, false, 200.0),
                                    style());
+  near(plain.plate.w, 200.0 + 2.0 * 11.0, "no icon, the pill fits the text");
 
-  auto icon = sizes(true, false, 360.0);
+  auto icon = sizes(true, false, 200.0);
   icon.iconW = 24.0;
   icon.hasIcon = true;
   const auto withIcon = captionLayout(card, LRect{}, 1920.0, 1080.0, icon, style());
-  sameRect(withIcon.plate, plain.plate, "the icon does not widen the bar");
-  near(plain.kFit, 1.0, "a title that fits is not shrunk for the icon's sake alone");
-  want(withIcon.kFit < 1.0, true, "the icon takes its room, so the text shrinks");
-  near(withIcon.contentX + (360.0 + 24.0 + 6.0) * withIcon.kFit * 0.5, card.cx(),
-       "the icon and the text stay centred together");
+  near(withIcon.plate.w - plain.plate.w, 24.0 + 6.0, "the icon widens the pill by icon and gap");
+  near(withIcon.kFit, 1.0, "a title that fits is not shrunk for the icon's sake");
+  near(withIcon.contentX, plain.contentX, "the icon leads from the pill's padding");
+  near(withIcon.plate.y, plain.plate.y, "and a short icon does not change the height");
 
   icon.iconW = 36.0;
   const auto tall = captionLayout(card, LRect{}, 1920.0, 1080.0, icon, style());
   near(tall.plate.h - plain.plate.h, 36.0 - 24.0,
-       "a taller icon grows the bar by the difference");
-  std::puts("the bar's icon: room from the text, height only when it is the tallest thing");
+       "a taller icon grows the pill by the difference");
+  std::puts("the pill's icon: its own span wide, height when it is the tallest thing");
 }
 
 // The counter is a NUMBER about the run, and it stays outside the card, on its own edge: its
@@ -198,12 +197,12 @@ static void nothingToLabel() {
 
   const auto counterOnly = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(false, true),
                                          style());
-  want(counterOnly.plate.w > 0.0, true, "a counter with no title is the bar itself");
-  near(counterOnly.plate.w, card.w, "as wide as the card, like any bar");
+  want(counterOnly.plate.w > 0.0, true, "a counter with no title is the pill itself");
+  near(counterOnly.plate.w, 90.0 + 2.0 * 11.0, "fitted to the counter text plus its padding");
   near(counterOnly.plate.h, 20.0 + 2.0 * 5.0, "as tall as the counter plus its padding");
   near(counterOnly.counter.w, 0.0, "and there is no second pill for it");
-  near(counterOnly.plate.y + counterOnly.plate.h, card.y + card.h,
-       "on the card's own bottom edge");
+  near(counterOnly.plate.y + counterOnly.plate.h, card.y + card.h - 8.0,
+       "inset in the card's bottom-left");
   std::puts("the bar: the counter alone, and nothing at all");
 }
 
@@ -258,9 +257,9 @@ static void thePlateIsSizedWithItsCard() {
   ref.padY = 5.0;
   const auto lay = captionLayout(card, LRect{}, 1920.0, 1080.0, sizes(true, false), ref);
   near(lay.kFit, 0.5, "a card half the centred card's width carries half-size text");
-  near(lay.plate.w, 346.0, "and the bar is that card's own width");
+  near(lay.plate.w, 200.0 * 0.5 + 2.0 * 11.0 * 0.5, "and the pill scales with it");
   near(lay.plate.h, 34.0 * 0.5, "and half the height, so it stays in proportion");
-  near(lay.plate.y + lay.plate.h, card.y + card.h, "still its bottom edge");
+  near(lay.plate.y + lay.plate.h, card.y + card.h - 8.0, "still inset from its bottom edge");
   std::puts("cardScale: reference, neighbours, no reference, and the floor");
 }
 
@@ -301,9 +300,9 @@ static void theRadiusIsCapped() {
 }
 
 int main() {
-  thePlateIsTheCardsBottomEdge();
-  aLongTitleShrinksOnTheBar();
-  theIconSharesTheBar();
+  thePillRepeatsItsContent();
+  aLongTitleShrinksInThePill();
+  theIconLeadsThePill();
   theCounterIsTheOutsidePill();
   theCounterKeepsOffTheBand();
   nothingToLabel();

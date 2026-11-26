@@ -425,7 +425,9 @@ void Overview::close() {
   restoreLayers();
   m_cursor.onClose();
   // resume from CURRENT progress (1 - raw())
-  m_place.clocks.master.seek(1.0 - m_place.progress.raw(), animDuration());
+  // A close asked for on the first frames had no time left and snapped shut: clamp the resume.
+  const double at = std::min(1.0 - m_place.progress.raw(), 1.0 - anim::kMinExitShare);
+  m_place.clocks.master.seek(at, animDuration());
   m_lastAnimTick = {}; // else a phantom gap rewinds the clocks
   debug::dbg("=== CLOSE from progress " + std::to_string(m_place.progress.raw()).substr(0, 5) + " ===");
   damage();

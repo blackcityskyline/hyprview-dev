@@ -374,6 +374,7 @@ private:
   Vector2D stripPush(const LRect &band) const;
   // THE strip displacement: band, cards, their window previews and the hit-test all go through this.
   Vector2D stripOffset(double e) const;
+  double stripTrack() const;
   Vector2D stripScroll() const;
   LRect stripCardAt(size_t i) const;
   int stripItemAt(double lx, double ly) const;

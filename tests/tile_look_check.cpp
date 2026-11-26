@@ -63,15 +63,15 @@ int main() {
   // The run: the centred card is framed and carries the counter; the others are
   // contained and dimmed by their depth.
   {
-    const auto centred = runLook(box, 0, 0.0, true, 12);
+    const auto centred = runLook(box, true, 0.0, true, 12);
     want(centred.frame, true, "the centred card is framed");
     want(centred.counter, true, "the counter rides with the centred card");
     want(centred.contain, true, "the run contains its content");
     near(centred.tone, 0.0, "the centred card is not dimmed");
 
-    const auto neighbour = runLook(box, 1, 0.125, true, 12);
+    const auto neighbour = runLook(box, false, 0.125, true, 12);
     want(neighbour.frame, false, "a neighbour is not framed");
-    want(neighbour.counter, false, "and carries no counter");
+    want(neighbour.counter, false, "but carries no counter");
     near(neighbour.tone, 0.125, "a neighbour is dimmed by its depth");
   }
 

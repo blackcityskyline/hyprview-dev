@@ -11,13 +11,15 @@ namespace hyprview {
 
 void CCursorModule::onOpen(PHLMONITOR monitor) {
     resetCursorBox();
-    if (g_pHyprRenderer)
-        g_pHyprRenderer->setCursorFromName("left_ptr", true);
+    // Override, not a one-shot: the compositor re-derives the shape under the pointer.
+    Pointer::Cursor::overrideController->setOverride("left_ptr",
+                                                     Pointer::Cursor::CURSOR_OVERRIDE_WINDOW_EDGE);
     (void)monitor;
 }
 
 void CCursorModule::onClose() {
     resetCursorBox();
+    Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_WINDOW_EDGE);
 }
 
 bool CCursorModule::hasHardwareCursor(PHLMONITOR monitor) const {
