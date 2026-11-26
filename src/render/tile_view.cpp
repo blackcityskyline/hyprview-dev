@@ -218,8 +218,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   if (tab) {
     // Loads the tab's picture into the pixel cache; drawTabContent reads it back out.
     (void)tabArt(t);
-    // The title is the plate's now: a card without a picture is a bare plate, not a dim
-    // duplicate of the same title in the middle of it.
+    // The title is the plate's now: no picture means a bare plate, not a dim centred title.
     drawTabContent(t.subj, box, nullptr, f, static_cast<float>(e * f));
   } else {
     if (look.surface)
@@ -232,6 +231,12 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
   if (look.tone > 0.0)
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
                               {.round = pxr(round, s), .roundingPower = roundPow});
+
+  // M3 state layer: hover and focus wash the whole card with 8%/12% of on-surface.
+  const float wash = look.lift ? 0.0F : selected ? 0.12F : framed ? 0.08F : 0.0F;
+  if (wash > 0.0F)
+    safeRenderRect("tile", pxb(box, s), argb(cfg::colors.label.get(1.0F), wash * e * f),
+                   {.round = pxr(round, s), .roundingPower = roundPow});
 
   if (withCaption)
     drawTileCaption(i, look);
@@ -299,8 +304,8 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
     const int round =
         look.round >= 0.0 ? static_cast<int>(look.round) : cfg::look.preview_round;
     debug::trace::ring("title_pill", plate, pxr(round, s), a);
-    // The bar IS the card's edge: the card's own rounded rect, scissored to the bar (two rects
-    // double the alpha at the seam; a bar with its own corners shows the content through).
+    // The bar is the card's own rect, scissored to the plate: two rects double the seam alpha,
+    // and a bar with its own corners shows the content through them.
     auto &rd = g_pHyprRenderer->context().m_data;
     const CBox savedClip = rd.clipBox;
     rd.clipBox = pxb(plate, s);
@@ -389,7 +394,7 @@ void Overview::renderTiles() const {
   const int dragIdx = draggedTile();
   for (size_t i = 0; i < m_scene.tiles().size(); ++i) {
     if (static_cast<int>(i) == dragIdx)
-      continue; // the dragged tile floats over the strip; drawn later
+      continue;
     const auto &t = m_scene.tiles()[i];
     // A tab has no window: `!w` must not skip it, or a tabs run draws nothing.
     if (cardOf(t).isTab()) {

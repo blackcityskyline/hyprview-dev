@@ -272,6 +272,10 @@ void Overview::renderStripButtons() const {
       continue;
     const LRect card = stripCardAt(i);
 
+    if (!dropping && static_cast<int>(i) == m_scene.hoveredStrip())
+      safeRenderRect("stripwash", pxb(card, s), argb(cfg::colors.label.get(1.0F), 0.08 * e),
+                     {.round = pxr(cardRound, s), .roundingPower = roundPow});
+
     if (dropping) {
       const auto hoverCol = argb(cfg::colors.hover_border.get(e));
       const auto hintCol  = argb(cfg::colors.drop_hint.get(e));

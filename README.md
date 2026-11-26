@@ -252,30 +252,30 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `strip_height` | int (px) | `150` | Strip band thickness, label included |
 | `strip_margin` | int (px) | `22` | Padding around the strip |
 | `strip_gap` | int (px) | `18` | Spacing between workspace cards |
-| `strip_card_round` | int (px) | `10` | Workspace card corner radius |
-| `backdrop_color` | color/role | `"0x33070a10"` | Dim + blur fill over the desktop |
-| `surface_color` | color/role | `"0x1e1e26"` | The plate under a carousel card: the card is a frame, the window fits inside it, and the rest is this colour |
-| `strip_band_color` | color/role | `"0x24ffffff"` | Band behind the cards |
+| `strip_card_round` | int (px) | `12` | Workspace card corner radius |
+| `backdrop_color` | color/role | `"0x33000000"` | Dim + blur fill over the desktop |
+| `surface_color` | color/role | `"0x36343b"` | The plate under a carousel card: the card is a frame, the window fits inside it, and the rest is this colour |
+| `strip_band_color` | color/role | `"0x24d0bcff"` | Band behind the cards |
 | `strip_band_opacity` | int `0`..`100` | `70` | Strip band opacity, in percent — the band's only alpha source; `strip_band_color` supplies RGB |
-| `strip_card_color` | color/role | `"0x3a0e131c"` | Inactive workspace card fill |
-| `strip_active_color` | color/role | `"0x4d1c2c44"` | Active workspace card fill |
-| `strip_active_border` | color/role | `"0xf0ffffff"` | Active card outline |
-| `strip_hover_border` | color/role | `"0x80ffffff"` | Hovered card outline |
-| `strip_plus_color` | color/role | `"0xd0eef4ff"` | The "+" glyph |
-| `strip_all_color` | color/role | `"0xd0eef4ff"` | The "All workspaces" 2×2 glyph — own key, independent of `strip_plus_color` |
-| `launcher_panel_color` | color/role | `"0xd00d1017"` | Launcher panel and its action menu |
-| `launcher_select_color` | color/role | `"0x33ffffff"` | Selected launcher row and the hovered verb |
-| `launcher_hint_color` | color/role | `"0x8affffff"` | Launcher placeholder, row detail and footer hints |
+| `strip_card_color` | color/role | `"0x3a1d1b20"` | Inactive workspace card fill |
+| `strip_active_color` | color/role | `"0x4d4f378b"` | Active workspace card fill |
+| `strip_active_border` | color/role | `"0xf0d0bcff"` | Active card outline |
+| `strip_hover_border` | color/role | `"0x80938f99"` | Hovered card outline |
+| `strip_plus_color` | color/role | `"0xd0d0bcff"` | The "+" glyph |
+| `strip_all_color` | color/role | `"0xd0d0bcff"` | The "All workspaces" 2×2 glyph — own key, independent of `strip_plus_color` |
+| `launcher_panel_color` | color/role | `"0xd0211f26"` | Launcher panel and its action menu |
+| `launcher_select_color` | color/role | `"0x33d0bcff"` | Selected launcher row and the hovered verb |
+| `launcher_hint_color` | color/role | `"0x8acac4d0"` | Launcher placeholder, row detail and footer hints |
 | `shadow_color` | color/role | `"0x70000000"` | Window preview drop shadow |
-| `hover_border` | color/role | `"0xf0ffffff"` | Hovered window preview outline — a real border stroke, drawn only around the tile, never a fill over it |
-| `select_border` | color/role | `"0xf066ccff"` | Keyboard-selected preview outline (Alt-Tab's cursor) — same real-stroke rendering as `hover_border` |
-| `select_border_size` | int (px) | `3` | Keyboard-selected preview outline thickness — `0` disables it entirely |
-| `hover_border_size` | int (px) | `3` | Hovered/focused preview outline thickness — `0` disables it entirely |
+| `hover_border` | color/role | `"0xf0938f99"` | Hovered window preview outline — a real border stroke; the hover itself also washes the card with the state layer, see [Material 3](#material-3) |
+| `select_border` | color/role | `"0xf0d0bcff"` | Keyboard-selected preview outline (Alt-Tab's cursor) — same real-stroke rendering as `hover_border`, and its state layer is the heavier 12% |
+| `select_border_size` | int (px) | `2` | Keyboard-selected preview outline thickness — `0` disables it entirely |
+| `hover_border_size` | int (px) | `2` | Hovered/focused preview outline thickness — `0` disables it entirely |
 | `show_focus_border` | bool (0/1) | `1` | Whether hover/selection draw `hover_border`/`select_border` at all — see "Border modes" below |
 | `show_border` | bool (0/1) | `0` | An always-on base ring on every tile, independent of hover/selection — see "Border modes" below |
 | `show_tab_icons` | bool (0/1) | `1` | The page's favicon on the tab card's title plate |
 | `show_window_icons` | bool (0/1) | `1` | The app's icon on the window card's title plate |
-| `border_color` | color/role | `"0x50ffffff"` | `show_border`'s ring color |
+| `border_color` | color/role | `"0x5049454f"` | `show_border`'s ring color |
 | `border_size` | int (px) | `2` | `show_border`'s ring thickness — `0` disables it |
 | `focus_follows_mouse` | bool (0/1) | `1` | Keyboard selection tracks the hovered preview |
 | `scroll_switches_workspace` | bool (0/1) | `1` | Wheel over the main area steps prev/next workspace. A carousel run pages on its own instead, see `carousel_scroll_speed`. The desktop view is its own exception: over the grid the wheel scrolls the rows that hang below the screen (the strip still answers only its own hover) |
@@ -318,21 +318,21 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `hold_lift_ms` | int (ms) | `400` | Hold a dragged preview still this long before it lifts and starts scaling — separates a hold from a drag |
 | `tile_layout` | `none` \| `dwindle` | `none` | `dwindle`: after a swap, re-run Hyprland's dwindle layout on the target workspace so neighbours fill the freed space; `none` leaves the layout alone |
 | `new_workspace_mode` | `fill` \| `linear` | `fill` | `fill`: `+` takes the lowest free workspace id (backfills a gap left by a closed one) — `linear`: always appends past the highest existing id, never backfills |
-| `close_button_color` | color/role | `"0xe6e23b3b"` | `✕` close-button fill — per-window, and per-workspace (closes every window on it) |
-| `close_glyph_color` | color | `"0xffffffff"` | the `✕` glyph itself, drawn on top of `close_button_color` |
-| `label_color` | color | `"0xf2ffffff"` | window/workspace name text under tiles and strip cards |
-| `title_pill_color` | color | `"0xcc11151c"` | the bar on a card's bottom edge that carries its icon and title |
+| `close_button_color` | color/role | `"0xe68c1d18"` | `✕` close-button fill — per-window, and per-workspace (closes every window on it) |
+| `close_glyph_color` | color | `"0xfff9dedc"` | the `✕` glyph itself, drawn on top of `close_button_color` |
+| `label_color` | color | `"0xf2e6e0e9"` | window/workspace name text under tiles and strip cards |
+| `title_pill_color` | color | `"0xcc2b2930"` | the bar on a card's bottom edge that carries its icon and title |
 | `title_pill_opacity` | float (0.0–1.0) | `0.8` | the bar's own alpha — RGB comes from `title_pill_color`, its alpha is ignored. With `blur` on, the card's pixels under the bar are blurred behind it, so the bar reads as glass |
 | `title_font_size` | int | `12` | font size of a tile's title label |
 | `launcher_width` | int (px) | `620` | Launcher panel width before the grid's side margins cap it |
 | `launcher_rows` | int | `7` | Visible launcher rows; the list scrolls past this |
 | `launcher_row_height` | int (px) | `44` | Launcher row height, and the action menu's |
 | `launcher_font_size` | int | `15` | Launcher row and search-field font size |
-| `title_label_color` | color | `"0xf2ffffff"` | the title's text colour (both layouts) |
+| `title_label_color` | color | `"0xf2e6e0e9"` | the title's text colour (both layouts) |
 | `title_position` | string | `"bottom"` | kept for compatibility, and only as the counter pill's fallback edge: the title's bar is always the card's bottom edge |
 | `counter_font_size` | int | `12` | font size of the `n / total` counter in its pill |
-| `counter_label_color` | color | `"0xf2ffffff"` | the counter's text colour |
-| `counter_pill_color` | color | `"0xcc11151c"` | the counter pill's fill |
+| `counter_label_color` | color | `"0xf2e6e0e9"` | the counter's text colour |
+| `counter_pill_color` | color | `"0xcc2b2930"` | the counter pill's fill |
 | `counter_position` | string | `""` | `"top"` or `"bottom"`: the card edge the counter pill hangs off, outside the card; empty = follow `title_position` |
 | `counter_gap` | float | `8` | the card edge to the counter pill, px |
 | `counter_margin` | float | `6` | the counter pill's inset from the screen edge |
@@ -360,7 +360,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `counter_pad_x` | float | `11` | horizontal padding inside the counter pill |
 | `counter_pad_y` | float | `5` | vertical padding inside the counter pill |
 | `close_glyph_fill` | float | `0.62` | fraction of the close button the glyph fills |
-| `drop_hint_color` | color | `"0x38ffffff"` | drop-zone highlight flash on a workspace card while dragging |
+| `drop_hint_color` | color | `"0x38d0bcff"` | drop-zone highlight flash on a workspace card while dragging |
 | `close_button` | bool (0/1) | `1` | The global switch on every x: `0` removes close buttons everywhere, strip band included, whatever `close_button_visibility` says |
 | `close_button_hover_only` | bool (0/1) | `1` | `1`: the x appears only while the cursor is over that surface (tile, deck card, band card) — `0`: as soon as its visibility rule allows it |
 | `close_button_visibility` | `desktop` \| `everywhere` \| `none` | `desktop` | Where the x lives: `desktop` — tiles, cards and the carousel deck in desktop/canvas mode (`key_desktop`) only — `everywhere`: the same surfaces in every view — `none`: nowhere. The strip band follows this rule too |
@@ -580,6 +580,27 @@ A value that doesn't parse falls through to that option's documented default,
 so a missing module or a typo degrades gracefully instead of going black. If
 your module rewrites itself on a theme change, re-evaluating `hl.config{}`
 applies the new colors live.
+
+### Material 3
+
+The defaults are the Material 3 baseline dark scheme, and the overview follows the M3
+role-to-part mapping, so a scheme export (matugen, dch) maps straight onto keys:
+
+| M3 role | keys |
+|---|---|
+| `surface_container_highest` | `surface_color` — the plate a carousel card is a frame around |
+| `surface_container_high` | `title_pill_color`, `counter_pill_color` |
+| `surface_container_low` | `strip_card_color` |
+| `primary_container` | `strip_active_color` |
+| `primary` | `select_border`, `strip_active_border`, `strip_band_color`, `strip_plus_color`, `strip_all_color` |
+| `outline` / `outline_variant` | `hover_border` / `border_color` |
+| `error_container` / `on_error_container` | `close_button_color` / `close_glyph_color` |
+| `on_surface` | `label_color`, `title_label_color`, `counter_label_color` |
+
+Hover and focus draw an M3 **state layer** over the card's own pixels, not only a ring:
+8% of `on_surface` on the hovered tile or strip card, 12% on the focused tile. Shape
+follows the M3 scale: 12 px cards (`preview_round`, `strip_card_round`), capsule pills
+(`counter_round = -1`), circular close buttons.
 
 ### Lua
 
