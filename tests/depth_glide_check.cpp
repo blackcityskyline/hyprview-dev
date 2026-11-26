@@ -51,6 +51,11 @@ int main(int argc, char **argv) {
   if (view.find("depthFrom") == std::string::npos || view.find("depthTo") == std::string::npos)
     return fail("the run's depth does not ride the tile clock with the box");
 
+  // The centred flag feeds the counter and the focus ring: taken from the instant depth it is
+  // false for the whole glide, so the counter pill blinked out on every step.
+  if (view.find("t.depthTo < 1e-6") == std::string::npos)
+    return fail("the run's centred card is decided by the instant depth, so its counter blinks");
+
   std::printf("PASS: the deck's depth rides the tile clock like the box\n");
   return 0;
 }

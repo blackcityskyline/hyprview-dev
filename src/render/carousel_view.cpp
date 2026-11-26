@@ -85,7 +85,8 @@ void Overview::renderCarousel() const {
     if (!visible && box.w < 1.0)
       continue;
     const float depth = t.depthFrom + (t.depthTo - t.depthFrom) * tileProgress(i);
-    const bool centred = visible && box.w >= 1.0 && depth < 1e-6;
+    // Centred is where the glide HEADS: on the instant depth the counter blinks out each step.
+    const bool centred = visible && box.w >= 1.0 && t.depthTo < 1e-6;
     const auto look = runLook(box, centred,
                               render::carouselTone(depth, nearTone(), farTone(),
                                                    depthTaper()),
@@ -93,8 +94,7 @@ void Overview::renderCarousel() const {
     looks.emplace_back(i, look);
   }
 
-  // Near cards paint last, over the far ones: a caption lives inside its own card, so it is
-  // covered by the card in front exactly like the rest of that card.
+  // Near cards paint last: a caption lives in its card, so the card in front covers it too.
   for (const auto &[i, look] : looks)
     drawTile(static_cast<size_t>(i), look, /*withCaption=*/true);
 }
