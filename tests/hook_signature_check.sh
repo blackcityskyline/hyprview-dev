@@ -46,9 +46,11 @@ for g in groups:
     if '(' not in joined:
         continue
     joined = ''.join(joined.split())
-    if any(joined.startswith(n + '(') for n in
-           ("shouldRenderWindow", "damageSurface", "setPointerFocus",
-            "setKeyboardFocus")):
+    # The signature carries a class qualifier in front (CWindow::commitWindow(bool)),
+    # so compare the bare function name, not the start of the string.
+    bare = joined.split('(')[0].split('::')[-1]
+    if bare in ("shouldRenderWindow", "damageSurface", "commitWindow",
+                "setPointerFocus", "setKeyboardFocus"):
         sigs.append(joined)
 
 if not sigs:

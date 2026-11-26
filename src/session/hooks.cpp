@@ -107,15 +107,15 @@ void hkDamageSurface(void *thisptr, SP<CWLSurfaceResource> pSurface, double x,
     orig(thisptr, pSurface, x, y, scale);
 }
 
-using PCOMMITWINDOW = void (*)(void *);
+using PCOMMITWINDOW = void (*)(void *, bool);
 
 // commitWindow's "visible" is !isHidden, so a hidden window still commits, and its off-screen
 // workspace drops the damage (Window.cpp:2750): only here can the card hear about it.
-void hkCommitWindow(void *thisptr) {
+void hkCommitWindow(void *thisptr, bool initialCommit) {
   const auto orig = reinterpret_cast<PCOMMITWINDOW>(
       g_hooks ? g_hooks->commitWindowOrig() : nullptr);
   if (orig)
-    orig(thisptr);
+    orig(thisptr, initialCommit);
 
   if (!g_overview || !g_overview->active() || !thisptr)
     return;
@@ -241,7 +241,7 @@ bool Hooks::install(HANDLE handle, void *self) {
   }
 
   const auto *addrCommit =
-      findBySignature("commitWindow", "CWindow::commitWindow()");
+      findBySignature("commitWindow", "CWindow::commitWindow(bool");
   if (addrCommit) {
     m_commitWindowHook = HyprlandAPI::createFunctionHook(
         m_handle, addrCommit, reinterpret_cast<void *>(&hkCommitWindow));
