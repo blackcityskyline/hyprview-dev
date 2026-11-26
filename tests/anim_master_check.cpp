@@ -32,14 +32,14 @@ int main() {
   std::puts("jumpMode only changes the exit leaf");
 
   // --- the glass and the dim -------------------------------------------------------
-  // The glass holds over a window on both edges; only an empty desktop fades -- in on the
-  // ease, out on the clock. A fade over a window is a sharp hole behind a transparent card.
+  // The entry holds the glass over a window (a fade there is a hole from the first frame);
+  // the exit always rides the clock, or the empty space around a window goes sharp in one frame.
   assert(glassAlpha(0.0, 0.0, true, false) == 1.0);
   assert(glassAlpha(0.4, 0.9, true, false) == 1.0);
-  assert(glassAlpha(0.9, 0.4, false, false) == 1.0);
+  assert(glassAlpha(0.9, 0.4, false, false) == 0.4);
   assert(glassAlpha(0.4, 0.9, true, true) == 0.4);
   assert(glassAlpha(0.9, 0.4, false, true) == 0.4);
-  std::puts("the glass holds over a window, an empty desktop fades on the ease and the clock");
+  std::puts("the glass holds on the entry, the exit rides the clock");
 
   std::puts("OK");
   return 0;

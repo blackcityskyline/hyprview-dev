@@ -178,8 +178,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                            : box;
   const int contentRound =
       render::contentRadiusFor(round, content, ringW, s, !look.contain);
-  // The plate goes UNDER the frost: over it, the frame hid the desktop inside the window's
-  // transparent pixels, and the carousel read sharp until the cut popped the compositor's blur.
+  // The plate goes UNDER the frost: over it the frame hid the desktop inside the window.
   if (!tab && look.surface)
     safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
                               {.round = pxr(round, s), .roundingPower = roundPow});
@@ -212,7 +211,8 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
       uvTL = Vector2D{uv.u0, uv.v0};
       uvBR = Vector2D{uv.u1, uv.v1};
       const bool   blurOk = btex && btex->ok();
-      const double glass  = glassAlpha();
+      // The card covers its window to the cut: inside it the blur must not fade with the backdrop.
+      const double glass  = opening() ? glassAlpha() : 1.0;
       if (!blurOk || glass < 1.0)
         blit(src, 1.0F);
       if (blurOk)

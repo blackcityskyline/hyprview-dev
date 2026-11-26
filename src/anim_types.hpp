@@ -153,13 +153,13 @@ enum class MasterLeaf : std::uint8_t { Open, Close, JumpOut };
   return opening ? MasterLeaf::Open : MasterLeaf::Close;
 }
 
-// A window's blur is the compositor's, gone while we cover it: hold the glass to the cut.
-// Only an empty desktop fades -- in on the ease, out on the clock.
+// The entry holds the glass over a window; the exit always rides the clock: a glass held to
+// the cut swapped the empty space's blur for a sharp desktop in one frame.
 [[nodiscard]] constexpr double glassAlpha(double ease, double clock, bool opening,
                                           bool landingEmpty) {
-  if (!landingEmpty)
-    return 1.0;
-  return opening ? ease : clock;
+  if (!opening)
+    return clock;
+  return landingEmpty ? ease : 1.0;
 }
 
 // A double-tap must not skip the exit: at least this share of the close always plays.
