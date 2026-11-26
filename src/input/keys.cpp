@@ -61,6 +61,8 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   const bool passthrough = cfg::behavior.passthrough_keys != 0;
 
   if (e.state != WL_KEYBOARD_KEY_STATE_PRESSED) {
+    // The held arrow stops repeating on its own release, whatever else the release does.
+    m_keyRepeat.release(static_cast<int>(e.keycode));
     // Swallowed either way: letting it through fires the user's own SUPER binding and tears the state down.
     if (m_altTabbing && modBitForKeycode(e.keycode) == altTabModBit()) {
       m_altTabbing = false;
@@ -107,13 +109,13 @@ void Overview::onKey(const IKeyboard::SKeyEvent &e, bool &cancel) {
   else if (keyMatches(k, mods, cfg::keys.close_window.get()))
     closeTileWindow(m_scene.focused());
   else if (keyMatches(k, mods, cfg::keys.left.get()))
-    moveSelection(-1, 0);
+    navStep(-1, 0, k);
   else if (keyMatches(k, mods, cfg::keys.right.get()))
-    moveSelection(1, 0);
+    navStep(1, 0, k);
   else if (keyMatches(k, mods, cfg::keys.up.get()))
-    moveSelection(0, -1);
+    navStep(0, -1, k);
   else if (keyMatches(k, mods, cfg::keys.down.get()))
-    moveSelection(0, 1);
+    navStep(0, 1, k);
   else if (keyMatches(k, mods, cfg::keys.desktop.get()))
     setDesktopMode(!m_view.desktop());
   else if (keyMatches(k, mods, cfg::keys.app_expose.get()))
@@ -200,6 +202,11 @@ bool Overview::keyMatches(int keycode, uint32_t mods,
 int Overview::keyIndex(int keycode, uint32_t mods,
                        const std::string &combo) const {
   return input::keyIndex(keycode, mods, combo);
+}
+
+void Overview::navStep(int dx, int dy, int keycode) {
+  moveSelection(dx, dy);
+  m_keyRepeat.arm(keycode, [this, dx, dy] { moveSelection(dx, dy); });
 }
 
 void Overview::moveSelection(int dx, int dy) {

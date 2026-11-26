@@ -10,12 +10,9 @@
 #include "config/config.hpp"
 #include "anim_types.hpp"
 
-// THE animation registry. Every animation is declared EXACTLY ONCE, as one row of kRows in
-// anim.cpp carrying its enum id, config keys and defaults, so they cannot drift apart.
-//
-// Nothing substitutes a default for an animation that is not there: an unknown or unbound id
-// resolves to Cfg{on=false}, so the motion does not happen rather than happening at a duration
-// nobody asked for.
+// THE animation registry: every animation is one row of kRows in anim.cpp carrying its id,
+// config keys and defaults, so they cannot drift apart. An unknown or unbound id resolves to
+// Cfg{on=false} -- no motion rather than a duration nobody asked for.
 namespace hyprview::anim {
 
 enum class Id : std::uint8_t {

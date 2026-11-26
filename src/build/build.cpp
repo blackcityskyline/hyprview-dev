@@ -462,8 +462,7 @@ void Overview::layoutTiles() {
       cfg.padTop += l.panel.h + cfg::launcher.row_height;
   }
 
-  // The counter is the one caption outside a card: its pill needs its own strip of padding,
-  // or it draws over the band, which paints AFTER the tiles.
+  // The counter's pill needs its own strip of padding, or it draws over the band (painted later).
   if (m_view.run() && m_scene.size() > 1) {
     const auto tex = m_pixel.fixedLabel(
         pixel::Slot::CarouselCount,
@@ -481,8 +480,7 @@ void Overview::layoutTiles() {
   }
 
   if (m_view.desktop()) {
-    // The desktop view: every workspace gets a cell of the screen, and the windows of a
-    // workspace keep their own places inside their cell.
+    // The desktop view: a workspace gets a screen cell, its windows keep their places in it.
     std::vector<LRect> nat;
     std::vector<int> groups;
     nat.reserve(m_scene.size());

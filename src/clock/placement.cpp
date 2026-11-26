@@ -51,8 +51,7 @@ anim::Id Placement::masterId(const view::State &view, bool opening) const {
 }
 
 double Placement::trackEased(bool opening, int n) const {
-  // progress, not clocks.tiles: a carousel step restarts the tile clock and the band jumped
-  // to the top on every scroll. The deepest card's staircase, so it leaves with the last one.
+  // progress, not clocks.tiles: a step restarts the tile clock; the deepest card leaves last.
   const double raw = progress.raw();
   const double p = opening ? raw : staggered(raw, std::max(0, n - 1), std::max(n, 1));
   const std::string &curve = recipes.glide.curve;

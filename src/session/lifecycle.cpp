@@ -438,6 +438,7 @@ void Overview::hardClose() {
   restorePreviewVisibility();
   cancelPendingClick();
   m_pump.stop(); // the pump's timer must not fire against a torn-down Overview
+  m_keyRepeat.cancel();
 
   restoreLayers();
   restoreFill();
@@ -640,6 +641,7 @@ void Overview::deactivate() {
 
   debug::dbg("deactivate (natural close end)");
   m_pump.stop();
+  m_keyRepeat.cancel();
   releaseNewWorkspaces();
 
   m_life.hardClose();

@@ -56,6 +56,7 @@ class CGradientValueData; // general:col.active_border's real type
 #include "session/feed_poll.hpp"
 #include "session/preview_visibility.hpp"
 #include "render/tile_look.hpp"
+#include "input/key_repeat.hpp"
 #include "blur.hpp"
 #include "cursor.hpp"
 #include "layout.hpp"
@@ -333,6 +334,7 @@ private:
   [[nodiscard]] std::vector<LRect> swapDests(const PHLWINDOW &w, bool strip) const;
 
   session::PendingClick m_click;
+  input::KeyRepeat m_keyRepeat;
 
   model::Drag m_drag;
   LRect m_lastDragBox; // drag box at RELEASE, the `from` for landings
@@ -444,6 +446,8 @@ private:
   bool keyMatches(int keycode, uint32_t mods, const std::string &combo) const;
   int keyIndex(int keycode, uint32_t mods, const std::string &combo) const;
   void moveSelection(int dx, int dy);
+  // An arrow press steps once, then repeats on Hyprland's own input:repeat timing.
+  void navStep(int dx, int dy, int keycode);
   void activateSelection();
   // A target off the DISPLAYED workspace collapses onto it BEFORE the glide, so it aims at the real final position.
   void focusAndClose(const PHLWINDOW &w, Desktop::eFocusReason reason);
