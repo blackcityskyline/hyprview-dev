@@ -215,13 +215,32 @@ void Overview::updateAnimation() {
 }
 
 bool Overview::animBusy() const {
-  return active() &&
-         (secondaryAnimsActive() || !m_place.clocks.tiles.done(glideDur()) ||
-          !m_place.clocks.menu.done(menuDur()) ||
-          (m_view.quickLook() && !m_place.clocks.quickLook.done(quickLookDur())) ||
+  const bool sec = secondaryAnimsActive();
+  const bool til = !m_place.clocks.tiles.done(glideDur());
+  const bool men = !m_place.clocks.menu.done(menuDur());
+  const bool ql  = m_view.quickLook() && !m_place.clocks.quickLook.done(quickLookDur());
+  const bool busy = active() &&
+         (sec || til || men || ql ||
           m_newCardAnim || m_drag.lifted() || !m_fx.swapfx().empty() ||
           m_life.jumpClosing() || m_life.deactivating() ||
           (opening() && m_place.progress.raw() < 1.0) || (!opening() && m_place.progress.raw() > 0.0));
+  if (debug::trace::enabled()) {
+    static bool last = false;
+    if (busy != last) {
+      last = busy;
+      debug::trace::emitState("BUSY|on=" + std::to_string(busy ? 1 : 0) +
+                              "|sec=" + std::to_string(sec ? 1 : 0) +
+                              "|tiles=" + std::to_string(til ? 1 : 0) +
+                              "|menu=" + std::to_string(men ? 1 : 0) +
+                              "|ql=" + std::to_string(ql ? 1 : 0) +
+                              "|card=" + std::to_string(m_newCardAnim ? 1 : 0) +
+                              "|drag=" + std::to_string(m_drag.lifted() ? 1 : 0) +
+                              "|sfx=" + std::to_string(m_fx.swapfx().empty() ? 0 : 1) +
+                              "|life=" + std::to_string((m_life.jumpClosing() || m_life.deactivating()) ? 1 : 0) +
+                              "|prog=" + std::to_string(m_place.progress.raw()).substr(0, 5));
+    }
+  }
+  return busy;
 }
 
 double Overview::newCardScale() const {
