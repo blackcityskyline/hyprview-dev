@@ -118,7 +118,6 @@ void Overview::drawTabContent(const model::SubjectRef &subj, const LRect &box,
   }
 }
 
-// THE tile: shadow, ring, focus ring, frost, content, plate, ✕ — each under the next.
 void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const {
   const auto m = m_monitor.lock();
   if (!m || i >= m_scene.tiles().size())
@@ -173,15 +172,29 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
                  ringW, round, roundPow);
   }
 
+  // The card is the frame; the content fits in it and the rest is the plate under it.
+  const LRect content = w ? render::contentInside(box, w->sizeAnimation()->goal().x,
+                                                   w->sizeAnimation()->goal().y)
+                           : box;
+  const int contentRound =
+      render::contentRadiusFor(round, content, ringW, s, !look.contain);
+  // The plate goes UNDER the frost: over it, the frame hid the desktop inside the window's
+  // transparent pixels, and the carousel read sharp until the cut popped the compositor's blur.
+  if (!tab && look.surface)
+    safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
+                              {.round = pxr(round, s), .roundingPower = roundPow});
+
   // Frost: the same two layers as the backdrop -- sharp source, then glass -- so a plate and the desktop under it never disagree.
   const double apNow = entryNow(t, static_cast<int>(i));
-  if (tab || (opening() && (e < 0.999 || apNow < 0.999))) {
+  if (tab || !opening() || e < 0.999 || apNow < 0.999) {
     const auto src  = backdropSourceTexture();
     const auto btex = blurEnabled() ? backdropBlurTexture() : SP<Render::ITexture>{};
     if (src && src->ok()) {
       const double pxW = static_cast<double>(m->m_pixelSize.x);
       const double pxH = static_cast<double>(m->m_pixelSize.y);
-      const CBox  boxPx = pxb(box, s);
+      const LRect frost = (!tab && look.surface) ? content : box;
+      const int   frostRound = (!tab && look.surface) ? contentRound : pxr(round, s);
+      const CBox  boxPx = pxb(frost, s);
       const auto  uv = render::frostUV(boxPx.x, boxPx.y, boxPx.width, boxPx.height, pxW, pxH,
                                        render::backdropZoom(e));
       const auto blit = [&](const SP<Render::ITexture> &tex, float a) {
@@ -189,7 +202,7 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
         td.tex           = tex;
         td.box           = boxPx;
         td.a             = a;
-        td.round         = pxr(round, s);
+        td.round         = frostRound;
         td.roundingPower = roundPow;
         td.allowCustomUV = true;
         g_pHyprRenderer->draw(g_pHyprRenderer->context(), td, g_pHyprRenderer->context().m_data.damage);
@@ -208,25 +221,17 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
       uvBR = Vector2D{-1.0, -1.0};
       const auto dim = cfg::blur.backdrop.get(static_cast<float>(e));
       if (dim.a > 0.0)
-        safeRenderRect("tile", boxPx, dim, {.round = pxr(round, s), .roundingPower = roundPow});
+        safeRenderRect("tile", boxPx, dim, {.round = frostRound, .roundingPower = roundPow});
     }
   }
-  // The card is the frame; the content fits in it and the rest is the plate under it.
-  const LRect content = w ? render::contentInside(box, w->sizeAnimation()->goal().x,
-                                                   w->sizeAnimation()->goal().y)
-                           : box;
   if (tab) {
-    // Loads the tab's picture into the pixel cache; drawTabContent reads it back out.
     (void)tabArt(t);
     // The title is the plate's now: no picture means a bare plate, not a dim centred title.
     drawTabContent(t.subj, box, nullptr, f, static_cast<float>(e * f));
   } else {
-    if (look.surface)
-      safeRenderRect("tile", pxb(box, s), cfg::colors.surface.get(static_cast<float>(e * f)),
-                                {.round = pxr(round, s), .roundingPower = roundPow});
     renderWindowLive(w, m, pxb(content, s), pxb(content, s), f, Time::steadyNow(),
-                     render::contentRadiusFor(round, content, ringW, s, !look.contain),
-                     roundPow, m_place.clocks.tiles.done(glideDur()), look.contain);
+                     contentRound, roundPow, m_place.clocks.tiles.done(glideDur()),
+                     look.contain);
   }
   if (look.tone > 0.0)
     safeRenderRect("tile", pxb(box, s), argb(shadowCol, look.tone * e * f),
@@ -340,7 +345,6 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
                    sizes.textH * k), s),
           {.a = a});
     else
-      // Nothing to name: the counter is the bar's own text, not a second plate.
       g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), 
           countTex,
           pxb(CBox(lay.contentX, plate.y + (plate.h - sizes.countH * k) * 0.5,
