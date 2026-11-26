@@ -45,7 +45,6 @@ void Overview::renderStrip() const {
 
   const LRect bandR  = stripBand();
   const Vector2D slide = stripOffset(stripTrack());
-  // STRIPBAND: offset, alpha and the rect they came from -- two causes of a blink look alike.
   debug::trace::ring("strip_band", LRect{slide.x, slide.y, bandCol.a, e}, 0, e);
   debug::trace::ring("strip_band_rect", stripBand(), 0, e);
   safeRenderRect("band", pxb(CBox(bandR.x + slide.x, bandR.y + slide.y, bandR.w, bandR.h), s),
@@ -219,7 +218,6 @@ void Overview::renderStripWindows() const {
                    std::to_string(j) + " rel=" + std::to_string(it.wins[j].rel.w) +
                    "x" + std::to_string(it.wins[j].rel.h) + " -> " +
                    std::to_string(slot.w) + "x" + std::to_string(slot.h));
-      // The preview follows its card: rounder than the card, its corner opens a gap to the backdrop.
       const int round = clampRound(cardRound, slot.w, slot.h);
       const CBox slotPx = pxb(slot, scale);
       const CBox cardPx = pxb(card, scale);
@@ -248,7 +246,6 @@ void Overview::renderStripButtons() const {
   const bool travelling = m_drag.travelSq() > 64.0;
   const bool dropping = m_drag.armed() && m_drag.lifted() && travelling;
   const bool isRmb = dropping && m_drag.button() == BTN_RIGHT;
-  // Both buttons swap on a slot drop, so slot rings apply to either.
   const bool rmbSwap = dropping && m_drag.press() == model::Drag::Press::StripWin;
 
   if (rmbSwap && m_drag.idx() >= 0 &&

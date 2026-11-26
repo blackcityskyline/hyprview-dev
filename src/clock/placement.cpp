@@ -49,10 +49,12 @@ anim::Id Placement::masterId(const view::State &view, bool opening) const {
   return anim::Id::Close;
 }
 
-double Placement::trackEased(bool opening) const {
-  const double glideMs = (clocks.tileMs > 0) ? clocks.tileMs : recipes.glide.ms;
-  const std::string &curve = clocks.tileCurve.empty() ? recipes.glide.curve : clocks.tileCurve;
-  const double p = opening ? clocks.tiles.raw(glideMs) : progress.raw();
+double Placement::trackEased(bool opening, int n) const {
+  // progress, not clocks.tiles: a carousel step restarts the tile clock and the band jumped
+  // to the top on every scroll. The deepest card's staircase, so it leaves with the last one.
+  const double raw = progress.raw();
+  const double p = opening ? raw : staggered(raw, std::max(0, n - 1), std::max(n, 1));
+  const std::string &curve = recipes.glide.curve;
   return opening ? curves::eval(curve, p) : 1.0 - curves::eval(curve, 1.0 - p);
 }
 
@@ -101,7 +103,6 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   const double p = tileProgress(i, f.view, f.opening, f.scene);
   const double e = f.opening ? curves::eval(curve, p)
                              : 1.0 - curves::eval(curve, 1.0 - p);
-  // The closed end of the flight: the card's home, unless the screen shows nothing there.
   const bool canLand = f.opening || f.lands(t);
   const auto &a = f.opening ? t.natural : (canLand ? t.home : t.target);
   const auto &b = t.target;
@@ -112,7 +113,6 @@ LRect Placement::box(const model::Tile &t, int i, const Frame &f) const {
   // A card off the carousel run has a zeroed target: nothing paints it, hold the last box.
   if (f.view.run() && b.w < 1.0 && a.w >= 1.0)
     r = a;
-  // An empty natural grows out of the corner if interpolated.
   if (a.w < 1.0 && b.w >= 1.0)
     r = b;
   // The deck's hide motion, in the grid as well as the run: a card that cannot land shrinks where it is.

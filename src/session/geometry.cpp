@@ -76,10 +76,15 @@ Vector2D Overview::stripSlide(double e) const {
 }
 
 Vector2D Overview::stripOffset(double e) const {
-  return stripSlide(e) + stripPush(stripBand());
+  const Vector2D slide = stripSlide(e);
+  const LRect band = stripBand();
+  // Measure the shove against the band where it already is, or slide and push add up twice.
+  return slide + stripPush(LRect{band.x + slide.x, band.y + slide.y, band.w, band.h});
 }
 
-double Overview::stripTrack() const { return m_place.trackEased(opening()); }
+double Overview::stripTrack() const {
+  return m_place.trackEased(opening(), static_cast<int>(m_scene.tiles().size()));
+}
 
 Vector2D Overview::stripPush(const LRect &band) const {
   std::vector<LRect> covers;

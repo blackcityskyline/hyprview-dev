@@ -35,7 +35,7 @@ class Placement {
     [[nodiscard]] double tileProgress(int i, const view::State &view, bool opening,
                                       const model::Scene &scene) const;
 
-    [[nodiscard]] double trackEased(bool opening) const;
+    [[nodiscard]] double trackEased(bool opening, int n) const;
 
     [[nodiscard]] double entryProgress(int i, const model::Scene &scene) const;
 
