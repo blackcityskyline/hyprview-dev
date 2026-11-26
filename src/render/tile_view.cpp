@@ -146,10 +146,10 @@ void Overview::drawTile(size_t i, const TileLook &look, bool withCaption) const 
 
   const bool framed   = static_cast<int>(i) == m_scene.hoveredTile() || look.lift;
   const bool selected = static_cast<int>(i) == m_scene.focused() && !look.lift;
-  const bool focused  = cfg::look.show_focus_border != 0 && (framed || selected);
+  const bool focused  = look.ring && cfg::look.show_focus_border != 0 && (framed || selected);
   // Whichever ring ends up on top is the one the content has to tuck under.
-  const int ringW = render::focusRingWidth(cfg::look.show_focus_border != 0, framed,
-                                           selected, cfg::look.hover_border_size,
+  const int ringW = render::focusRingWidth(look.ring && cfg::look.show_focus_border != 0,
+                                           framed, selected, cfg::look.hover_border_size,
                                            cfg::look.select_border_size,
                                            cfg::look.border_size);
 

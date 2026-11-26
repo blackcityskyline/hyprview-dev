@@ -11,6 +11,7 @@ struct TileLook {
   LRect box;
   double round = -1.0;   // <0 = look.preview_round
   bool   frame = true;
+  bool   ring = true;     // the hover/selection ring may draw here
   bool   contain = false;
   bool   lift = false;
   bool   counter = false;
@@ -36,7 +37,8 @@ struct TileLook {
   TileLook l;
   l.box = box;
   l.round = render::clampRound(previewRound, box.w, box.h);
-  l.frame = centred;
+  l.frame = true;   // every depth has an outline
+  l.ring = centred; // the focus ring is the centred card's
   l.contain = true;
   l.tone = tone;
   l.button = button;

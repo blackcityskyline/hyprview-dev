@@ -79,9 +79,10 @@ void Overview::renderStrip() const {
         it.active || (allWs && allCardShown && it.kind == model::StripItem::Kind::All);
     const bool expoRing =
         allWs && !allCardShown && it.kind != model::StripItem::Kind::Plus;
-    // M3 active indicator: the active card is a tonal fill; expo keeps a ring, hover a hairline.
-    if (expoRing || (hover && !actLike)) {
-      strokeRing(card, s, expoRing ? activeLine : hoverLine, 2, cardRound, roundPow);
+    // The active card keeps an indicator whatever its fill does; hover is a hairline.
+    if (actLike || expoRing || hover) {
+      strokeRing(card, s, (actLike || expoRing) ? activeLine : hoverLine, 2, cardRound,
+                 roundPow);
       debug::trace::ring("strip_card", card, cardRound, 1.0);
     }
 
