@@ -323,7 +323,8 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `label_color` | color | `"0xf2e6e0e9"` | window/workspace name text under tiles and strip cards |
 | `title_pill_color` | color | `"0xcc2b2930"` | the bar on a card's bottom edge that carries its icon and title |
 | `title_pill_opacity` | float (0.0–1.0) | `0.8` | the bar's own alpha — RGB comes from `title_pill_color`, its alpha is ignored. With `blur` on, the card's pixels under the bar are blurred behind it, so the bar reads as glass |
-| `title_font_size` | int | `12` | font size of a tile's title label |
+| `title_font_size` | int | `11` | font size of a tile's title label |
+| `title_icon_scale` | float | `2.0` | the plate icon's side as a multiple of the label's height — above 1 the icon leads the bar and the smaller text follows it |
 | `launcher_width` | int (px) | `620` | Launcher panel width before the grid's side margins cap it |
 | `launcher_rows` | int | `7` | Visible launcher rows; the list scrolls past this |
 | `launcher_row_height` | int (px) | `44` | Launcher row height, and the action menu's |

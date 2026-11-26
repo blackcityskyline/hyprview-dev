@@ -276,7 +276,8 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
     return;
 
   // The plate's icon: the page's favicon for a tab, the app's own for a window.
-  const double iconSide = hasLabel ? t.label->m_size.y * 1.5 : 0.0;
+  const double iconSide =
+      hasLabel ? t.label->m_size.y * cfg::look.title_icon_scale.get() : 0.0;
   const auto w = tileWindow(t);
   const bool showIcon =
       hasLabel && (tab ? cfg::look.show_tab_icons : cfg::look.show_window_icons) != 0;
