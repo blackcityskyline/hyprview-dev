@@ -85,7 +85,7 @@ void Overview::renderStage(eRenderStage stage) {
   if (!active())
     return;
 
-  if (debug::enabled()) {
+  if (debug::trace::enabled()) {
     const double e  = eased();
     const float  k  = static_cast<float>(e);
     const float  kk = opening() ? k : std::pow(k, 0.45F);
@@ -94,7 +94,7 @@ void Overview::renderStage(eRenderStage stage) {
     const auto   blurTex = backdropBlurTexture();
     const bool   blurOK = blurTex && blurTex->ok() && !backdropBlurStale();
     const auto ext = g_pHyprRenderer->context().m_data.damage.copy().getExtents();
-    debug::dbg("F t=+" +
+    debug::trace::emitState("F t=+" +
         std::to_string(
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - m_openStamp)

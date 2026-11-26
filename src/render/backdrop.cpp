@@ -249,10 +249,12 @@ void Backdrop::render(const BackdropFrame &f) const {
 
   const float k = static_cast<float>(e);
   const double glassK = f.glass;
-  debug::dbg(std::string("backdrop e=") + std::to_string(e).substr(0, 5) +
-      " glass=" + std::to_string(glassK).substr(0, 5) +
-      " opening=" + std::to_string(f.opening) +
-      " k=" + std::to_string(k).substr(0, 5));
+  if (debug::trace::enabled())
+    debug::trace::emitState(
+        "backdrop e=" + std::to_string(e).substr(0, 5) +
+        " glass=" + std::to_string(glassK).substr(0, 5) +
+        " opening=" + std::to_string(f.opening) +
+        " k=" + std::to_string(k).substr(0, 5));
 
   // Glass against the sharp source: with no window under it the desktop sharpens as it lifts.
   const auto drawBlended = [&](const SP<Render::ITexture> &tex, float a) {
@@ -280,10 +282,12 @@ void Backdrop::render(const BackdropFrame &f) const {
     // "The blur EXISTS", not "the blur is LIT": a dark desktop blurs to a dark frame and a pixel probe cannot tell that from an empty buffer.
     const bool blurUsable = cachedTex && cachedTex->ok() && m_blurDrawn;
     const auto base = backdropBase(f.blurEnabled, blurUsable);
-    debug::dbg(std::string("backdrop base=") +
-               (base == BackdropBase::Blur ? "blur"
-                                           : (base == BackdropBase::OpaqueDim ? "dim" : "source")) +
-               "|blurOn=" + std::to_string(f.blurEnabled ? 1 : 0));
+    if (debug::trace::enabled())
+      debug::trace::emitState(
+          std::string("backdrop base=") +
+          (base == BackdropBase::Blur ? "blur"
+                                      : (base == BackdropBase::OpaqueDim ? "dim" : "source")) +
+          "|blurOn=" + std::to_string(f.blurEnabled ? 1 : 0));
     switch (base) {
       case BackdropBase::Blur: {
         baseIsBlur = true;
