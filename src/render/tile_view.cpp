@@ -304,7 +304,13 @@ void Overview::drawTileCaption(int i, const TileLook &look) const {
     auto &rd = g_pHyprRenderer->context().m_data;
     const CBox savedClip = rd.clipBox;
     rd.clipBox = pxb(plate, s);
-    safeRenderRect("tile", pxb(box, s), cfg::colors.title_pill.get(a),
+    // The bar is glass: blur what lies under it before the tint; the plate box bounds the work.
+    if (blurEnabled())
+      safeRenderRect("tile", pxb(plate, s), CHyprColor(0.0, 0.0, 0.0, 0.0),
+                     {.round = pxr(round, s), .roundingPower = roundPow, .blur = true});
+    auto pillCol = cfg::colors.title_pill.get(1.0F);
+    pillCol.a = static_cast<float>(std::clamp(cfg::look.title_pill_opacity.get(), 0.0F, 1.0F) * a);
+    safeRenderRect("tile", pxb(box, s), pillCol,
                    {.round = pxr(round, s), .roundingPower = roundPow});
     rd.clipBox = savedClip;
     const double iconSpan = hasIcon ? (iconSide + style.iconGap) * k : 0.0;
@@ -504,7 +510,12 @@ void Overview::renderQuickLook() const {
   auto &rd = g_pHyprRenderer->context().m_data;
   const CBox savedClip = rd.clipBox;
   rd.clipBox = pxb(plate, s);
-  safeRenderRect("quick_look", pxb(card, s), cfg::colors.title_pill.get(a),
+  if (blurEnabled())
+    safeRenderRect("quick_look", pxb(plate, s), CHyprColor(0.0, 0.0, 0.0, 0.0),
+                   {.round = pxr(round, s), .roundingPower = roundPow, .blur = true});
+  auto pillCol = cfg::colors.title_pill.get(1.0F);
+  pillCol.a = static_cast<float>(std::clamp(cfg::look.title_pill_opacity.get(), 0.0F, 1.0F) * a);
+  safeRenderRect("quick_look", pxb(card, s), pillCol,
                  {.round = pxr(round, s), .roundingPower = roundPow});
   rd.clipBox = savedClip;
   g_pHyprOpenGL->renderTexture(g_pHyprRenderer->context(), 

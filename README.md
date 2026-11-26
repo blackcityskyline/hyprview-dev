@@ -322,6 +322,7 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `close_glyph_color` | color | `"0xffffffff"` | the `✕` glyph itself, drawn on top of `close_button_color` |
 | `label_color` | color | `"0xf2ffffff"` | window/workspace name text under tiles and strip cards |
 | `title_pill_color` | color | `"0xcc11151c"` | the bar on a card's bottom edge that carries its icon and title |
+| `title_pill_opacity` | float (0.0–1.0) | `0.8` | the bar's own alpha — RGB comes from `title_pill_color`, its alpha is ignored. With `blur` on, the card's pixels under the bar are blurred behind it, so the bar reads as glass |
 | `title_font_size` | int | `12` | font size of a tile's title label |
 | `launcher_width` | int (px) | `620` | Launcher panel width before the grid's side margins cap it |
 | `launcher_rows` | int | `7` | Visible launcher rows; the list scrolls past this |

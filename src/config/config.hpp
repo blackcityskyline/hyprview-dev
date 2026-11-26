@@ -163,6 +163,7 @@ struct look {
   Float title_pad_y;
   Int title_font_size;
   Str title_position;
+  Float title_pill_opacity;
   Int counter_font_size;
   Float counter_pad_x;
   Float counter_pad_y;

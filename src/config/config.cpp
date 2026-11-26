@@ -168,6 +168,7 @@ constexpr FloatSpec kFloats[] = {
     {&look.icon_shadow_offset, "plugin:hyprview:icon_shadow_offset", 0.045},
     {&look.icon_shadow_blur, "plugin:hyprview:icon_shadow_blur", 0.1},
     {&look.icon_shadow_alpha, "plugin:hyprview:icon_shadow_alpha", 0.55},
+    {&look.title_pill_opacity, "plugin:hyprview:title_pill_opacity", 0.8F},
     {&look.title_pad_x, "plugin:hyprview:title_pad_x", 11.0},
     {&look.title_pad_y, "plugin:hyprview:title_pad_y", 5.0},
     {&look.counter_pad_x, "plugin:hyprview:counter_pad_x", 11.0},
