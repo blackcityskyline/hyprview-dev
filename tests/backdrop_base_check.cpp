@@ -1,7 +1,6 @@
-// The backdrop's base: the sharp source, with the glass over it. The blur rides the glass
-// value, which holds while a window is under the overlay -- a transparent window's blur is the
-// compositor's, and ours has to stand in for it once we cover it. When the glass does fade, it
-// fades over the sharp source, never over a stale framebuffer.
+// The backdrop's base: the sharp source, with the glass over it. The glass holds at 1 over a
+// window on both edges -- the window's blur is the compositor's and is gone while we cover it,
+// so a fade there is a sharp hole. Only an empty desktop fades: in on the ease, out on the clock.
 //
 // Two regressions this pins: the Blur branch drawing the glass without the source under it
 // (a fading blur would fade to a stale framebuffer), and the sharp source being faded with
@@ -75,11 +74,16 @@ int main(int argc, char **argv) {
   if (src.find("drawBlended(comp, static_cast<float>(glassK))") != std::string::npos)
     return fail("the sharp source fades with the glass -- the fade has nothing opaque under it");
 
-  // The glass is keyed on the desktop under it: holding it over a window is what keeps a
-  // transparent card from showing a sharp hole.
+  // The glass holds over a window on both edges: its blur is the compositor's while we cover
+  // it, and a fade there is the hole the user saw on the entry and again on the exit.
   const auto clocks = slurp(root + "/src/clock/clocks.cpp");
   if (clocks.find("anim::glassAlpha(eased(), m_place.progress.raw(), opening(), m_landingEmpty)") == std::string::npos)
-    return fail("the glass is no longer keyed on the landing -- a windowed desktop fades and holes");
+    return fail("the glass is not keyed on the landing -- a windowed desktop fades and holes");
+
+  const auto anim = slurp(root + "/src/anim_types.hpp");
+  if (anim.find("if (!landingEmpty)") == std::string::npos ||
+      anim.find("return 1.0;") == std::string::npos)
+    return fail("the glass no longer holds over a window -- an entry or exit fade opens a hole");
 
   // The parked phase primes the blur: the first VISIBLE frame must find one ready.
   const auto prime = bodyOf(src, "void Overview::primeBackdrop()");

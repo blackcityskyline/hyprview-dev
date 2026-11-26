@@ -32,17 +32,14 @@ int main() {
   std::puts("jumpMode only changes the exit leaf");
 
   // --- the glass and the dim -------------------------------------------------------
-  // A transparent window's blur is the compositor's, and it is gone while the overlay covers
-  // the window. Ours stands in for it, so the glass holds on the entry as well as the exit; a
-  // sharp desktop under a transparent card is a hole. The dim is a tint, not the blur, and
-  // rides the clock on both edges -- a tint that held would pop at the cut.
+  // The glass holds over a window on both edges; only an empty desktop fades -- in on the
+  // ease, out on the clock. A fade over a window is a sharp hole behind a transparent card.
   assert(glassAlpha(0.0, 0.0, true, false) == 1.0);
+  assert(glassAlpha(0.4, 0.9, true, false) == 1.0);
+  assert(glassAlpha(0.9, 0.4, false, false) == 1.0);
   assert(glassAlpha(0.4, 0.9, true, true) == 0.4);
   assert(glassAlpha(0.9, 0.4, false, true) == 0.4);
-  assert(glassAlpha(0.0, 0.0, false, true) == 0.0);
-  // The exit dissolves on the clock over a window too: holding it popped the backdrop sharp.
-  assert(glassAlpha(0.9, 0.4, false, false) == 0.4);
-  std::puts("the glass holds over a window on entry; every exit leaves on the clock");
+  std::puts("the glass holds over a window, an empty desktop fades on the ease and the clock");
 
   std::puts("OK");
   return 0;
