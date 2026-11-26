@@ -14,6 +14,7 @@ constexpr auto kPumpInterval = std::chrono::milliseconds(8);
 FramePump::~FramePump() { stop(); }
 
 void FramePump::stop() {
+  m_armed = false;
   if (!m_timer)
     return;
   m_timer->cancel();
@@ -29,17 +30,25 @@ void FramePump::damage(const PHLMONITOR &m) const {
 
 void FramePump::ensure(bool busy, const PHLMONITOR &mon) {
   if (!busy) {
-    // Disarm, never reset: this runs from inside the timer's own callback (SIGSEGV 2026-10-13).
+    // Disarm, never reset (SIGSEGV 2026-10-13), and clear the flag the callback re-arms on.
+    m_armed = false;
     if (m_timer)
       m_timer->cancel();
     return;
   }
-  if (m_timer && m_timer->armed())
+  if (m_timer && m_timer->armed()) {
+    m_armed = true;
     return;
+  }
 
+  m_armed = true;
   m_timer = makeShared<CEventLoopTimer>(
       kPumpInterval,
       [this, mon](SP<CEventLoopTimer> self, void *) {
+        if (!m_armed) {
+          self->cancel();
+          return;
+        }
         damage(mon);
         if (mon)
           mon->scheduleFrame();

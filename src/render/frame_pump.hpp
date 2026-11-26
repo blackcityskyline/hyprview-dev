@@ -29,6 +29,7 @@ class FramePump {
 
   private:
     SP<CEventLoopTimer> m_timer;
+    bool m_armed = false;
     std::uint64_t m_tick = 0;
 };
 
