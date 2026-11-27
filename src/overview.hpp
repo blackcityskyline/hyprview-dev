@@ -341,6 +341,7 @@ private:
   LRect m_lastDragBox; // drag box at RELEASE, the `from` for landings
   bool m_altTabbing = false;
   bool m_menuOpen = false;
+  double m_menuExit = 0.0; // how much of the bar was up when the close began
 
   session::Hooks m_hooks;
 

@@ -701,6 +701,17 @@ static void theMenuStaysOnTheMonitor() {
   want(onlyCarousel.panel.w < top.panel.w, true, "and the panel shrinks");
   near(onlyCarousel.panel.x + onlyCarousel.panel.w, W - M, "still in its corner");
 
+  // The exit is a slide over the edge the row hugs, never a fade in place.
+  using hyprview::render::menuSlide;
+  near(menuSlide(top.panel, W, 1.0), 0.0, "at rest the row sits in its corner");
+  near(top.panel.x + menuSlide(top.panel, W, 0.0), W,
+       "gone, the row's left edge is past the right edge");
+  near(menuSlide(left.panel, W, 1.0), 0.0, "the left row rests too");
+  near(left.panel.x + left.panel.w + menuSlide(left.panel, W, 0.0), 0.0,
+       "and leaves over the left edge");
+  want(menuSlide(top.panel, W, 0.5) < 0.0, false, "a right row only moves right");
+  want(menuSlide(left.panel, W, 0.5) > 0.0, false, "a left row only moves left");
+
   using hyprview::render::menuVisible;
   want(menuVisible(true, true, true, 0, false), true, "without autohide the panel is up");
   want(menuVisible(true, true, true, 1, false), false, "autohide keeps it off the pointer");

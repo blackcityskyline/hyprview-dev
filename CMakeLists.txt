@@ -584,6 +584,12 @@ add_test(NAME scan_close_glyph
          COMMAND ${CMAKE_COMMAND} -E env sh -c
                  "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/close_glyph_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/close_glyph_check && ${CMAKE_CURRENT_BINARY_DIR}/close_glyph_check ${CMAKE_SOURCE_DIR}")
 
+# The button row leaves with the close, over the edge it hugs: its own clock pinned it shut
+# and hover re-opened it mid-exit, so it blinked and vanished instead of sliding.
+add_test(NAME scan_menu_exit
+         COMMAND ${CMAKE_COMMAND} -E env sh -c
+                 "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/menu_exit_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/menu_exit_check && ${CMAKE_CURRENT_BINARY_DIR}/menu_exit_check ${CMAKE_SOURCE_DIR}")
+
 # The GL state fence's comparison. Reading live GL needs a context, so that half lives in
 # gl_util.hpp and runs inside the pass; the comparison is POD arithmetic, split into
 # state_fence.hpp precisely so it compiles here with no GL header at all.

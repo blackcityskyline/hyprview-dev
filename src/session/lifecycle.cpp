@@ -179,6 +179,8 @@ render::MenuLayout Overview::menuBoxes() const {
 }
 
 double Overview::menuProgress() const {
+  if (!opening())
+    return m_menuExit * std::clamp(m_place.progress.raw(), 0.0, 1.0);
   const double r = m_place.clocks.menu.raw(menuDur());
   return m_menuOpen ? r : 1.0 - r;
 }
@@ -197,7 +199,7 @@ void Overview::setMenuOpen(bool open) {
 }
 
 void Overview::updateMenuVisibility() {
-  if (!active())
+  if (!active() || !opening())
     return;
   const auto m = m_monitor.lock();
   if (!m)
@@ -392,6 +394,7 @@ void Overview::close() {
     m->m_forceFullFrames = std::max(m->m_forceFullFrames, 8);
   debug::dbg("close: ws=" + std::to_string(compat::wsId(m_workspace.lock())) +
              " empty=" + std::to_string(m_landingEmpty ? 1 : 0));
+  m_menuExit = std::clamp(menuProgress(), 0.0, 1.0);
   m_life.endEntry();
   m_life.consumeJumpClosing();
   m_menuOpen = false;
@@ -469,6 +472,7 @@ void Overview::hardClose() {
   debug::trace::life("close", m_life.describe());
   m_view.setDesktop( false);
   m_menuOpen = false;
+  m_menuExit = 0.0;
   m_view.endQuickLook();
   m_place.clocks.quickLook.reset();
   m_view.setExposeClass({});

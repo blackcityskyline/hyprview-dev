@@ -281,20 +281,17 @@ void Overview::renderMenu() const {
   if (!m)
     return;
   const double s = m->m_scale;
-  const float a = static_cast<float>(std::clamp(p, 0.0, 1.0));
-  const double e = curves::eval(anim::cfg(anim::Id::Card).curve, p);
+  const float a = static_cast<float>(std::clamp(p * 2.0, 0.0, 1.0));
   const auto box = menuBoxes();
   const float roundPow = cfg::look.preview_round_power;
-  const auto grow = [&](const LRect &r) {
-    const double k = 0.72 + 0.28 * e;
-    return LRect{r.cx() - r.w * k / 2.0, r.cy() - r.h * k / 2.0, r.w * k, r.h * k};
-  };
-  const LRect panel = grow(box.panel);
+  const double slide = render::menuSlide(box.panel, m->m_size.x, p);
+  const auto moved = [&](const LRect &r) { return LRect{r.x + slide, r.y, r.w, r.h}; };
+  const LRect panel = moved(box.panel);
   safeRenderRect("menu", pxb(panel, s), cfg::colors.strip_card.get(a),
                  {.round = pxr(12.0, s), .roundingPower = roundPow});
 
   const auto button = [&](const LRect &r, bool on, const char *glyph) {
-    const LRect b = grow(r);
+    const LRect b = moved(r);
     if (on) {
       safeRenderRect("menu_on", pxb(b, s), cfg::colors.strip_active.get(a),
                      {.round = pxr(10.0, s), .roundingPower = roundPow});

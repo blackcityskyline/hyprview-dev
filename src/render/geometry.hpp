@@ -104,8 +104,6 @@ enum class Anchor {
 }
 
 
-// Keep a box inside a screen, with an inset. std::clamp requires lo <= hi and does not check it:
-
 // First match wins: the GRID hit-test, deliberately NOT the carousel's, which needs front-most.
 [[nodiscard]] inline int firstHit(double lx, double ly, const LRect *boxes,
                                    std::size_t n) {
@@ -487,6 +485,12 @@ struct MenuLayout {
     if (carousel)
         out.carousel = LRect{bx, out.panel.y + pad, button, button};
     return out;
+}
+
+[[nodiscard]] inline double menuSlide(const LRect &panel, double monW, double shown) {
+    const double e = std::clamp(shown, 0.0, 1.0);
+    const bool right = panel.cx() >= monW / 2.0;
+    return (1.0 - e) * (right ? monW - panel.x : -(panel.x + panel.w));
 }
 
 // The ring on top of a tile: hover over selection over base.
