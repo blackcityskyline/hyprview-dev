@@ -675,28 +675,29 @@ static void theMenuStaysOnTheMonitor() {
   want(top.carousel.x > top.browser.x + top.browser.w, true, "and no overlap");
   // A top strip leaves the row in the bottom band, clear of the grid.
   near(top.panel.x + top.panel.w, W - M, "the row keeps the right margin");
-  near(top.panel.y + top.panel.h, H - (TY - top.panel.h) / 2.0,
-       "the row is centred in the band under the cards");
+  near(top.panel.y + top.panel.h, H - 6.0, "the row leaves a 6px gap to the screen edge");
   want(top.panel.y + top.panel.h <= H, true, "the row stays on the monitor");
   const auto left = menuLayout(Anchor::Bottom, "left", W, H, true, true, M, TY);
   near(left.panel.x, M, "left puts the row on the left");
-  near(left.panel.y, (TY - left.panel.h) / 2.0, "a bottom strip leaves the row on top");
+  near(left.panel.y, 6.0, "a bottom strip leaves the row on top, with the same gap");
   const auto tight = menuLayout(Anchor::Top, "right", W, H, true, true, M, 40.0);
-  near(tight.panel.h, 40.0, "the row shrinks to the band");
-  near(tight.panel.y + tight.panel.h, H, "and keeps the screen edge");
+  near(tight.panel.h, 28.0, "the row shrinks to the band");
+  near(tight.panel.y + tight.panel.h, H - 6.0, "and keeps the edge gap");
 
   // A vertical strip sends the row to the opposite horizontal edge; the key picks the end.
   const auto vs = menuLayout(Anchor::Left, "right", W, H, true, true, M, TX);
-  near(vs.panel.x + vs.panel.w, W, "a left strip puts the row in the right band");
+  near(vs.panel.x + vs.panel.w, W - 6.0, "a left strip puts the row in the right band");
   near(vs.panel.y + vs.panel.h, H - M, "bottom is the default end");
   const auto vt = menuLayout(Anchor::Right, "top", W, H, true, true, M, TX);
-  near(vt.panel.x, 0.0, "a right strip puts the row in the left band");
+  near(vt.panel.x, 6.0, "a right strip puts the row in the left band");
   near(vt.panel.y, M, "top puts it at the top");
 
   // Hiding a button takes its slot: the panel shrinks and the survivor starts at the pad.
   const auto onlyCarousel = menuLayout(Anchor::Top, "right", W, H, false, true, M, TY);
   near(onlyCarousel.browser.w, 0.0, "a hidden button has no rect");
-  near(onlyCarousel.carousel.x, onlyCarousel.panel.x + 10.0, "the survivor takes the first slot");
+  near(onlyCarousel.carousel.y,
+       onlyCarousel.panel.y + (onlyCarousel.panel.h - onlyCarousel.carousel.h) / 2.0,
+       "the survivor is centred in the panel");
   want(onlyCarousel.panel.w < top.panel.w, true, "and the panel shrinks");
   near(onlyCarousel.panel.x + onlyCarousel.panel.w, W - M, "still in its corner");
 

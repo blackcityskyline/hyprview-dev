@@ -459,8 +459,9 @@ struct MenuLayout {
     const double baseW = kPad * 2.0 + kButton * n + kGap * std::max(0, n - 1);
     const double baseH = kPad * 2.0 + kButton;
     const bool horiz = isHorizontal(stripAnchor);
+    constexpr double kEdge = 6.0;
     const double scale =
-        std::clamp(inset / std::max(horiz ? baseH : baseW, 1.0), 0.3, 1.0);
+        std::clamp((inset - kEdge * 2.0) / std::max(horiz ? baseH : baseW, 1.0), 0.3, 1.0);
     const double pad = kPad * scale;
     const double button = kButton * scale;
     const double gap = kGap * scale;
