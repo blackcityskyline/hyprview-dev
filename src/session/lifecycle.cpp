@@ -167,7 +167,10 @@ render::MenuLayout Overview::menuBoxes() const {
   const auto m = m_monitor.lock();
   if (!m)
     return {};
-  return render::menuLayout(m_menuAt.x, m_menuAt.y, m->m_size.x, m->m_size.y);
+  const bool panel = cfg::menu.panel != 0;
+  return render::menuLayout(stripAnchor(), cfg::menu.position.get(), m->m_size.x, m->m_size.y,
+                            panel && cfg::menu.browser != 0, panel && cfg::menu.carousel != 0,
+                            cfg::strip.margin.get());
 }
 
 double Overview::menuProgress() const {
@@ -175,19 +178,30 @@ double Overview::menuProgress() const {
   return m_menuOpen ? r : 1.0 - r;
 }
 
-void Overview::toggleMenu(double x, double y) {
+void Overview::setMenuOpen(bool open) {
+  if (m_menuOpen == open)
+    return;
   const double shown = std::clamp(menuProgress(), 0.0, 1.0);
-  if (m_menuOpen) {
-    m_menuOpen = false;
-    m_place.clocks.menu.seek(1.0 - shown, menuDur());
-  } else {
-    m_menuOpen = true;
-    m_menuAt = LRect{x, y, 0.0, 0.0};
-    m_place.clocks.menu.seek(shown, menuDur());
+  m_menuOpen = open;
+  m_place.clocks.menu.seek(open ? shown : 1.0 - shown, menuDur());
+  if (open) {
     const auto c = anim::cfg(anim::Id::Card);
     debug::trace::animStart("menu", "card", c.curve.c_str(), c.ms, c.curve.c_str());
   }
   damage();
+}
+
+void Overview::updateMenuVisibility() {
+  if (!active())
+    return;
+  const auto m = m_monitor.lock();
+  if (!m)
+    return;
+  const auto box = menuBoxes();
+  const auto mc = g_pInputManager->getMouseCoordsInternal();
+  const bool hovered = box.panel.contains(mc.x - m->m_position.x, mc.y - m->m_position.y);
+  setMenuOpen(render::menuVisible(cfg::menu.panel != 0, cfg::menu.browser != 0,
+                                  cfg::menu.carousel != 0, cfg::menu.autohide != 0, hovered));
 }
 
 void Overview::toggleAllWorkspaces() {
@@ -353,6 +367,7 @@ void Overview::open(bool keepDomain) {
   m_lastAnimTick = {};
   // hideLayers() is NOT called here: it runs at promotion, else the desktop is bare on frames where the overview draws nothing.
   m_cursor.onOpen(m);
+  updateMenuVisibility();
   debug::dbg("=== OPEN ===");
   damage();
 }

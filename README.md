@@ -101,10 +101,14 @@ Hyprland's executor.
 (switches to its workspace and focuses it — the same thing Enter does), and open with
 nothing focused it cancels. Use `hyprview:close` for an unconditional cancel.
 
-A right-click on empty space opens a small panel at the cursor: the globe button toggles
-the browser-tab view, the carousel button toggles the carousel. A button stays lit while
-its mode is on, and any other press dismisses the panel. It appears on the card animation,
-so it follows the same easing and duration as the cards.
+A right-click no longer opens anything: the button panel is always part of the overview,
+fixed in the corner opposite the strip. The globe button toggles the browser-tab view, the
+carousel button toggles the carousel; a button stays lit while its mode is on. The panel and
+each button have their own keys, so the panel can be on with either button hidden, and a
+hidden button takes its slot with it. `menu_position` picks the free corner — `left`/`right`
+on a horizontal strip, `top`/`bottom` on a vertical one — and `menu_autohide` keeps the whole
+module hidden until the pointer is on it. It appears on the card animation, so it follows the
+same easing and duration as the cards.
 
 `key_quick_look` (`space`) opens the selected card full size: the preview morphs out of
 that card's own box into the biggest card the window's aspect allows in the space the
@@ -311,6 +315,11 @@ All keys live under `plugin:hyprview:*`. Colors are strings — see [Colors](#co
 | `all_advances` | bool (0/1) | `0` | Same rule for `all`: `1` opens already on the next card in recency order, `0` opens on the focused window |
 | `browser_advances` | bool (0/1) | `0` | Same rule for `browser`: `1` opens already on the next card in recency order, `0` opens on the focused window |
 | `strip_all_card` | bool (0/1) | `0` | Show a leading "All workspaces" card on the strip that toggles the expo view |
+| `menu` | bool (0/1) | `1` | Show the button panel at all; buttons are separate keys |
+| `menu_button_browser` | bool (0/1) | `1` | Show the browser-tab button in the panel |
+| `menu_button_carousel` | bool (0/1) | `1` | Show the carousel button in the panel |
+| `menu_position` | `left` \| `right` \| `top` \| `bottom` | `right` | Free corner of the panel: `left`/`right` on a horizontal strip, `top`/`bottom` on a vertical one. The panel keeps the edge opposite the strip either way |
+| `menu_autohide` | bool (0/1) | `0` | Hide the whole panel until the pointer is on it |
 | `drag_to_swap` | bool (0/1) | `1` | Grid mode: dropping a preview onto another swaps the two windows' places — works across workspaces too in the all-workspaces (expo) view |
 | `switch_on_drop` | bool (0/1) | `0` | Dropping a window on a card also follows it to that workspace |
 | — | — | — | Dragging a preview (grid or strip) onto a workspace **card** with the left button moves it there; the **right** button swaps it with that workspace's last-focused window instead |

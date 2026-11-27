@@ -199,6 +199,7 @@ void Overview::updateHover() {
   const double lx = mc.x - m->m_position.x;
   const double ly = mc.y - m->m_position.y;
   m_pointer = Vector2D{lx, ly};
+  updateMenuVisibility();
 
   if (m_drag.armed()) {
     if (m_drag.lifted()) {
@@ -294,22 +295,16 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
 
     if (m_menuOpen) {
       const auto box = menuBoxes();
-      if (box.browser.contains(lx, ly)) {
+      if (box.browser.w > 0 && box.browser.contains(lx, ly)) {
         m_drag.consume(e.button);
         toggleBrowserView();
         return true;
       }
-      if (box.carousel.contains(lx, ly)) {
+      if (box.carousel.w > 0 && box.carousel.contains(lx, ly)) {
         m_drag.consume(e.button);
         toggleCarousel();
         return true;
       }
-      const double shown = menuProgress();
-      m_menuOpen = false;
-      m_place.clocks.menu.seek(1.0 - shown, menuDur());
-      m_drag.consume(e.button);
-      damage();
-      return true;
     }
 
     if (e.button == BTN_MIDDLE) {
@@ -394,10 +389,6 @@ bool Overview::onMouseButton(const IPointer::SButtonEvent &e) {
       return true;
     }
     m_drag.miss(e.button);
-    if (e.button == BTN_RIGHT) {
-      m_drag.consume(e.button);
-      toggleMenu(lx, ly);
-    }
     return true;
   }
 

@@ -269,6 +269,11 @@ void Overview::paint() {
 }
 
 void Overview::renderMenu() const {
+  const bool panelOn = cfg::menu.panel != 0;
+  const bool showBrowser = panelOn && cfg::menu.browser != 0;
+  const bool showCarousel = panelOn && cfg::menu.carousel != 0;
+  if (!showBrowser && !showCarousel)
+    return;
   const double p = menuProgress();
   if (p <= 0.001)
     return;
@@ -302,8 +307,10 @@ void Overview::renderMenu() const {
                                    pxb(render::glyphRect(b, tex->m_size.x, tex->m_size.y, 0.55), s),
                                    {.a = a});
   };
-  button(box.browser, model::showsTabs(m_view.domain()), "\xF3\xB0\x96\x9F");
-  button(box.carousel, carouselMode(), "\xF3\xB0\x95\xAC");
+  if (showBrowser)
+    button(box.browser, model::showsTabs(m_view.domain()), "\xF3\xB0\x96\x9F");
+  if (showCarousel)
+    button(box.carousel, carouselMode(), "\xF3\xB0\x95\xAC");
 }
 
 void Overview::renderCursorOnTop() const {

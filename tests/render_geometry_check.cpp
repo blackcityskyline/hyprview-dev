@@ -657,35 +657,51 @@ static void theTileDecidesItsRingAndItsFrost() {
 // The ✕ glyph inside its button. One rule for every surface that draws it: the
 // strip used a hardcoded fraction, so the knob meant nothing there and the glyph
 // did not match its button.
-// The menu is placed at the click but must not run off the monitor: a panel half off the
-// edge is a button no one can press. The buttons are placed FROM the panel, not from the
-// click, or clamping the panel would leave them behind.
+// The menu is a panel in the corner opposite the strip, never at the click any more.
+// Its position is config, and each button owns its slot: hide one and the panel
+// shrinks instead of leaving a hole.
 static void theMenuStaysOnTheMonitor() {
+  using hyprview::render::Anchor;
   using hyprview::render::menuLayout;
 
-  const auto mid = menuLayout(400.0, 300.0, 1366.0, 768.0);
-  want(mid.panel.contains(mid.browser.x, mid.browser.y), true, "the browser button is inside");
-  want(mid.panel.contains(mid.carousel.x + mid.carousel.w, mid.carousel.y + mid.carousel.h),
+  constexpr double W = 1366.0, H = 768.0, M = 22.0;
+  const auto top = menuLayout(Anchor::Top, "right", W, H, true, true, M);
+  want(top.panel.contains(top.browser.x, top.browser.y), true, "the browser button is inside");
+  want(top.panel.contains(top.carousel.x + top.carousel.w, top.carousel.y + top.carousel.h),
        true, "the carousel button is inside");
-  near(mid.browser.w, mid.carousel.w, "equal buttons");
-  near(mid.browser.y, mid.carousel.y, "one row");
-  want(mid.carousel.x > mid.browser.x + mid.browser.w, true, "and no overlap");
-  near(mid.panel.x, 400.0, "a click with room is used as-is");
-  near(mid.panel.y, 300.0, "a click with room is used as-is");
+  near(top.browser.w, top.carousel.w, "equal buttons");
+  near(top.browser.y, top.carousel.y, "one row");
+  want(top.carousel.x > top.browser.x + top.browser.w, true, "and no overlap");
+  // A top strip leaves the row on the bottom edge, right by default.
+  near(top.panel.x + top.panel.w, W - M, "the row keeps the right margin");
+  near(top.panel.y + top.panel.h, H - M, "the row keeps the bottom margin");
+  const auto left = menuLayout(Anchor::Bottom, "left", W, H, true, true, M);
+  near(left.panel.x, M, "left puts the row on the left");
+  near(left.panel.y, M, "a bottom strip leaves the row on top");
 
-  // Bottom-right corner: the panel is pulled back, buttons follow it.
-  const auto edge = menuLayout(1360.0, 760.0, 1366.0, 768.0);
-  want(edge.panel.x + edge.panel.w <= 1366.0, true, "the panel stays on the monitor");
-  want(edge.panel.y + edge.panel.h <= 768.0, true, "the panel stays on the monitor");
-  want(edge.browser.x >= edge.panel.x, true, "buttons follow the clamped panel");
-  want(edge.carousel.x + edge.carousel.w <= edge.panel.x + edge.panel.w, true,
-       "buttons follow the clamped panel");
+  // A vertical strip sends the row to the opposite horizontal edge; the key picks the end.
+  const auto vs = menuLayout(Anchor::Left, "right", W, H, true, true, M);
+  near(vs.panel.x + vs.panel.w, W - M, "a left strip leaves the row on the right");
+  near(vs.panel.y + vs.panel.h, H - M, "bottom is the default end");
+  const auto vt = menuLayout(Anchor::Right, "top", W, H, true, true, M);
+  near(vt.panel.x, M, "a right strip leaves the row on the left");
+  near(vt.panel.y, M, "top puts it at the top");
 
-  // A negative click cannot land off the top-left either.
-  const auto neg = menuLayout(-50.0, -20.0, 1366.0, 768.0);
-  want(neg.panel.x >= 0.0 && neg.panel.y >= 0.0, true, "a negative click is clamped too");
+  // Hiding a button takes its slot: the panel shrinks and the survivor starts at the pad.
+  const auto onlyCarousel = menuLayout(Anchor::Top, "right", W, H, false, true, M);
+  near(onlyCarousel.browser.w, 0.0, "a hidden button has no rect");
+  near(onlyCarousel.carousel.x, onlyCarousel.panel.x + 10.0, "the survivor takes the first slot");
+  want(onlyCarousel.panel.w < top.panel.w, true, "and the panel shrinks");
+  near(onlyCarousel.panel.x + onlyCarousel.panel.w, W - M, "still in its corner");
 
-  std::puts("the menu: buttons ride the panel, and the panel stays on the monitor");
+  using hyprview::render::menuVisible;
+  want(menuVisible(true, true, true, 0, false), true, "without autohide the panel is up");
+  want(menuVisible(true, true, true, 1, false), false, "autohide keeps it off the pointer");
+  want(menuVisible(true, true, true, 1, true), true, "autohide shows it under the pointer");
+  want(menuVisible(true, false, false, 0, true), false, "no buttons, no panel");
+  want(menuVisible(false, true, true, 0, true), false, "the panel key wins over buttons");
+
+  std::puts("the menu: opposite the strip, a hidden button takes its slot, autohide gates it");
 }
 
 static void theCloseGlyphFillsItsButton() {

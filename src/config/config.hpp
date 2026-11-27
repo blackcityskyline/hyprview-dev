@@ -137,6 +137,16 @@ struct strip {
 
 inline strip strip;
 
+struct menu {
+  Int panel;
+  Int browser;
+  Int carousel;
+  Int autohide;
+  Str position;
+};
+
+inline menu menu;
+
 struct look {
   Int preview_round;
   Float preview_round_power;

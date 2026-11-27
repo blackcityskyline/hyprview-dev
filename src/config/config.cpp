@@ -122,6 +122,10 @@ constexpr IntSpec kInts[] = {
     {&strip.all_card, "plugin:hyprview:strip_all_card", 0},
     {&strip.wallpaper, "plugin:hyprview:strip_wallpaper", 1},
     {&strip.band_opacity, "plugin:hyprview:strip_band_opacity", 70},
+    {&menu.panel, "plugin:hyprview:menu", 1},
+    {&menu.browser, "plugin:hyprview:menu_button_browser", 1},
+    {&menu.carousel, "plugin:hyprview:menu_button_carousel", 1},
+    {&menu.autohide, "plugin:hyprview:menu_autohide", 0},
     {&look.preview_round, "plugin:hyprview:preview_round", 12},
     {&look.show_border, "plugin:hyprview:show_border", 0},
     {&look.show_focus_border, "plugin:hyprview:show_focus_border", 1},
@@ -202,6 +206,7 @@ constexpr StrSpec kStrs[] = {
     {&grid.layout, "plugin:hyprview:layout", "rows"},
     {&behavior.tile_mode, "plugin:hyprview:tile_mode", "windows"},
     {&strip.anchor, "plugin:hyprview:anchor", ""},
+    {&menu.position, "plugin:hyprview:menu_position", "right"},
     {&strip.bar_position, "plugin:hyprview:bar_position", "top"}, // deprecated alias
     {&strip.empty_mode, "plugin:hyprview:strip_empty_mode", "show"},
     {&look.close_button_position, "plugin:hyprview:close_button_position", "top-right"},

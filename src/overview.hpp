@@ -91,7 +91,8 @@ public:
   void toggleAppExpose();
   [[nodiscard]] std::string focusedClass() const;
   void altTabInvoke(bool reverse);
-  void toggleMenu(double x, double y);
+  void updateMenuVisibility();
+  void setMenuOpen(bool open);
   [[nodiscard]] render::MenuLayout menuBoxes() const;
   double menuDur() const { return anim::cfg(anim::Id::Card).ms; }
   [[nodiscard]] double menuProgress() const;
@@ -340,7 +341,6 @@ private:
   LRect m_lastDragBox; // drag box at RELEASE, the `from` for landings
   bool m_altTabbing = false;
   bool m_menuOpen = false;
-  LRect m_menuAt;
 
   session::Hooks m_hooks;
 

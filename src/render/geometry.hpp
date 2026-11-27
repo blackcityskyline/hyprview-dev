@@ -438,23 +438,44 @@ inline constexpr int kSourceAnimatedStreak = 4;
   return LRect{button.x + (button.w - w) / 2.0, button.y + (button.h - h) / 2.0, w, h};
 }
 
+[[nodiscard]] inline bool menuVisible(bool panel, bool browser, bool carousel, bool autohide,
+                                      bool hovered) {
+    return panel && (browser || carousel) && (!autohide || hovered);
+}
+
 struct MenuLayout {
     LRect panel;
     LRect browser;
     LRect carousel;
 };
 
-[[nodiscard]] inline MenuLayout menuLayout(double x, double y, double monW, double monH) {
+[[nodiscard]] inline MenuLayout menuLayout(Anchor stripAnchor, const std::string &position,
+                                           double monW, double monH, bool browser,
+                                           bool carousel, double margin) {
     constexpr double kPad = 10.0;
     constexpr double kButton = 44.0;
     constexpr double kGap = 8.0;
-    const double w = kPad * 2.0 + kButton * 2.0 + kGap;
+    const int n = (browser ? 1 : 0) + (carousel ? 1 : 0);
+    const double w = kPad * 2.0 + kButton * n + kGap * std::max(0, n - 1);
     const double h = kPad * 2.0 + kButton;
+    const bool right = position != "left";
+    const bool bottom = position != "top";
+    const double x = isHorizontal(stripAnchor)
+                         ? (right ? monW - w - margin : margin)
+                         : (stripAnchor == Anchor::Left ? monW - w - margin : margin);
+    const double y = isHorizontal(stripAnchor)
+                         ? (stripAnchor == Anchor::Top ? monH - h - margin : margin)
+                         : (bottom ? monH - h - margin : margin);
     MenuLayout out;
     out.panel = LRect{std::clamp(x, 0.0, std::max(0.0, monW - w)),
                       std::clamp(y, 0.0, std::max(0.0, monH - h)), w, h};
-    out.browser = LRect{out.panel.x + kPad, out.panel.y + kPad, kButton, kButton};
-    out.carousel = LRect{out.browser.x + kButton + kGap, out.browser.y, kButton, kButton};
+    double bx = out.panel.x + kPad;
+    if (browser) {
+        out.browser = LRect{bx, out.panel.y + kPad, kButton, kButton};
+        bx += kButton + kGap;
+    }
+    if (carousel)
+        out.carousel = LRect{bx, out.panel.y + kPad, kButton, kButton};
     return out;
 }
 
