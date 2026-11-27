@@ -83,6 +83,21 @@ void testForgetDead() {
   check(r.rank(B) == 0, "a reused address ranks as new");
 }
 
+void testSeedReplacesTheWholeHistory() {
+  Recency r;
+  r.promote(A);
+  r.promote(B);
+  // The compositor's order is the truth: C was focused after B, so the cache must not keep B first.
+  r.seed({C, A, B});
+  check(r.rank(C) == 0 && r.rank(A) == 1 && r.rank(B) == 2,
+        "seed replaces the whole history, most recent first");
+  const auto keys = std::vector<const void *>{B, C};
+  check((orderOf(r, keys) == std::vector<std::size_t>{1, 0}),
+        "order follows the seeded history");
+  r.seed({});
+  check(r.size() == 0, "an empty seed clears the cache");
+}
+
 void testSelfPromoteIsANoOp() {
   Recency r;
   r.promote(A);
@@ -99,6 +114,7 @@ int main() {
   testUnrankedSortsLast();
   testUnrankedKeepInputOrder();
   testForgetDead();
+  testSeedReplacesTheWholeHistory();
   testSelfPromoteIsANoOp();
   if (g_fails) {
     std::printf("%d check(s) failed\n", g_fails);

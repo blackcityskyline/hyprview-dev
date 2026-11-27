@@ -14,6 +14,8 @@ class Recency {
   public:
     void promote(const void *window);
 
+    void seed(const std::vector<const void *> &mostRecentFirst);
+
     [[nodiscard]] std::size_t rank(const void *window) const;
 
     // Indices of `keys` into `out`, most-recent first. Stable among equals.
