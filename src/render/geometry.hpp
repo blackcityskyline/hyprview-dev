@@ -451,31 +451,40 @@ struct MenuLayout {
 
 [[nodiscard]] inline MenuLayout menuLayout(Anchor stripAnchor, const std::string &position,
                                            double monW, double monH, bool browser,
-                                           bool carousel, double margin) {
+                                           bool carousel, double margin, double inset) {
     constexpr double kPad = 10.0;
     constexpr double kButton = 44.0;
     constexpr double kGap = 8.0;
     const int n = (browser ? 1 : 0) + (carousel ? 1 : 0);
-    const double w = kPad * 2.0 + kButton * n + kGap * std::max(0, n - 1);
-    const double h = kPad * 2.0 + kButton;
+    const double baseW = kPad * 2.0 + kButton * n + kGap * std::max(0, n - 1);
+    const double baseH = kPad * 2.0 + kButton;
+    const bool horiz = isHorizontal(stripAnchor);
+    const double scale =
+        std::clamp(inset / std::max(horiz ? baseH : baseW, 1.0), 0.3, 1.0);
+    const double pad = kPad * scale;
+    const double button = kButton * scale;
+    const double gap = kGap * scale;
+    const double w = pad * 2.0 + button * n + gap * std::max(0, n - 1);
+    const double h = pad * 2.0 + button;
     const bool right = position != "left";
     const bool bottom = position != "top";
-    const double x = isHorizontal(stripAnchor)
+    const double off = std::max(0.0, (inset - (horiz ? h : w)) / 2.0);
+    const double x = horiz
                          ? (right ? monW - w - margin : margin)
-                         : (stripAnchor == Anchor::Left ? monW - w - margin : margin);
-    const double y = isHorizontal(stripAnchor)
-                         ? (stripAnchor == Anchor::Top ? monH - h - margin : margin)
+                         : (stripAnchor == Anchor::Left ? monW - inset + off : off);
+    const double y = horiz
+                         ? (stripAnchor == Anchor::Top ? monH - inset + off : off)
                          : (bottom ? monH - h - margin : margin);
     MenuLayout out;
     out.panel = LRect{std::clamp(x, 0.0, std::max(0.0, monW - w)),
                       std::clamp(y, 0.0, std::max(0.0, monH - h)), w, h};
-    double bx = out.panel.x + kPad;
+    double bx = out.panel.x + pad;
     if (browser) {
-        out.browser = LRect{bx, out.panel.y + kPad, kButton, kButton};
-        bx += kButton + kGap;
+        out.browser = LRect{bx, out.panel.y + pad, button, button};
+        bx += button + gap;
     }
     if (carousel)
-        out.carousel = LRect{bx, out.panel.y + kPad, kButton, kButton};
+        out.carousel = LRect{bx, out.panel.y + pad, button, button};
     return out;
 }
 

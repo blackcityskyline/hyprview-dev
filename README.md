@@ -105,10 +105,11 @@ A right-click no longer opens anything: the button panel is always part of the o
 fixed in the corner opposite the strip. The globe button toggles the browser-tab view, the
 carousel button toggles the carousel; a button stays lit while its mode is on. The panel and
 each button have their own keys, so the panel can be on with either button hidden, and a
-hidden button takes its slot with it. `menu_position` picks the free corner — `left`/`right`
-on a horizontal strip, `top`/`bottom` on a vertical one — and `menu_autohide` keeps the whole
-module hidden until the pointer is on it. It appears on the card animation, so it follows the
-same easing and duration as the cards.
+hidden button takes its slot with it. The row keeps inside the padding band between the grid
+and the screen edge, shrinking when that band is narrower than the buttons. `menu_position`
+picks the free corner — `left`/`right` on a horizontal strip, `top`/`bottom` on a vertical
+one — and `menu_autohide` keeps the whole module hidden until the pointer is on it. It appears
+on the card animation, so it follows the same easing and duration as the cards.
 
 `key_quick_look` (`space`) opens the selected card full size: the preview morphs out of
 that card's own box into the biggest card the window's aspect allows in the space the

@@ -168,9 +168,14 @@ render::MenuLayout Overview::menuBoxes() const {
   if (!m)
     return {};
   const bool panel = cfg::menu.panel != 0;
-  return render::menuLayout(stripAnchor(), cfg::menu.position.get(), m->m_size.x, m->m_size.y,
+  const auto anchor = stripAnchor();
+  const double inset =
+      render::isHorizontal(anchor)
+          ? (anchor == Anchor::Top ? cfg::grid.padding_bottom : cfg::grid.padding_top)
+          : cfg::grid.padding;
+  return render::menuLayout(anchor, cfg::menu.position.get(), m->m_size.x, m->m_size.y,
                             panel && cfg::menu.browser != 0, panel && cfg::menu.carousel != 0,
-                            cfg::strip.margin.get());
+                            cfg::strip.margin.get(), inset);
 }
 
 double Overview::menuProgress() const {
