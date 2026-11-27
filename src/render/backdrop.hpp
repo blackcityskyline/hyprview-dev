@@ -53,6 +53,11 @@ class Backdrop {
       return m_srcFB && m_srcFB->isAllocated() ? m_srcFB->getTexture() : nullptr;
     }
 
+    void invalidateSource() const {
+      m_srcSig.clear();
+      m_srcAnimStreak = 0;
+    }
+
     // Readable after the cache goes stale: `valid` gates RECOMPUTATION, the FB keeps the blur.
     [[nodiscard]] SP<Render::ITexture> blurTexture() const {
       return (m_blur.fb && m_blur.fb->isAllocated()) ? m_blur.fb->getTexture()
@@ -81,6 +86,8 @@ class Backdrop {
     // Every layer the composite is made of: any change in any of them means a rebuild.
     struct LayerSig {
       const void *tex = nullptr;
+      const void *layer = nullptr;
+      const void *buffer = nullptr;
       double x = 0.0, y = 0.0, w = 0.0, h = 0.0;
       float a = 1.0F;
       bool operator==(const LayerSig &o) const = default;

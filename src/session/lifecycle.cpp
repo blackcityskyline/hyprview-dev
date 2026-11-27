@@ -298,6 +298,7 @@ void Overview::open(bool keepDomain) {
     return;
 
   m_monitor = m;
+  m_backdrop.invalidateSource();
   m_workspace = m->m_activeWorkspace;
   m_liveWsAtOpen =
       m->m_activeWorkspace;

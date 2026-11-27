@@ -43,7 +43,7 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
 
   std::vector<LayerSig> sig;
   if (m->m_background && m->m_background->ok())
-    sig.push_back({m->m_background.get(), 0.0, 0.0,
+    sig.push_back({m->m_background.get(), nullptr, nullptr, 0.0, 0.0,
                    static_cast<double>(m->m_background->m_size.x),
                    static_cast<double>(m->m_background->m_size.y), 1.0F});
   for (const int li : {0, 1})
@@ -59,7 +59,8 @@ SP<Render::ITexture> Backdrop::source(const PHLMONITOR &m, int W,
       const auto sz = layer->size(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
       if (sz.x < 1.0 || sz.y < 1.0)
         continue;
-      sig.push_back({surf->m_current.texture.get(), pos.x - m->m_position.x,
+      sig.push_back({surf->m_current.texture.get(), layer.get(),
+                     surf->m_current.buffer.m_buffer.get(), pos.x - m->m_position.x,
                      pos.y - m->m_position.y, sz.x, sz.y,
                      layer->alpha()[Desktop::View::LS_ALPHA_FADE]->value()});
     }

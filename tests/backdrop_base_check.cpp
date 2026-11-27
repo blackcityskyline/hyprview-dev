@@ -97,6 +97,15 @@ int main(int argc, char **argv) {
   if (prime.find("ensureBlur(") == std::string::npos)
     return fail("the parked phase does not prime the blur -- the first visible frame finds no blur");
 
+  // The layer's texture pointer survives a wallpaper redrawn in place: the signature must
+  // watch the buffer too, and a new run must ask the source again instead of trusting the
+  // composite the last run left behind.
+  if (src.find("m_current.buffer") == std::string::npos)
+    return fail("the layer signature ignores the buffer -- an in-place wallpaper redraw is invisible");
+  const auto open = bodyOf(slurp(root + "/src/session/lifecycle.cpp"), "void Overview::open(");
+  if (open.find("invalidateSource(") == std::string::npos)
+    return fail("open() keeps the previous run's composite -- a new wallpaper shows the old one");
+
   std::printf("backdrop base: the sharp source, the glass over it\n");
   return 0;
 }
