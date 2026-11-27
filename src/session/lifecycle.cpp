@@ -11,6 +11,7 @@
 #include <utility>
 #include <hyprland/src/debug/log/Logger.hpp>
 #include <hyprland/src/workspace/HLWorkspace.hpp>
+#include <hyprland/src/desktop/history/WindowHistoryTracker.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/desktop/view/WLSurface.hpp>
@@ -306,6 +307,17 @@ void Overview::open(bool keepDomain) {
       m->m_activeWorkspace;
   m_scene.clearHover();
 
+  // The compositor's tracker saw every focus change, including the ones this plugin slept through.
+  {
+    std::vector<const void *> fresh;
+    const auto &history = Desktop::History::windowTracker()->fullHistory();
+    fresh.reserve(history.size());
+    for (auto it = history.rbegin(); it != history.rend(); ++it)
+      if (const auto w = it->lock())
+        fresh.push_back(model::Recency::key(subjectOf(w)));
+    m_recency.seed(fresh);
+  }
+
   m->m_blurFBDirty = true;
 
   m->m_forceFullFrames = 8;
@@ -339,16 +351,19 @@ void Overview::open(bool keepDomain) {
   if (m_scene.tiles().empty() && m_strip.size() <= 1)
     return;
 
-  // Seed selection BEFORE layoutTiles: m_lastFocus remembers the pick while the compositor's focus lags.
   m_scene.select(m_scene.tiles().empty() ? -1 : 0);
-  const auto seed = m_lastFocus.lock() ? m_lastFocus.lock() : Desktop::focusState()->window();
-  if (seed) {
+  const auto putSeed = [&](const PHLWINDOW &want) {
+    if (!want)
+      return false;
     for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-      if (tileWindow(m_scene.tiles()[i]) == seed) {
+      if (tileWindow(m_scene.tiles()[i]) == want) {
         m_scene.select(static_cast<int>(i));
-        break;
+        return true;
       }
-  }
+    return false;
+  };
+  if (!putSeed(Desktop::focusState()->window()))
+    putSeed(m_lastFocus.lock());
 
   layoutTiles();
 
