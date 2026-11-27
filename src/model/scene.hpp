@@ -56,6 +56,13 @@ void swapTiles(size_t a, size_t b) {
       return static_cast<int>(i);
   return -1;
 }
+    [[nodiscard]] bool selectSubject(SubjectRef subj) {
+      const int i = tileIndexOf(subj);
+      if (i < 0)
+        return false;
+      m_selected = i;
+      return true;
+    }
     void pinNatural(SubjectRef subj, const LRect &box) {
       for (auto &t : m_tiles)
         if (t.subj == subj) {

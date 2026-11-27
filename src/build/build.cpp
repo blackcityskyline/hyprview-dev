@@ -740,8 +740,11 @@ void Overview::activateTile(int idx, Desktop::eFocusReason reason) {
 void Overview::replayReflow(
     std::vector<std::pair<model::SubjectRef, LRect>> &oldBoxes) {
   m_scene.clearHover();
+  const auto keep = m_scene.focusedSubject();
   buildTiles();
   buildStrip();
+  if (!m_scene.selectSubject(keep) && !m_scene.empty())
+    selectFromFocus();
   layoutTiles();
   startTileGlide(oldBoxes);
   // never past the end: an index off the cards indexed dead memory

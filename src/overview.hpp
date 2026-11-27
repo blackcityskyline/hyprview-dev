@@ -195,7 +195,6 @@ private:
   PHLWINDOWREF m_focusOutside;
   // Applied BEFORE the run resolves its centre, so the opening aims at the target window.
   int m_pendingStep = 0;
-  void syncRecency();
   void pruneRecency();
   model::Scene m_scene;
   // Holds a reference to this object as its host; both are members, so neither outlives.
@@ -486,6 +485,7 @@ private:
   // A card that joined or left the run has no slot to glide between. See keys.cpp.
   void pinRunEdges(const std::vector<char> &wasOnRun);
   int tileOf(const PHLWINDOW &w) const;
+  bool selectFromFocus();
   void damage() const { m_pump.damage(m_monitor.lock()); }
 };
 

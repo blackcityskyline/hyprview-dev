@@ -59,7 +59,6 @@ private:
 void Overview::renderStage(eRenderStage stage) {
   if (stage == RENDER_LAST_MOMENT) {
     m_pump.tickFrame();
-    syncRecency();
   }
 
   // Parked open: the pass is registered anyway so draw() can run primeBackdrop (private FB, no draw).

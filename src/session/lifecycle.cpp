@@ -221,7 +221,11 @@ void Overview::toggleAllWorkspaces() {
     return;
   }
   const bool wasAll = showAllWorkspaces();
+  // Entering all from one is an all-open: land on the same card a fresh all would.
+  if (!wasAll)
+    m_pendingStep = cfg::behavior.all_advances != 0 ? 1 : 0;
   setAllWorkspaces(!wasAll);
+  m_pendingStep = 0;
 }
 
 void Overview::setAllWorkspaces(bool on) {
@@ -307,7 +311,6 @@ void Overview::open(bool keepDomain) {
       m->m_activeWorkspace;
   m_scene.clearHover();
 
-  // The compositor's tracker saw every focus change, including the ones this plugin slept through.
   {
     std::vector<const void *> fresh;
     const auto &history = Desktop::History::windowTracker()->fullHistory();
@@ -352,18 +355,7 @@ void Overview::open(bool keepDomain) {
     return;
 
   m_scene.select(m_scene.tiles().empty() ? -1 : 0);
-  const auto putSeed = [&](const PHLWINDOW &want) {
-    if (!want)
-      return false;
-    for (size_t i = 0; i < m_scene.tiles().size(); ++i)
-      if (tileWindow(m_scene.tiles()[i]) == want) {
-        m_scene.select(static_cast<int>(i));
-        return true;
-      }
-    return false;
-  };
-  if (!putSeed(Desktop::focusState()->window()))
-    putSeed(m_lastFocus.lock());
+  selectFromFocus();
 
   layoutTiles();
 
@@ -622,15 +614,18 @@ void Overview::commitFocus(const PHLWINDOW &w) {
   m_recency.promote(model::Recency::key(subjectOf(w)));
 }
 
-void Overview::syncRecency() {
-  if (active())
-    return;
-  const auto now = Desktop::focusState()->window();
-  if (now == m_lastFocus)
-    return;
-  m_lastFocus = now;
-  if (now)
-    m_recency.promote(model::Recency::key(subjectOf(now)));
+bool Overview::selectFromFocus() {
+  const auto put = [this](const PHLWINDOW &want) {
+    if (!want)
+      return false;
+    for (std::size_t i = 0; i < m_scene.tiles().size(); ++i)
+      if (tileWindow(m_scene.tiles()[i]) == want) {
+        m_scene.select(static_cast<int>(i));
+        return true;
+      }
+    return false;
+  };
+  return put(Desktop::focusState()->window()) || put(m_lastFocus.lock());
 }
 
 int Overview::tileOf(const PHLWINDOW &w) const {

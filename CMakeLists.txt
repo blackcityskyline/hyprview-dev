@@ -222,6 +222,11 @@ add_test(NAME scan_comment_weight
 add_test(NAME scan_deactivate_offframe
          COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/deactivate_offframe_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/deactivate_offframe_check && ${CMAKE_CURRENT_BINARY_DIR}/deactivate_offframe_check ${CMAKE_SOURCE_DIR}")
 
+# Entering all from one rebuilds in place; the selection must follow its window, and the
+# all_advances step must be requested before the rebuild. Both are text-visible rules.
+add_test(NAME scan_rebuild_selection
+         COMMAND bash -c "${CMAKE_CXX_COMPILER} -std=c++23 -Wall -Wextra ${CMAKE_SOURCE_DIR}/tests/rebuild_selection_check.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/rebuild_selection_check && ${CMAKE_CURRENT_BINARY_DIR}/rebuild_selection_check ${CMAKE_SOURCE_DIR}")
+
 # A card must repaint when its window commits pixels, and only then: the workspace gate in
 # CWindow::commitWindow (Window.cpp:2750) drops off-screen windows, clients commit the
 # subsurface, and Chromium's frame-acknowledging commits carry no damage -- three holes, one
